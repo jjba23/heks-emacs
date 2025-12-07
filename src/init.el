@@ -1,24 +1,19 @@
-;;; init.el --- Custom Emacs configuration for SSS -*- lexical-binding: t -*-
+;;; init.el --- Custom Emacs configuration for heksenemacs -*- lexical-binding: t -*-
 
 ;; Copyright © Josep Bigorra <jjbigorra@gmail.com>
 
-;; sss is free software: you can redistribute it and/or modify
+;; heksenemacs is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or
 ;; (at your option) any later version.
 
-;; sss is distributed in the hope that it will be useful,
+;; heksenemacs is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with sss.  If not, see <https://www.gnu.org/licenses/>.
-
-;;; Commentary:
-
-;; This Emacs configuration was last tested to work properly with:
-;;   - GNU Emacs 30.1 (build 1, x86_64-pc-linux-gnu, GTK+ Version 3.24.43, cairo version 1.18.2)
+;; along with heksenemacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Code:
 
