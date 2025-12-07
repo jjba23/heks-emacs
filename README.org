@@ -20,6 +20,8 @@ I recommend you browse the source code and take inspiration from it.
 
 * Installing
 
+This project uses [[https://codeberg.org/jjba23/maak][Maak, the infinitely extensible command-runner]] as automation system.
+
 For installing heksenemacs in one go, do:
 #+begin_src shell
 maak install-emacs-config
