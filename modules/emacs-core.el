@@ -130,7 +130,8 @@
   (global-hl-line-mode +1)
   (setq-default cursor-type 'bar)
   (setopt sss-font-mono "Adwaita Mono"
-          sss-font-sans "Adwaita Sans")
+          sss-font-sans "Adwaita Sans"
+          sss-emacs-theme 'modus-vivendi)
   )
 
 (provide 'sss/emacs-self)
