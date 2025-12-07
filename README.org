@@ -1,3 +1,11 @@
 * heksenemacs
 
 De alle-machtige magische Emacs voor Heksen
+
+#+begin_src shell
+  rm -rfv "$HOME/.emacs.d"
+  mkdir -pv "$HOME/.emacs.d"
+  cp -v init.el early-init.el batch-indent.el "$HOME/.emacs.d/"
+  cp -rv modules "$HOME/.emacs.d/"
+  cp -rv snippets "$HOME/.emacs.d/" 
+#+end_src
