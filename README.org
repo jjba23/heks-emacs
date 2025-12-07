@@ -1,11 +1,11 @@
-#+title: heksenemacs
+#+title: HeksenEmacs
 #+author: Josep Bigorra
 #+email: jjbigorra@gmail.com
 #+options: toc:nil
 
 [[https://jointhefreeworld.org/ggg/dist/gnu-emacs.svg]] [[https://jointhefreeworld.org/ggg/dist/license-gpl3+.svg]]    [[https://jointhefreeworld.org/ggg/dist/license-fdl13+.svg]]
 
-/De alle-machtige magische Heksen Emacs/ - the all-mighty magical witch Emacs 
+The all-mighty magical witch Emacs  - /De alle-machtige magische HeksenEmacs/
 
 For installing heksenemacs in one go, do:
 #+begin_src shell
@@ -17,6 +17,7 @@ For a oneline command to nuke your existing Emacs and replace it with heksenemac
 maak full-install-emacs-config
 #+end_src
 
+If you don't want to use Maak, you can just look at ~maak.scm~ to look at installation procedure, and copy relevant files.
 
 You could see heksenemacs as my temple, almost an operating system unto itself 🐂. Some highlights include:
 - Advanced and modular Emacs configurations with Emacs Lisp + Elpaca
@@ -44,6 +45,5 @@ This project adheres to the jointhefreeworld code of conduct. Find it here:
 https://jointhefreeworld.org/blog/articles/personal/jointhefreeworld-code-of-conduct/index.html
 
 In summary, we foster an inclusive, respectful, and cooperative environment for all contributors and users of this free software project. Inspired by the ideals of the GNU Project, we strive to uphold freedom, equality, and community as guiding principles. We believe that collaboration in a community of mutual respect is essential to creating excellent free software.
-
 
 --------------
