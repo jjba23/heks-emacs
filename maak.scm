@@ -22,10 +22,17 @@
 (define emacs-config-install-dir
   (~ "\"~a\"" "$HOME/.emacs.d/"))
 
-(define (install)
-  (remkdir-p emacs-config-install-dir)
+(define (remake-emacs-config-dir)
+  (remkdir-p emacs-config-install-dir))
+
+(define (install-emacs-config)
   (cp "src/init.el" emacs-config-install-dir)
   (cp "src/early-init.el" emacs-config-install-dir)
   (cp "src/batch-indent.el" emacs-config-install-dir)
   (cp "src/modules" emacs-config-install-dir)
   (cp "src/snippets" emacs-config-install-dir))
+
+(define (full-install-emacs-config)
+  (remake-emacs-config-dir)
+  (install))
+
