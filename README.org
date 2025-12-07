@@ -1,11 +1,15 @@
 * heksenemacs
 
-De alle-machtige magische Emacs voor Heksen
+[[https://jointhefreeworld.org/ggg/dist/gnu-emacs.svg]]
 
+/De alle-machtige magische Heksen Emacs/ - the all-mighty magical witch Emacs 
+
+For installing heksenemacs in one go, do:
 #+begin_src shell
-  rm -rfv "$HOME/.emacs.d"
-  mkdir -pv "$HOME/.emacs.d"
-  cp -v init.el early-init.el batch-indent.el "$HOME/.emacs.d/"
-  cp -rv modules "$HOME/.emacs.d/"
-  cp -rv snippets "$HOME/.emacs.d/" 
+maak install-emacs-config
+#+end_src
+
+For a oneline command to nuke your existing Emacs and replace it with heksenemacs, do:
+#+begin_src shell
+maak full-install-emacs-config
 #+end_src
