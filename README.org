@@ -1,13 +1,13 @@
-#+title: HeksenEmacs
+#+title: heks-emacs
 #+author: Josep Bigorra
 #+email: jjbigorra@gmail.com
 #+options: toc:nil
 
 [[https://jointhefreeworld.org/ggg/dist/gnu-emacs.svg]] [[https://jointhefreeworld.org/ggg/dist/license-gpl3+.svg]]    [[https://jointhefreeworld.org/ggg/dist/license-fdl13+.svg]]
 
-The all-mighty magical witch Emacs  - /De alle-machtige magische HeksenEmacs/
+The all-mighty magical witches' Emacs  - /De alle-machtige magische HeksenEmacs/
 
-You could see heksenemacs as my temple, almost an operating system unto itself 🐂. Some highlights include:
+You could see heks-emacs as my temple, almost an operating system unto itself 🐂. Some highlights include:
 - Advanced and modular Emacs configurations with Emacs Lisp + Elpaca
 - Dev setup for: Scheme, Scala, Haskell, Lisp, Rust, Python, Shell, Nix, JavaScript, CSS, Golang and more
 - Power user EShell configuration with many niceties
@@ -22,12 +22,12 @@ I recommend you browse the source code and take inspiration from it.
 
 This project uses [[https://codeberg.org/jjba23/maak][Maak, the infinitely extensible command-runner]] as automation system.
 
-For installing heksenemacs in one go, do:
+For installing heks-emacs in one go, do:
 #+begin_src shell
 maak install-emacs-config
 #+end_src
 
-For a oneline command to nuke your existing Emacs and replace it with heksenemacs, do:
+For a oneline command to nuke your existing Emacs and replace it with heks-emacs, do:
 #+begin_src shell
 maak full-install-emacs-config
 #+end_src
@@ -38,11 +38,11 @@ If you don't want to use Maak, you can just look at ~maak.scm~ to look at instal
   
 * Licensing
 
-heksenemacs and all of its source code are free software, licensed under the GNU General Public License v3 (or newer at your convenience).
+heks-emacs and all of its source code are free software, licensed under the GNU General Public License v3 (or newer at your convenience).
 
 https://www.gnu.org/licenses/gpl-3.0.html
 
-The documentation and examples, including this document, which are provided with heksenemacs, are all licensed under the GNU Free Documentation License v1.3 (or newer at your convenience).
+The documentation and examples, including this document, which are provided with heks-emacs, are all licensed under the GNU Free Documentation License v1.3 (or newer at your convenience).
 
 https://www.gnu.org/licenses/fdl-1.3.html
 
