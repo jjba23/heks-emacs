@@ -129,6 +129,8 @@
 
   (global-hl-line-mode +1)
   (setq-default cursor-type 'bar)
+  (setopt treesit-extra-load-path (list "~/.emacs.d/tree-sitter-grammars"))
+  
   (setopt sss-font-mono "Adwaita Mono"
           sss-font-sans "Adwaita Sans"
           sss-emacs-theme 'modus-vivendi)
