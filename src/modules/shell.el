@@ -99,11 +99,11 @@ length of PATH (sans directory slashes) down to MAX-LEN."
 (setopt eshell-prompt-regexp "^[^#λ\n]*[#λ] ")
 (setopt eshell-prompt-function 'heks-emacs-eshell-prompt)
 (setopt eshell-highlight-prompt nil)
-(setopt eshell-banner-message "Welcome to SSS/GNU - the Supreme Sexp System\n")
+(setopt eshell-banner-message "Welcome to HEKS-EMACS/GNU - the Supreme Sexp System\n")
 
 (global-set-key (kbd "C-!") 'eshell-here)
 
-(setq sss/eshell-aliases
+(setq heks-emacs/eshell-aliases
       '((g  . magit)
         (gl . magit-log)
         (d  . dired)
@@ -116,8 +116,8 @@ length of PATH (sans directory slashes) down to MAX-LEN."
 
 (mapc (lambda (alias)
         (defalias (car alias) (cdr alias)))
-      sss/eshell-aliases)
+      heks-emacs/eshell-aliases)
 
-(provide 'sss/shell)
+(provide 'heks-emacs/shell)
 
 ;;; shell.el ends here

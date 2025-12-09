@@ -125,6 +125,6 @@
   (cond ((equal heks-emacs-emacs-theme 'kaolin-dark)
          (load-theme 'kaolin-dark t))))
 
-(provide 'sss/theme)
+(provide 'heks-emacs/theme)
 
 ;;; theme.el ends here

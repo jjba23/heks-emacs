@@ -44,6 +44,6 @@
   (erc-services-mode 1)
   (erc-update-modules))
 
-(provide 'sss/erc)
+(provide 'heks-emacs/erc)
 
 ;;; erc.el ends here

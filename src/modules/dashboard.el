@@ -21,11 +21,11 @@
 
 ;;; Code:
 
-;; TODO? the bookmarks could be managed by SSS in Scheme and not in Emacs?
+;; TODO? the bookmarks could be managed by HEKS-EMACS in Scheme and not in Emacs?
 (defvar joe-welkomscherm/bookmarks-list)
 (setq joe-welkomscherm/bookmarks-list
       `((("heks-emacs" . ,(string-replace "$HOME" "~" heks-emacs-clone-dir))
-         ("niri" . ,(format "%s/src/sss/niri.scm" (string-replace "$HOME" "~" heks-emacs-clone-dir))))
+         ("niri" . ,(format "%s/src/heks-emacs/niri.scm" (string-replace "$HOME" "~" heks-emacs-clone-dir))))
         (("notes" . "~/Hacking/private-notes/")
          ("pop-test" . "~/Hacking/pop-test/")
          ("iter-vitae" . "~/Hacking/iter-vitae/")
@@ -67,6 +67,6 @@
   (setopt welkomscherm/work-list joe-welkomscherm/work-list)
   (setopt welkomscherm/actions-list joe-welkomscherm/actions-list))
 
-(provide 'sss/dashboard)
+(provide 'heks-emacs/dashboard)
 
 ;;; dashboard.el ends here

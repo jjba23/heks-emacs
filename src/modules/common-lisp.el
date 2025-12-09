@@ -29,6 +29,6 @@
   (setq inferior-lisp-program "/run/current-system/profile/bin/sbcl"))
 
 
-(provide 'sss/common-lisp)
+(provide 'heks-emacs/common-lisp)
 
 ;;; common-lisp.el ends here

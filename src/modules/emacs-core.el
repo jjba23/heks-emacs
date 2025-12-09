@@ -139,6 +139,6 @@
           heks-emacs-ews-music-directory "")
   )
 
-(provide 'sss/emacs-self)
+(provide 'heks-emacs/emacs-self)
 
 ;;; emacs-core.el ends here

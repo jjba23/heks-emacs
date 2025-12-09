@@ -75,6 +75,6 @@
   :ensure t)
 
 
-(provide 'sss/misc)
+(provide 'heks-emacs/misc)
 
 ;;; misc.el ends here

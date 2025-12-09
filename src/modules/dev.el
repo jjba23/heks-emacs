@@ -215,6 +215,6 @@
 (use-package justl
   :ensure t)
 
-(provide 'sss/dev)
+(provide 'heks-emacs/dev)
 
 ;;; dev.el ends here

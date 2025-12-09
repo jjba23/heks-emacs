@@ -22,8 +22,8 @@
 ;;; Code:
 
 
-(defgroup sss ()
-  "SSS customization group."
+(defgroup heks-emacs ()
+  "HEKS-EMACS customization group."
   :group 'tools)
 
 (defcustom heks-emacs-ews-music-directory "~/Muziek"
@@ -31,7 +31,7 @@
   :type 'string)
 
 (defcustom heks-emacs-clone-dir nil
-  "The directory where the SSS (Supreme Sexp System) source code is located."
+  "The directory where the HEKS-EMACS (Supreme Sexp System) source code is located."
   :type 'string)
 
 (defcustom heks-emacs-notes-roam-dir nil
@@ -39,7 +39,7 @@
   :type 'string)
 
 (defcustom heks-emacs-emacs-theme nil
-  "The name of the Emacs theme to use, acording to SSS palette."
+  "The name of the Emacs theme to use, acording to HEKS-EMACS palette."
   :type 'symbol)
 
 (defcustom heks-emacs-standup-people '("Arnav"
@@ -345,6 +345,6 @@ DATA: A string containing JSON data."
       (org-mode))
     (switch-to-buffer heks-emacs-standup-buffer-name)))
 
-(provide 'sss/sss)
+(provide 'heks-emacs/heks-emacs)
 
-;;; sss.el ends here
+;;; heks-emacs.el ends here

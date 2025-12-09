@@ -125,6 +125,6 @@
   )
 
 
-(provide 'sss/eglot)
+(provide 'heks-emacs/eglot)
 
 ;;; eglot.el ends here

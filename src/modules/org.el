@@ -85,6 +85,6 @@
 
 (use-package ob-mermaid :ensure t)
 
-(provide 'sss/org)
+(provide 'heks-emacs/org)
 
 ;;; org.el ends here

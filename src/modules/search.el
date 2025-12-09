@@ -29,6 +29,6 @@
   :bind (("C-c z g" . deadgrep)))
 
 
-(provide 'sss/search)
+(provide 'heks-emacs/search)
 
 ;;; search.el ends here

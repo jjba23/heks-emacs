@@ -41,6 +41,6 @@
   :ensure (:host github :repo "emacs-compat/compat" :branch "main")
   :demand t)
 
-(provide 'sss/libs)
+(provide 'heks-emacs/libs)
 
 ;;; libs.el ends here

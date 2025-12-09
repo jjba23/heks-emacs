@@ -1,4 +1,4 @@
-;;; ui.el --- SSS configuration for Emacs -*- lexical-binding: t -*-
+;;; ui.el --- HEKS-EMACS configuration for Emacs -*- lexical-binding: t -*-
 
 ;; Copyright © Josep Bigorra <jjbigorra@gmail.com>
 
@@ -273,7 +273,7 @@ According to size, color and font family"
     (progn
       (when heks-emacs-emacs-is-first-frame
         (progn
-          (message "initializing SSS UI scaling for first frame")
+          (message "initializing HEKS-EMACS UI scaling for first frame")
           (tekengrootte-set-scale-small)
           (setq heks-emacs-emacs-is-first-frame nil)))
       (heks-emacs-set-base-faces)))
@@ -383,6 +383,6 @@ According to size, color and font family"
   :hook
   (embark-collect-mode . consult-preview-at-point-mode))
 
-(provide 'sss/ui)
+(provide 'heks-emacs/ui)
 
 ;;; ui.el ends here

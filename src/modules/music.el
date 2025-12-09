@@ -54,6 +54,6 @@
    ("<XF86AudioNext>" . emms-next)
    ("<XF86AudioPlay>" . emms-pause)))
 
-(provide 'sss/music)
+(provide 'heks-emacs/music)
 
 ;;; music.el ends here

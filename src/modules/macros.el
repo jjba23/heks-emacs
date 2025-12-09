@@ -44,6 +44,6 @@ Useful for libraries where you want to allow users to redefine values."
   (insert ")"))
 
 
-(provide 'sss/macros)
+(provide 'heks-emacs/macros)
 
 ;;; macros.el ends here
