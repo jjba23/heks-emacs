@@ -45,7 +45,7 @@
   (emms-default-players)
   (emms-mpris-enable)
   :custom
-  (emms-source-file-default-directory sss-ews-music-directory)
+  (emms-source-file-default-directory heks-emacs-ews-music-directory)
   (emms-browser-covers #'emms-browser-cache-thumbnail-async)
   :bind
   (("<f5>"   . emms-browser)

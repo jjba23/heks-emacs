@@ -1,4 +1,4 @@
-;;; sss.el --- SSS configuration for Emacs -*- lexical-binding: t -*-
+;;; heks-emacs.el --- heks-emacs configuration for Emacs -*- lexical-binding: t -*-
 
 ;; Copyright © Josep Bigorra <jjbigorra@gmail.com>
 
@@ -17,7 +17,7 @@
 
 ;;; Commentary:
 
-;; SSS configuration for Emacs
+;; heks-emacs configuration for Emacs
 
 ;;; Code:
 
@@ -26,23 +26,23 @@
   "SSS customization group."
   :group 'tools)
 
-(defcustom sss-ews-music-directory "~/Muziek"
+(defcustom heks-emacs-ews-music-directory "~/Muziek"
   "My personal main directory where to read music from."
   :type 'string)
 
-(defcustom sss-clone-dir nil
+(defcustom heks-emacs-clone-dir nil
   "The directory where the SSS (Supreme Sexp System) source code is located."
   :type 'string)
 
-(defcustom sss-notes-roam-dir nil
+(defcustom heks-emacs-notes-roam-dir nil
   "The directory where the Org roam notes should be stored."
   :type 'string)
 
-(defcustom sss-emacs-theme nil
+(defcustom heks-emacs-emacs-theme nil
   "The name of the Emacs theme to use, acording to SSS palette."
   :type 'symbol)
 
-(defcustom sss-standup-people '("Arnav"
+(defcustom heks-emacs-standup-people '("Arnav"
                                 "David"
                                 "Joe"
                                 "John"
@@ -57,42 +57,42 @@
   "The people's names to be used for random standup order."
   :type 'list)
 
-(defcustom sss-standup-buffer-name "*Random Standup Order*"
+(defcustom heks-emacs-standup-buffer-name "*Random Standup Order*"
   "The name of the buffer where we should show a random standup order."
   :type 'string)
 
-(defun sss-joe-reconfigure ()
+(defun heks-emacs-joe-reconfigure ()
   "Rebuild GNU Guix Joe's configs."
   (interactive)
-  (let ((default-directory (string-replace "$HOME" "~" sss-clone-dir)))
+  (let ((default-directory (string-replace "$HOME" "~" heks-emacs-clone-dir)))
     (async-shell-command "maak jr")))
 
-(defun sss-full-reconfigure ()
+(defun heks-emacs-full-reconfigure ()
   "Fully Rebuild GNU Guix Joe's configs and Joe's user."
   (interactive)
-  (let ((default-directory (string-replace "$HOME" "~" sss-clone-dir)))
+  (let ((default-directory (string-replace "$HOME" "~" heks-emacs-clone-dir)))
     (async-shell-command "maak fr")))
 
-(defun sss-sys-reconfigure ()
+(defun heks-emacs-sys-reconfigure ()
   "Rebuild GNU Guix Joe's configs."
   (interactive)
-  (let ((default-directory (string-replace "$HOME" "~" sss-clone-dir)))
+  (let ((default-directory (string-replace "$HOME" "~" heks-emacs-clone-dir)))
     (async-shell-command "maak sr")))
 
-(defun sss-sys-update ()
+(defun heks-emacs-sys-update ()
   "Update GNU Guix packages."
   (interactive)
-  (let ((default-directory (string-replace "$HOME" "~" sss-clone-dir)))
+  (let ((default-directory (string-replace "$HOME" "~" heks-emacs-clone-dir)))
     (async-shell-command "maak update")))
 
-(defun sss-uuidgen ()
+(defun heks-emacs-uuidgen ()
   "Generate a UUID (Universally Unique Identifier) and yank it to kill ring."
   (interactive)
   (let ((uid (string-replace "\n" "" (shell-command-to-string "uuidgen"))))
     (message (format "generated UUID: %s" uid))
     (kill-new uid)))
 
-(defun sss-uuidgen-string ()
+(defun heks-emacs-uuidgen-string ()
   "Generate a UUID (Universally Unique Identifier) string.
 
 This function executes the `uuidgen` command-line utility and returns
@@ -101,7 +101,7 @@ that the command might produce.  It relies on the `uuidgen` program
 being available in your system's `exec-path`."
   (string-replace "\n" "" (shell-command-to-string "uuidgen")))
 
-(defun sss-do-in-project (f)
+(defun heks-emacs-do-in-project (f)
   "Execute a function F with the root directory of a project as its argument.
 
 F: A function that accepts a single argument, which will be the root
@@ -134,7 +134,7 @@ command starts producing output."
   (let ((output-buffer (generate-new-buffer buf-name)))
     (async-shell-command cmd output-buffer output-buffer)))
 
-(defun sss-project-start-repl-process ()
+(defun heks-emacs-project-start-repl-process ()
   "Start a REPL process for the current project using `make repl`.
 
 This command attempts to locate the root directory of the current project
@@ -143,7 +143,7 @@ shell process.  The output and interaction will be
 available in a dedicated buffer named \"repl:PROJECT-ROOT\", where
 PROJECT-ROOT is the name of the project's root directory.
 
-It relies on `sss-do-in-project` to determine the project root. Before
+It relies on `heks-emacs-do-in-project` to determine the project root. Before
 running the `make` command, it inserts a separator and a message
 indicating the start of the project REPL session, along with the
 project directory, into the output buffer. If a buffer with the same
@@ -153,7 +153,7 @@ This command is designed to easily initiate a project-specific REPL
 environment defined by a `Makefile` with a `repl` target, facilitating
 interactive development and testing."
   (interactive)
-  (sss-do-in-project (lambda(root-dir)
+  (heks-emacs-do-in-project (lambda(root-dir)
                        (let* ((sep "==============================================")
                               (msg (format "%s\nstarting a project REPL process for %s\n%s\n" sep root-dir sep))
                               (cmd (format "echo \"%s\" && cd %s && maak repl" msg root-dir))
@@ -165,7 +165,7 @@ interactive development and testing."
                                (kill-matching-buffers-no-ask buf-name))))
                          (async-shell-to-buffer cmd buf-name)))))
 
-(defun sss-project-fmt ()
+(defun heks-emacs-project-fmt ()
   "Start the formatting process for the current project using `make fmt`.
 
 This command attempts to find the root directory of the current project
@@ -174,7 +174,7 @@ shell process.  The output of the formatting process will be displayed
 in a dedicated buffer named \"fmt:PROJECT-ROOT\", where PROJECT-ROOT is
 the name of the project's root directory.
 
-It uses `sss-do-in-project` to identify the project root. Before
+It uses `heks-emacs-do-in-project` to identify the project root. Before
 running the `make` command, it prints a separator and a message
 indicating the start of the formatting process, along with the project
 directory, in the output buffer. If a buffer with the same name
@@ -184,7 +184,7 @@ This command is intended to easily initiate a project-wide code
 formatting procedure defined by a `Makefile` with an `fmt` target,
 helping to maintain consistent code style across the project."
   (interactive)
-  (sss-do-in-project (lambda(root-dir)
+  (heks-emacs-do-in-project (lambda(root-dir)
                        (let* ((sep "==============================================")
                               (msg (format "%s\nstarting format process for %s\n%s\n" sep root-dir sep))
                               (cmd (format "echo \"%s\" && cd %s && maak fmt" msg root-dir))
@@ -196,7 +196,7 @@ helping to maintain consistent code style across the project."
                                (kill-matching-buffers-no-ask buf-name))))
                          (async-shell-to-buffer cmd buf-name)))))
 
-(defun sss-project-start-dev ()
+(defun heks-emacs-project-start-dev ()
   "Start a development session for the current project using `make dev`.
 
 This command attempts to locate the root directory of the current project
@@ -205,7 +205,7 @@ shell process.  The output and interaction will be
 available in a dedicated buffer named \"dev:PROJECT-ROOT\", where
 PROJECT-ROOT is the name of the project's root directory.
 
-It relies on `sss-do-in-project` to determine the project root. Before
+It relies on `heks-emacs-do-in-project` to determine the project root. Before
 running the `make` command, it inserts a separator and a message
 indicating the start of the project DEV session, along with the
 project directory, into the output buffer. If a buffer with the same
@@ -215,7 +215,7 @@ This command is designed to easily initiate a project-specific DEV
 environment defined by a `Makefile` with a `dev` target, facilitating
 interactive development and testing."
   (interactive)
-  (sss-do-in-project (lambda(root-dir)
+  (heks-emacs-do-in-project (lambda(root-dir)
                        (let* ((sep "==============================================")
                               (msg (format "%s\nstarting a dev session for %s\n%s\n" sep root-dir sep))
                               (cmd (format "echo \"%s\" && cd %s && maak dev" msg root-dir))
@@ -227,7 +227,7 @@ interactive development and testing."
                                (kill-matching-buffers-no-ask buf-name))))
                          (async-shell-to-buffer cmd buf-name)))))
 
-(defun sss-project-start-test ()
+(defun heks-emacs-project-start-test ()
   "Start the test suite for the current project using `make test`.
 
 This command attempts to locate the root directory of the current project
@@ -236,7 +236,7 @@ shell process.  The output of the test execution will be displayed in a
 dedicated buffer named \"test:PROJECT-ROOT\", where PROJECT-ROOT is the
 name of the project's root directory.
 
-It uses `sss-do-in-project` to identify the project root. Before
+It uses `heks-emacs-do-in-project` to identify the project root. Before
 running the `make` command, it prints a separator and a message
 indicating the start of the testing process, along with the project
 directory, in the output buffer. If a buffer with the same name
@@ -246,7 +246,7 @@ This command is intended to easily initiate the project's test suite,
 as defined by a `Makefile` with a `test` target, facilitating the
 process of verifying the project's functionality."
   (interactive)
-  (sss-do-in-project (lambda(root-dir)
+  (heks-emacs-do-in-project (lambda(root-dir)
                        (let* ((sep "==============================================")
                               (msg (format "%s\nstarting tests for %s\n%s\n" sep root-dir sep))
                               (cmd (format "echo \"%s\" && cd %s && maak test" msg root-dir))
@@ -259,7 +259,7 @@ process of verifying the project's functionality."
                          (async-shell-to-buffer cmd buf-name)))))
 
 
-(defun sss-guix-fmt ()
+(defun heks-emacs-guix-fmt ()
   "Format the current buffer in place using `guix style`.
 
 This command will:
@@ -279,7 +279,7 @@ installed and accessible in your system's `exec-path`."
     (revert-buffer :ignore-auto :noconfirm)
     (message "formatted current buffer with Guix style")))
 
-(defun sss-new-buffer-with-json (buffer-name data)
+(defun heks-emacs-new-buffer-with-json (buffer-name data)
   "Create a new buffer with JSON data, format it, and switch to it.
 
 Creates a new buffer with the specified BUFFER-NAME and inserts the
@@ -325,25 +325,25 @@ DATA: A string containing JSON data."
         vec
       (seq-into vec 'list))))
 
-(defun sss-print-random-standup-order ()
-  "Prints a random order of names from `sss-standup-people` in a new buffer."
+(defun heks-emacs-print-random-standup-order ()
+  "Prints a random order of names from `heks-emacs-standup-people` in a new buffer."
   (interactive)
-  (unless sss-standup-people
-    (error "sss-standup-people is not a list.  Please check its definition."))
-  (when (> 0 (length sss-standup-people))
+  (unless heks-emacs-standup-people
+    (error "heks-emacs-standup-people is not a list.  Please check its definition."))
+  (when (> 0 (length heks-emacs-standup-people))
     (error "The list of standup people is empty"))
-  (ignore-errors (kill-buffer sss-standup-buffer-name))
+  (ignore-errors (kill-buffer heks-emacs-standup-buffer-name))
 
-  (let ((shuffled-people (hugot-shuffle (copy-sequence sss-standup-people))))
-    (get-buffer-create sss-standup-buffer-name)
-    (with-current-buffer sss-standup-buffer-name
+  (let ((shuffled-people (hugot-shuffle (copy-sequence heks-emacs-standup-people))))
+    (get-buffer-create heks-emacs-standup-buffer-name)
+    (with-current-buffer heks-emacs-standup-buffer-name
       (insert "* Random Standup Order\n\n")
       (insert "Generated on: " (format-time-string "%Y-%m-%d %H:%M:%S") "\n\n")
 
       (dolist (person shuffled-people)
         (insert (format "%s\n" person)))
       (org-mode))
-    (switch-to-buffer sss-standup-buffer-name)))
+    (switch-to-buffer heks-emacs-standup-buffer-name)))
 
 (provide 'sss/sss)
 

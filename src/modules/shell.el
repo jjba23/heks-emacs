@@ -74,7 +74,7 @@ length of PATH (sans directory slashes) down to MAX-LEN."
             components (cdr components)))
     (concat str (cl-reduce (lambda (a b) (concat a "/" b)) components))))
 
-(defun sss-eshell-prompt ()
+(defun heks-emacs-eshell-prompt ()
   (defun with-face (str &rest face-plist)
     (propertize str 'face face-plist))
   (concat
@@ -97,7 +97,7 @@ length of PATH (sans directory slashes) down to MAX-LEN."
    " "))
 
 (setopt eshell-prompt-regexp "^[^#λ\n]*[#λ] ")
-(setopt eshell-prompt-function 'sss-eshell-prompt)
+(setopt eshell-prompt-function 'heks-emacs-eshell-prompt)
 (setopt eshell-highlight-prompt nil)
 (setopt eshell-banner-message "Welcome to SSS/GNU - the Supreme Sexp System\n")
 

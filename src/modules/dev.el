@@ -122,7 +122,7 @@
   (setq geiser-active-implementations '(guile))
   (setq geiser-mode-auto-p nil)
   (ignore-errors
-    (define-key scheme-mode-map (kbd "C-c i f") #'sss-guix-fmt)))
+    (define-key scheme-mode-map (kbd "C-c i f") #'heks-emacs-guix-fmt)))
 
 ;; Specifically provides Geiser support for the Guile Scheme implementation.
 (use-package geiser-guile
@@ -171,13 +171,13 @@
 (use-package markdown-mode
   :ensure t
   :mode "\\.md\\'"
-  :hook ((markdown-mode . sss-markdown-mode))
+  :hook ((markdown-mode . heks-emacs-markdown-mode))
   :config
-  (defun sss-markdown-mode ()
+  (defun heks-emacs-markdown-mode ()
     (variable-pitch-mode 1)
     (auto-fill-mode 0)
     (visual-line-mode 1)
-    (ignore-errors (sss-set-base-faces))))
+    (ignore-errors (heks-emacs-set-base-faces))))
 
 ;; Provides a library for making HTTP requests from Emacs Lisp.
 (use-package request

@@ -23,7 +23,7 @@
 
 (use-package org
   :ensure nil
-  :hook ((org-mode . sss-org-mode))
+  :hook ((org-mode . heks-emacs-org-mode))
   :bind (:map org-mode-map
               ("C-c #" . nil))
   :bind (("C-c l v" . org-toggle-link-display))
@@ -39,7 +39,7 @@
   (org-edit-src-content-indentation 0)
   (org-table-convert-region-max-lines 9999)
   :config
-  (defun sss-org-mode ()
+  (defun heks-emacs-org-mode ()
     (variable-pitch-mode 1)
     (org-indent-mode)
     (auto-fill-mode 0)
@@ -47,7 +47,7 @@
     (font-lock-add-keywords
      nil
      '(("^-\\{5,\\}"  0 '(:inherit font-lock-comment-face))))
-    (ignore-errors (sss-set-base-faces))))
+    (ignore-errors (heks-emacs-set-base-faces))))
 
 (use-package org-roam-ui
   :ensure t
@@ -74,7 +74,7 @@
          ("C-c n c" . org-roam-capture)
          ("C-c n j" . org-roam-dailies-capture-today))
   :init
-  (setq org-roam-directory (file-truename (string-replace "$HOME" "~" sss-notes-roam-dir))
+  (setq org-roam-directory (file-truename (string-replace "$HOME" "~" heks-emacs-notes-roam-dir))
         org-roam-v2-ack t
         org-roam-node-display-template (concat "$\{title:*} " (propertize "$\{tags:10}" 'face 'org-tag)))
   :config

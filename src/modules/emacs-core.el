@@ -48,16 +48,16 @@
          ("C-c l d" . toggle-debug-on-error)
          ("C-c l e" . eval-buffer)
          ("C-c C-m C-s" . gnus-group-read-ephemeral-group)
-         ("C-c u u" . sss-uuidgen)
-         ("C-c # j" . sss-joe-reconfigure)
-         ("C-c # s" . sss-sys-reconfigure)
-         ("C-c # u" . sss-sys-update)
-         ("C-c # f" . sss-full-reconfigure)
-         ("C-c w r" . sss-project-start-repl-process)
-         ("C-c w f" . sss-project-fmt)
-         ("C-c w t" . sss-project-start-test)
-         ("C-c w d" . sss-project-start-dev)
-         ("C-c w s" . sss-print-random-standup-order)
+         ("C-c u u" . heks-emacs-uuidgen)
+         ("C-c # j" . heks-emacs-joe-reconfigure)
+         ("C-c # s" . heks-emacs-sys-reconfigure)
+         ("C-c # u" . heks-emacs-sys-update)
+         ("C-c # f" . heks-emacs-full-reconfigure)
+         ("C-c w r" . heks-emacs-project-start-repl-process)
+         ("C-c w f" . heks-emacs-project-fmt)
+         ("C-c w t" . heks-emacs-project-start-test)
+         ("C-c w d" . heks-emacs-project-start-dev)
+         ("C-c w s" . heks-emacs-print-random-standup-order)
          ("C-c g l" . guix-package-location-on-mark)
          ("C-c t a" . sort-lines)
          ("C-c t w" . delete-trailing-whitespace)
@@ -134,7 +134,9 @@
   (setopt heks-emacs-font-mono "Adwaita Mono"
           heks-emacs-font-sans "Adwaita Sans"
           heks-emacs-emacs-theme 'modus-vivendi
-          heks-linux-notes-roam-dir "~/Hacking/private-notes")
+          heks-emacs-clone-dir "~/Hacking/heks-emacs"
+          heks-emacs-notes-roam-dir "~/Hacking/private-notes"
+          heks-emacs-ews-music-directory "")
   )
 
 (provide 'sss/emacs-self)

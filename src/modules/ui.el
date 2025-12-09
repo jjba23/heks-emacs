@@ -29,9 +29,9 @@
   (pulsar-iterations 10)
   (pulsar-highlight-face 'pulsar-yellow)
   :config
-  (cond ((equal sss-emacs-theme 'ef-dream) (setq pulsar-face 'pulsar-magenta))
-        ((equal sss-emacs-theme 'everforest-hard-dark) (setq pulsar-face 'pulsar-green))
-        ((equal sss-emacs-theme 'everforest-hard-light) (setq pulsar-face 'pulsar-green))
+  (cond ((equal heks-emacs-emacs-theme 'ef-dream) (setq pulsar-face 'pulsar-magenta))
+        ((equal heks-emacs-emacs-theme 'everforest-hard-dark) (setq pulsar-face 'pulsar-green))
+        ((equal heks-emacs-emacs-theme 'everforest-hard-light) (setq pulsar-face 'pulsar-green))
         (t (setq pulsar-face 'pulsar-green)))
   (pulsar-global-mode 1)
   (ignore-errors
@@ -53,17 +53,17 @@
       (set-face-attribute 'mode-line nil
                           :box `(:line-width 3 :color ,(face-attribute 'mode-line :background))
                           :height (tekengrootte-mk-font-size 0.7)
-                          :font sss-font-sans))
+                          :font heks-emacs-font-sans))
     (ignore-errors
       (set-face-attribute 'mode-line-active nil
                           :box `(:line-width 3 :color ,(face-attribute 'mode-line :background))
                           :height (tekengrootte-mk-font-size 0.7)
-                          :font sss-font-sans))
+                          :font heks-emacs-font-sans))
     (ignore-errors
       (set-face-attribute 'mode-line-inactive nil
                           :box `(:line-width 3 :color ,(face-attribute 'mode-line-inactive :background))
                           :height (tekengrootte-mk-font-size 0.7)
-                          :font sss-font-sans))))
+                          :font heks-emacs-font-sans))))
 
 (use-package tekengrootte
   :ensure (:host codeberg :repo "jjba23/tekengrootte.el" :branch "trunk")
@@ -77,20 +77,20 @@
          ("C-c f t" . tekengrootte-set-scale-tiny)
          ("C-c f n" . tekengrootte-set-scale-nano))
   :hook ((tekengrootte-set-scale . (lambda ()
-                                     (sss-set-base-faces))))
+                                     (heks-emacs-set-base-faces))))
   :after (ef-themes solarized-theme gruvbox-theme)
   :config
 
-  (defun sss-set-base-faces ()
+  (defun heks-emacs-set-base-faces ()
     "Adjust the base Emacs faces to my preferences.
 According to size, color and font family"
     (interactive)
     (set-face-attribute 'default nil
                         :height (round (tekengrootte-mk-font-size 114))
-                        :font sss-font-mono)
+                        :font heks-emacs-font-mono)
 
     (set-face-attribute 'variable-pitch nil
-                        :font sss-font-sans
+                        :font heks-emacs-font-sans
                         :height (tekengrootte-mk-font-size 1.05))
 
     (set-face-attribute 'button nil :background 'unspecified
@@ -104,81 +104,81 @@ According to size, color and font family"
 
     (ignore-errors
       (set-face-attribute 'markdown-pre-face nil
-                          :font sss-font-mono
+                          :font heks-emacs-font-mono
                           :height (tekengrootte-mk-font-size 0.95))
       (set-face-attribute 'markdown-code-face nil
-                          :font sss-font-mono
+                          :font heks-emacs-font-mono
                           :height (tekengrootte-mk-font-size 0.95))
       (set-face-attribute 'markdown-inline-code-face nil
-                          :font sss-font-mono
+                          :font heks-emacs-font-mono
                           :height (tekengrootte-mk-font-size 0.95))
       (set-face-attribute 'markdown-header-face-1 nil
-                          :font sss-font-sans
+                          :font heks-emacs-font-sans
                           :weight 'bold
                           :height (tekengrootte-mk-font-size 1.2))
       (set-face-attribute 'markdown-header-face-2 nil
-                          :font sss-font-sans
+                          :font heks-emacs-font-sans
                           :weight 'bold
                           :height (tekengrootte-mk-font-size 1.2))
       (set-face-attribute 'markdown-header-face-3 nil
-                          :font sss-font-sans
+                          :font heks-emacs-font-sans
                           :weight 'bold
                           :height (tekengrootte-mk-font-size 1.1))
       (set-face-attribute 'markdown-header-face-4 nil
-                          :font sss-font-sans
+                          :font heks-emacs-font-sans
                           :weight 'bold
                           :height (tekengrootte-mk-font-size 1.1))
       (set-face-attribute 'markdown-header-face-5 nil
-                          :font sss-font-sans
+                          :font heks-emacs-font-sans
                           :weight 'bold
                           :height (tekengrootte-mk-font-size 1.0)))
 
     (ignore-errors
       (set-face-attribute 'org-table nil
                           :height (tekengrootte-mk-font-size 0.92)
-                          :font sss-font-mono)
+                          :font heks-emacs-font-mono)
       (set-face-attribute 'org-default nil
                           :height (tekengrootte-mk-font-size 1.05)
-                          :font sss-font-mono)
+                          :font heks-emacs-font-mono)
       (set-face-attribute 'org-block nil
-                          :font sss-font-mono
+                          :font heks-emacs-font-mono
                           :height (tekengrootte-mk-font-size 0.78))
       (set-face-attribute 'org-code nil
-                          :font sss-font-mono
+                          :font heks-emacs-font-mono
                           :height (tekengrootte-mk-font-size 0.84))
       (set-face-attribute 'org-verbatim nil
-                          :font sss-font-mono
+                          :font heks-emacs-font-mono
                           :height (tekengrootte-mk-font-size 1.05))
       (set-face-attribute 'org-document-title nil
                           :height (tekengrootte-mk-font-size 1.18))
       (set-face-attribute 'org-level-1 nil
-                          :font sss-font-sans
+                          :font heks-emacs-font-sans
                           :weight 'bold
                           :height (tekengrootte-mk-font-size 1.2))
       (set-face-attribute 'org-level-2 nil
-                          :font sss-font-sans
+                          :font heks-emacs-font-sans
                           :weight 'bold
                           :height (tekengrootte-mk-font-size 1.2))
       (set-face-attribute 'org-level-3 nil
-                          :font sss-font-sans
+                          :font heks-emacs-font-sans
                           :weight 'bold
                           :height (tekengrootte-mk-font-size 1.1))
       (set-face-attribute 'org-level-4 nil
-                          :font sss-font-sans
+                          :font heks-emacs-font-sans
                           :weight 'bold
                           :height (tekengrootte-mk-font-size 1.1))
       (set-face-attribute 'org-level-5 nil
-                          :font sss-font-sans
+                          :font heks-emacs-font-sans
                           :weight 'bold
                           :height (tekengrootte-mk-font-size 1.0)))
     (ignore-errors
       (set-face-attribute 'keycast-key nil
-                          :font sss-font-mono
+                          :font heks-emacs-font-mono
                           :background 'unspecified
                           :box nil
                           :height (tekengrootte-mk-font-size 0.8))
       (set-face-attribute 'keycast-command nil
-                          :font sss-font-sans
+                          :font heks-emacs-font-sans
                           :height (tekengrootte-mk-font-size 0.8)))
 
     ;;
@@ -186,33 +186,33 @@ According to size, color and font family"
     ;;
 
     ;; ====== Ef theme specific tweaks =============
-    (when (string-prefix-p "ef-" (format "%s" sss-emacs-theme))
+    (when (string-prefix-p "ef-" (format "%s" heks-emacs-emacs-theme))
       (ignore-errors
         (set-face-attribute 'window-divider nil
-                            :foreground (modus-themes-get-color-value 'bg-alt t sss-emacs-theme)
-                            :background (modus-themes-get-color-value 'bg-alt t sss-emacs-theme))))
+                            :foreground (modus-themes-get-color-value 'bg-alt t heks-emacs-emacs-theme)
+                            :background (modus-themes-get-color-value 'bg-alt t heks-emacs-emacs-theme))))
 
     ;; ====== Modus theme specific tweaks =============
-    (when (string-prefix-p "modus-" (format "%s" sss-emacs-theme))
+    (when (string-prefix-p "modus-" (format "%s" heks-emacs-emacs-theme))
       (ignore-errors
         (set-face-attribute 'window-divider nil
-                            :foreground (modus-themes-get-color-value 'bg-active t sss-emacs-theme)
-                            :background (modus-themes-get-color-value 'bg-active t sss-emacs-theme))))
+                            :foreground (modus-themes-get-color-value 'bg-active t heks-emacs-emacs-theme)
+                            :background (modus-themes-get-color-value 'bg-active t heks-emacs-emacs-theme))))
 
     ;; ======= Gruvbox specific tweaks ===========
 
-    (when (equal sss-emacs-theme 'gruvbox-light-hard)
+    (when (equal heks-emacs-emacs-theme 'gruvbox-light-hard)
       (ignore-errors
         (set-face-attribute 'internal-border nil
                             :background "#f9f5d7")))
 
-    (when (equal sss-emacs-theme 'gruvbox-dark-hard)
+    (when (equal heks-emacs-emacs-theme 'gruvbox-dark-hard)
       (ignore-errors
         (set-face-attribute 'internal-border nil
                             :background "#1d2021")))
 
     ;; ====== Dracula specific tweaks ======
-    (when (equal sss-emacs-theme 'dracula)
+    (when (equal heks-emacs-emacs-theme 'dracula)
       (ignore-errors
         (set-face-attribute 'font-lock-comment-face nil
                             :italic t)
@@ -236,7 +236,7 @@ According to size, color and font family"
 
     ;; ====== Everforest dark specific tweaks ======
     (ignore-errors
-      (cond ((equal sss-emacs-theme 'everforest-hard-dark)
+      (cond ((equal heks-emacs-emacs-theme 'everforest-hard-dark)
              (progn
                (set-face-attribute 'mode-line nil
                                    :box 'unspecified
@@ -251,7 +251,7 @@ According to size, color and font family"
 
     ;; ====== Everforest light specific tweaks ======
     (ignore-errors
-      (cond ((equal sss-emacs-theme 'everforest-hard-light)
+      (cond ((equal heks-emacs-emacs-theme 'everforest-hard-light)
              (progn
                (set-face-attribute 'mode-line nil
                                    :box 'unspecified
@@ -267,16 +267,16 @@ According to size, color and font family"
     (set-mode-line-faces)
     )
 
-  (setq sss-emacs-is-first-frame t)
+  (setq heks-emacs-emacs-is-first-frame t)
 
   (defun new-frame-setup ()
     (progn
-      (when sss-emacs-is-first-frame
+      (when heks-emacs-emacs-is-first-frame
         (progn
           (message "initializing SSS UI scaling for first frame")
           (tekengrootte-set-scale-small)
-          (setq sss-emacs-is-first-frame nil)))
-      (sss-set-base-faces)))
+          (setq heks-emacs-emacs-is-first-frame nil)))
+      (heks-emacs-set-base-faces)))
 
   (add-hook 'server-after-make-frame-hook 'new-frame-setup))
 
