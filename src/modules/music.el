@@ -24,15 +24,17 @@
 (use-package fretboard
   :ensure (:host github :repo "vifon/fretboard.el" :branch "master"))
 
-(use-package smudge
-  :ensure t
-  :after (f)
-  :custom
-  (smudge-oauth2-client-secret (f-read-text "~/secrets/smudge-oauth2-client-secret"))
-  (smudge-oauth2-client-id (f-read-text "~/secrets/smudge-oauth2-client-id"))
-  (smudge-player-use-transient-map t)
-  :config
-  (define-key smudge-mode-map (kbd "C-c .") 'smudge-command-map))
+;; Use Smudge to connect to Spotify
+;;
+;; (use-package smudge
+;;   :ensure t
+;;   :after (f)
+;;   :custom
+;;   (smudge-oauth2-client-secret (f-read-text "~/secrets/smudge-oauth2-client-secret"))
+;;   (smudge-oauth2-client-id (f-read-text "~/secrets/smudge-oauth2-client-id"))
+;;   (smudge-player-use-transient-map t)
+;;   :config
+;;   (define-key smudge-mode-map (kbd "C-c .") 'smudge-command-map))
 
 (use-package emms
   :ensure t

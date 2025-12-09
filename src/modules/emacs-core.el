@@ -131,9 +131,10 @@
   (setq-default cursor-type 'bar)
   (setopt treesit-extra-load-path (list "~/.emacs.d/tree-sitter-grammars"))
   
-  (setopt sss-font-mono "Adwaita Mono"
-          sss-font-sans "Adwaita Sans"
-          sss-emacs-theme 'modus-vivendi)
+  (setopt heks-emacs-font-mono "Adwaita Mono"
+          heks-emacs-font-sans "Adwaita Sans"
+          heks-emacs-emacs-theme 'modus-vivendi
+          heks-linux-notes-roam-dir "~/Hacking/private-notes")
   )
 
 (provide 'sss/emacs-self)

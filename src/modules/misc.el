@@ -53,7 +53,7 @@
 (use-package pandoc-mode :ensure t)
 
 (use-package jinx
-  :ensure nil
+  :ensure t
   :demand t
   :bind (("M-$" . jinx-correct)
          ([remap ispell-word] . #'jinx-correct)
