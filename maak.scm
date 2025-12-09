@@ -32,7 +32,8 @@
   (cp "src/modules" emacs-config-install-dir)
   (cp "src/snippets" emacs-config-install-dir))
 
-(define tree-sitter-grammars-url "https://github.com/casouri/tree-sitter-module/releases/download/v2.5/libs-linux-x64.zip")
+(define tree-sitter-grammars-url
+  "https://github.com/casouri/tree-sitter-module/releases/download/v2.5/libs-linux-x64.zip")
 
 (define (install-tree-sitter-grammars)
   ($ '("rm -rfv ~/.emacs.d/tree-sitter-grammars"))
@@ -43,5 +44,6 @@
 
 (define (full-install-emacs-config)
   (remake-emacs-config-dir)
-  (install))
+  (install-emacs-config)
+  (install-tree-sitter-grammars))
 
