@@ -21,8 +21,6 @@
 
 ;;; Code:
 
-;; TODO? the bookmarks could be managed by HEKS-EMACS in Scheme and not in Emacs?
-(defvar joe-welkomscherm/bookmarks-list)
 (setq joe-welkomscherm/bookmarks-list
       `((("heks-emacs" . ,(string-replace "$HOME" "~" heks-emacs-clone-dir))
          ("niri" . ,(format "%s/src/heks-emacs/niri.scm" (string-replace "$HOME" "~" heks-emacs-clone-dir))))
@@ -42,24 +40,23 @@
          ("oculuslambda" . "~/Hacking/oculuslambda"))
         ))
 
-(defvar joe-welkomscherm/work-list)
-(setopt joe-welkomscherm/work-list
-        '((("VDB" . "~/Work/Vandebron/")
-           ("mobile" . "~/Work/mobile")
-           ("onboarding" . "~/Work/onboarding/"))
-          ))
+(setq joe-welkomscherm/work-list
+      '((("VDB" . "~/Work/Vandebron/")
+         ("mobile" . "~/Work/mobile")
+         ("onboarding" . "~/Work/onboarding/"))
+        ))
 
-(defvar joe-welkomscherm/actions-list)
-(setopt joe-welkomscherm/actions-list
-        '((("*scratch*" . (lambda(btn) (switch-to-buffer "*scratch*")))
-           ("*Messages*" . (lambda(btn) (switch-to-buffer "*Messages*")))
-           ("re-render me" . (lambda(btn) (welkomscherm))))
-          ;; (("system-rebuild  (sr)" . (lambda(btn) (heks-emacs-sys-reconfigure)))
-          ;;  ("joe-rebuild (jr)" . (lambda(btn) (heks-emacs-joe-reconfigure))))
-          ))
+(setq joe-welkomscherm/actions-list
+      '((("*scratch*" . (lambda(btn) (switch-to-buffer "*scratch*")))
+         ("*Messages*" . (lambda(btn) (switch-to-buffer "*Messages*")))
+         ("re-render me" . (lambda(btn) (welkomscherm))))
+        ;; (("system-rebuild  (sr)" . (lambda(btn) (heks-emacs-sys-reconfigure)))
+        ;;  ("joe-rebuild (jr)" . (lambda(btn) (heks-emacs-joe-reconfigure))))
+        ))
 
 (use-package welkomscherm
   :ensure (:host codeberg :repo "jjba23/welkomscherm.el" :branch "trunk")
+  :demand t
   :bind (("C-c SPC SPC" . welkomscherm)
          )
   :init
