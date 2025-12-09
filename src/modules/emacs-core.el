@@ -116,14 +116,6 @@
   (setq-default indent-tabs-mode nil)
   (global-prettify-symbols-mode +1)
 
-  (setopt initial-buffer-choice
-          (lambda ()
-            (or
-             (ignore-errors
-               (welkomscherm)
-               (get-buffer welkomscherm/buffer-name))
-             (get-buffer-create "*scratch*"))))
-
   (recentf-mode 1)
   (setopt recentf-max-menu-items 100
           recentf-max-saved-items 100)

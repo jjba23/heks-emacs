@@ -62,7 +62,15 @@
   :init
   (setopt welkomscherm/bookmarks-list joe-welkomscherm/bookmarks-list)
   (setopt welkomscherm/work-list joe-welkomscherm/work-list)
-  (setopt welkomscherm/actions-list joe-welkomscherm/actions-list))
+  (setopt welkomscherm/actions-list joe-welkomscherm/actions-list)
+  :config
+  (setopt initial-buffer-choice
+          (lambda ()
+            (or
+             (ignore-errors
+               (welkomscherm)
+               (get-buffer welkomscherm/buffer-name))
+             (get-buffer-create "*scratch*")))))
 
 (provide 'heks-emacs/dashboard)
 
