@@ -1,4 +1,4 @@
-#+title: heks-emacs
+#+title: Heks Emacs 🧙‍♂️
 #+author: Josep Bigorra
 #+email: jjbigorra@gmail.com
 #+options: toc:nil
