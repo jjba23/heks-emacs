@@ -16,6 +16,8 @@ This Emacs config is made with portability and mind, and should work pretty much
 
 I recommend you browse the source code and take inspiration from it.
 
+If you like my work, please support me by [[https://bmc.link/jjbigorra][buying me a cup of coffee ☕]] so I can continue with a lot of motivation.
+
 --------
 
 * Installing
