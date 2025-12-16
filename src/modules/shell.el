@@ -119,7 +119,9 @@ length of PATH (sans directory slashes) down to MAX-LEN."
       heks-emacs/eshell-aliases)
 
 (use-package vterm
-  :ensure t)
+  :ensure t
+  :config
+  (setopt vterm-always-compile-module t))
 
 (provide 'heks-emacs/shell)
 
