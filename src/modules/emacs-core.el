@@ -89,7 +89,8 @@
           delete-by-moving-to-trash t
           tab-width 2
           fill-column 78
-          sentence-end-double-space t)
+          sentence-end-double-space t
+          compile-command "maak --list")
 
   (setopt safe-local-variable-directories
           (list (string-replace "$HOME" (getenv "HOME") "$HOME/fork/guix/")))
