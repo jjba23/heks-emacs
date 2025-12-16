@@ -54,6 +54,9 @@
    ("<XF86AudioNext>" . emms-next)
    ("<XF86AudioPlay>" . emms-pause)))
 
+(use-package listen
+  :ensure (:host github :repo "alphapapa/listen.el"))
+
 (provide 'heks-emacs/music)
 
 ;;; music.el ends here
