@@ -123,10 +123,22 @@
 
   (add-to-list 'auto-mode-alist '("\\.hbs\\'" . html-mode))
 
+  ;; Anatomy of a display-buffer-alist entry
+  ;; (BUFFER-MATCHER
+  ;;   LIST-OF-DISPLAY-FUNCTIONS
+  ;;   &optional PARAMETERS)
+  
+  (setq display-buffer-alist '(("\\*Occur\\*"
+                                (display-buffer-reuse-mode-window
+                                 display-buffer-below-selected)
+                                (window-height . fit-window-to-buffer)
+                                (dedicated . t)
+                                )))
+
   (global-hl-line-mode +1)
   (setq-default cursor-type 'bar)
   (setopt treesit-extra-load-path (list "~/.emacs.d/tree-sitter-grammars"))
-  
+
   (setopt heks-emacs-font-mono "Adwaita Mono"
           heks-emacs-font-sans "Adwaita Sans"
           heks-emacs-emacs-theme 'modus-vivendi
