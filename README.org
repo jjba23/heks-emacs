@@ -1,4 +1,4 @@
-#+title: heks-emacs
+#+title: Heks Emacs 🧙‍♂️
 #+author: Josep Bigorra
 #+email: jjbigorra@gmail.com
 #+options: toc:nil
@@ -15,6 +15,8 @@ You could see heks-emacs as my temple, almost an operating system unto itself �
 This Emacs config is made with portability and mind, and should work pretty much out-of the box on a multitude of environments.  
 
 I recommend you browse the source code and take inspiration from it.
+
+If you like my work, please support me by [[https://bmc.link/jjbigorra][buying me a cup of coffee ☕]] so I can continue with a lot of motivation.
 
 --------
 
