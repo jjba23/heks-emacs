@@ -118,6 +118,9 @@ length of PATH (sans directory slashes) down to MAX-LEN."
         (defalias (car alias) (cdr alias)))
       heks-emacs/eshell-aliases)
 
+(use-package vterm
+  :ensure t)
+
 (provide 'heks-emacs/shell)
 
 ;;; shell.el ends here
