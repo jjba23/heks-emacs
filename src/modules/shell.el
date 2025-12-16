@@ -120,8 +120,8 @@ length of PATH (sans directory slashes) down to MAX-LEN."
 
 (use-package vterm
   :ensure t
-  :config
-  (setopt vterm-always-compile-module t))
+  :custom
+  (vterm-always-compile-module t))
 
 (provide 'heks-emacs/shell)
 
