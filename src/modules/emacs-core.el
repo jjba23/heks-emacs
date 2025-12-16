@@ -127,13 +127,19 @@
   ;; (BUFFER-MATCHER
   ;;   LIST-OF-DISPLAY-FUNCTIONS
   ;;   &optional PARAMETERS)
+
+  ;; matchers can be:
+  ;;   - Emacs buffer name regex string
+  ;;   - mode matcher: (derived-mode . typescript-mode)
   
   (setq display-buffer-alist '(("\\*Occur\\*"
                                 (display-buffer-reuse-mode-window
                                  display-buffer-below-selected)
                                 (window-height . fit-window-to-buffer)
-                                (dedicated . t)
-                                )))
+                                (dedicated . t))
+                               ((derived-mode . completion-list-mode)
+                                (display-buffer-use-some-window))
+                               ))
 
   (global-hl-line-mode +1)
   (setq-default cursor-type 'bar)
