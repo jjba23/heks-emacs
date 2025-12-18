@@ -42,18 +42,12 @@
   "The name of the Emacs theme to use, acording to HEKS-EMACS palette."
   :type 'symbol)
 
-(defcustom heks-emacs-standup-people '("Arnav"
-                                "David"
-                                "Joe"
-                                "John"
-                                "Jordy"
-                                "Judy"
-                                "Laco"
-                                "Mahshid"
-                                "Michael"
-                                "Sabina"
-                                "Thomas"
-                                "Tom")
+(defcustom heks-emacs-standup-people '("Joe"
+                                       "Marcel"
+                                       "Andrei"
+                                       "Bram"
+                                       "Rasim"
+                                       "Thibault")
   "The people's names to be used for random standup order."
   :type 'list)
 
