@@ -86,35 +86,35 @@
 (load-user-file "modules/heks-emacs.el")
 
 ;; Load more user modules
-(setq heks-emacs-emacs-modules '(
-                                 common-lisp
-                                 consult
-                                 dashboard
-                                 dev
-                                 dired
-                                 eglot
-                                 emacs-core
-                                 erc
-                                 go
-                                 libs
-                                 macros
-                                 mail
-                                 maps
-                                 misc
-                                 music
-                                 org
-                                 search
-                                 shell
-                                 theme
-                                 ui
-                                 ))
+(setq heks-emacs-modules '(
+                           common-lisp
+                           consult
+                           dashboard
+                           dev
+                           dired
+                           eglot
+                           emacs-core
+                           erc
+                           go
+                           libs
+                           macros
+                           mail
+                           maps
+                           misc
+                           music
+                           org
+                           search
+                           shell
+                           theme
+                           ui
+                           ))
 (mapc (lambda(f) (load-user-file (format "modules/%s.el" f))) heks-emacs-emacs-modules)
 
 
 (use-package magit :ensure t :after (transient compat))
 
 (use-package tempel
-  :ensure (:host github :repo "minad/tempel" :branch "main")
+  :ensure (:host githheks-emacstempel" :branch "main")
   :bind (("C-c s c" . tempel-complete)
          ("C-c s i" . tempel-insert)
          ("C-c s x" . tempel-expand))

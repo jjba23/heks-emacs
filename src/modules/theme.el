@@ -27,55 +27,55 @@
   (setq modus-themes-mixed-fonts t
         modus-themes-italic-constructs t)
   (modus-themes-include-derivatives-mode 1)
-  (cond ((equal heks-emacs-emacs-theme 'ef-dream) (load-theme heks-emacs-emacs-theme t))
-        ((equal heks-emacs-emacs-theme 'ef-bio)
+  (cond ((equal heks-emacs-theme 'ef-dream) (load-theme heks-emacs-theme t))
+        ((equal heks-emacs-theme 'ef-bio)
          (setq ef-bio-palette-overrides '((variable fg-main)
                                           (string green-faint)))
-         (load-theme heks-emacs-emacs-theme t))
-        ((equal heks-emacs-emacs-theme 'modus-vivendi)
-         (load-theme heks-emacs-emacs-theme t))
-        ((equal heks-emacs-emacs-theme 'ef-cyprus)
+         (load-theme heks-emacs-theme t))
+        ((equal heks-emacs-theme 'modus-vivendi)
+         (load-theme heks-emacs-theme t))
+        ((equal heks-emacs-theme 'ef-cyprus)
          (setq ef-cyprus-palette-overrides '((variable fg-main)
                                              (bg-main bg-dim)
                                              (string green-faint)))
-         (load-theme heks-emacs-emacs-theme t))
-        ((equal heks-emacs-emacs-theme 'ef-melissa-light)
+         (load-theme heks-emacs-theme t))
+        ((equal heks-emacs-theme 'ef-melissa-light)
          (setq ef-melissa-light-palette-overrides '((variable fg-main)
                                                     (string green-warmer)))
-         (load-theme heks-emacs-emacs-theme t))
-        ((equal heks-emacs-emacs-theme 'ef-tritanopia-dark) (load-theme heks-emacs-emacs-theme t))
-        ((equal heks-emacs-emacs-theme 'ef-autumn)
+         (load-theme heks-emacs-theme t))
+        ((equal heks-emacs-theme 'ef-tritanopia-dark) (load-theme heks-emacs-theme t))
+        ((equal heks-emacs-theme 'ef-autumn)
          (setq ef-autumn-palette-overrides '((variable fg-main)
                                              (bg-main bg-dim)))
-         (load-theme heks-emacs-emacs-theme t))))
+         (load-theme heks-emacs-theme t))))
 
 
 (use-package solarized-theme
   :ensure (:host github :repo "bbatsov/solarized-emacs" :branch "master")
   :config
-  (cond ((equal heks-emacs-emacs-theme 'solarized-light) (load-theme heks-emacs-emacs-theme t))))
+  (cond ((equal heks-emacs-theme 'solarized-light) (load-theme heks-emacs-theme t))))
 
 (use-package everforest
   :ensure (:host github :repo "Theory-of-Everything/everforest-emacs" :branch "master2")
   :no-require t
   :config
-  (cond ((equal heks-emacs-emacs-theme 'everforest-hard-dark)
-         (load-theme heks-emacs-emacs-theme t))
-        ((equal heks-emacs-emacs-theme 'everforest-hard-light)
-         (load-theme heks-emacs-emacs-theme t))))
+  (cond ((equal heks-emacs-theme 'everforest-hard-dark)
+         (load-theme heks-emacs-theme t))
+        ((equal heks-emacs-theme 'everforest-hard-light)
+         (load-theme heks-emacs-theme t))))
 
 (use-package gruvbox-theme
   :ensure (:host github :repo "greduan/emacs-theme-gruvbox" :branch "master")
   :config
-  (cond ((equal heks-emacs-emacs-theme 'gruvbox-dark-hard) (load-theme heks-emacs-emacs-theme t))
-        ((equal heks-emacs-emacs-theme 'gruvbox-light-hard) (load-theme heks-emacs-emacs-theme t))))
+  (cond ((equal heks-emacs-theme 'gruvbox-dark-hard) (load-theme heks-emacs-theme t))
+        ((equal heks-emacs-theme 'gruvbox-light-hard) (load-theme heks-emacs-theme t))))
 
 (use-package dracula-theme
   :ensure t
   :config
-  (cond ((equal heks-emacs-emacs-theme 'dracula)
+  (cond ((equal heks-emacs-theme 'dracula)
          (progn
-           (load-theme heks-emacs-emacs-theme t)
+           (load-theme heks-emacs-theme t)
            ;; Tweak the font size for some headings and titles
            (setq dracula-enlarge-headings t)
 
@@ -98,10 +98,10 @@
 (use-package catppuccin-theme
   :ensure t
   :config
-  (cond ((equal heks-emacs-emacs-theme 'catppuccin-latte)
+  (cond ((equal heks-emacs-theme 'catppuccin-latte)
          (setopt catppuccin-flavor 'latte)
          (load-theme 'catppuccin t))
-        ((equal heks-emacs-emacs-theme 'catppuccin-mocha)
+        ((equal heks-emacs-theme 'catppuccin-mocha)
          (setopt catppuccin-flavor 'mocha)
          (load-theme 'catppuccin t)))
   )
@@ -122,7 +122,7 @@
         kaolin-themes-distinct-fringe t
         kaolin-themes-git-gutter-solid t)
 
-  (cond ((equal heks-emacs-emacs-theme 'kaolin-dark)
+  (cond ((equal heks-emacs-theme 'kaolin-dark)
          (load-theme 'kaolin-dark t))))
 
 (provide 'heks-emacs/theme)

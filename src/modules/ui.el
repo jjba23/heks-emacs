@@ -29,9 +29,9 @@
   (pulsar-iterations 10)
   (pulsar-highlight-face 'pulsar-yellow)
   :config
-  (cond ((equal heks-emacs-emacs-theme 'ef-dream) (setq pulsar-face 'pulsar-magenta))
-        ((equal heks-emacs-emacs-theme 'everforest-hard-dark) (setq pulsar-face 'pulsar-green))
-        ((equal heks-emacs-emacs-theme 'everforest-hard-light) (setq pulsar-face 'pulsar-green))
+  (cond ((equal heks-emacs-theme 'ef-dream) (setq pulsar-face 'pulsar-magenta))
+        ((equal heks-emacs-theme 'everforest-hard-dark) (setq pulsar-face 'pulsar-green))
+        ((equal heks-emacs-theme 'everforest-hard-light) (setq pulsar-face 'pulsar-green))
         (t (setq pulsar-face 'pulsar-green)))
   (pulsar-global-mode 1)
   (ignore-errors
@@ -186,33 +186,33 @@ According to size, color and font family"
     ;;
 
     ;; ====== Ef theme specific tweaks =============
-    (when (string-prefix-p "ef-" (format "%s" heks-emacs-emacs-theme))
+    (when (string-prefix-p "ef-" (format "%s" heks-emacs-theme))
       (ignore-errors
         (set-face-attribute 'window-divider nil
-                            :foreground (modus-themes-get-color-value 'bg-alt t heks-emacs-emacs-theme)
-                            :background (modus-themes-get-color-value 'bg-alt t heks-emacs-emacs-theme))))
+                            :foreground (modus-themes-get-color-value 'bg-alt t heks-emacs-theme)
+                            :background (modus-themes-get-color-value 'bg-alt t heks-emacs-theme))))
 
     ;; ====== Modus theme specific tweaks =============
-    (when (string-prefix-p "modus-" (format "%s" heks-emacs-emacs-theme))
+    (when (string-prefix-p "modus-" (format "%s" heks-emacs-theme))
       (ignore-errors
         (set-face-attribute 'window-divider nil
-                            :foreground (modus-themes-get-color-value 'bg-active t heks-emacs-emacs-theme)
-                            :background (modus-themes-get-color-value 'bg-active t heks-emacs-emacs-theme))))
+                            :foreground (modus-themes-get-color-value 'bg-active t heks-emacs-theme)
+                            :background (modus-themes-get-color-value 'bg-active t heks-emacs-theme))))
 
     ;; ======= Gruvbox specific tweaks ===========
 
-    (when (equal heks-emacs-emacs-theme 'gruvbox-light-hard)
+    (when (equal heks-emacs-theme 'gruvbox-light-hard)
       (ignore-errors
         (set-face-attribute 'internal-border nil
                             :background "#f9f5d7")))
 
-    (when (equal heks-emacs-emacs-theme 'gruvbox-dark-hard)
+    (when (equal heks-emacs-theme 'gruvbox-dark-hard)
       (ignore-errors
         (set-face-attribute 'internal-border nil
                             :background "#1d2021")))
 
     ;; ====== Dracula specific tweaks ======
-    (when (equal heks-emacs-emacs-theme 'dracula)
+    (when (equal heks-emacs-theme 'dracula)
       (ignore-errors
         (set-face-attribute 'font-lock-comment-face nil
                             :italic t)
@@ -236,7 +236,7 @@ According to size, color and font family"
 
     ;; ====== Everforest dark specific tweaks ======
     (ignore-errors
-      (cond ((equal heks-emacs-emacs-theme 'everforest-hard-dark)
+      (cond ((equal heks-emacs-theme 'everforest-hard-dark)
              (progn
                (set-face-attribute 'mode-line nil
                                    :box 'unspecified
@@ -251,7 +251,7 @@ According to size, color and font family"
 
     ;; ====== Everforest light specific tweaks ======
     (ignore-errors
-      (cond ((equal heks-emacs-emacs-theme 'everforest-hard-light)
+      (cond ((equal heks-emacs-theme 'everforest-hard-light)
              (progn
                (set-face-attribute 'mode-line nil
                                    :box 'unspecified
@@ -267,15 +267,15 @@ According to size, color and font family"
     (set-mode-line-faces)
     )
 
-  (setq heks-emacs-emacs-is-first-frame t)
+  (setq heks-emacs-is-first-frame t)
 
   (defun new-frame-setup ()
     (progn
-      (when heks-emacs-emacs-is-first-frame
+      (when heks-emacs-is-first-frame
         (progn
           (message "initializing HEKS-EMACS UI scaling for first frame")
           (tekengrootte-set-scale-small)
-          (setq heks-emacs-emacs-is-first-frame nil)))
+          (setq heks-emacs-is-first-frame nil)))
       (heks-emacs-set-base-faces)))
 
   (add-hook 'server-after-make-frame-hook 'new-frame-setup))

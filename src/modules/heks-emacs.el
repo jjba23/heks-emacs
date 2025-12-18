@@ -38,7 +38,7 @@
   "The directory where the Org roam notes should be stored."
   :type 'string)
 
-(defcustom heks-emacs-emacs-theme nil
+(defcustom heks-emacs-theme nil
   "The name of the Emacs theme to use, acording to HEKS-EMACS palette."
   :type 'symbol)
 

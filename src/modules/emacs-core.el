@@ -147,7 +147,7 @@
 
   (setopt heks-emacs-font-mono "Adwaita Mono"
           heks-emacs-font-sans "Adwaita Sans"
-          heks-emacs-emacs-theme 'modus-vivendi
+          heks-emacs-theme 'ef-dream
           heks-emacs-clone-dir "~/Hacking/heks-emacs"
           heks-emacs-notes-roam-dir "~/Hacking/private-notes"
           heks-emacs-ews-music-directory "")
