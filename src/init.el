@@ -108,13 +108,13 @@
                            theme
                            ui
                            ))
-(mapc (lambda(f) (load-user-file (format "modules/%s.el" f))) heks-emacs-emacs-modules)
+(mapc (lambda(f) (load-user-file (format "modules/%s.el" f))) heks-emacs-modules)
 
 
 (use-package magit :ensure t :after (transient compat))
 
 (use-package tempel
-  :ensure (:host githheks-emacstempel" :branch "main")
+  :ensure (:host github :repo "minad/tempel" :branch "main")
   :bind (("C-c s c" . tempel-complete)
          ("C-c s i" . tempel-insert)
          ("C-c s x" . tempel-expand))
@@ -204,13 +204,5 @@
   (add-hook 'completion-at-point-functions #'cape-file)
   (add-hook 'completion-at-point-functions #'cape-history)
   (add-hook 'completion-at-point-functions #'cape-elisp-block))
-
-;; tramp remote guix systems (wolk-jjba)
-;;
-;; (add-to-list 'tramp-remote-path "/run/current-system/profile/bin/")
-;; (setq shell-prompt-pattern "^[^λω#$%>]*[#λω$%>] *")
-;; /ssh:wolk-jjba:/home/joe/.bash_history
-;;
-
 
 ;;; init.el ends here
