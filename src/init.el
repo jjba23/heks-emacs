@@ -110,6 +110,9 @@
                            ))
 (mapc (lambda(f) (load-user-file (format "modules/%s.el" f))) heks-emacs-modules)
 
+;; load heks-linux bridge
+(ignore-errors
+  (load-user-file "heks-linux-bridge.el"))
 
 (use-package magit :ensure t :after (transient compat))
 
