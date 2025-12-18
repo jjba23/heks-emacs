@@ -47,7 +47,7 @@ Otherwise feel free to ~setopt~ these:
           heks-emacs-notes-roam-dir "~/Hacking/private-notes"
           heks-emacs-ews-music-directory "")
 #+end_src
-:
+
 
   ------------------------  
   
