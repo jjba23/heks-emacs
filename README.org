@@ -36,6 +36,18 @@ maak full-install-emacs-config
 
 If you don't want to use Maak, you can just look at ~maak.scm~ to look at installation procedure, and copy relevant files.
 
+You can customize it with these variables. If you use [[https://codeberg.org/jjba23/heks-linux][Heks GNU/Linux]], there is a heks-linux bridge available there.
+Otherwise feel free to ~setopt~ these:
+#+begin_src elisp
+-  (setopt heks-emacs-font-mono "Adwaita Mono"
+-          heks-emacs-font-sans "Adwaita Sans"
+-          heks-emacs-theme 'modus-vivendi
+-          heks-emacs-clone-dir "~/Hacking/heks-emacs"
+-          heks-emacs-notes-roam-dir "~/Hacking/private-notes"
+-          heks-emacs-ews-music-directory "")
+#+end_src
+:
+
   ------------------------  
   
 * Licensing
