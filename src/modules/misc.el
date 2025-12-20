@@ -74,6 +74,9 @@
 (use-package gnuplot
   :ensure t)
 
+(use-package nyan-mode
+  :ensure t)
+
 
 (provide 'heks-emacs/misc)
 

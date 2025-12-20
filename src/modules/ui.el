@@ -315,11 +315,27 @@ According to size, color and font family"
 
 (use-package modusregel
   :ensure (:host codeberg :repo "jjba23/modusregel" :branch "trunk")
+  :after (nyan-mode)
   :demand t
-  :after (keycast)
   :config
-  (add-to-list 'modusregel-format '("" keycast-mode-line) t)
-  (setq-default mode-line-format modusregel-format))
+  (setq-default mode-line-format   (list
+                                    modusregel-leading-str
+                                    modusregel-buffer-name-expr
+                                    modusregel-buffer-modified-str
+                                    modusregel-spacer-str
+                                    ;; you need nyan-mode package installed for nyan
+                                    modusregel-nyan-expr
+                                    ;;
+                                    modusregel-spacer-str
+                                    modusregel-line-number-str
+                                    modusregel-spacer-str
+                                    modusregel-buffer-position-str
+                                    modusregel-spacer-str
+                                    modusregel-vc-expr
+                                    modusregel-major-mode-expr
+                                    modusregel-spacer-str
+                                    modusregel-flymake-expr
+                                    keycast-mode-line)))
 
 (use-package keycast
   :ensure t
