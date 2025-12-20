@@ -44,7 +44,9 @@
 
 (use-package nyan-mode
   :ensure t
-  :demand t)
+  :demand t
+  :config
+  (setq nyan-bar-length 16))
 
 (use-package modusregel
   :ensure (:host codeberg :repo "jjba23/modusregel" :branch "trunk")
