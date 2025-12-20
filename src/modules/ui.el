@@ -278,7 +278,8 @@ According to size, color and font family"
           (setq heks-emacs-is-first-frame nil)))
       (heks-emacs-set-base-faces)))
 
-  (add-hook 'server-after-make-frame-hook 'new-frame-setup))
+  (add-hook 'server-after-make-frame-hook 'new-frame-setup)
+  (add-hook 'server-after-make-frame-hook #'my-set-custom-modeline))
 
 (use-package nerd-icons :ensure t)
 
