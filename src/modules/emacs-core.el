@@ -21,6 +21,7 @@
 
 ;;; Code:
 
+
 (use-package project
   :init
   (setq project-vc-extra-root-markers '(".envrc")))
@@ -41,8 +42,19 @@
   (which-key-setup-minibuffer)
   (which-key-mode))
 
+(use-package nyan-mode
+  :ensure t
+  :demand t)
+
+(use-package modusregel
+  :ensure (:host codeberg :repo "jjba23/modusregel" :branch "trunk")
+  :demand t
+  )
+
+
 (use-package emacs
   :ensure nil
+  :after (modusregel)
   :bind (("C-x C-b" . ibuffer)
          ("C-c a h" . highlight-compare-buffers)
          ("C-c l d" . toggle-debug-on-error)
@@ -142,6 +154,30 @@
                                ))
 
   (global-hl-line-mode +1)
+
+  (defun my-set-custom-modeline ()
+    "Force the custom mode-line format."
+    (setq mode-line-format (list
+                            modusregel-leading-str
+                            modusregel-buffer-name-expr
+                            modusregel-buffer-modified-str
+                            modusregel-spacer-str
+                            ;; you need nyan-mode package installed for nyan
+                            modusregel-nyan-expr
+                            ;;
+                            modusregel-spacer-str
+                            modusregel-line-number-str
+                            modusregel-spacer-str
+                            modusregel-buffer-position-str
+                            modusregel-spacer-str
+                            modusregel-vc-expr
+                            modusregel-major-mode-expr
+                            modusregel-spacer-str
+                            modusregel-flymake-expr
+                            keycast-mode-line))    )
+
+  (add-hook 'after-change-major-mode-hook #'my-set-custom-modeline)
+  
   (setq-default cursor-type 'bar)
   (setopt treesit-extra-load-path (list "~/.emacs.d/tree-sitter-grammars"))
 

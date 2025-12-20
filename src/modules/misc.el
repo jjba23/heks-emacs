@@ -72,10 +72,8 @@
 ;;   (add-hook hook #'jinx-mode))
 
 (use-package gnuplot
-  :ensure t)
-
-(use-package nyan-mode
-  :ensure t)
+  :ensure t
+  :demand t)
 
 
 (provide 'heks-emacs/misc)
