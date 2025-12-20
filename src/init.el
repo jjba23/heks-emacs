@@ -76,9 +76,7 @@
   (interactive "f")
   "Load a file in current user's configuration directory, often ~/.emacs.d, ignoring errors for resilience"
   (if (file-exists-p (expand-file-name file user-init-dir))
-      (progn
-        (ignore-errors
-          (load-file (expand-file-name file user-init-dir))))
+      (load-file (expand-file-name file user-init-dir))
     (message (format "file doesn't exist: %s" (expand-file-name file user-init-dir)))))
 
 ;; ====== Load user modules ======
@@ -89,10 +87,10 @@
 (setq heks-emacs-modules '(
                            common-lisp
                            consult
-                           dashboard
                            dev
                            dired
                            eglot
+                           dashboard
                            emacs-core
                            erc
                            go

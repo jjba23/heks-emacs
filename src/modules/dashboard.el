@@ -22,10 +22,10 @@
 ;;; Code:
 
 (setq joe-welkomscherm/bookmarks-list
-      `((("heks-emacs" . ,(string-replace "$HOME" "~" heks-emacs-clone-dir))
-         ("niri" . ,(format "%s/src/heks-emacs/niri.scm" (string-replace "$HOME" "~" heks-emacs-clone-dir))))
+      `((("heks-emacs" . "~/Hacking/heks-emacs")
+         ("niri" . "~/Hacking/heks-linux/src/heks-linux/niri.scm"))
         (("notes" . "~/Hacking/private-notes/")
-         ("pop-test" . "~/Hacking/pop-test/")
+         ("veritas" . "~/Hacking/veritas/")
          ("iter-vitae" . "~/Hacking/iter-vitae/")
          ("jointhefreeworld" . "~/Hacking/jointhefreeworld/"))
         (("wolk-jjba" . "~/Hacking/wolk-jjba/")
@@ -64,13 +64,13 @@
   (setopt welkomscherm/work-list joe-welkomscherm/work-list)
   (setopt welkomscherm/actions-list joe-welkomscherm/actions-list)
   :config
-  (setopt initial-buffer-choice
-          (lambda ()
-            (or
-             (ignore-errors
-               (welkomscherm)
-               (get-buffer welkomscherm/buffer-name))
-             (get-buffer-create "*scratch*")))))
+  (setq initial-buffer-choice
+        (lambda ()
+          (or
+           (ignore-errors
+             (welkomscherm)
+             (get-buffer welkomscherm/buffer-name))
+           (get-buffer-create "*scratch*")))))
 
 (provide 'heks-emacs/dashboard)
 
