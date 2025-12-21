@@ -99,9 +99,11 @@
   :ensure t
   :config
   (cond ((equal heks-emacs-theme 'catppuccin-latte)
+         (setq catppuccin-italic-comments t)
          (setopt catppuccin-flavor 'latte)
          (load-theme 'catppuccin t))
         ((equal heks-emacs-theme 'catppuccin-mocha)
+         (setq catppuccin-italic-comments t)
          (setopt catppuccin-flavor 'mocha)
          (load-theme 'catppuccin t)))
   )

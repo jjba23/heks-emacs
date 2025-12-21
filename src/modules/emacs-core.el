@@ -42,11 +42,11 @@
   (which-key-setup-minibuffer)
   (which-key-mode))
 
-(use-package nyan-mode
-  :ensure t
-  :demand t
-  :config
-  (setq nyan-bar-length 16))
+;; (use-package nyan-mode
+;;   :ensure t
+;;   :demand t
+;;   :config
+;;   (setq nyan-bar-length 12))
 
 (use-package modusregel
   :ensure (:host codeberg :repo "jjba23/modusregel" :branch "trunk")
@@ -165,7 +165,7 @@
                             modusregel-buffer-modified-str
                             modusregel-spacer-str
                             ;; you need nyan-mode package installed for nyan
-                            modusregel-nyan-expr
+                            ;; modusregel-nyan-expr
                             ;;
                             modusregel-spacer-str
                             modusregel-line-number-str

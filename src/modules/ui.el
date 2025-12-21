@@ -199,6 +199,14 @@ According to size, color and font family"
                             :foreground (modus-themes-get-color-value 'bg-active t heks-emacs-theme)
                             :background (modus-themes-get-color-value 'bg-active t heks-emacs-theme))))
 
+    ;; ====== Catppuccin specific tweaks
+    (when (string-prefix-p "catppuccin-mocha" (format "%s" heks-emacs-theme))
+      (ignore-errors
+        (set-face-attribute 'mode-line-active nil
+                            :background (catppuccin-color 'crust))
+        (set-face-attribute 'mode-line-inactive nil
+                            :background (catppuccin-color 'base))))
+
     ;; ======= Gruvbox specific tweaks ===========
 
     (when (equal heks-emacs-theme 'gruvbox-light-hard)
