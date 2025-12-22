@@ -46,4 +46,3 @@
   (remake-emacs-config-dir)
   (install-emacs-config)
   (install-tree-sitter-grammars))
-
