@@ -44,6 +44,7 @@ Otherwise feel free to ~setopt~ these:
 #+begin_src elisp
 (setopt heks-emacs-font-mono "IBM Plex Mono"
           heks-emacs-font-sans "IBM Plex Sans"
+          heks-emacs-font-serif "IBM Plex Serif"
           heks-emacs-theme 'modus-vivendi
           heks-emacs-clone-dir "~/Hacking/heks-emacs"
           heks-emacs-notes-roam-dir "~/Hacking/private-notes"

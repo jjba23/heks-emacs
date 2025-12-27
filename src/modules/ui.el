@@ -91,7 +91,7 @@ According to size, color and font family"
 
     (set-face-attribute 'variable-pitch nil
                         :font heks-emacs-font-sans
-                        :height (tekengrootte-mk-font-size 1.05))
+                        :height (tekengrootte-mk-font-size 1.1))
 
     (set-face-attribute 'button nil :background 'unspecified
                         :weight 'bold)
@@ -142,7 +142,7 @@ According to size, color and font family"
                           :font heks-emacs-font-mono)
       (set-face-attribute 'org-block nil
                           :font heks-emacs-font-mono
-                          :height (tekengrootte-mk-font-size 0.78))
+                          :height (tekengrootte-mk-font-size 0.85))
       (set-face-attribute 'org-code nil
                           :font heks-emacs-font-mono
                           :height (tekengrootte-mk-font-size 0.84))

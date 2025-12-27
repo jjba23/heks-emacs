@@ -42,6 +42,18 @@
   "The name of the Emacs theme to use, acording to HEKS-EMACS palette."
   :type 'symbol)
 
+(defcustom heks-emacs-font-mono "IBM Plex Mono"
+  "The font family to use for monospaced fonts."
+  :type 'string)
+
+(defcustom heks-emacs-font-sans "IBM Plex Sans"
+  "The font family to use for sans-serif fonts."
+  :type 'string)
+
+(defcustom heks-emacs-font-serif "IBM Plex Serif"
+  "The font family to use for serif fonts."
+  :type 'string)
+
 (defcustom heks-emacs-standup-people '("Joe"
                                        "Marcel"
                                        "Andrei"
