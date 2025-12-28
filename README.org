@@ -18,6 +18,10 @@ I recommend you browse the source code and take inspiration from it.
 
 If you like my work, please support me by [[https://bmc.link/jjbigorra][buying me a cup of coffee ☕]] so I can continue with a lot of motivation.
 
+For an in-depth explanation of the modules in this config, see [[file:docs/emacs-modules.org]]
+
+For some tips on mail with Gnus in this config, see [[file:docs/mail-with-gnus.org]]
+
 --------
 
 * Installing
@@ -52,7 +56,8 @@ Otherwise feel free to ~setopt~ these:
 #+end_src
 
 
-  ------------------------  
+------------------------
+
   
 * Licensing
 
