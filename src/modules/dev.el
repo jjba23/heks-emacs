@@ -112,7 +112,8 @@
 ;; Provides a good Scheme REPL integration with Emacs and Guile Ares
 (use-package arei
   :ensure (:host github :repo "abcdw/emacs-arei" :branch "master")
-  :demand t)
+  :demand t
+  :hook ((scheme-mode . arei-mode)))
 
 ;; Provides Geiser for Scheme/Racket development, with an interactive
 ;; environment and language support.
