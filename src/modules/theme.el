@@ -34,6 +34,8 @@
          (load-theme heks-emacs-theme t))
         ((equal heks-emacs-theme 'modus-vivendi)
          (load-theme heks-emacs-theme t))
+        ((equal heks-emacs-theme 'modus-operandi)
+         (load-theme heks-emacs-theme t))
         ((equal heks-emacs-theme 'ef-cyprus)
          (setq ef-cyprus-palette-overrides '((variable fg-main)
                                              (bg-main bg-dim)
