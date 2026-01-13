@@ -37,6 +37,7 @@
          (html-ts-mode . eglot-ensure)
          (js-mode . eglot-ensure)
          (js-ts-mode . eglot-ensure)
+         (kotlin-ts-mode . eglot-ensure)
          (yaml-mode . eglot-ensure)
          (yaml-ts-mode . eglot-ensure)
          (before-save . eglot-format-buffer))

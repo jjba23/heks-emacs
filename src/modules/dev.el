@@ -218,7 +218,7 @@
 
 (use-package kotlin-ts-mode
   :ensure t
-  :mode "\\.kt\\'")
+  :mode ("\\.kt\\'" "\\.kts\\'"))
 
 (provide 'heks-emacs/dev)
 
