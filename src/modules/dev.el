@@ -216,6 +216,10 @@
 (use-package justl
   :ensure t)
 
+(use-package kotlin-ts-mode
+  :ensure t
+  :mode "\\.kt\\'")
+
 (provide 'heks-emacs/dev)
 
 ;;; dev.el ends here
