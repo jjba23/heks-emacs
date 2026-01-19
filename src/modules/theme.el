@@ -61,10 +61,10 @@
   :ensure (:host github :repo "Theory-of-Everything/everforest-emacs" :branch "master2")
   :no-require t
   :config
-  (cond ((equal heks-emacs-theme 'everforest-hard-dark)
-         (load-theme heks-emacs-theme t))
-        ((equal heks-emacs-theme 'everforest-hard-light)
-         (load-theme heks-emacs-theme t))))
+  (cond ((equal heks-emacs-theme 'everforest-dark)
+         (load-theme 'everforest-hard-dark t))
+        ((equal heks-emacs-theme 'everforest-light)
+         (load-theme 'everforest-hard-light t))))
 
 (use-package gruvbox-theme
   :ensure (:host github :repo "greduan/emacs-theme-gruvbox" :branch "master")
