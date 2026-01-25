@@ -22,6 +22,11 @@ For an in-depth explanation of the modules in this config, see [[file:docs/emacs
 
 For some tips on mail with Gnus in this config, see [[file:docs/mail-with-gnus.org]]
 
+
+---------
+
+[[https://jointhefreeworld.org/static-assets/heks/screen-2026-01-25-23-38-10.png]]
+
 --------
 
 * Installing
