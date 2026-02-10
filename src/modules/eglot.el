@@ -59,9 +59,19 @@
   :config
   (setq eglot-server-programs (assq-delete-all 'scala-mode eglot-server-programs))
   (setq eglot-server-programs (assq-delete-all 'scala-ts-mode eglot-server-programs))
-  (add-to-list 'eglot-server-programs `(scala-ts-mode . ("metals" :initializationOptions (:isHttpEnabled t))))
+
+  (setq eglot-server-programs (assoc-delete-all 'scala-ts-mode eglot-server-programs))
+
+  (add-to-list 'eglot-server-programs `(scala-ts-mode . ("metals"
+                                                         "-Xmx4G"
+                                                         "-XX:+UseZGC"
+                                                         "-Dmetals.http=true"
+                                                         :initializationOptions (:isHttpEnabled t))))
+  
   (add-to-list 'eglot-server-programs '(nix-ts-mode . ("nil")))
+  
   ;; (add-to-list 'eglot-server-programs '(kotlin-ts-mode . ("kotlin-lsp")))
+  
   (add-to-list 'eglot-server-programs '(markdown-mode . ("marksman")))
 
   (setq-default eglot-workspace-configuration
@@ -76,7 +86,7 @@
                                           :implicitConversions (:enable nil )
                                           :typeParameters (:enable t )
                                           :hintsInPatternMatch (:enable nil ))
-                            :bloopJvmProperties ["-Xmx2G"])
+                            :bloopJvmProperties ["-Xmx4G"])
                   :haskell (:formattingProvider "ormolu")
                   :typescript (:format (:baseIndentSize 0
                                                         :convertTabsToSpaces t
