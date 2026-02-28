@@ -126,8 +126,11 @@
   (setopt dired-listing-switches "-lAh --group-directories-first"
           dired-kill-when-opening-new-dired-buffer t)
 
+  
   (add-hook 'dired-mode-hook
-            (lambda () (dired-hide-details-mode 1)))
+            (lambda () (dired-hide-details-mode 1)
+              (auto-revert-mode)))
+
   (setq-default indent-tabs-mode nil)
   (global-prettify-symbols-mode +1)
 
@@ -164,7 +167,9 @@
                             modusregel-buffer-name-expr
                             modusregel-buffer-modified-str
                             modusregel-spacer-str
-                            ;; you need nyan-mode package installed for nyan
+                            ;; you need nyan-mode package installed for
+                            ;; custom Nyan Cat progress bar and more goodies
+                            ;;
                             ;; modusregel-nyan-expr
                             ;;
                             modusregel-spacer-str
