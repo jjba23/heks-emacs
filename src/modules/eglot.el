@@ -55,6 +55,8 @@
         eglot-confirm-server-edits nil
         eglot-report-progress t
         eglot-extend-to-xref t
+        eglot-sync-connect 1
+        eglot-connect-timeout 60
         eglot-autoreconnect t)
   :config
   (setq eglot-server-programs (assq-delete-all 'scala-mode eglot-server-programs))
@@ -71,7 +73,7 @@
   (add-to-list 'eglot-server-programs '(nix-ts-mode . ("nil")))
 
   (setq eglot-server-programs (assoc-delete-all 'kotlin-ts-mode eglot-server-programs))
-  (add-to-list 'eglot-server-programs '(kotlin-ts-mode . ("kotlin-lsp")))
+  (add-to-list 'eglot-server-programs '(kotlin-ts-mode . ("kotlin-lsp" "--stdio")))
   
   (add-to-list 'eglot-server-programs '(markdown-mode . ("marksman")))
 
