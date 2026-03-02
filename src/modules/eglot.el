@@ -69,8 +69,9 @@
                                                          :initializationOptions (:isHttpEnabled t))))
   
   (add-to-list 'eglot-server-programs '(nix-ts-mode . ("nil")))
-  
-  ;; (add-to-list 'eglot-server-programs '(kotlin-ts-mode . ("kotlin-lsp")))
+
+  (setq eglot-server-programs (assoc-delete-all 'kotlin-ts-mode eglot-server-programs))
+  (add-to-list 'eglot-server-programs '(kotlin-ts-mode . ("kotlin-lsp")))
   
   (add-to-list 'eglot-server-programs '(markdown-mode . ("marksman")))
 

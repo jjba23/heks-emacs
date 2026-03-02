@@ -19,6 +19,9 @@
   #:declarative? #t
   #:use-module (maak maak))
 
+(define (default)
+  (list-tasks))
+
 (define emacs-config-install-dir
   (~ "\"~a\"" "$HOME/.emacs.d/"))
 
