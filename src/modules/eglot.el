@@ -139,6 +139,9 @@
 
   )
 
+(use-package eglot-java
+  :ensure t
+  :hook (java-mode . eglot-java-mode))
 
 (provide 'heks-emacs/eglot)
 
