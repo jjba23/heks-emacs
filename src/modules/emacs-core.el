@@ -86,7 +86,11 @@
   
   ;; Soft-wrap lines in text-heavy modes
   :hook ((text-mode . visual-line-mode))
-  
+  :custom
+  ;; Support opening new minibuffers from inside existing minibuffers.
+  (enable-recursive-minibuffers t)
+  (minibuffer-prompt-properties
+   '(read-only t cursor-intangible t face minibuffer-prompt))
   :config
   ;; --- UI & Visual Tweaks ---
   (setq-default line-spacing 6

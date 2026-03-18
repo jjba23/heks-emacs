@@ -157,7 +157,9 @@
   :ensure t
   :custom
   (completion-styles '(orderless basic))
-  (completion-category-overrides '((file (styles basic partial-completion)))))
+  (completion-category-overrides '((file (styles partial-completion))))
+  (completion-category-defaults nil)
+  (completion-pcm-leading-wildcard t))
 
 ;; TODO work on debugger support (use GUD? Realgud? DAPE?)
 ;; (use-package dape
