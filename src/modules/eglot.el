@@ -143,6 +143,11 @@
   :ensure t
   :hook (java-mode . eglot-java-mode))
 
+(use-package jarchive
+  :ensure t
+  :config
+  (jarchive-mode))
+
 (provide 'heks-emacs/eglot)
 
 ;;; eglot.el ends here

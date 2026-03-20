@@ -129,6 +129,24 @@
   (cond ((equal heks-emacs-theme 'kaolin-dark)
          (load-theme 'kaolin-dark t))))
 
+(use-package doom-themes
+  :ensure t
+  :custom
+  (doom-themes-enable-bold t)
+  (doom-themes-enable-italic t)
+  :config
+  (cond ((equal heks-emacs-theme 'doom-tomorrow-night)
+         (load-theme 'doom-tomorrow-night t)))
+
+  ;; Enable flashing mode-line on errors
+  (doom-themes-visual-bell-config)
+  ;; Enable custom neotree theme (nerd-icons must be installed!)
+  (doom-themes-neotree-config)
+  ;; or for treemacs users
+  (doom-themes-treemacs-config)
+  ;; Corrects (and improves) org-mode's native fontification.
+  (doom-themes-org-config))
+
 (provide 'heks-emacs/theme)
 
 ;;; theme.el ends here
