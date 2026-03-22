@@ -220,9 +220,13 @@
   :ensure t
   :mode ("\\.kt\\'" "\\.kts\\'"))
 
-;; Provides an interactive AI coding assistant within Emacs.
-(use-package eca
-  :ensure t)
+(use-package pandoc-mode :ensure t)
+
+;; TODO work on debugger support (use GUD? Realgud? DAPE?)
+;; (use-package dape
+;;   :ensure t
+;;   :init (setq dape-buffer-window-arrangement 'gud))
+
 
 (provide 'heks-emacs/dev)
 

@@ -85,15 +85,20 @@
 
 ;; Load more user modules
 (setq heks-emacs-modules '(
+                           ai
                            common-lisp
+                           completion
                            consult
+                           dashboard
                            dev
                            dired
+                           editor
                            eglot
-                           dashboard
                            emacs-core
                            erc
+                           git
                            go
+                           help
                            libs
                            macros
                            mail
@@ -101,8 +106,11 @@
                            misc
                            music
                            org
+                           plot
+                           proofreading
                            search
                            shell
+                           snippets
                            theme
                            ui
                            ))
