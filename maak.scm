@@ -20,15 +20,19 @@
   #:use-module (maak maak))
 
 (define (default)
+  "Default maak task."
   (list-tasks))
 
 (define emacs-config-install-dir
+  "Emacs configuration installation directory."
   (~ "\"~a\"" "$HOME/.emacs.d/"))
 
 (define (remake-emacs-config-dir)
+  "Remake the Emacs configuration directory."
   (remkdir-p emacs-config-install-dir))
 
 (define (install-emacs-config)
+  "Install the Emacs configuration."
   (cp "src/init.el" emacs-config-install-dir)
   (cp "src/early-init.el" emacs-config-install-dir)
   (cp "src/batch-indent.el" emacs-config-install-dir)
@@ -36,9 +40,11 @@
   (cp "src/snippets" emacs-config-install-dir))
 
 (define tree-sitter-grammars-url
+  "Tree-sitter grammars URL."
   "https://github.com/casouri/tree-sitter-module/releases/download/v2.5/libs-linux-x64.zip")
 
 (define (install-tree-sitter-grammars)
+  "Install the tree-sitter grammars."
   ($ '("rm -rfv ~/.emacs.d/tree-sitter-grammars"))
   ($ (list (~ "wget ~a" tree-sitter-grammars-url)))
   ($ '("unzip libs-linux-x64"))
@@ -46,6 +52,7 @@
   ($ '("rm -rfv libs-linux-x64.zip")))
 
 (define (full-install-emacs-config)
+  "Fully install the Emacs configuration."
   (remake-emacs-config-dir)
   (install-emacs-config)
   (install-tree-sitter-grammars))
