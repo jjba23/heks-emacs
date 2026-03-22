@@ -142,7 +142,13 @@ According to size, color and font family"
                           :font heks-emacs-font-mono)
       (set-face-attribute 'org-block nil
                           :font heks-emacs-font-mono
-                          :height (tekengrootte-mk-font-size 0.85))
+                          :height (tekengrootte-mk-font-size 0.9))
+      (set-face-attribute 'org-block-end-line nil
+                          :font heks-emacs-font-mono
+                          :height (tekengrootte-mk-font-size 0.9))
+      (set-face-attribute 'org-block-begin-line nil
+                          :font heks-emacs-font-mono
+                          :height (tekengrootte-mk-font-size 0.9))
       (set-face-attribute 'org-code nil
                           :font heks-emacs-font-mono
                           :height (tekengrootte-mk-font-size 0.84))
