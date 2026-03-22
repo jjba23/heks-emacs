@@ -220,6 +220,10 @@
   :ensure t
   :mode ("\\.kt\\'" "\\.kts\\'"))
 
+;; Provides an interactive AI coding assistant within Emacs.
+(use-package eca
+  :ensure t)
+
 (provide 'heks-emacs/dev)
 
 ;;; dev.el ends here
