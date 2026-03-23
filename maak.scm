@@ -23,8 +23,8 @@
   "Default maak task."
   (list-tasks))
 
+;; Emacs configuration installation directory.
 (define emacs-config-install-dir
-  "Emacs configuration installation directory."
   (~ "\"~a\"" "$HOME/.emacs.d/"))
 
 (define (remake-emacs-config-dir)
@@ -39,8 +39,8 @@
   (cp "src/modules" emacs-config-install-dir)
   (cp "src/snippets" emacs-config-install-dir))
 
+;; Tree-sitter grammars URL.
 (define tree-sitter-grammars-url
-  "Tree-sitter grammars URL."
   "https://github.com/casouri/tree-sitter-module/releases/download/v2.5/libs-linux-x64.zip")
 
 (define (install-tree-sitter-grammars)

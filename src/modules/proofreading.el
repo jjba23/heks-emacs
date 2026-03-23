@@ -21,8 +21,8 @@
 
 ;;; Code:
 
+;; Jinx is a fast just-in-time spell-checker for Emacs.
 (use-package jinx
-  "Jinx is a fast just-in-time spell-checker for Emacs."
   :ensure t
   :demand t
   :bind (("M-$" . jinx-correct)

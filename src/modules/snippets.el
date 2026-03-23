@@ -21,8 +21,8 @@
 
 ;;; Code:
 
+;; Tempel is a tiny template package for Emacs, which uses the syntax of the Emacs Tempo library.
 (use-package tempel
-  "Tempel is a tiny template package for Emacs, which uses the syntax of the Emacs Tempo library."
   :ensure (:host github :repo "minad/tempel" :branch "main")
   :bind (("C-c s c" . tempel-complete)
          ("C-c s i" . tempel-insert)

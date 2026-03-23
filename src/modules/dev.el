@@ -227,13 +227,8 @@
 ;;   :ensure t
 ;;   :init (setq dape-buffer-window-arrangement 'gud))
 
-(use-package graphql-ts-mode
-  :ensure t
-  :mode ("\\.graphql\\'" "\\.gql\\'")
-  :init
-  (with-eval-after-load 'treesit
-    (add-to-list 'treesit-language-source-alist
-                 '(graphql "https://github.com/bkegley/tree-sitter-graphql"))))
+(use-package graphql-mode
+  :ensure t)
 
 (provide 'heks-emacs/dev)
 
