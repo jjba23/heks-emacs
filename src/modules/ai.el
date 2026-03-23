@@ -35,4 +35,6 @@
 (use-package eca
   :ensure t)
 
+(provide 'heks-emacs/ai)
+
 ;;; ai.el ends here

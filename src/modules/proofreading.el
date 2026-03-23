@@ -41,4 +41,6 @@
 ;;                 markdown-mode-hook))
 ;;   (add-hook hook #'jinx-mode))
 
+(provide 'heks-emacs/proofreading)
+
 ;;; proofreading.el ends here

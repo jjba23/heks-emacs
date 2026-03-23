@@ -34,4 +34,6 @@
   :ensure t
   :config (move-text-default-bindings))
 
+(provide 'heks-emacs/editor)
+
 ;;; editor.el ends here

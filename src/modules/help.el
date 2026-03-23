@@ -31,4 +31,6 @@
          ("C-h F" . helpful-function)
          ("C-h C" . helpful-command)))
 
+(provide 'heks-emacs/help)
+
 ;;; help.el ends here
