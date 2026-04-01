@@ -163,6 +163,9 @@
   (setopt dired-listing-switches "-lAh --group-directories-first" ; Human readable, dirs at the top
           dired-kill-when-opening-new-dired-buffer t)             ; Keep buffer list clean
 
+  (add-to-list 'set-message-functions 'inhibit-message)
+  (add-to-list 'inhibit-message-regexps "replicasets\\.apps is forbidden")
+
   (add-hook 'dired-mode-hook
             (lambda ()
               (dired-hide-details-mode 1)     ; Hide ownership/permissions by default for cleaner look
