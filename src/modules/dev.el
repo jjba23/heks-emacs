@@ -235,7 +235,10 @@
   :commands (kubernetes-overview)
   :config
   (setq kubernetes-poll-frequency 3600
-        kubernetes-redraw-frequency 3600))
+        kubernetes-redraw-frequency 3600
+        kubernetes-overview-custom-views-alist '((default (nodes pods deployments))))
+  (add-to-list 'set-message-functions 'inhibit-message)
+  (add-to-list 'inhibit-message-regexps "is forbidden"))
 
 (provide 'heks-emacs/dev)
 
