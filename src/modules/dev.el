@@ -230,6 +230,13 @@
 (use-package graphql-mode
   :ensure t)
 
+(use-package kubernetes
+  :ensure (:host github :repo "kubernetes-el/kubernetes-el" :branch "master")
+  :commands (kubernetes-overview)
+  :config
+  (setq kubernetes-poll-frequency 3600
+        kubernetes-redraw-frequency 3600))
+
 (provide 'heks-emacs/dev)
 
 ;;; dev.el ends here
