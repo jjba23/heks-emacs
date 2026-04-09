@@ -43,6 +43,19 @@ Useful for libraries where you want to allow users to redefine values."
   (yank nil)
   (insert ")"))
 
+(defun kbd-scheme-string-to-symbol-in-alist-access ()
+  "Replace something like (assoc-ref job \"job_id\") by (assq-ref job 'job_id) ."
+  (interactive)
+  (kill-word 1)
+  (insert "assq")
+  (forward-sexp 1 (point))
+  (forward-sexp 1 (point))
+  (forward-sexp 1 (point))
+  (backward-sexp 1 (point))
+  (delete-char 1 nil)
+  (insert "'")
+  (forward-sexp 1 (point))
+  (delete-char 1 nil))
 
 (provide 'heks-emacs/macros)
 

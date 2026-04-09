@@ -82,6 +82,7 @@
          ("C-c t w" . delete-trailing-whitespace)
          ("C-c t c" . display-fill-column-indicator-mode)
          ("C-c t p" . kbd-scheme-make-parameter)
+         ("C-c t m" . kbd-scheme-string-to-symbol-in-alist-access)
          ("C-c t h" . kbd-scheme-hygguile-abstraction))
   
   ;; Soft-wrap lines in text-heavy modes
