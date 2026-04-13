@@ -69,8 +69,8 @@
 (use-package gruvbox-theme
   :ensure (:host github :repo "greduan/emacs-theme-gruvbox" :branch "master")
   :config
-  (cond ((equal heks-emacs-theme 'gruvbox-dark-hard) (load-theme heks-emacs-theme t))
-        ((equal heks-emacs-theme 'gruvbox-light-hard) (load-theme heks-emacs-theme t))))
+  (cond ((equal heks-emacs-theme 'gruvbox-dark) (load-theme 'gruvbox-dark-hard t))
+        ((equal heks-emacs-theme 'gruvbox-light) (load-theme 'gruvbox-light-hard t))))
 
 (use-package dracula-theme
   :ensure t
