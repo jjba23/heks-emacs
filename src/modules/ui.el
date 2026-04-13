@@ -317,7 +317,8 @@ According to size, color and font family"
            :right-fringe-width 16))
   (setq spacious-padding-subtle-mode-line nil)
   :config
-  (spacious-padding-mode))
+  (spacious-padding-mode)
+  (set-face-attribute 'internal-border nil :background 'unspecified :inherit 'default))
 
 (use-package svg-lib
   :ensure (:host github :repo "rougier/svg-lib" :branch "master"))
