@@ -39,7 +39,7 @@
   (setq which-key-sort-order 'which-key-key-order-alpha
         which-key-max-description-length 35)
   ;; Fast enough to be useful, slow enough not to flash
-  (setq-default which-key-idle-delay 0.4) 
+  (setq-default which-key-idle-delay 0.4)
   (which-key-setup-minibuffer)
   (which-key-mode))
 
@@ -59,7 +59,7 @@
 (use-package emacs
   :ensure nil
   :after (modusregel)
-  
+
   ;; --- Global Keybindings ---
   ;; Note: Custom heks-emacs-* functions must be defined elsewhere
   :bind (("C-x C-b" . ibuffer) ; Use the superior interactive buffer menu
@@ -84,7 +84,7 @@
          ("C-c t p" . kbd-scheme-make-parameter)
          ("C-c t m" . kbd-scheme-string-to-symbol-in-alist-access)
          ("C-c t h" . kbd-scheme-hygguile-abstraction))
-  
+
   ;; Soft-wrap lines in text-heavy modes
   :hook ((text-mode . visual-line-mode))
   :custom
@@ -186,6 +186,96 @@
                                ((derived-mode . completion-list-mode)
                                 (display-buffer-use-some-window))))
 
+  ;; --- Disable Bidirectional Text Scanning  ---
+  ;; If you don’t edit right-to-left languages (like me), Emacs is doing a bunch of work on every redisplay cycle for nothing.
+  ;; These settings tell Emacs to assume left-to-right text everywhere and skip the bidirectional parenthesis algorithm:
+
+  (setq-default bidi-display-reordering 'left-to-right
+                bidi-paragraph-direction 'left-to-right)
+
+  (setq bidi-inhibit-bpa t)
+
+  ;; --- Skip Fontification During Input ---
+  ;; Emacs normally fontifies (syntax-highlights) text even while you’re actively typing.
+  ;; This can cause micro-stutters, especially in tree-sitter modes or large buffers.
+  ;; One setting fixes it:
+
+  (setq redisplay-skip-fontification-on-input t)
+
+  ;; --- Increase Process Output Buffer for LSP ---
+  ;; The default read-process-output-max is 64KB, which is still quite conservative.
+  ;; Modern LSP servers like rust-analyzer or clangd routinely send multi-megabyte responses.
+  ;; Bumping this reduces the number of read calls Emacs has to make.
+  ;; If you use eglot (or lsp-mode), this is basically free performance.
+
+  (setq read-process-output-max (* 6 1024 1024)) ; 6MB
+
+  ;; --- Don’t Render Cursors in Non-Focused Windows ---
+  ;; If you have several windows visible, Emacs draws a cursor in each of them – even the ones you’re not working in.
+  ;; It also highlights selections in non-focused windows. Two settings to stop that:
+
+  (setq-default cursor-in-non-selected-windows nil)
+  (setq highlight-nonselected-windows nil)
+
+  ;; --- Save the Clipboard Before Killing ---
+  ;; Here’s a scenario: you copy a URL from your browser, switch to Emacs, kill a line with C-k, and then try to yank the URL you copied earlier with C-y.
+  ;; Gone. The kill replaced it on the clipboard.
+  ;; This setting makes Emacs save the existing clipboard content into the kill ring before overwriting it:
+  ;; Now C-y gets the kill, and M-y gets you back to the URL. Such a small thing, but it eliminates a genuinely annoying problem.
+
+  (setq save-interprogram-paste-before-kill t)
+
+  ;; --- No Duplicates in the Kill Ring ---
+  ;; Kill the same line three times and you get three identical entries in the kill ring, wasting slots.
+  ;; This deduplicates them:
+
+  (setq kill-do-not-save-duplicates t)
+
+  ;; --- Persist the Kill Ring Across Sessions ---
+  ;; Most configs that use savehist-mode only persist search rings. But savehist can save any variable – including the kill ring.
+  ;; Add it and you get clipboard history that survives restarts:
+
+  (setq savehist-additional-variables
+        '(search-ring regexp-search-ring kill-ring))
+
+  ;; One thing to watch out for: the kill ring can accumulate text properties (fonts, overlays, etc.) that bloat the savehist file.
+  ;; With this you strip them before saving:
+  (add-hook 'savehist-save-hook
+            (lambda ()
+              (setq kill-ring
+                    (mapcar #'substring-no-properties
+                            (cl-remove-if-not #'stringp kill-ring)))))
+
+  ;; --- Prevent ffap from Pinging Hostnames ---
+  ;; Ever had Emacs freeze for a few seconds when you ran find-file-at-point (or a command that uses it internally)?
+  ;; If the text under point looks like a hostname – say, something.com in a comment
+  ;; ffap tries to ping it to check if it’s reachable. On a slow or firewalled network, that’s a multi-second hang.
+
+  (setq ffap-machine-p-known 'reject)
+
+  ;; --- Faster Mark Popping ---
+  ;; The mark ring is one of Emacs’s most underused navigation features.
+  ;; Every time you jump somewhere – isearch, M-<, M->, goto-line, imenu, and many more
+  ;; Emacs pushes your old position onto the mark ring. C-u C-SPC pops it, jumping you back.
+  ;; The annoyance: you need C-u C-SPC every single time.
+  ;; With this setting, after the first C-u C-SPC you can keep pressing just C-SPC to continue popping:
+
+  (setq set-mark-command-repeat-pop t)
+
+  ;; --- Auto-Select Help Windows ---
+  ;; When you press C-h f or C-h v, Emacs opens the help buffer but leaves your cursor in the original window.
+  ;; You almost always want to read the help right away, so you end up pressing C-x o every single time. This fixes it:
+
+  (setq help-window-select t)
+
+  ;; --- Proportional Window Resizing ---
+  ;; When you split a window with C-x 2 or C-x 3, Emacs halves the current window.
+  ;; If you already have a multi-window layout, this can produce one awkwardly tiny window while others stay large.
+  ;; With this setting, all windows in the frame resize proportionally:
+
+  (setq window-combination-resize t)
+
+
   ;; --- Custom Modeline Construction ---
   (defun my-set-custom-modeline ()
     "Customize mode-line format using modusregel."
@@ -194,10 +284,10 @@
                             modusregel-buffer-name-expr
                             modusregel-buffer-modified-str
                             modusregel-spacer-str
-                            
+
                             ;; Uncomment if nyan-mode is enabled above
                             ;; modusregel-nyan-expr
-                            
+
                             modusregel-spacer-str
                             modusregel-line-number-str
                             modusregel-spacer-str
@@ -222,4 +312,3 @@
 (provide 'heks-emacs/emacs-self)
 
 ;;; emacs-core.el ends here
-
