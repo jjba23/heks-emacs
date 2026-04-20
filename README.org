@@ -37,6 +37,8 @@ For installing heks-emacs in one go, do:
 maak install-emacs-config
 #+end_src
 
+Since heks-emacs is a compilation of several packages and libraries, it's very likely you may need to restart Emacs a couple times before everything works in harmony, as packages get installed and loaded and dependency trees resolved.
+
 For a oneline command to nuke (destroy) your existing Emacs and replace it with heks-emacs, do:
 #+begin_src shell
 maak full-install-emacs-config
@@ -46,9 +48,9 @@ If you don't want to use Maak, you can just look at ~maak.scm~ to look at instal
 
 -----------------------------------
 
-You can customize it with these variables. If you use [[https://codeberg.org/jjba23/heks-linux][Heks GNU/Linux]], there is a heks-linux bridge available there.
+You can customize heks-emacs with these variables. 
 
-Otherwise feel free to ~setopt~ these:
+Feel free to ~setopt~ these:
 #+begin_src elisp
 (setopt heks-emacs-font-mono "IBM Plex Mono"
           heks-emacs-font-sans "IBM Plex Sans"
@@ -58,6 +60,10 @@ Otherwise feel free to ~setopt~ these:
           heks-emacs-notes-roam-dir "~/Hacking/private-notes"
           heks-emacs-ews-music-directory "~/Music")
 #+end_src
+
+** The bridges
+
+If you use [[https://codeberg.org/jjba23/heks-linux][Heks GNU/Linux]], there is a heks-emacs bridge available there.
 
 
 ------------------------
