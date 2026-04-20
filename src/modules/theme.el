@@ -136,7 +136,9 @@
   (doom-themes-enable-italic t)
   :config
   (cond ((equal heks-emacs-theme 'doom-tomorrow-night)
-         (load-theme 'doom-tomorrow-night t)))
+         (load-theme 'doom-tomorrow-night t))
+        ((equal heks-emacs-theme 'doom-molokai)
+         (load-theme 'doom-molokai t)))
 
   ;; Enable flashing mode-line on errors
   (doom-themes-visual-bell-config)
