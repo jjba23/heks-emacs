@@ -147,6 +147,19 @@
   ;; Corrects (and improves) org-mode's native fontification.
   (doom-themes-org-config))
 
+(use-package autothemer :ensure t)
+
+(use-package rose-pine-emacs
+  :ensure (:host github :repo "thongpv87/rose-pine-emacs" :branch "master")
+  :config
+  (cond
+   ((equal heks-emacs-theme 'rose-pine-color)
+    (load-theme heks-emacs-theme t))
+   ((equal heks-emacs-theme 'rose-pine-moon)
+    (load-theme heks-emacs-theme t))
+   ((equal heks-emacs-theme 'rose-pine-dawn)
+    (load-theme heks-emacs-theme t))))
+
 (provide 'heks-emacs/theme)
 
 ;;; theme.el ends here
