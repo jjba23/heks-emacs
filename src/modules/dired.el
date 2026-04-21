@@ -25,6 +25,7 @@
 
 (use-package dired-subtree
   :ensure t
+  :hook ((dired-subtree-after-insert . nerd-icons-dired--refresh))
   :config
   (set-face-attribute 'dired-subtree-depth-1-face nil
                       :background 'unspecified)
