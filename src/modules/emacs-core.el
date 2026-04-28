@@ -85,8 +85,12 @@
          ("C-c t m" . kbd-scheme-string-to-symbol-in-alist-access)
          ("C-c t h" . kbd-scheme-hygguile-abstraction))
 
-  ;; Soft-wrap lines in text-heavy modes
-  :hook ((text-mode . visual-line-mode))
+  :hook ((text-mode . visual-line-mode)
+         ((emacs-lisp-mode
+           conf-mode
+           markdown-mode
+           scheme-mode
+           diff-mode) . outline-minor-mode))
   :custom
   ;; Support opening new minibuffers from inside existing minibuffers.
   (enable-recursive-minibuffers t)
