@@ -262,6 +262,11 @@
 
   (setq set-mark-command-repeat-pop t)
 
+  ;; --- Trust some directories ---
+  (add-to-list 'trusted-content "~/.emacs.d/")
+  (add-to-list 'trusted-content "~/Hacking/")
+  (add-to-list 'trusted-content "~/Work/")
+
   ;; --- Auto-Select Help Windows ---
   ;; When you press C-h f or C-h v, Emacs opens the help buffer but leaves your cursor in the original window.
   ;; You almost always want to read the help right away, so you end up pressing C-x o every single time. This fixes it:
