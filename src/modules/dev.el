@@ -245,6 +245,94 @@
   :config
   (add-hook 'xref-backend-functions #'dumb-jump-xref-activate))
 
+(use-package treesit-fold
+  :ensure t
+  :commands (treesit-fold-close
+             treesit-fold-close-all
+             treesit-fold-open
+             treesit-fold-toggle
+             treesit-fold-open-all
+             treesit-fold-mode
+             global-treesit-fold-mode
+             treesit-fold-open-recursively
+             treesit-fold-line-comment-mode)
+
+  :custom
+  (treesit-fold-line-count-show t)
+  (treesit-fold-line-count-format " ▼")
+
+  :hook ((
+          bash-ts-mode
+          c++-ts-mode
+          c-ts-mode
+          cmake-ts-mode
+          css-ts-mode
+          dockerfile-ts-mode
+          elixir-ts-mode
+          go-mod-ts-mode
+          go-ts-mode
+          heex-ts-mode
+          html-ts-mode
+          java-ts-mode
+          js-ts-mode
+          json-ts-mode
+          kotlin-ts-mode
+          lua-ts-mode
+          nix-ts-mode
+          php-ts-mode
+          python-ts-mode
+          ruby-ts-mode
+          rust-ts-mode
+          scala-ts-mode
+          toml-ts-mode
+          tsx-ts-mode
+          tsx-ts-mode
+          typescript-ts-mode
+          yaml-ts-mode
+          ) . treesit-fold-mode)
+
+  :config
+  (set-face-attribute 'treesit-fold-replacement-face nil
+                      :foreground (face-attribute 'default :foreground)
+                      :box nil
+                      :weight 'bold))
+
+(use-package kirigami
+  :ensure t
+  :bind (("C-c v o" . kirigami-open-fold)
+         ("C-c v O" . kirigami-open-fold-rec)
+         ("C-c v r" . kirigami-open-folds)
+         ("C-c v c" . kirigami-close-fold)
+         ("C-c v m" . kirigami-close-folds)
+         ("C-c v a" . kirigami-toggle-fold)))
+
+(use-package stripspace
+  :ensure t
+  :hook ((prog-mode . stripspace-local-mode)
+         (text-mode . stripspace-local-mode)
+         (conf-mode . stripspace-local-mode))
+
+  :custom
+  ;; The `stripspace-only-if-initially-clean' option:
+  ;; - nil to always delete trailing whitespace.
+  ;; - Non-nil to only delete whitespace when the buffer is clean initially.
+  ;; (The initial cleanliness check is performed when `stripspace-local-mode'
+  ;; is enabled.)
+  (stripspace-only-if-initially-clean nil)
+
+  ;; Enabling `stripspace-restore-column' preserves the cursor's column position
+  ;; even after stripping spaces. This is useful in scenarios where you add
+  ;; extra spaces and then save the file. Although the spaces are removed in the
+  ;; saved file, the cursor remains in the same position, ensuring a consistent
+  ;; editing experience without affecting cursor placement.
+  (stripspace-restore-column t))
+
+(use-package elisp-autofmt
+  :ensure t
+  :commands (elisp-autofmt-mode elisp-autofmt-buffer)
+  :hook (emacs-lisp-mode . elisp-autofmt-mode))
+
+
 (provide 'heks-emacs/dev)
 
 ;;; dev.el ends here
