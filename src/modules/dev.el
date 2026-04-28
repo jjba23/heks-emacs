@@ -327,12 +327,6 @@
   ;; editing experience without affecting cursor placement.
   (stripspace-restore-column t))
 
-(use-package elisp-autofmt
-  :ensure t
-  :commands (elisp-autofmt-mode elisp-autofmt-buffer)
-  :hook (emacs-lisp-mode . elisp-autofmt-mode))
-
-
 (provide 'heks-emacs/dev)
 
 ;;; dev.el ends here
