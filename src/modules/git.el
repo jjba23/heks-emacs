@@ -26,6 +26,9 @@
 (use-package git-riddance
   :ensure (:host codeberg :repo "jjba23/git-riddance.el" :branch "trunk"))
 
+(use-package git-modes
+  :ensure t)
+
 (provide 'heks-emacs/git)
 
 ;;; git.el ends here
