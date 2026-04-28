@@ -137,6 +137,10 @@
   :config
   (cond ((equal heks-emacs-theme 'doom-tomorrow-night)
          (load-theme 'doom-tomorrow-night t))
+        ((equal heks-emacs-theme 'doom-one)
+         (load-theme 'doom-one t))
+        ((equal heks-emacs-theme 'doom-one-light)
+         (load-theme 'doom-one-light t))
         ((equal heks-emacs-theme 'doom-molokai)
          (load-theme 'doom-molokai t)))
 
