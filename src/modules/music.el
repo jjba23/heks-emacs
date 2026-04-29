@@ -57,6 +57,11 @@
 (use-package listen
   :ensure (:host github :repo "alphapapa/listen.el"))
 
+(use-package ready-player
+  :ensure t
+  :config
+  (ready-player-mode +1))
+
 (provide 'heks-emacs/music)
 
 ;;; music.el ends here

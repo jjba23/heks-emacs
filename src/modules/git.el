@@ -29,6 +29,9 @@
 (use-package git-modes
   :ensure t)
 
+(use-package git-link
+  :ensure t)
+
 (provide 'heks-emacs/git)
 
 ;;; git.el ends here
