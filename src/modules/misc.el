@@ -36,6 +36,11 @@
 
 (use-package guix :ensure t :demand t)
 
+(use-package buffer-to-pdf
+  :ensure (:host github :repo "protesilaos/buffer-to-pdf")
+  :config
+  (setq buffer-to-pdf-directory (expand-file-name "~/")))
+
 (provide 'heks-emacs/misc)
 
 ;;; misc.el ends here
