@@ -7,7 +7,11 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
-** [Unreleased]
+*[Unreleased]*
+
+---------
+
+*[Released]*
 
 ** v1.1.0 (2026-05-05)
 
