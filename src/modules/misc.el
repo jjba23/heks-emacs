@@ -41,6 +41,9 @@
   :config
   (setq buffer-to-pdf-directory (expand-file-name "~/")))
 
+(use-package show-font
+  :ensure t)
+
 (provide 'heks-emacs/misc)
 
 ;;; misc.el ends here
