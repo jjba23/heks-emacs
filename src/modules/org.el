@@ -37,6 +37,7 @@
   (org-src-fontify-natively t)
   (org-src-tab-acts-natively t)
   (org-edit-src-content-indentation 0)
+  (org-startup-with-inline-images t)
   (org-table-convert-region-max-lines 9999)
   :config
   (defun heks-emacs-org-mode ()
@@ -84,6 +85,12 @@
 (use-package ob-http :ensure t)
 
 (use-package ob-mermaid :ensure t)
+
+(use-package org-remoteimg
+  :ensure (:host github :repo "jjba23/org-remoteimg")
+  :config
+  (setq org-display-remote-inline-images 'cache)
+  (defvaralias 'org-link-preview-overlays 'org-inline-image-overlays))
 
 (provide 'heks-emacs/org)
 

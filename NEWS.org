@@ -1,0 +1,17 @@
+#+title: Changelog and News 📰
+#+author: Josep Bigorra
+#+email: jjbigorra@gmail.com
+#+options: toc:nil
+
+All notable changes to this project will be documented in this file. Changes are listed per project release (tag) and within each tag there are details about changes, additions, fixes and removals.
+
+This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
+
+** [Unreleased]
+
+** v1.1.0 (2026-05-05)
+
+*** Added
+
+- Automatically load images on Org mode file visit, by setting ~org-startup-with-inline-images~ to ~t~
+- Ability for Emacs Org mode to display remote images, cache them for fast posterior visit

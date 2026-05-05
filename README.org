@@ -13,13 +13,15 @@ You could see heks-emacs as my temple, almost an operating system unto itself ðŸ
 - Dev setup for: Scheme, Scala, Haskell, Lisp, Kotlin, Rust, Python, Shell, Nix, JavaScript, HTML, CSS, Golang and more
 - Power user EShell configuration with many niceties
 
-This Emacs config is made with portability and mind, and should work pretty much out-of the box on a multitude of environments.  
+This Emacs config is made with portability and mind, and should work pretty much out-of the box on a multitude of environments.
 
 I recommend you browse the source code and take inspiration from it.
 
 If you like my work, please support me by [[https://bmc.link/jjbigorra][buying me a cup of coffee â˜•]] so I can continue with a lot of motivation.
 
 Also, for some tips on e-mail from Emacs with Gnus in this config, see [[file:docs/mail-with-gnus.org]]
+
+To see the changelog and news about this project, check [[file:NEWS.org]]
 
 
 ---------
@@ -48,7 +50,7 @@ If you don't want to use Maak, you can just look at ~maak.scm~ to look at instal
 
 -----------------------------------
 
-You can customize heks-emacs with these variables. 
+You can customize heks-emacs with these variables.
 
 Feel free to ~setopt~ these:
 #+begin_src elisp
@@ -68,7 +70,7 @@ If you use [[https://codeberg.org/jjba23/heks-linux][Heks GNU/Linux]], there is 
 
 ------------------------
 
-  
+
 * Licensing
 
 heks-emacs and all of its source code are free software, licensed under the GNU General Public License v3 (or newer at your convenience).
