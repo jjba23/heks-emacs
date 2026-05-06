@@ -84,6 +84,7 @@
 (load-user-file "modules/heks-emacs.el")
 
 ;; Load more user modules
+(defvar heks-emacs-modules '())
 (setq heks-emacs-modules '(
                            ai
                            common-lisp
@@ -95,7 +96,7 @@
                            editor
                            eglot
                            emacs-core
-                           erc
+                           irc
                            git
                            go
                            help
@@ -112,8 +113,7 @@
                            shell
                            snippets
                            theme
-                           ui
-                           ))
+                           ui))
 (mapc (lambda(f) (load-user-file (format "modules/%s.el" f))) heks-emacs-modules)
 
 ;; load heks-linux bridge
