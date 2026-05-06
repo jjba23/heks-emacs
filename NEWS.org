@@ -13,6 +13,13 @@ This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic 
 
 *[Released]*
 
+** v1.1.1 (2026-05-06)
+
+*** Added
+
+- [[https://github.com/emacs-circe/circe][Circe]] package for IRC from inside Emacs (seems already friendlier than built-in ERC)
+- [[https://github.com/protesilaos/show-font][show-font]] package for font-family visualization from inside Emacs
+
 ** v1.1.0 (2026-05-05)
 
 *** Added
