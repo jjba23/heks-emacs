@@ -69,12 +69,12 @@
                                                          "-XX:+UseZGC"
                                                          "-Dmetals.http=true"
                                                          :initializationOptions (:isHttpEnabled t))))
-  
+
   (add-to-list 'eglot-server-programs '(nix-ts-mode . ("nil")))
 
   (setq eglot-server-programs (assoc-delete-all 'kotlin-ts-mode eglot-server-programs))
   (add-to-list 'eglot-server-programs '(kotlin-ts-mode . ("kotlin-lsp" "--stdio")))
-  
+
   (add-to-list 'eglot-server-programs '(markdown-mode . ("marksman")))
 
   (setq-default eglot-workspace-configuration
@@ -136,6 +136,18 @@
                 (add-hook 'flymake-diagnostic-functions
                           'python-flymake nil t)
                 (flymake-start))))
+
+  (defun fix-ls-jar-uri (orig-fn uri &rest args)
+    "Fix malformed jar:/// URIs sent by kotlin-language-server so jarchive can read them."
+    (if (and (stringp uri) (string-prefix-p "jar:///" uri))
+        ;; Inject 'file:' to make it a standard 'jar:file:///' URI
+        (apply orig-fn (replace-regexp-in-string "^jar:///" "jar:file:///" uri) args)
+      (apply orig-fn uri args)))
+
+  ;; Apply the patch to Eglot's URI parser (handles both old and new Eglot versions)
+  (if (fboundp 'eglot-uri-to-path)
+      (advice-add 'eglot-uri-to-path :around #'fix-ls-jar-uri)
+    (advice-add 'eglot--uri-to-path :around #'fix-ls-jar-uri))
 
   )
 
