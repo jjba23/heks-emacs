@@ -13,6 +13,13 @@ This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic 
 
 *[Released]*
 
+** v1.1.2 (2026-05-11)
+
+*** Added
+
+- Added JAR compatibility for ~jar://~ links in Eglot with Kotlin LSP
+- Added support for ~graphql-mode~ with ~.graphqls~ files
+
 ** v1.1.1 (2026-05-06)
 
 *** Added
