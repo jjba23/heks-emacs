@@ -228,7 +228,8 @@
 ;;   :init (setq dape-buffer-window-arrangement 'gud))
 
 (use-package graphql-mode
-  :ensure t)
+  :ensure t
+  :mode ("\\.graphql\\'" "\\.graphqls\\'"))
 
 (use-package kubernetes
   :ensure (:host github :repo "kubernetes-el/kubernetes-el" :branch "master")
