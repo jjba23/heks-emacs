@@ -123,7 +123,12 @@ length of PATH (sans directory slashes) down to MAX-LEN."
   :bind (("C-!" . ghostel-project)
          ("C-$" . ghostel))
   :custom
-  (ghostel-module-auto-install 'download))
+  (ghostel-module-auto-install 'download)
+  :config
+  (add-to-list 'display-buffer-alist
+               '("ghostel\\*\\'"
+                 nil
+                 (window-parameters (mode-line-format . none)))))
 
 (provide 'heks-emacs/shell)
 
