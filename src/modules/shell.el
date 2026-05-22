@@ -101,7 +101,7 @@ length of PATH (sans directory slashes) down to MAX-LEN."
 (setopt eshell-highlight-prompt nil)
 (setopt eshell-banner-message "Welcome to HEKS-EMACS/GNU - the Supreme Sexp System\n")
 
-(global-set-key (kbd "C-!") 'eshell-here)
+;;(global-set-key (kbd "C-!") 'eshell-here)
 
 (setq heks-emacs/eshell-aliases
       '((g  . magit)
@@ -118,10 +118,12 @@ length of PATH (sans directory slashes) down to MAX-LEN."
         (defalias (car alias) (cdr alias)))
       heks-emacs/eshell-aliases)
 
-(use-package vterm
+(use-package ghostel
   :ensure t
+  :bind (("C-!" . ghostel-project)
+         ("C-$" . ghostel))
   :custom
-  (vterm-always-compile-module t))
+  (ghostel-module-auto-install 'download))
 
 (provide 'heks-emacs/shell)
 
