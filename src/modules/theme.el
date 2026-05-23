@@ -51,12 +51,6 @@
                                              (bg-main bg-dim)))
          (load-theme heks-emacs-theme t))))
 
-
-(use-package solarized-theme
-  :ensure (:host github :repo "bbatsov/solarized-emacs" :branch "master")
-  :config
-  (cond ((equal heks-emacs-theme 'solarized-light) (load-theme heks-emacs-theme t))))
-
 (use-package everforest
   :ensure (:host github :repo "Theory-of-Everything/everforest-emacs" :branch "master2")
   :no-require t
@@ -139,6 +133,8 @@
          (load-theme 'doom-tomorrow-night t))
         ((equal heks-emacs-theme 'doom-one)
          (load-theme 'doom-one t))
+        ((equal heks-emacs-theme 'solarized-light)
+         (load-theme 'doom-solarized-light t))
         ((equal heks-emacs-theme 'doom-one-light)
          (load-theme 'doom-one-light t))
         ((equal heks-emacs-theme 'doom-molokai)
@@ -156,4 +152,3 @@
 (provide 'heks-emacs/theme)
 
 ;;; theme.el ends here
-
