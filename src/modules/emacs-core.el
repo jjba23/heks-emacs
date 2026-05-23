@@ -306,7 +306,7 @@
                             modusregel-major-mode-expr
                             modusregel-spacer-str
                             modusregel-flymake-expr
-                            keycast-mode-line)))
+                            (ignore-errors keycast-mode-line))))
 
   (add-hook 'after-change-major-mode-hook #'my-set-custom-modeline)
   )

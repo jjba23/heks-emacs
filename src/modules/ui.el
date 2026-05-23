@@ -78,7 +78,7 @@
          ("C-c f n" . tekengrootte-set-scale-nano))
   :hook ((tekengrootte-set-scale . (lambda ()
                                      (heks-emacs-set-base-faces))))
-  :after (ef-themes solarized-theme gruvbox-theme)
+  :after (ef-themes gruvbox-theme)
   :config
 
   (defun heks-emacs-set-base-faces ()
@@ -157,6 +157,8 @@ According to size, color and font family"
                           :height (tekengrootte-mk-font-size 1.05))
       (set-face-attribute 'org-document-title nil
                           :height (tekengrootte-mk-font-size 1.18))
+      (set-face-attribute 'org-document-info-keyword nil
+                          :inherit '(font-lock-comment-face))
       (set-face-attribute 'org-level-1 nil
                           :font heks-emacs-font-sans
                           :weight 'bold
@@ -333,7 +335,6 @@ According to size, color and font family"
 
 (use-package keycast
   :ensure t
-  :demand t
   :after (tekengrootte)
   :config
   (define-minor-mode keycast-mode
