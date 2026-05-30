@@ -99,6 +99,8 @@ According to size, color and font family"
     (set-mode-line-faces)
 
     (ignore-errors
+      (set-face-attribute 'font-lock-comment-face nil
+                          :italic t)
       (set-face-attribute 'font-lock-doc-face nil
                           :foreground (ef-themes-get-color-value 'yellow-faint)))
 
@@ -230,8 +232,6 @@ According to size, color and font family"
     ;; ====== Dracula specific tweaks ======
     (when (equal heks-emacs-theme 'dracula)
       (ignore-errors
-        (set-face-attribute 'font-lock-comment-face nil
-                            :italic t)
         (set-face-attribute 'font-lock-variable-use-face nil
                             :bold nil)
         (set-face-attribute 'font-lock-variable-name-face nil

@@ -93,6 +93,7 @@ While tools like Large Language Models (LLMs) and interactive chatbots can be be
 We require a human in the loop for all contributions. The use of autonomous AI agents to automatically generate and submit pull requests to this project is strictly prohibited.
 
 
+
 --------
 
 * Code of conduct
