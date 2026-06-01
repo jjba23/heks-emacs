@@ -30,7 +30,8 @@
   :ensure t
   :init
   (setq mermaid-mmdc-location "~/.nix-profile/bin/mmdc")
-  (setq mermaid-output-format ".pdf")
+  (setq mermaid-flags "-s 4")
+  (setq mermaid-output-format ".png")
   :config
   (setq mermaid-mode-map
         (let ((map mermaid-mode-map))
