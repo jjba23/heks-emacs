@@ -28,10 +28,11 @@
 
 (use-package mermaid-mode
   :ensure t
+  :mode ("\\.mermaid\\'" "\\.mmd\\'")
   :init
   (setopt mermaid-mmdc-location "~/.nix-profile/bin/mmdc"
           mermaid-output-format ".png"
-          mermaid-flags "-s 4")
+          mermaid-flags "-s 3")
   :config
   (setq mermaid-mode-map
         (let ((map mermaid-mode-map))
