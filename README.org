@@ -18,14 +18,15 @@ I usually run on the latest Emacs version, from the ~master~ branch, so keep in 
 
 If you are interested in that you can find the guide: [[https://jointhefreeworld.org/blog/articles/emacs/build-emacs-from-source/index.html][Hacking Freedom: Compiling GNU Emacs from Source]]
 
-I recommend you browse the source code and take inspiration from it.
+---------
 
-If you like my work, please support me by [[https://bmc.link/jjbigorra][buying me a cup of coffee ☕]] so I can continue with a lot of motivation.
-
-Also, for some tips on e-mail from Emacs with Gnus in this config, see [[file:docs/mail-with-gnus.org][Mail with GNUS]]
+I recommend you browse the source code of Heks Emacs and take inspiration from it.
 
 To see the changelog and news about this project, check [[file:NEWS.org][the NEWS file]]
 
+Also, for some tips on e-mail from Emacs with Gnus in this config, see [[file:docs/mail-with-gnus.org][Mail with GNUS]]
+
+If you like my work, please support me by [[https://bmc.link/jjbigorra][buying me a cup of coffee ☕]] so I can continue with a lot of motivation.
 
 ---------
 
