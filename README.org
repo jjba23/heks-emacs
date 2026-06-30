@@ -14,7 +14,7 @@ You could see heks-emacs as my temple 🏛️, almost an operating system unto i
 
 This Emacs config is made with compatibility, smoothness, portability and mind, and should work pretty much out-of the box on a multitude of environments.
 
-I usually run on the latest Emacs version, from the ~master~ branch, so keep in mind some configuration might me more modern than what you are running.
+I usually run on the latest Emacs version, from the ~master~ branch, at time of writing it's Emacs 32.0.50, so keep in mind some configuration might me more modern than what you are running. We try to document changes  properly.
 
 If you are interested in that you can find the guide: [[https://jointhefreeworld.org/blog/articles/emacs/build-emacs-from-source/index.html][Hacking Freedom: Compiling GNU Emacs from Source]]
 

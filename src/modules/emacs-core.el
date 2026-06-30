@@ -108,6 +108,9 @@
           use-dialog-box nil                  ; Force prompts to stay in the minibuffer
           fill-column 78)                     ; Standard column width for indicators/wrapping
 
+  (treesit-auto-install-grammar 'always) ; EMACS-31
+  (treesit-enabled-modes t)              ; EMACS-31
+
   (setq-default cursor-type 'bar)             ; Modern pipe cursor instead of standard block
   (global-hl-line-mode +1)                    ; Highlight current line
 
@@ -130,9 +133,13 @@
   ;; --- Minibuffer & Completion ---
   (setopt read-extended-command-predicate #'command-completion-default-include-p ; Hide irrelevant commands
           completion-cycle-threshold 3        ; Cycle through options if there are 3 or fewer
+          completion-eager-update t               ;; EMACS-31
+          completion-eager-display 'auto          ;; EMACS-31
+          minibuffer-visible-completions 'up-down ;; EMACS-31
           read-file-name-completion-ignore-case t
           read-buffer-completion-ignore-case t
-          completion-ignore-case t)
+          completion-ignore-case t
+          eldoc-help-at-pt t)
 
   ;; --- State Preservation ---
   (savehist-mode 1)                           ; Remember minibuffer history across sessions
@@ -152,7 +159,8 @@
           (list (string-replace "$HOME" (getenv "HOME") "$HOME/fork/guix/")))
 
   ;; Load TreeSitter AST syntax lexer and highlighting
-  (setopt treesit-extra-load-path (list "~/.emacs.d/tree-sitter-grammars"))
+  ;; used to be needed pre-Emacs 31
+  ;; (setopt treesit-extra-load-path (list "~/.emacs.d/tree-sitter-grammars"))
 
   ;; --- Window Management ---
   ;; Enable Shift+Arrow keys for easy directional window switching
@@ -235,6 +243,30 @@
 
   (setq kill-do-not-save-duplicates t)
 
+  ;; --- Speedbar ---
+  (setopt speedbar-window-default-width 25) ;; EMACS-31
+  (setopt speedbar-window-max-width 25)     ;; EMACS-31
+
+  ;; --- VC ---
+  (setopt vc-auto-revert-mode t                    ; EMACS-31
+          vc-allow-rewriting-published-history t   ; EMACS-31
+          vc-dir-auto-hide-up-to-date 'revert)     ; EMACS-31
+
+  ;; -- General niceties ----
+  (setopt delete-pair-push-mark t)                    ; EMACS-31: pushes a mark after
+                                        ; delete-pair so C-x C-x selects what was inside
+  (setopt ibuffer-human-readable-size t)              ; EMACS-31: KB/MB instead of raw byte counts
+  (setopt kill-region-dwim 'emacs-word)               ; EMACS-31: C-w with no region kills a word
+  (setopt native-comp-async-on-battery-power nil)     ; EMACS-31: stop native-comp jobs on battery
+  (setopt view-lossage-auto-refresh t)                ; EMACS-31: live-updating C-h l, great for teaching/debugging
+  (setopt display-fill-column-indicator-warning nil)  ; EMACS-31
+  (setopt dired-hide-details-hide-absolute-location t); EMACS-31: hide the absolute dir path in dired-hide-details-mode
+  (setopt world-clock-sort-order "%FT%T")             ; EMACS-31: sort the world clock sanely
+  (setopt zone-all-frames t)                          ; EMACS-31
+  (setopt zone-all-windows-in-frame t)                ; EMACS-31
+  (setopt uniquify-after-kill-buffer-flag t)          ; EMACS-31: renamed from the -p variant
+
+
   ;; --- Persist the Kill Ring Across Sessions ---
   ;; Most configs that use savehist-mode only persist search rings. But savehist can save any variable – including the kill ring.
   ;; Add it and you get clipboard history that survives restarts:
@@ -313,10 +345,14 @@
 
 
 (use-package project
+  :ensure nil
   :init
   ;; Treat directories with .envrc (direnv) as project roots.
   ;; Essential for Nix/Guix/direnv workflows so project.el knows where the project starts.
   (setq project-vc-extra-root-markers '(".envrc")))
+
+(use-package markdown-ts-mode
+  :ensure nil)
 
 (provide 'heks-emacs/emacs-self)
 
