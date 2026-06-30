@@ -12,7 +12,11 @@ You could see heks-emacs as my temple 🏛️, almost an operating system unto i
 - Dev setup for: Scheme, Scala, Haskell, Lisp, Kotlin, Rust, Python, Shell, Nix, JavaScript, HTML, CSS, Golang and more
 - Power user EShell configuration with many niceties
 
-This Emacs config is made with portability and mind, and should work pretty much out-of the box on a multitude of environments.
+  This Emacs config is made with compatibility, smoothness, portability and mind, and should work pretty much out-of the box on a multitude of environments.
+
+  I usually run on the latest Emacs version, from the ~master~ branch, so keep in mind some configuration might me more modern than what you are running.
+
+If you are interested in that you can find the guide: [[https://jointhefreeworld.org/blog/articles/emacs/build-emacs-from-source/index.html][Hacking Freedom: Compiling GNU Emacs from Source]]
 
 I recommend you browse the source code and take inspiration from it.
 
