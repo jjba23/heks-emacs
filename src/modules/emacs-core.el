@@ -57,87 +57,73 @@
 (defun add-prettify-mappings ()
   "Append custom symbols to the buffer-local prettify-symbols-alist."
   (setq prettify-symbols-alist
-        '(
-          ;; --- Functional Programming & Lambdas ---
-          ("lambda" . ?λ)
-          ("fn"   . ?Ƒ)
-          ("fun"  . ?Ƒ)
-          ("defun"   . ?Ƒ)
-          ("define*"   . ?Ƒ)
-          ("func"   . ?Ƒ)
-          ("function" . ?Ƒ)
-          ("compose" . ?∘)
-          ("define-syntax" . ?✦)
-          ("define-syntax-rule" . ?✦)
-          ("define-macro" . ?✦)
-          ("defmacro" . ?✦)
+        (append '(
+                  ;; --- Functional Programming & Lambdas ---
+                  ("lambda" . ?λ)
+                  ("fn"    . ?Ƒ)
+                  ("fun"   . ?Ƒ)
+                  ("defun"    . ?Ƒ)
+                  ("define*"    . ?Ƒ)
+                  ("func"    . ?Ƒ)
+                  ("function" . ?Ƒ)
+                  ("compose" . ?∘)
+                  ("define-syntax" . ?✦)
+                  ("define-syntax-rule" . ?✦)
+                  ("define-macro" . ?✦)
+                  ("define-module" . ?⬡)      ; <-- Component Namespace
+                  ("define-record-type" . ?🄡)
+                  ("use-package" . ?🄿)
+                  ("defmacro" . ?✦)
 
-          ;; --- Types & Optionals ---
-          ("None"   . ?∅)
-          ("Nil"    . ?∅)
-          ("nil"    . ?∅)
-          ("null"    . ?∅)
+                  ;; --- Types & Optionals ---
+                  ("None"    . ?∅)
+                  ("Nil"     . ?∅)
+                  ("nil"     . ?∅)
+                  ("null"    . ?∅)
 
-          ;; --- Logic & Boolean ---
-          ("true"   . ?✓)
-          ("#t"     . ?✓)
-          ("True"   . ?✓)
-          ("false"  . ?✗)
-          ("#f"     . ?✗)
-          ("False"  . ?✗)
-          ;; ("true"   . ?⊤)
-          ;; ("#t"   . ?⊤)
-          ;; ("True"   . ?⊤)
-          ;; ("false"  . ?⊥)
-          ;; ("#f"  . ?⊥)
-          ;; ("False"  . ?⊥)
-          ;; ("and"    . ?∧)
-          ;; ("or"     . ?∨)
-          ;; ("not"    . ?¬)
+                  ;; --- Logic & Boolean ---
+                  ("true"   . ?✓)
+                  ("#t"     . ?✓)
+                  ("True"   . ?✓)
+                  ("false"  . ?✗)
+                  ("#f"     . ?✗)
+                  ("False"  . ?✗)
 
-          ;; --- Mathematical & Set Theory ---
-          ("in"     . ?∈)
-          ("not in" . ?∉)
-          ("sum"    . ?∑)
-          ("product" . ?∏)
-          ("sqrt"   . ?√)
-          ("pi"     . ?π)
-          ("Infinity" . ?∞)
-          ("infinity" . ?∞)
-          ("inf" . ?∞)
+                  ;; --- Mathematical & Set Theory ---
+                  ("in"     . ?∈)
+                  ("not in" . ?∉)
+                  ("sum"    . ?∑)
+                  ("product" . ?∏)
+                  ("sqrt"   . ?√)
+                  ("pi"     . ?π)
+                  ("Infinity" . ?∞)
+                  ("infinity" . ?∞)
+                  ("inf" . ?∞)
 
-          ;; --- Comparison Operators ---
-          ;; ("=="     . ?≡)
-          ;; ("==="    . ?≣)
-          ;; ("!="     . ?≠)
-          ;; ("!=="    . ?≢)
-          ("<="     . ?≤)
-          (">="     . ?≥)
+                  ;; --- Comparison Operators ---
+                  ("<="     . ?≤)
+                  (">="     . ?≥)
 
-          ;; --- Control Flow & Arrows ---
-          ("->"     . ?→)
-          ("-->"    . ?⟶)
-          ;; ("=>"     . ?⇒)
-          ;; ("<="     . ?⇐)
-          ("<-"     . ?←)
-          ("<--"    . ?⟵)
-          ;; ("<->"    . ?↔)
+                  ;; --- Control Flow & Arrows ---
+                  ("->"     . ?→)
+                  ("-->"    . ?⟶)
+                  ("<-"     . ?←)
+                  ("<--"    . ?⟵)
 
-          ;; --- Lisp
-          ;; ("car"       . ?⎾) ; Top-left corner (the head of the list)
-          ;; ("cdr"       . ?⎿) ; Bottom-left corner (the remaining tail)
-          ("unquote" . ?↴)
-          ("cons"      . ?⨝) ; Join / Join operator
+                  ;; --- Lisp ---
+                  ("unquote" . ?↴)
+                  ("cons"      . ?⨝)
 
+                  ;; --- Miscellaneous / Clean Syntax ---
+                  ("import" . ?📥)
+                  ("export" . ?📤)
+                  )
+                prettify-symbols-alist)))
 
-          ;; --- Miscellaneous / Clean Syntax ---
-          ;; ("yield"  . ?⟿)
-          ;; ("return" . ?↵)
-          ("import" . ?📥)
-          ("export" . ?📤)
-          ))
-
-  )
+(defun heks-activate-prettify ()
+  "Populate mappings and safely initialize prettify-symbols-mode."
+  (add-prettify-mappings)
+  (prettify-symbols-mode +1))
 
 ;; Core Emacs Configuration
 ;; This block is grouped by logical domains for easier reading.
@@ -173,8 +159,8 @@
          ("C-c t h" . kbd-scheme-hygguile-abstraction))
 
   :hook ((text-mode . visual-line-mode)
-         (prog-mode . prettify-symbols-mode)
-         (org-mode . prettify-symbols-mode)
+         (prog-mode . heks-activate-prettify)
+         (org-mode . heks-activate-prettify)
          ((emacs-lisp-mode
            conf-mode
            markdown-mode
@@ -232,8 +218,6 @@
           compile-command "maak --list")
 
   (setq-default indent-tabs-mode nil)         ; Always use spaces instead of tabs
-
-  (add-hook 'prettify-symbols-mode-hook #'add-prettify-mappings)
 
 
   (defalias 'yes-or-no-p 'y-or-n-p)           ; Type 'y' instead of 'yes' for prompts
