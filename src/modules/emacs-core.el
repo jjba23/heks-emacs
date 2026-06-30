@@ -114,6 +114,8 @@
   ;; these might require a manual `M-x treesit-install-language-grammar'
   (add-to-list 'treesit-language-source-alist
                '(kotlin . ("https://github.com/tree-sitter-grammars/tree-sitter-kotlin")))
+  (add-to-list 'treesit-language-source-alist
+               '(scala . ("https://github.com/tree-sitter/tree-sitter-scala")))
 
   (setq-default cursor-type 'bar)             ; Modern pipe cursor instead of standard block
   (global-hl-line-mode +1)                    ; Highlight current line
