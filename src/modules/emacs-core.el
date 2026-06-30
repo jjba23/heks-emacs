@@ -108,8 +108,8 @@
           use-dialog-box nil                  ; Force prompts to stay in the minibuffer
           fill-column 78)                     ; Standard column width for indicators/wrapping
 
-  (treesit-auto-install-grammar 'always) ; EMACS-31
-  (treesit-enabled-modes t)              ; EMACS-31
+  (setopt treesit-auto-install-grammar 'always) ; EMACS-31
+  (setopt treesit-enabled-modes t)              ; EMACS-31
 
   (setq-default cursor-type 'bar)             ; Modern pipe cursor instead of standard block
   (global-hl-line-mode +1)                    ; Highlight current line
