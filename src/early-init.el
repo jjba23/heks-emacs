@@ -45,7 +45,7 @@
 ;;
 (tool-bar-mode -1)
 (scroll-bar-mode -1)
-(menu-bar-mode 1)
+(menu-bar-mode -1)
 
 ;; Defer garbage collection further back in the startup process
 (setq gc-cons-threshold most-positive-fixnum
