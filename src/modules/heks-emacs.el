@@ -359,20 +359,38 @@ DATA: A string containing JSON data."
       (expand-file-name "maak.scm" dir))))
 
 (defun maak--get-tasks (file)
-  "Extract task names from the given maak.scm FILE."
+  "Extract task names and their docstrings from the given maak.scm FILE.
+Returns an alist of (task-name . docstring)."
   (let (tasks)
     (with-temp-buffer
+      (emacs-lisp-mode) ; Activates standard Lisp syntax table for accurate parsing
       (insert-file-contents file)
       (goto-char (point-min))
       ;; Regex looks for: (define (task-name ...)
-      ;; It correctly ignores variables like (define var ...) and commented tasks
       (while (re-search-forward "^[[:space:]]*([[:space:]]*define[[:space:]]+(\\([a-zA-Z0-9_-]+\\)" nil t)
-        (push (match-string 1) tasks)))
-    (nreverse tasks)))
+        (let ((task (match-string 1))
+              (docstring ""))
+          (save-excursion
+            ;; Move to the opening '(' of the argument list
+            (goto-char (match-beginning 1))
+            (backward-char 1)
+            ;; Safely parse ahead to see if a docstring exists
+            (condition-case nil
+                (progn
+                  (forward-sexp 1)              ; Move past the entire argument list sexp
+                  (forward-comment (point-max)) ; Skip whitespace and comments
+                  (when (eq (char-after) ?\")   ; Check if looking at a string literal
+                    (let ((start (point)))
+                      (forward-sexp 1)          ; Move past the string literal
+                      ;; Extract string contents without the surrounding quotes
+                      (setq docstring (buffer-substring-no-properties (1+ start) (1- (point)))))))
+              (error nil)))
+          (push (cons task docstring) tasks)))
+      (nreverse tasks))))
 
 ;;;###autoload
 (defun maak-run-task (task)
-  "Select and run a task from the local maak.scm file."
+  "Select and run a TASK from the local maak.scm file."
   (interactive
    (let ((file (maak--find-file)))
      (if (not file)
@@ -380,12 +398,22 @@ DATA: A string containing JSON data."
        (let ((tasks (maak--get-tasks file)))
          (if (not tasks)
              (user-error "No runnable tasks found in %s" file)
-           (list (completing-read "Run maak task: " tasks nil t)))))))
+           (let ((completion-extra-properties
+                  `(:annotation-function
+                    ,(lambda (cand)
+                       (let ((doc (cdr (assoc cand tasks))))
+                         (if (and doc (not (string= doc "")))
+                             ;; Display only the first line of the docstring as an annotation
+                             (format "  -- %s" (car (split-string doc "\n")))
+                           ""))))))
+             (list (completing-read "Run maak task: " tasks nil t))))))))
   (let* ((file (maak--find-file))
          (dir (file-name-directory file)))
     ;; Execute the compilation from the directory containing maak.scm
     (let ((default-directory dir))
       (compile (format "maak %s" task)))))
+
+(keymap-global-set "C-x p m" #'maak-run-task)
 
 (provide 'heks-emacs/heks-emacs)
 
