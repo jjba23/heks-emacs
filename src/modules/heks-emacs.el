@@ -351,6 +351,42 @@ DATA: A string containing JSON data."
       (org-mode))
     (switch-to-buffer heks-emacs-standup-buffer-name)))
 
+;; ------------ Maak tasks ------------
+(defun maak--find-file ()
+  "Find the maak.scm file in the current directory or its parents."
+  (let ((dir (locate-dominating-file default-directory "maak.scm")))
+    (when dir
+      (expand-file-name "maak.scm" dir))))
+
+(defun maak--get-tasks (file)
+  "Extract task names from the given maak.scm FILE."
+  (let (tasks)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      ;; Regex looks for: (define (task-name ...)
+      ;; It correctly ignores variables like (define var ...) and commented tasks
+      (while (re-search-forward "^[[:space:]]*([[:space:]]*define[[:space:]]+(\\([a-zA-Z0-9_-]+\\)" nil t)
+        (push (match-string 1) tasks)))
+    (nreverse tasks)))
+
+;;;###autoload
+(defun maak-run-task (task)
+  "Select and run a task from the local maak.scm file."
+  (interactive
+   (let ((file (maak--find-file)))
+     (if (not file)
+         (user-error "No maak.scm found in this directory or its parents")
+       (let ((tasks (maak--get-tasks file)))
+         (if (not tasks)
+             (user-error "No runnable tasks found in %s" file)
+           (list (completing-read "Run maak task: " tasks nil t)))))))
+  (let* ((file (maak--find-file))
+         (dir (file-name-directory file)))
+    ;; Execute the compilation from the directory containing maak.scm
+    (let ((default-directory dir))
+      (compile (format "maak %s" task)))))
+
 (provide 'heks-emacs/heks-emacs)
 
 ;;; heks-emacs.el ends here
