@@ -72,6 +72,7 @@
                   ("define-macro" . ?μ)
                   ("define-module" . ?⬡)
                   ("define-record-type" . ?✦)
+                  ("define-record-with-kw" . ?✦)
                   ("use-package" . ?ρ)
                   ("defmacro" . ?✦)
 
