@@ -290,7 +290,7 @@ According to size, color and font family"
       (when heks-emacs-is-first-frame
         (progn
           (message "initializing HEKS-EMACS UI scaling for first frame")
-          (tekengrootte-set-scale-small)
+          (tekengrootte-set-scale-regular)
           (setq heks-emacs-is-first-frame nil)))
       (heks-emacs-set-base-faces)))
 

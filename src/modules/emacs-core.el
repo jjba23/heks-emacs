@@ -111,6 +111,10 @@
   (setopt treesit-auto-install-grammar 'always) ; EMACS-31
   (setopt treesit-enabled-modes t)              ; EMACS-31
 
+  ;; these might require a manual `M-x treesit-install-language-grammar'
+  (add-to-list 'treesit-language-source-alist
+               '(kotlin . ("https://github.com/tree-sitter-grammars/tree-sitter-kotlin")))
+
   (setq-default cursor-type 'bar)             ; Modern pipe cursor instead of standard block
   (global-hl-line-mode +1)                    ; Highlight current line
 
