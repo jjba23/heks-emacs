@@ -356,13 +356,18 @@ DATA: A string containing JSON data."
   "Customizations for the maak task runner."
   :group 'tools)
 
+(defface maak-task-arguments-face
+  '((t :inherit font-lock-variable-name-face :italic t))
+  "Face used to render task arguments in the minibuffer."
+  :group 'maak)
+
 (defface maak-task-documentation-face
   '((t :inherit font-lock-doc-face))
   "Face used to render task docstring annotations in the minibuffer."
   :group 'maak)
 
 (defcustom maak-annotation-padding 4
-  "Number of spaces to maintain between the longest task name and its description."
+  "Number of spaces to maintain between columns in the completion view."
   :type 'integer
   :group 'maak)
 
@@ -373,8 +378,8 @@ DATA: A string containing JSON data."
       (expand-file-name "maak.scm" dir))))
 
 (defun maak--get-tasks (file)
-  "Extract task names and their docstrings from the given maak.scm FILE.
-Returns an alist of (task-name . docstring)."
+  "Extract task names, arguments, and docstrings from the given maak.scm FILE.
+Returns a list of elements: (task-name docstring argument-list)."
   (let (tasks)
     (with-temp-buffer
       (emacs-lisp-mode) ; Activates standard Lisp syntax table for accurate parsing
@@ -382,54 +387,91 @@ Returns an alist of (task-name . docstring)."
       (goto-char (point-min))
       (while (re-search-forward "^[[:space:]]*([[:space:]]*define[[:space:]]+(\\([a-zA-Z0-9_-]+\\)" nil t)
         (let ((task (match-string 1))
-              (docstring ""))
+              (docstring "")
+              (args nil))
           (save-excursion
             (goto-char (match-beginning 1))
-            (backward-char 1)
+            (backward-char 1)                     ; Move to the opening '(' of the signature
             (condition-case nil
                 (progn
-                  (forward-sexp 1)              ; Move past the entire argument list sexp
-                  (forward-comment (point-max)) ; Skip whitespace and comments
-                  (when (eq (char-after) ?\")   ; Check if looking at a string literal
+                  (forward-sexp 1)                ; Move past the signature: (task-name arg1 ...)
+                  (let ((sig-end (point)))
+                    (save-excursion
+                      (goto-char (match-end 1))   ; Jump right past the task name inside signature
+                      (let ((args-str (buffer-substring-no-properties (point) (1- sig-end))))
+                        ;; Split by whitespace to extract argument names
+                        (setq args (split-string args-str "[[:space:]\n\r]+" t)))))
+                  ;; Move forward to capture optional docstring string literal
+                  (forward-comment (point-max))
+                  (when (eq (char-after) ?\")
                     (let ((start (point)))
-                      (forward-sexp 1)          ; Move past the string literal
+                      (forward-sexp 1)
                       (setq docstring (buffer-substring-no-properties (1+ start) (1- (point)))))))
               (error nil)))
-          (push (cons task docstring) tasks)))
+          (push (list task docstring args) tasks)))
       (nreverse tasks))))
 
 (defun maak--make-annotation-function (tasks)
-  "Return an annotation function formatted dynamically for TASKS."
-  (let* ((max-len (seq-max (mapcar (lambda (cell) (length (car cell))) tasks)))
-         (align-column (+ max-len maak-annotation-padding)))
+  "Return an annotation function formatted dynamically for TASKS columns."
+  (let* ((max-task-len (seq-max (mapcar (lambda (cell) (length (car cell))) tasks)))
+         (args-align (+ max-task-len 2))
+         ;; Compute width for the third column alignment (Task Name + Arguments)
+         (max-total-len (seq-max (mapcar (lambda (cell)
+                                           (let ((args (nth 2 cell)))
+                                             (+ max-task-len
+                                                (if args
+                                                    (+ 2 (length (string-join args " ")))
+                                                  0))))
+                                         tasks)))
+         (doc-align (+ max-total-len maak-annotation-padding)))
     (lambda (cand)
-      (let ((doc (cdr (assoc cand tasks))))
-        (if (and doc (not (string= doc "")))
-            (let ((summary (car (split-string doc "\n"))))
-              (concat (propertize " " 'display `(space :align-to ,align-column))
-                      (propertize summary 'face 'maak-task-documentation-face)))
-          "")))))
+      (let* ((meta (assoc cand tasks))
+             (doc (nth 1 meta))
+             (args (nth 2 meta))
+             (args-str (if args (string-join args " ") ""))
+             (summary (if (and doc (not (string= doc "")))
+                          (car (split-string doc "\n"))
+                        "")))
+        (concat
+         (if args
+             (concat (propertize " " 'display `(space :align-to ,args-align))
+                     (propertize args-str 'face 'maak-task-arguments-face))
+           "")
+         (if (not (string= summary ""))
+             (concat (propertize " " 'display `(space :align-to ,doc-align))
+                     (propertize summary 'face 'maak-task-documentation-face))
+           ""))))))
 
 (defun maak-read-task ()
-  "Prompt the user to select a task from the local project's maak.scm file."
+  "Prompt the user to select a task and dynamically input arguments.
+Returns a list of the format: (task-name (arg-value1 arg-value2 ...))"
   (let ((file (maak--find-file)))
     (unless file
       (user-error "No maak.scm found in this directory or its parents"))
     (let ((tasks (maak--get-tasks file)))
       (unless tasks
         (user-error "No runnable tasks found in %s" file))
-      (let ((completion-extra-properties
-             `(:annotation-function ,(maak--make-annotation-function tasks))))
-        (completing-read "Run maak task: " tasks nil t)))))
+      (let* ((completion-extra-properties
+              `(:annotation-function ,(maak--make-annotation-function tasks)))
+             (task-name (completing-read "Run maak task: " tasks nil t))
+             (meta (assoc task-name tasks))
+             (args-meta (nth 2 meta))
+             (arg-vals nil))
+        ;; Loop and prompt sequentially for each defined task argument
+        (dolist (arg args-meta)
+          (push (read-string (format "Argument <%s>: " arg)) arg-vals))
+        (list task-name (nreverse arg-vals))))))
 
 ;;;###autoload
-(defun maak-run-task (task)
-  "Select and run a TASK from the local maak.scm file."
-  (interactive (list (maak-read-task)))
+(defun maak-run-task (task args)
+  "Select and run a TASK with ARGS from the local maak.scm file."
+  (interactive (maak-read-task))
   (let* ((file (maak--find-file))
          (dir (file-name-directory file)))
     (let ((default-directory dir))
-      (compile (format "maak %s" task)))))
+      ;; Build safely escaped command list, executing: maak <task> <arg1> <arg2>...
+      (let ((command (mapconcat #'shell-quote-argument (cons "maak" (cons task args)) " ")))
+        (compile command)))))
 
 (keymap-global-set "C-x p m" #'maak-run-task)
 
