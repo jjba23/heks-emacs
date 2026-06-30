@@ -67,12 +67,12 @@
                   ("func"    . ?Ƒ)
                   ("function" . ?Ƒ)
                   ("compose" . ?∘)
-                  ("define-syntax" . ?✦)
-                  ("define-syntax-rule" . ?✦)
-                  ("define-macro" . ?✦)
-                  ("define-module" . ?⬡)      ; <-- Component Namespace
-                  ("define-record-type" . ?🄡)
-                  ("use-package" . ?🄿)
+                  ("define-syntax" . ?μ)
+                  ("define-syntax-rule" . ?μ)
+                  ("define-macro" . ?μ)
+                  ("define-module" . ?⬡)
+                  ("define-record-type" . ?✦)
+                  ("use-package" . ?ρ)
                   ("defmacro" . ?✦)
 
                   ;; --- Types & Optionals ---
@@ -109,6 +109,23 @@
                   ("-->"    . ?⟶)
                   ("<-"     . ?←)
                   ("<--"    . ?⟵)
+
+                  ;; ---- Org
+                  ("#+begin_src"       . ?≫)
+                  ("#+BEGIN_SRC"       . ?≫)
+                  ("#+end_src"         . ?≪)
+                  ("#+END_SRC"         . ?≪)
+                  ("#+results:"        . ?▷)
+                  ("#+RESULTS:"        . ?▷)
+                  ("#+begin_quote"     . ?“)
+                  ("#+BEGIN_QUOTE"     . ?“)
+                  ("#+end_quote"       . ?”)
+                  ("#+END_QUOTE"       . ?”)
+                  ("#+title:"   . ?🅃)
+                  ("#+author:"  . ?🄰)
+                  ("#+date:"    . ?🄳)
+                  ("#+options:" . ?⚙)
+                  ("#+name:"       . ?🄽)
 
                   ;; --- Lisp ---
                   ("unquote" . ?↴)
