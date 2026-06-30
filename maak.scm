@@ -40,8 +40,8 @@
   (cp "src/snippets" emacs-config-install-dir))
 
 ;; Tree-sitter grammars URL.
-(define tree-sitter-grammars-url
-  "https://github.com/casouri/tree-sitter-module/releases/download/v2.5/libs-linux-x64.zip")
+;; (define tree-sitter-grammars-url
+;;   "https://github.com/casouri/tree-sitter-module/releases/download/v2.5/libs-linux-x64.zip")
 
 ;; used to be needed pre-Emacs 31
 ;; (define (install-tree-sitter-grammars)
