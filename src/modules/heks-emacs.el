@@ -398,14 +398,23 @@ Returns an alist of (task-name . docstring)."
        (let ((tasks (maak--get-tasks file)))
          (if (not tasks)
              (user-error "No runnable tasks found in %s" file)
-           (let ((completion-extra-properties
-                  `(:annotation-function
-                    ,(lambda (cand)
-                       (let ((doc (cdr (assoc cand tasks))))
-                         (if (and doc (not (string= doc "")))
-                             ;; Display only the first line of the docstring as an annotation
-                             (format "  -- %s" (car (split-string doc "\n")))
-                           ""))))))
+           ;; Dynamic Margin Alignment Block
+           (let* ((max-len (seq-max (mapcar (lambda (cell) (length (car cell))) tasks)))
+                  (align-column (+ max-len 4)) ; Clean 4-space gap after the longest task name
+                  (completion-extra-properties
+                   `(:annotation-function
+                     ,(lambda (cand)
+                        (let ((doc (cdr (assoc cand tasks))))
+                          (if (and doc (not (string= doc "")))
+                              (let ((summary (car (split-string doc "\n")))
+                                    ;; Fallback gracefully if marginalia isn't loaded yet
+                                    (face (if (facep 'marginalia-documentation)
+                                              'marginalia-documentation
+                                            'font-lock-doc-face)))
+                                ;; Push the text out to the margin using display spaces
+                                (concat (propertize " " 'display `(space :align-to ,align-column))
+                                        (propertize summary 'face face)))
+                            ""))))))
              (list (completing-read "Run maak task: " tasks nil t))))))))
   (let* ((file (maak--find-file))
          (dir (file-name-directory file)))
