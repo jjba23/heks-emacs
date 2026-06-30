@@ -113,7 +113,7 @@
 
   ;; these might require a manual `M-x treesit-install-language-grammar'
   (add-to-list 'treesit-language-source-alist
-               '(kotlin . ("https://github.com/tree-sitter-grammars/tree-sitter-kotlin")))
+               '(kotlin . ("https://github.com/fwcd/tree-sitter-kotlin")))
   (add-to-list 'treesit-language-source-alist
                '(scala . ("https://github.com/tree-sitter/tree-sitter-scala")))
 
