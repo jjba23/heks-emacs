@@ -352,6 +352,20 @@ DATA: A string containing JSON data."
     (switch-to-buffer heks-emacs-standup-buffer-name)))
 
 ;; ------------ Maak tasks ------------
+(defgroup maak nil
+  "Customizations for the maak task runner."
+  :group 'tools)
+
+(defface maak-task-documentation-face
+  '((t :inherit font-lock-doc-face))
+  "Face used to render task docstring annotations in the minibuffer."
+  :group 'maak)
+
+(defcustom maak-annotation-padding 4
+  "Number of spaces to maintain between the longest task name and its description."
+  :type 'integer
+  :group 'maak)
+
 (defun maak--find-file ()
   "Find the maak.scm file in the current directory or its parents."
   (let ((dir (locate-dominating-file default-directory "maak.scm")))
@@ -366,15 +380,12 @@ Returns an alist of (task-name . docstring)."
       (emacs-lisp-mode) ; Activates standard Lisp syntax table for accurate parsing
       (insert-file-contents file)
       (goto-char (point-min))
-      ;; Regex looks for: (define (task-name ...)
       (while (re-search-forward "^[[:space:]]*([[:space:]]*define[[:space:]]+(\\([a-zA-Z0-9_-]+\\)" nil t)
         (let ((task (match-string 1))
               (docstring ""))
           (save-excursion
-            ;; Move to the opening '(' of the argument list
             (goto-char (match-beginning 1))
             (backward-char 1)
-            ;; Safely parse ahead to see if a docstring exists
             (condition-case nil
                 (progn
                   (forward-sexp 1)              ; Move past the entire argument list sexp
@@ -382,43 +393,41 @@ Returns an alist of (task-name . docstring)."
                   (when (eq (char-after) ?\")   ; Check if looking at a string literal
                     (let ((start (point)))
                       (forward-sexp 1)          ; Move past the string literal
-                      ;; Extract string contents without the surrounding quotes
                       (setq docstring (buffer-substring-no-properties (1+ start) (1- (point)))))))
               (error nil)))
           (push (cons task docstring) tasks)))
       (nreverse tasks))))
 
+(defun maak--make-annotation-function (tasks)
+  "Return an annotation function formatted dynamically for TASKS."
+  (let* ((max-len (seq-max (mapcar (lambda (cell) (length (car cell))) tasks)))
+         (align-column (+ max-len maak-annotation-padding)))
+    (lambda (cand)
+      (let ((doc (cdr (assoc cand tasks))))
+        (if (and doc (not (string= doc "")))
+            (let ((summary (car (split-string doc "\n"))))
+              (concat (propertize " " 'display `(space :align-to ,align-column))
+                      (propertize summary 'face 'maak-task-documentation-face)))
+          "")))))
+
+(defun maak-read-task ()
+  "Prompt the user to select a task from the local project's maak.scm file."
+  (let ((file (maak--find-file)))
+    (unless file
+      (user-error "No maak.scm found in this directory or its parents"))
+    (let ((tasks (maak--get-tasks file)))
+      (unless tasks
+        (user-error "No runnable tasks found in %s" file))
+      (let ((completion-extra-properties
+             `(:annotation-function ,(maak--make-annotation-function tasks))))
+        (completing-read "Run maak task: " tasks nil t)))))
+
 ;;;###autoload
 (defun maak-run-task (task)
   "Select and run a TASK from the local maak.scm file."
-  (interactive
-   (let ((file (maak--find-file)))
-     (if (not file)
-         (user-error "No maak.scm found in this directory or its parents")
-       (let ((tasks (maak--get-tasks file)))
-         (if (not tasks)
-             (user-error "No runnable tasks found in %s" file)
-           ;; Dynamic Margin Alignment Block
-           (let* ((max-len (seq-max (mapcar (lambda (cell) (length (car cell))) tasks)))
-                  (align-column (+ max-len 4)) ; Clean 4-space gap after the longest task name
-                  (completion-extra-properties
-                   `(:annotation-function
-                     ,(lambda (cand)
-                        (let ((doc (cdr (assoc cand tasks))))
-                          (if (and doc (not (string= doc "")))
-                              (let ((summary (car (split-string doc "\n")))
-                                    ;; Fallback gracefully if marginalia isn't loaded yet
-                                    (face (if (facep 'marginalia-documentation)
-                                              'marginalia-documentation
-                                            'font-lock-doc-face)))
-                                ;; Push the text out to the margin using display spaces
-                                (concat (propertize " " 'display `(space :align-to ,align-column))
-                                        (propertize summary 'face face)))
-                            ""))))))
-             (list (completing-read "Run maak task: " tasks nil t))))))))
+  (interactive (list (maak-read-task)))
   (let* ((file (maak--find-file))
          (dir (file-name-directory file)))
-    ;; Execute the compilation from the directory containing maak.scm
     (let ((default-directory dir))
       (compile (format "maak %s" task)))))
 
