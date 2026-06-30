@@ -79,6 +79,21 @@
       (load-file (expand-file-name file user-init-dir))
     (message (format "file doesn't exist: %s" (expand-file-name file user-init-dir)))))
 
+;; ====== Tweak GC =========
+
+(use-package gcmh
+  :ensure t
+  :config
+  (gcmh-mode 1))
+
+(use-package no-littering
+  :ensure t
+  :config
+  (with-eval-after-load 'recentf
+    (add-to-list 'recentf-exclude no-littering-var-directory)
+    (add-to-list 'recentf-exclude no-littering-etc-directory))
+  )
+
 ;; ====== Load user modules ======
 
 (load-user-file "modules/heks-emacs.el")

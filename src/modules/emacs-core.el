@@ -54,6 +54,91 @@
   :ensure (:host codeberg :repo "jjba23/modusregel" :branch "trunk")
   :demand t)
 
+(defun add-prettify-mappings ()
+  "Append custom symbols to the buffer-local prettify-symbols-alist."
+  (setq prettify-symbols-alist
+        '(
+          ;; --- Functional Programming & Lambdas ---
+          ("lambda" . ?λ)
+          ("fn"   . ?Ƒ)
+          ("fun"  . ?Ƒ)
+          ("defun"   . ?Ƒ)
+          ("define*"   . ?Ƒ)
+          ("func"   . ?Ƒ)
+          ("function" . ?Ƒ)
+          ("compose" . ?∘)
+          ("define-syntax" . ?✦)
+          ("define-syntax-rule" . ?✦)
+          ("define-macro" . ?✦)
+          ("defmacro" . ?✦)
+
+          ;; --- Types & Optionals ---
+          ("None"   . ?∅)
+          ("Nil"    . ?∅)
+          ("nil"    . ?∅)
+          ("null"    . ?∅)
+
+          ;; --- Logic & Boolean ---
+          ("true"   . ?✓)
+          ("#t"     . ?✓)
+          ("True"   . ?✓)
+          ("false"  . ?✗)
+          ("#f"     . ?✗)
+          ("False"  . ?✗)
+          ;; ("true"   . ?⊤)
+          ;; ("#t"   . ?⊤)
+          ;; ("True"   . ?⊤)
+          ;; ("false"  . ?⊥)
+          ;; ("#f"  . ?⊥)
+          ;; ("False"  . ?⊥)
+          ;; ("and"    . ?∧)
+          ;; ("or"     . ?∨)
+          ;; ("not"    . ?¬)
+
+          ;; --- Mathematical & Set Theory ---
+          ("in"     . ?∈)
+          ("not in" . ?∉)
+          ("sum"    . ?∑)
+          ("product" . ?∏)
+          ("sqrt"   . ?√)
+          ("pi"     . ?π)
+          ("Infinity" . ?∞)
+          ("infinity" . ?∞)
+          ("inf" . ?∞)
+
+          ;; --- Comparison Operators ---
+          ;; ("=="     . ?≡)
+          ;; ("==="    . ?≣)
+          ;; ("!="     . ?≠)
+          ;; ("!=="    . ?≢)
+          ("<="     . ?≤)
+          (">="     . ?≥)
+
+          ;; --- Control Flow & Arrows ---
+          ("->"     . ?→)
+          ("-->"    . ?⟶)
+          ;; ("=>"     . ?⇒)
+          ;; ("<="     . ?⇐)
+          ("<-"     . ?←)
+          ("<--"    . ?⟵)
+          ;; ("<->"    . ?↔)
+
+          ;; --- Lisp
+          ;; ("car"       . ?⎾) ; Top-left corner (the head of the list)
+          ;; ("cdr"       . ?⎿) ; Bottom-left corner (the remaining tail)
+          ("unquote" . ?↴)
+          ("cons"      . ?⨝) ; Join / Join operator
+
+
+          ;; --- Miscellaneous / Clean Syntax ---
+          ;; ("yield"  . ?⟿)
+          ;; ("return" . ?↵)
+          ("import" . ?📥)
+          ("export" . ?📤)
+          ))
+
+  )
+
 ;; Core Emacs Configuration
 ;; This block is grouped by logical domains for easier reading.
 (use-package emacs
@@ -74,6 +159,8 @@
          ("C-c # f" . heks-emacs-full-reconfigure)
          ("C-c w r" . heks-emacs-project-start-repl-process)
          ("C-c w f" . heks-emacs-project-fmt)
+         ("C-=" . text-scale-increase)
+         ("C--" . text-scale-decrease)
          ("C-c w t" . heks-emacs-project-start-test)
          ("C-c w d" . heks-emacs-project-start-dev)
          ("C-c w s" . heks-emacs-print-random-standup-order)
@@ -86,6 +173,8 @@
          ("C-c t h" . kbd-scheme-hygguile-abstraction))
 
   :hook ((text-mode . visual-line-mode)
+         (prog-mode . prettify-symbols-mode)
+         (org-mode . prettify-symbols-mode)
          ((emacs-lisp-mode
            conf-mode
            markdown-mode
@@ -111,6 +200,17 @@
   (setopt treesit-auto-install-grammar 'always) ; EMACS-31
   (setopt treesit-enabled-modes t)              ; EMACS-31
 
+  ;; default to utf-8 for all the things
+  (set-charset-priority 'unicode)
+  (setq locale-coding-system 'utf-8
+        coding-system-for-read 'utf-8
+        coding-system-for-write 'utf-8)
+  (set-terminal-coding-system 'utf-8)
+  (set-keyboard-coding-system 'utf-8)
+  (set-selection-coding-system 'utf-8)
+  (prefer-coding-system 'utf-8)
+  (setq default-process-coding-system '(utf-8-unix . utf-8-unix))
+
   ;; these might require a manual `M-x treesit-install-language-grammar'
   (add-to-list 'treesit-language-source-alist
                '(kotlin . ("https://github.com/fwcd/tree-sitter-kotlin")))
@@ -132,7 +232,9 @@
           compile-command "maak --list")
 
   (setq-default indent-tabs-mode nil)         ; Always use spaces instead of tabs
-  (global-prettify-symbols-mode +1)           ; Turn standard strings like "lambda" into "λ"
+
+  (add-hook 'prettify-symbols-mode-hook #'add-prettify-mappings)
+
 
   (defalias 'yes-or-no-p 'y-or-n-p)           ; Type 'y' instead of 'yes' for prompts
 
@@ -157,6 +259,19 @@
   (recentf-mode 1)
   (setopt recentf-max-menu-items 100
           recentf-max-saved-items 100)
+
+  ;; startup
+  (setopt inhibit-startup-screen t
+          initial-scratch-message nil)
+
+  (winner-mode t)
+
+  (show-paren-mode t)
+
+  ;; less noise when compiling elisp
+  (setq byte-compile-warnings '(not free-vars unresolved noruntime lexical make-local))
+  (setq native-comp-async-report-warnings-errors nil)
+  (setq load-prefer-newer t)
 
   ;; --- Integrations & Paths ---
 

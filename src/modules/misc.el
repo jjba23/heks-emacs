@@ -44,6 +44,7 @@
 (use-package show-font
   :ensure t)
 
+
 (provide 'heks-emacs/misc)
 
 ;;; misc.el ends here
