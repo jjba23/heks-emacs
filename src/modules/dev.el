@@ -315,6 +315,11 @@
   ;; editing experience without affecting cursor placement.
   (stripspace-restore-column t))
 
+(use-package editorconfig
+  :ensure nil
+  :config
+  (editorconfig-mode 1))
+
 (provide 'heks-emacs/dev)
 
 ;;; dev.el ends here
