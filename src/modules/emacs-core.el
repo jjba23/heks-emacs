@@ -273,6 +273,8 @@
 
   (show-paren-mode t)
 
+  (column-number-mode 1)
+
   ;; less noise when compiling elisp
   (setq byte-compile-warnings '(not free-vars unresolved noruntime lexical make-local))
   (setq native-comp-async-report-warnings-errors nil)
@@ -448,8 +450,10 @@
     "Customize mode-line format using modusregel."
     (setq mode-line-format (list
                             modusregel-leading-str
+                            modusregel-remote-expr
                             modusregel-buffer-name-expr
                             modusregel-buffer-modified-str
+                            modusregel-buffer-read-only-str
                             modusregel-spacer-str
 
                             ;; Uncomment if nyan-mode is enabled above
@@ -457,11 +461,13 @@
 
                             modusregel-spacer-str
                             modusregel-line-number-str
+                            modusregel-column-number-str
                             modusregel-spacer-str
                             modusregel-buffer-position-str
                             modusregel-spacer-str
                             modusregel-vc-expr
                             modusregel-major-mode-expr
+                            modusregel-eglot-expr
                             modusregel-spacer-str
                             modusregel-flymake-expr
                             (ignore-errors keycast-mode-line))))
