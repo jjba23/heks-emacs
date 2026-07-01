@@ -59,6 +59,7 @@
         eglot-connect-timeout 60
         eglot-autoreconnect t)
   :config
+  (setopt eglot-code-action-indications nil)                   ;; EMACS-31
   (setq eglot-server-programs (assq-delete-all 'scala-mode eglot-server-programs))
   (setq eglot-server-programs (assq-delete-all 'scala-ts-mode eglot-server-programs))
 
@@ -124,7 +125,7 @@
               ;; Show flymake diagnostics first.
               (setq eldoc-documentation-functions
                     (cons #'flymake-eldoc-function
-                          (remove #'flymake-eldoc-function eldoc-documentation-functions)))
+                       (remove #'flymake-eldoc-function eldoc-documentation-functions)))
               ;; Show all eldoc feedback.
               (setq eldoc-documentation-strategy #'eldoc-documentation-compose)))
 
