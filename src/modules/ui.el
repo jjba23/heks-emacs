@@ -89,6 +89,10 @@ According to size, color and font family"
                         :height (round (tekengrootte-mk-font-size 114))
                         :font heks-emacs-font-mono)
 
+    (set-face-attribute 'fixed-pitch nil
+                        :height (round (tekengrootte-mk-font-size 114))
+                        :font heks-emacs-font-mono)
+
     (set-face-attribute 'variable-pitch nil
                         :font heks-emacs-font-sans
                         :height (tekengrootte-mk-font-size 1.1))
@@ -104,36 +108,36 @@ According to size, color and font family"
       (set-face-attribute 'font-lock-doc-face nil
                           :foreground (ef-themes-get-color-value 'yellow-faint)))
 
-    (ignore-errors
-      (set-face-attribute 'markdown-pre-face nil
-                          :font heks-emacs-font-mono
-                          :height (tekengrootte-mk-font-size 0.95))
-      (set-face-attribute 'markdown-code-face nil
-                          :font heks-emacs-font-mono
-                          :height (tekengrootte-mk-font-size 0.95))
-      (set-face-attribute 'markdown-inline-code-face nil
-                          :font heks-emacs-font-mono
-                          :height (tekengrootte-mk-font-size 0.95))
-      (set-face-attribute 'markdown-header-face-1 nil
-                          :font heks-emacs-font-sans
-                          :weight 'bold
-                          :height (tekengrootte-mk-font-size 1.2))
-      (set-face-attribute 'markdown-header-face-2 nil
-                          :font heks-emacs-font-sans
-                          :weight 'bold
-                          :height (tekengrootte-mk-font-size 1.2))
-      (set-face-attribute 'markdown-header-face-3 nil
-                          :font heks-emacs-font-sans
-                          :weight 'bold
-                          :height (tekengrootte-mk-font-size 1.1))
-      (set-face-attribute 'markdown-header-face-4 nil
-                          :font heks-emacs-font-sans
-                          :weight 'bold
-                          :height (tekengrootte-mk-font-size 1.1))
-      (set-face-attribute 'markdown-header-face-5 nil
-                          :font heks-emacs-font-sans
-                          :weight 'bold
-                          :height (tekengrootte-mk-font-size 1.0)))
+    ;; (ignore-errors
+    ;;   (set-face-attribute 'markdown-pre-face nil
+    ;;                       :font heks-emacs-font-mono
+    ;;                       :height (tekengrootte-mk-font-size 0.95))
+    ;;   (set-face-attribute 'markdown-code-face nil
+    ;;                       :font heks-emacs-font-mono
+    ;;                       :height (tekengrootte-mk-font-size 0.95))
+    ;;   (set-face-attribute 'markdown-inline-code-face nil
+    ;;                       :font heks-emacs-font-mono
+    ;;                       :height (tekengrootte-mk-font-size 0.95))
+    ;;   (set-face-attribute 'markdown-header-face-1 nil
+    ;;                       :font heks-emacs-font-sans
+    ;;                       :weight 'bold
+    ;;                       :height (tekengrootte-mk-font-size 1.2))
+    ;;   (set-face-attribute 'markdown-header-face-2 nil
+    ;;                       :font heks-emacs-font-sans
+    ;;                       :weight 'bold
+    ;;                       :height (tekengrootte-mk-font-size 1.2))
+    ;;   (set-face-attribute 'markdown-header-face-3 nil
+    ;;                       :font heks-emacs-font-sans
+    ;;                       :weight 'bold
+    ;;                       :height (tekengrootte-mk-font-size 1.1))
+    ;;   (set-face-attribute 'markdown-header-face-4 nil
+    ;;                       :font heks-emacs-font-sans
+    ;;                       :weight 'bold
+    ;;                       :height (tekengrootte-mk-font-size 1.1))
+    ;;   (set-face-attribute 'markdown-header-face-5 nil
+    ;;                       :font heks-emacs-font-sans
+    ;;                       :weight 'bold
+    ;;                       :height (tekengrootte-mk-font-size 1.0)))
 
     (ignore-errors
       (set-face-attribute 'org-table nil

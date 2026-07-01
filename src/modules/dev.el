@@ -167,19 +167,6 @@
 (with-eval-after-load 'compile
   (fancy-compilation-mode))
 
-;; Configures Emacs for Markdown file editing, enabling specific display
-;; modes and custom functions for Markdown files.
-(use-package markdown-mode
-  :ensure t
-  :mode "\\.md\\'"
-  :hook ((markdown-mode . heks-emacs-markdown-mode))
-  :config
-  (defun heks-emacs-markdown-mode ()
-    (variable-pitch-mode 1)
-    (auto-fill-mode 0)
-    (visual-line-mode 1)
-    (ignore-errors (heks-emacs-set-base-faces))))
-
 ;; Provides a library for making HTTP requests from Emacs Lisp.
 (use-package request
   :ensure t)

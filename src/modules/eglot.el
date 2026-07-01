@@ -27,6 +27,7 @@
          (sh-mode . eglot-ensure)
          (haskell-mode . eglot-ensure)
          (markdown-mode . eglot-ensure)
+         (markdown-ts-mode . eglot-ensure)
          (nix-ts-mode . eglot-ensure)
          (go-mode . eglot-ensure)
          (python-mode . eglot-ensure)
@@ -125,7 +126,7 @@
               ;; Show flymake diagnostics first.
               (setq eldoc-documentation-functions
                     (cons #'flymake-eldoc-function
-                       (remove #'flymake-eldoc-function eldoc-documentation-functions)))
+                          (remove #'flymake-eldoc-function eldoc-documentation-functions)))
               ;; Show all eldoc feedback.
               (setq eldoc-documentation-strategy #'eldoc-documentation-compose)))
 

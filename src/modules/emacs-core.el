@@ -180,9 +180,11 @@
   :hook ((text-mode . visual-line-mode)
          (prog-mode . heks-activate-prettify)
          (org-mode . heks-activate-prettify)
+         (markdown-ts-mode . heks-activate-prettify)
          ((emacs-lisp-mode
            conf-mode
-           markdown-mode
+           markdown-ts-mode
+           org-mode
            scheme-mode
            diff-mode) . outline-minor-mode))
   :custom
@@ -476,7 +478,14 @@
   (setq project-vc-extra-root-markers '(".envrc")))
 
 (use-package markdown-ts-mode
-  :ensure nil)
+  :ensure nil
+  :hook ((markdown-ts-mode . heks-emacs-markdown-ts-mode))
+  :config
+  (defun heks-emacs-markdown-ts-mode ()
+    (variable-pitch-mode 1)
+    (auto-fill-mode 0)
+    (visual-line-mode 1)
+    (ignore-errors (heks-emacs-set-base-faces))))
 
 (provide 'heks-emacs/emacs-self)
 
