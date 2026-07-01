@@ -77,10 +77,10 @@
                   ("defmacro" . ?✦)
 
                   ;; --- Types & Optionals ---
-                  ("None"    . ?∅)
-                  ("Nil"     . ?∅)
-                  ("nil"     . ?∅)
-                  ("null"    . ?∅)
+                  ("None"    . ?Ø)
+                  ("Nil"     . ?Ø)
+                  ("nil"     . ?Ø)
+                  ("null"    . ?Ø)
 
                   ;; --- Logic & Boolean ---
                   ("true"   . ?✓)
@@ -124,17 +124,18 @@
                   ("#+END_QUOTE"       . ?”)
                   ("#+title:"   . ?🅃)
                   ("#+author:"  . ?🄰)
+                  ("#+email:"  . ?🄴)
                   ("#+date:"    . ?🄳)
                   ("#+options:" . ?⚙)
                   ("#+name:"       . ?🄽)
 
                   ;; --- Lisp ---
                   ("unquote" . ?↴)
-                  ("cons"      . ?⨝)
+                  ("cons"      . ?∷)
 
                   ;; --- Miscellaneous / Clean Syntax ---
-                  ("import" . ?📥)
-                  ("export" . ?📤)
+                  ;; ("import" . ?📥)
+                  ;; ("export" . ?📤)
                   )
                 prettify-symbols-alist)))
 

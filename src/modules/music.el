@@ -60,6 +60,7 @@
 (use-package ready-player
   :ensure t
   :config
+  (setq ready-player-set-global-bindings nil)
   (ready-player-mode +1))
 
 (provide 'heks-emacs/music)

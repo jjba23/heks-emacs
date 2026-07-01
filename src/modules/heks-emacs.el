@@ -473,7 +473,7 @@ Returns a list of the format: (task-name (arg-value1 arg-value2 ...))"
       (let ((command (mapconcat #'shell-quote-argument (cons "maak" (cons task args)) " ")))
         (compile command)))))
 
-(keymap-global-set "C-x p m" #'maak-run-task)
+(keymap-global-set "C-c m r" #'maak-run-task)
 
 (provide 'heks-emacs/heks-emacs)
 
