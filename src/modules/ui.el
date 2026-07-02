@@ -305,7 +305,13 @@ According to size, color and font family"
   :ensure t
   :config
   (add-to-list 'nerd-icons-regexp-icon-alist
-               '("^[Jj]ustfile$" nerd-icons-faicon "nf-fa-wrench")))
+               '("^[Jj]ustfile$" nerd-icons-faicon "nf-fa-wrench"))
+  (add-to-list 'nerd-icons-regexp-icon-alist
+               '("^settings-gradle\\.lockfile$" nerd-icons-faicon "nf-fa-lock"))
+  (add-to-list 'nerd-icons-regexp-icon-alist
+               '("^gradle\\.lockfile$" nerd-icons-faicon "nf-fa-lock"))
+  (add-to-list 'nerd-icons-regexp-icon-alist
+               '("^[Cc][Oo][Dd][Ee][Oo][Ww][Nn][Ee][Rr][Ss]$" nerd-icons-faicon "nf-fa-users")))
 
 (use-package nerd-icons-completion
   :ensure t
