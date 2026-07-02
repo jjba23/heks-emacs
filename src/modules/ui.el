@@ -301,7 +301,11 @@ According to size, color and font family"
   (add-hook 'server-after-make-frame-hook 'new-frame-setup)
   (add-hook 'server-after-make-frame-hook #'my-set-custom-modeline))
 
-(use-package nerd-icons :ensure t)
+(use-package nerd-icons
+  :ensure t
+  :config
+  (add-to-list 'nerd-icons-regexp-icon-alist
+               '("^[Jj]ustfile$" nerd-icons-faicon "nf-fa-wrench")))
 
 (use-package nerd-icons-completion
   :ensure t
