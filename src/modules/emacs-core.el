@@ -463,7 +463,7 @@
                             modusregel-line-number-str
                             modusregel-column-number-str
                             modusregel-spacer-str
-                            modusregel-buffer-position-str
+                            modusregel-buffer-position-expr
                             modusregel-spacer-str
                             modusregel-vc-expr
                             modusregel-major-mode-expr
@@ -473,6 +473,7 @@
                             (ignore-errors keycast-mode-line))))
 
   (add-hook 'after-change-major-mode-hook #'my-set-custom-modeline)
+
   )
 
 
