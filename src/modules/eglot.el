@@ -75,7 +75,7 @@
   (add-to-list 'eglot-server-programs '(nix-ts-mode . ("nil")))
 
   (setq eglot-server-programs (assoc-delete-all 'kotlin-ts-mode eglot-server-programs))
-  (add-to-list 'eglot-server-programs '(kotlin-ts-mode . ("kotlin-lsp" "--stdio")))
+  (add-to-list 'eglot-server-programs '(kotlin-ts-mode . ("intellij-server" "--stdio")))
 
   (add-to-list 'eglot-server-programs '(markdown-mode . ("marksman")))
 
