@@ -83,16 +83,16 @@
                   ("null"    . ?Ø)
 
                   ;; --- Logic & Boolean ---
-                  ("true"   . ?✓)
-                  ("#t"     . ?✓)
-                  ("True"   . ?✓)
-                  ("false"  . ?✗)
-                  ("#f"     . ?✗)
-                  ("False"  . ?✗)
+                  ;; ("true"   . ?✓)
+                  ;; ("#t"     . ?✓)
+                  ;; ("True"   . ?✓)
+                  ;; ("false"  . ?✗)
+                  ;; ("#f"     . ?✗)
+                  ;; ("False"  . ?✗)
 
                   ;; --- Mathematical & Set Theory ---
-                  ("in"     . ?∈)
-                  ("not in" . ?∉)
+                  ;; ("in"     . ?∈)
+                  ;; ("not in" . ?∉)
                   ("sum"    . ?∑)
                   ("product" . ?∏)
                   ("sqrt"   . ?√)
