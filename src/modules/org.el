@@ -86,11 +86,11 @@
 
 (use-package ob-mermaid :ensure t)
 
-(use-package org-remoteimg
-  :ensure (:host github :repo "jjba23/org-remoteimg")
-  :config
-  (setq org-display-remote-inline-images 'cache)
-  (defvaralias 'org-link-preview-overlays 'org-inline-image-overlays))
+;; (use-package org-remoteimg
+;;   :ensure (:host github :repo "jjba23/org-remoteimg")
+;;   :config
+;;   (setq org-display-remote-inline-images 'cache)
+;;   (defvaralias 'org-link-preview-overlays 'org-inline-image-overlays))
 
 (provide 'heks-emacs/org)
 

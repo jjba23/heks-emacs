@@ -60,12 +60,12 @@
         (append '(
                   ;; --- Functional Programming & Lambdas ---
                   ("lambda" . ?λ)
-                  ("fn"    . ?Ƒ)
-                  ("fun"   . ?Ƒ)
-                  ("defun"    . ?Ƒ)
-                  ("define*"    . ?Ƒ)
-                  ("func"    . ?Ƒ)
-                  ("function" . ?Ƒ)
+                  ("fn"    . ?ϝ)
+                  ("fun"   . ?ϝ)
+                  ("defun"    . ?ϝ)
+                  ("define*"    . ?ϝ)
+                  ("func"    . ?ϝ)
+                  ("function" . ?ϝ)
                   ("compose" . ?∘)
                   ("define-syntax" . ?μ)
                   ("define-syntax-rule" . ?μ)
@@ -77,10 +77,10 @@
                   ("defmacro" . ?✦)
 
                   ;; --- Types & Optionals ---
-                  ("None"    . ?Ø)
-                  ("Nil"     . ?Ø)
-                  ("nil"     . ?Ø)
-                  ("null"    . ?Ø)
+                  ;; ("None"    . ?Ø)
+                  ;; ("Nil"     . ?Ø)
+                  ;; ("nil"     . ?Ø)
+                  ;; ("null"    . ?Ø)
 
                   ;; --- Logic & Boolean ---
                   ;; ("true"   . ?✓)
@@ -100,6 +100,26 @@
                   ("Infinity" . ?∞)
                   ("infinity" . ?∞)
                   ("inf" . ?∞)
+                  ("Omega"   . ?Ω)
+                  ("omega"   . ?Ω)
+                  ("Theta"   . ?Θ)
+                  ("theta"   . ?Θ)
+                  ("phi"     . ?φ)
+                  ("Phi"     . ?φ)
+                  ("forall"  . ?∀)
+                  ("mu"      . ?μ)
+                  ("sigma"   . ?σ)
+                  ("Sigma"   . ?Σ)
+                  ("alpha"   . ?α)
+                  ("Alpha"   . ?α)
+                  ("beta"    . ?β)
+                  ("Beta"    . ?β)
+                  ("gamma"   . ?γ)
+                  ("Gamma"   . ?γ)
+                  ("pi"      . ?π)
+                  ("Pi"      . ?π)
+                  ("tau"     . ?τ)
+                  ("Tau"     . ?τ)
 
                   ;; --- Comparison Operators ---
                   ("<="     . ?≤)
@@ -378,7 +398,7 @@
   ;; --- VC ---
   (setopt vc-auto-revert-mode t                    ; EMACS-31
           vc-allow-rewriting-published-history t   ; EMACS-31
-          vc-dir-auto-hide-up-to-date 'revert)     ; EMACS-31
+          vc-dir-auto-hide-up-to-date t)     ; EMACS-31
 
   ;; -- General niceties ----
   (setopt delete-pair-push-mark t)                    ; EMACS-31: pushes a mark after
