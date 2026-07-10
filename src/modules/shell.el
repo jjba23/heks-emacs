@@ -99,7 +99,7 @@ length of PATH (sans directory slashes) down to MAX-LEN."
 (setopt eshell-prompt-regexp "^[^#λ\n]*[#λ] ")
 (setopt eshell-prompt-function 'heks-emacs-eshell-prompt)
 (setopt eshell-highlight-prompt nil)
-(setopt eshell-banner-message "Welcome to HEKS-EMACS/GNU - the Supreme Sexp System\n")
+(setopt eshell-banner-message "Welcome to HEKS-EMACS\n")
 
 ;;(global-set-key (kbd "C-!") 'eshell-here)
 

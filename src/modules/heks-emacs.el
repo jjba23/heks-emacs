@@ -31,7 +31,7 @@
   :type 'string)
 
 (defcustom heks-emacs-clone-dir nil
-  "The directory where the HEKS-EMACS (Supreme Sexp System) source code is located."
+  "The directory where the HEKS-EMACS source code is located."
   :type 'string)
 
 (defcustom heks-emacs-notes-roam-dir nil
