@@ -371,6 +371,27 @@ DATA: A string containing JSON data."
   :type 'integer
   :group 'maak)
 
+(defun maak--get-exports ()
+  "Extract the list of exported task names as strings from the current buffer.
+Returns nil if no #:export directive is found or if it is empty."
+  (save-excursion
+    (goto-char (point-min))
+    (let (found exports-list)
+      ;; Search for "#:export", ensuring we aren't in a string or comment
+      (while (and (not found) (search-forward "#:export" nil t))
+        (let ((state (syntax-ppss)))
+          (unless (or (nth 3 state) (nth 4 state)) ; 3 is string, 4 is comment
+            (setq found t)
+            (forward-comment (point-max))
+            ;; If the next character is an open paren, parse the export list
+            (when (eq (char-after) ?\()
+              (condition-case nil
+                  (let ((exports (read (current-buffer))))
+                    (when (listp exports)
+                      (setq exports-list (mapcar #'symbol-name exports))))
+                (error nil))))))
+      exports-list)))
+
 (defun maak--find-file ()
   "Find the maak.scm file in the current directory or its parents."
   (let ((dir (locate-dominating-file default-directory "maak.scm")))
@@ -379,37 +400,46 @@ DATA: A string containing JSON data."
 
 (defun maak--get-tasks (file)
   "Extract task names, arguments, and docstrings from the given maak.scm FILE.
-Returns a list of elements: (task-name docstring argument-list)."
+Returns a list of elements: (task-name docstring argument-list), respecting
+the #:export visibility rules."
   (let (tasks)
     (with-temp-buffer
       (emacs-lisp-mode) ; Activates standard Lisp syntax table for accurate parsing
       (insert-file-contents file)
-      (goto-char (point-min))
-      (while (re-search-forward "^[[:space:]]*([[:space:]]*define[[:space:]]+(\\([a-zA-Z0-9_-]+\\)" nil t)
-        (let ((task (match-string 1))
-              (docstring "")
-              (args nil))
-          (save-excursion
-            (goto-char (match-beginning 1))
-            (backward-char 1)                     ; Move to the opening '(' of the signature
-            (condition-case nil
-                (progn
-                  (forward-sexp 1)                ; Move past the signature: (task-name arg1 ...)
-                  (let ((sig-end (point)))
-                    (save-excursion
-                      (goto-char (match-end 1))   ; Jump right past the task name inside signature
-                      (let ((args-str (buffer-substring-no-properties (point) (1- sig-end))))
-                        ;; Split by whitespace to extract argument names
-                        (setq args (split-string args-str "[[:space:]\n\r]+" t)))))
-                  ;; Move forward to capture optional docstring string literal
-                  (forward-comment (point-max))
-                  (when (eq (char-after) ?\")
-                    (let ((start (point)))
-                      (forward-sexp 1)
-                      (setq docstring (buffer-substring-no-properties (1+ start) (1- (point)))))))
-              (error nil)))
-          (push (list task docstring args) tasks)))
-      (nreverse tasks))))
+      (let ((exports (maak--get-exports)))
+        (goto-char (point-min))
+        (while (re-search-forward "^[[:space:]]*([[:space:]]*define[[:space:]]+(\\([a-zA-Z0-9_---+*/<>=!?]+\\)" nil t)
+          (let ((task (match-string 1))
+                (docstring "")
+                (args nil))
+            (save-excursion
+              (goto-char (match-beginning 1))
+              (backward-char 1)                     ; Move to the opening '(' of the signature
+              (condition-case nil
+                  (progn
+                    (forward-sexp 1)                ; Move past the signature: (task-name arg1 ...)
+                    (let ((sig-end (point)))
+                      (save-excursion
+                        (goto-char (match-end 1))   ; Jump right past the task name inside signature
+                        (let ((args-str (buffer-substring-no-properties (point) (1- sig-end))))
+                          ;; Split by whitespace to extract argument names
+                          (setq args (split-string args-str "[[:space:]\n\r]+" t)))))
+                    ;; Move forward to capture optional docstring string literal
+                    (forward-comment (point-max))
+                    (when (eq (char-after) ?\")
+                      (let ((start (point)))
+                        (forward-sexp 1)
+                        (setq docstring (buffer-substring-no-properties (1+ start) (1- (point)))))))
+                (error nil)))
+            (push (list task docstring args) tasks)))
+
+        ;; Apply Task Export & Visibility rules
+        (let ((all-tasks (nreverse tasks)))
+          (if exports
+              (seq-filter (lambda (task-info)
+                            (member (car task-info) exports))
+                          all-tasks)
+            all-tasks))))))
 
 (defun maak--make-annotation-function (tasks)
   "Return an annotation function formatted dynamically for TASKS columns."
