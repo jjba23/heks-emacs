@@ -135,6 +135,8 @@
          (load-theme 'doom-one t))
         ((equal heks-emacs-theme 'solarized-light)
          (load-theme 'doom-solarized-light t))
+        ((equal heks-emacs-theme 'solarized-dark)
+         (load-theme 'doom-solarized-dark t))
         ((equal heks-emacs-theme 'doom-one-light)
          (load-theme 'doom-one-light t))
         ((equal heks-emacs-theme 'doom-molokai)
