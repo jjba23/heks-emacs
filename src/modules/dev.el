@@ -320,6 +320,11 @@
   :config
   (editorconfig-mode 1))
 
+(use-package maak.el
+  :ensure (:host codeberg :repo "jjba23/maak.el" :branch "trunk")
+  :demand t
+  :bind ("C-c m r" . maak-run-task))
+
 (provide 'heks-emacs/dev)
 
 ;;; dev.el ends here
