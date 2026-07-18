@@ -104,6 +104,20 @@
          (load-theme 'catppuccin t)))
   )
 
+(use-package autothemer :ensure t)
+
+(use-package rose-pine
+  :ensure (:host github :repo "thongpv87/rose-pine-emacs"
+                 :branch "master")
+  :after (autothemer)
+  :config
+  (cond ((equal heks-emacs-theme 'rose-pine-moon)
+         (load-theme 'rose-pine-moon t))
+        ((equal heks-emacs-theme 'rose-pine-dawn)
+         (load-theme 'rose-pine-dawn t))
+        ))
+
+
 (use-package kaolin-themes
   :ensure t
   :config
