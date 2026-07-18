@@ -108,14 +108,16 @@
 
 (use-package rose-pine
   :ensure (:host github :repo "thongpv87/rose-pine-emacs"
-                 :branch "master")
+                 :branch "master"
+                 :main "rose-pine-color-theme.el")
   :after (autothemer)
+  :no-require t
   :config
-  (cond ((equal heks-emacs-theme 'rose-pine-moon)
-         (load-theme 'rose-pine-moon t))
-        ((equal heks-emacs-theme 'rose-pine-dawn)
-         (load-theme 'rose-pine-dawn t))
-        ))
+  (cond
+   ((equal heks-emacs-theme 'rose-pine-moon)
+    (load-theme 'rose-pine-moon t))
+   ((equal heks-emacs-theme 'rose-pine-dawn)
+    (load-theme 'rose-pine-dawn t))))
 
 
 (use-package kaolin-themes
@@ -147,6 +149,10 @@
          (load-theme 'doom-tomorrow-night t))
         ((equal heks-emacs-theme 'doom-one)
          (load-theme 'doom-one t))
+        ((equal heks-emacs-theme 'nord)
+         (load-theme 'doom-nord t))
+        ((equal heks-emacs-theme 'tokyo-night)
+         (load-theme 'doom-tokyo-night t))
         ((equal heks-emacs-theme 'solarized-light)
          (load-theme 'doom-solarized-light t))
         ((equal heks-emacs-theme 'solarized-dark)
