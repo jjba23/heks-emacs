@@ -151,12 +151,42 @@
       (advice-add 'eglot-uri-to-path :around #'fix-ls-jar-uri)
     (advice-add 'eglot--uri-to-path :around #'fix-ls-jar-uri))
 
+  (defun ak/jdt-file-name-handler (operation &rest args)
+    "Support Eclipse jdtls `jdt://' uri scheme."
+    (let* ((uri (car args))
+           (cache-dir "/tmp/.eglot")
+           (source-file
+            (expand-file-name
+             (file-name-concat
+              cache-dir
+              (save-match-data
+                (when (string-match "jdt://contents/\\(.*?\\)/\\(.*\\)\.class\\?" uri)
+                  (format "%s.java" (replace-regexp-in-string "/" "." (match-string 2 uri) t t))))))))
+      (unless (file-readable-p source-file)
+        (let ((content (jsonrpc-request (eglot-current-server) :java/classFileContents (list :uri uri)))
+              (metadata-file (format "%s.%s.metadata"
+                                     (file-name-directory source-file)
+                                     (file-name-base source-file))))
+          (unless (file-directory-p cache-dir) (make-directory cache-dir t))
+          (with-temp-file source-file (insert content))
+          (with-temp-file metadata-file (insert uri))))
+      source-file))
+
+  (add-to-list 'file-name-handler-alist '("\\`jdt://" . ak/jdt-file-name-handler))
+
+  (with-eval-after-load 'eglot
+    (add-to-list 'eglot-server-programs
+                 `((java-mode java-ts-mode) .
+                   ("jdtls"
+                    :initializationOptions
+                    (:extendedClientCapabilities (:classFileContentsSupport t))))))
+
   )
 
 (use-package eglot-java
   :ensure t
-  :hook ((java-mode . eglot-java-mode)
-         (java-ts-mode . eglot-java-mode)))
+  :after (eglot)
+  :hook ((java-mode . eglot-java-mode)))
 
 (use-package jarchive
   :ensure t
