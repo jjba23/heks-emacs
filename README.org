@@ -1,6 +1,7 @@
 #+title: Heks Emacs 🧙‍♂️
 #+author: Josep Bigorra
 #+email: jjbigorra@gmail.com
+#+options: toc:2
 
 [[https://jointhefreeworld.org/ggg/dist/gnu-emacs.svg]] [[https://jointhefreeworld.org/ggg/dist/maak.svg]]  [[https://jointhefreeworld.org/ggg/dist/license-gpl3+.svg]]    [[https://jointhefreeworld.org/ggg/dist/license-fdl13+.svg]]
 
@@ -30,7 +31,9 @@ If you like my work, please support me by [[https://bmc.link/jjbigorra][buying m
 
 ---------
 
-[[https://jointhefreeworld.org/static-assets/heks/screen-2026-01-25-23-38-10.png]]
+[[https://jointhefreeworld.org/static-assets/heks/screen-2025-12-27-00-46-50.png]]
+
+[[https://jointhefreeworld.org/static-assets/heks/screen-2026-07-15-23-32-24.png]]
 
 --------
 
@@ -67,7 +70,48 @@ Feel free to ~setopt~ these:
           heks-emacs-ews-music-directory "~/Music")
 #+end_src
 
-** The bridges
+-----------------
+
+* Supported Palettes 🎨
+
+A curated collection of gorgeous, modern, and highly accessible color palettes seamlessly integrated for both your system and Emacs.
+
+*** 🎨 The Ef Collection
+- *Dark:* ~ef-autumn~, ~ef-bio~, ~ef-dream~
+- *Light:* ~ef-day~, ~ef-kassio~, ~ef-melissa-light~, ~ef-cyprus~
+
+*** ⚖️ Accessible & Classic
+- ~modus-vivendi~ & ~modus-operandi~ /(and all their variants: ~-tinted~, ~-deuteranopia~ and ~-tritanopia~)/
+- ~solarized-light~ & ~solarized-dark~
+- ~kaolin-dark~
+
+*** 🐈 Catppuccin
+- ~catppuccin-latte~
+- ~catppuccin-mocha~
+
+*** 💥 Modern & Neon
+- ~dracula~
+- ~tokyo-night~
+- ~heavy-metal~
+
+*** 🌲 Earthy & Organic
+- ~everforest-dark~ / ~everforest-light~
+- ~gruvbox-dark~ / ~gruvbox-light~
+
+*** 🌊 Nordic & Pastel
+- ~kanagawa~
+- ~nord~
+- ~rose-pine-moon~
+- ~rose-pine-dawn~
+
+** 🦅 The Doom Pantheon
+- ~doom-one~ & ~doom-one-light~
+- ~doom-tomorrow-night~
+- ~doom-molokai~ /(similar to monokai)/
+
+------------
+
+* The bridges
 
 If you use [[https://codeberg.org/jjba23/heks-linux][Heks GNU/Linux]], there is a heks-emacs bridge available there.
 
