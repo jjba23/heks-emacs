@@ -104,7 +104,7 @@ A curated collection of gorgeous, modern, and highly accessible color palettes s
 - ~rose-pine-moon~
 - ~rose-pine-dawn~
 
-** 🦅 The Doom Pantheon
+*** 🦅 The Doom Pantheon
 - ~doom-one~ & ~doom-one-light~
 - ~doom-tomorrow-night~
 - ~doom-molokai~ /(similar to monokai)/
