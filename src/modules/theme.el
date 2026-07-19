@@ -130,7 +130,7 @@
   (doom-themes-org-config))
 
 (use-package kanagawa-theme
-  :ensure t
+  :ensure (:host github :repo "arouene/emacs-kanagawa-theme" :branch "main")
   :if (memq heks-emacs-theme '(kanagawa))
   :config
   (load-theme 'kanagawa t))
