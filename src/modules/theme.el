@@ -129,6 +129,12 @@
   (doom-themes-treemacs-config)
   (doom-themes-org-config))
 
+(use-package kanagawa-theme
+  :ensure t
+  :if (memq heks-emacs-theme '(kanagawa))
+  :config
+  (load-theme 'kanagawa t))
+
 (provide 'heks-emacs/theme)
 
 ;;; theme.el ends here
