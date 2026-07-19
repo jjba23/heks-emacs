@@ -130,19 +130,16 @@
               ;; Show all eldoc feedback.
               (setq eldoc-documentation-strategy #'eldoc-documentation-compose)))
 
-  ;; 1. Convert IntelliJ jar:/// URIs into clean jar:file:/// paths for jarchive
   (defun heks/eglot-uri-to-path-kotlin (orig-fn uri &rest args)
     (if (and (stringp uri) (string-prefix-p "jar:///" uri))
         (apply orig-fn (replace-regexp-in-string "^jar:///" "jar:file:///" uri) args)
       (apply orig-fn uri args)))
 
-  ;; 2. Convert jar:file:/// paths back into jar:/// URIs for the IntelliJ server
   (defun heks/eglot-path-to-uri-kotlin (orig-fn path &rest args)
     (if (and (stringp path) (string-prefix-p "jar:file:///" path))
         (replace-regexp-in-string "^jar:file:///" "jar:///" path)
       (apply orig-fn path args)))
 
-  ;; Apply the safe two-way adapter patches to Eglot
   (if (fboundp 'eglot-uri-to-path)
       (progn
         (advice-add 'eglot-uri-to-path :around #'heks/eglot-uri-to-path-kotlin)
