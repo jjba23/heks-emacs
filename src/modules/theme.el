@@ -32,6 +32,8 @@
 
   ;; Handle theme-specific overrides dynamically
   (pcase heks-emacs-theme
+    ('modus-vivendi-tinted
+     (setq modus-vivendi-tinted-palette-overrides '((comment "#928f8a"))))
     ('ef-bio
      (setq ef-bio-palette-overrides '((variable fg-main) (string green-faint))))
     ('ef-cyprus
