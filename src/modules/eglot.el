@@ -137,51 +137,7 @@
                         (derived-mode-p 'python-ts-mode))
                 (add-hook 'flymake-diagnostic-functions
                           'python-flymake nil t)
-                (flymake-start))))
-
-  (defun fix-ls-jar-uri (orig-fn uri &rest args)
-    "Fix malformed jar:/// URIs sent by kotlin-language-server so jarchive can read them."
-    (if (and (stringp uri) (string-prefix-p "jar:///" uri))
-        ;; Inject 'file:' to make it a standard 'jar:file:///' URI
-        (apply orig-fn (replace-regexp-in-string "^jar:///" "jar:file:///" uri) args)
-      (apply orig-fn uri args)))
-
-  ;; Apply the patch to Eglot's URI parser (handles both old and new Eglot versions)
-  (if (fboundp 'eglot-uri-to-path)
-      (advice-add 'eglot-uri-to-path :around #'fix-ls-jar-uri)
-    (advice-add 'eglot--uri-to-path :around #'fix-ls-jar-uri))
-
-  (defun ak/jdt-file-name-handler (operation &rest args)
-    "Support Eclipse jdtls `jdt://' uri scheme."
-    (let* ((uri (car args))
-           (cache-dir "/tmp/.eglot")
-           (source-file
-            (expand-file-name
-             (file-name-concat
-              cache-dir
-              (save-match-data
-                (when (string-match "jdt://contents/\\(.*?\\)/\\(.*\\)\.class\\?" uri)
-                  (format "%s.java" (replace-regexp-in-string "/" "." (match-string 2 uri) t t))))))))
-      (unless (file-readable-p source-file)
-        (let ((content (jsonrpc-request (eglot-current-server) :java/classFileContents (list :uri uri)))
-              (metadata-file (format "%s.%s.metadata"
-                                     (file-name-directory source-file)
-                                     (file-name-base source-file))))
-          (unless (file-directory-p cache-dir) (make-directory cache-dir t))
-          (with-temp-file source-file (insert content))
-          (with-temp-file metadata-file (insert uri))))
-      source-file))
-
-  (add-to-list 'file-name-handler-alist '("\\`jdt://" . ak/jdt-file-name-handler))
-
-  (with-eval-after-load 'eglot
-    (add-to-list 'eglot-server-programs
-                 `((java-mode java-ts-mode) .
-                   ("jdtls"
-                    :initializationOptions
-                    (:extendedClientCapabilities (:classFileContentsSupport t))))))
-
-  )
+                (flymake-start)))))
 
 (use-package eglot-java
   :ensure t
