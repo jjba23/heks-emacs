@@ -78,7 +78,6 @@
          ("C-c f n" . tekengrootte-set-scale-nano))
   :hook ((tekengrootte-set-scale . (lambda ()
                                      (heks-emacs-set-base-faces))))
-  :after (ef-themes gruvbox-theme)
   :config
 
   (defun heks-emacs-set-base-faces ()

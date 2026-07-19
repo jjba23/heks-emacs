@@ -39,7 +39,7 @@
     ('ef-melissa-light
      (setq ef-melissa-light-palette-overrides '((variable fg-main) (string green-warmer))))
     ('ef-autumn
-     (setq ef-autumn-palette-overrides '((variable fg-main) (bg-main bg-dim)))))
+     (setq ef-autumn-palettes-overrides '((variable fg-main) (bg-main bg-dim)))))
 
   (load-theme heks-emacs-theme t))
 
