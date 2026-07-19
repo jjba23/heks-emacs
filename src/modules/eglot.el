@@ -148,6 +148,43 @@
       (advice-add 'eglot--uri-to-path :around #'heks/eglot-uri-to-path-kotlin)
       (advice-add 'eglot--path-to-uri :around #'heks/eglot-path-to-uri-kotlin)))
 
+
+  (defun my-jsonrpc-request-kotlin-fix (orig-fn connection method params &rest args)
+    "Fix kotlin-lsp empty newText bug by removing textEdit to trigger Eglot fallback."
+    (let ((result (apply orig-fn connection method params args)))
+      (when (and (eq method :textDocument/completion)
+                 (derived-mode-p 'kotlin-mode 'kotlin-ts-mode)
+                 result)
+        (let ((items (if (vectorp result) result (plist-get result :items))))
+          (seq-do (lambda (item)
+                    (let ((text-edit (plist-get item :textEdit)))
+                      ;; If the server sent an empty newText, strip textEdit completely
+                      ;; so Eglot falls back to replacing the actual prefix.
+                      (when (and text-edit (equal (plist-get text-edit :newText) ""))
+                        (plist-put item :textEdit nil))))
+                  items)))
+      result))
+
+  (defun my-jsonrpc-async-request-kotlin-fix (orig-fn connection method params &rest args)
+    "Fix kotlin-lsp empty newText bug in asynchronous Eglot requests."
+    (if (and (eq method :textDocument/completion)
+             (derived-mode-p 'kotlin-mode 'kotlin-ts-mode))
+        (let* ((orig-success (plist-get args :success-fn))
+               (new-success (lambda (result)
+                              (let ((items (if (vectorp result) result (plist-get result :items))))
+                                (seq-do (lambda (item)
+                                          (let ((text-edit (plist-get item :textEdit)))
+                                            (when (and text-edit (equal (plist-get text-edit :newText) ""))
+                                              (plist-put item :textEdit nil))))
+                                        items))
+                              (funcall orig-success result)))
+               (new-args (plist-put (copy-sequence args) :success-fn new-success)))
+          (apply orig-fn connection method params new-args))
+      (apply orig-fn connection method params args)))
+
+  (advice-add 'jsonrpc-request :around #'my-jsonrpc-request-kotlin-fix)
+  (advice-add 'jsonrpc-async-request :around #'my-jsonrpc-async-request-kotlin-fix)
+
   (setq python-flymake-command '("~/.local/bin/flake8" "-") )
   (add-hook 'eglot-managed-mode-hook
             (lambda ()
