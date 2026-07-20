@@ -185,6 +185,17 @@
   (advice-add 'jsonrpc-request :around #'my-jsonrpc-request-kotlin-fix)
   (advice-add 'jsonrpc-async-request :around #'my-jsonrpc-async-request-kotlin-fix)
 
+
+  (defun my/eglot-disable-metals-semantic-refresh (orig-fn server)
+    (let* ((caps (funcall orig-fn server))
+           (workspace (plist-get caps :workspace))
+           (tokens (plist-get workspace :semanticTokens)))
+      (when tokens
+        (plist-put tokens :refreshSupport :json-false))
+      caps))
+
+  (advice-add 'eglot-client-capabilities :around #'my/eglot-disable-metals-semantic-refresh)
+
   (setq python-flymake-command '("~/.local/bin/flake8" "-") )
   (add-hook 'eglot-managed-mode-hook
             (lambda ()
