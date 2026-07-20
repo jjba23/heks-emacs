@@ -74,7 +74,8 @@ Feel free to ~setopt~ these:
 
 * Supported Palettes 🎨
 
-A curated collection of gorgeous, modern, and highly accessible color palettes seamlessly integrated for both your system and Emacs.
+A curated collection of gorgeous, modern, and highly accessible color palettes with custom tweaks and custom Heks interpretation and styling aiming for harmony and uniformity across the stack.
+
 
 *** 🎨 The Ef Collection
 - *Dark:* ~ef-autumn~, ~ef-bio~, ~ef-dream~
