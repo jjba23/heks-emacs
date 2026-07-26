@@ -24,6 +24,15 @@
 ;; Global toggle of Eglot
 (setopt eglot-enabled-p t)
 
+(defun heks/eglot-enable ()
+  (interactive)
+  (setopt eglot-enabled-p t))
+(defun heks/eglot-disable ()
+  (interactive)
+  (setopt eglot-enabled-p nil))
+(defun heks/eglot-ensure ()
+  (if eglot-enabled-p (eglot-ensure) nil))
+
 (use-package eglot
   :ensure nil
   :hook ((scala-ts-mode . heks/eglot-ensure)
@@ -65,14 +74,6 @@
         eglot-connect-timeout 60
         eglot-autoreconnect t)
   :config
-  (defun heks/eglot-enable ()
-    (interactive)
-    (setopt eglot-enabled-p t))
-  (defun heks/eglot-disable ()
-    (interactive)
-    (setopt eglot-enabled-p nil))
-  (defun heks/eglot-ensure ()
-    (if eglot-enabled-p (eglot-ensure) nil))
 
   (setopt eglot-code-action-indications nil)                   ;; EMACS-31
   (setq eglot-server-programs (assq-delete-all 'scala-mode eglot-server-programs))
@@ -140,7 +141,7 @@
               ;; Show flymake diagnostics first.
               (setq eldoc-documentation-functions
                     (cons #'flymake-eldoc-function
-                       (remove #'flymake-eldoc-function eldoc-documentation-functions)))
+                          (remove #'flymake-eldoc-function eldoc-documentation-functions)))
               ;; Show all eldoc feedback.
               (setq eldoc-documentation-strategy #'eldoc-documentation-compose)))
 
