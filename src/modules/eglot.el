@@ -29,7 +29,8 @@
   (setopt eglot-enabled-p t))
 (defun heks/eglot-disable ()
   (interactive)
-  (setopt eglot-enabled-p nil))
+  (setopt eglot-enabled-p nil)
+  (eglot-shutdown-all))
 (defun heks/eglot-ensure ()
   (if eglot-enabled-p (eglot-ensure) nil))
 
