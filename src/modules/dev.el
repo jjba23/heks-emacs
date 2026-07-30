@@ -325,6 +325,9 @@
   :demand t
   :bind ("C-c m r" . maak-run-task))
 
+(use-package meson-mode
+  :ensure (:host github :repo "wentasah/meson-mode" :branch "master"))
+
 (provide 'heks-emacs/dev)
 
 ;;; dev.el ends here
