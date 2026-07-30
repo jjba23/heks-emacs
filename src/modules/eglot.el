@@ -46,6 +46,8 @@
          (python-mode . heks/eglot-ensure)
          (rust-mode . heks/eglot-ensure)
          (html-mode . heks/eglot-ensure)
+         (c-mode . heks/eglot-ensure)
+         (c-ts-mode . heks/eglot-ensure)
          (css-mode . heks/eglot-ensure)
          (css-ts-mode . heks/eglot-ensure)
          (html-ts-mode . heks/eglot-ensure)
