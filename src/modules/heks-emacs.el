@@ -350,6 +350,23 @@ DATA: A string containing JSON data."
       (org-mode))
     (switch-to-buffer heks-emacs-standup-buffer-name)))
 
+(defun heks/dired-copy-marked-files-content ()
+  "Concatenate and copy contents of all marked files in Dired to the clipboard."
+  (interactive)
+  (let ((files (dired-get-marked-files))
+        (contents ""))
+    (dolist (file files)
+      (unless (file-directory-p file)
+        (setq contents
+              (concat contents
+                      (format "=== FILE: %s ===\n" (file-name-nondirectory file))
+                      (with-temp-buffer
+                        (insert-file-contents file)
+                        (buffer-string))
+                      "\n\n"))))
+    (kill-new contents)
+    (message "Copied contents of %d files to clipboard." (length files))))
+
 (provide 'heks-emacs/heks-emacs)
 
 ;;; heks-emacs.el ends here
