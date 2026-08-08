@@ -243,6 +243,8 @@
                '(kotlin . ("https://github.com/fwcd/tree-sitter-kotlin")))
   (add-to-list 'treesit-language-source-alist
                '(scala . ("https://github.com/tree-sitter/tree-sitter-scala")))
+  (add-to-list 'treesit-language-source-alist
+               '(nix . ("https://github.com/nix-community/tree-sitter-nix")))
 
   (setq-default cursor-type 'bar)             ; Modern pipe cursor instead of standard block
   (global-hl-line-mode +1)                    ; Highlight current line
