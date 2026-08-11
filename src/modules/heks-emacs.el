@@ -367,6 +367,25 @@ DATA: A string containing JSON data."
     (kill-new contents)
     (message "Copied contents of %d files to clipboard." (length files))))
 
+
+(defun heks/clean-comment-numbers (start end)
+  "Interactively prompt (y/n) to remove line numbers from comment lines.
+Supports C-style (//), Lisp (;;), SQL (--), Shell/Python (#), and docstars (*).
+Operates on the selected region, or from point to the end of the buffer."
+  (interactive
+   (if (use-region-p)
+       (list (region-beginning) (region-end))
+     (list (point) (point-max))))
+  (perform-replace
+   "^\\(\\s-*\\(?://+\\|#+\\|;+\\|\\*+\\|--+\\)\\s-*\\)[0-9]+\\.\\s-*"
+   "\\1"
+   t    ; query-flag: t enables interactive y/n prompting
+   t    ; regexp-flag: treat search string as regex
+   nil  ; delimited
+   nil  ; repeat-count
+   nil  ; map
+   start end))
+
 (provide 'heks-emacs/heks-emacs)
 
 ;;; heks-emacs.el ends here
