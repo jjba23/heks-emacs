@@ -68,7 +68,7 @@
   (setq emms-info-functions '(emms-info-mpd))
 
   ;; Dump MPD database into EMMS cache automatically when starting emms-browser
-  (setq emms-cache-set-function #'emms-cache-set-from-mpd-all)
+  ;; (setq emms-cache-set-function #'emms-cache-set-from-mpd-all)
 
   :custom
   (emms-source-file-default-directory heks-emacs-ews-music-directory)
