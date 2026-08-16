@@ -62,13 +62,11 @@
   (emms-source-file-default-directory heks-emacs-ews-music-directory)
   (emms-browser-covers #'emms-browser-cache-thumbnail-async)
   :bind
-  (("<f5>"            . emms-browser)
-   ("M-<f5>"          . emms)
-   ("<XF86AudioPrev>" . emms-previous)
+  (("<XF86AudioPrev>" . emms-previous)
    ("<XF86AudioNext>" . emms-next)
    ("<XF86AudioPlay>" . emms-pause)
 
-   ;; Global EMMS Prefix Bindings (C-c e)
+   ;; Playback & Controls
    ("C-c e SPC"       . emms-pause)
    ("C-c e n"         . emms-next)
    ("C-c e p"         . emms-previous)
@@ -78,7 +76,26 @@
    ("C-c e i"         . emms-show)
    ("C-c e +"         . emms-volume-raise)
    ("C-c e -"         . emms-volume-lower)
-   ("C-c e c"         . emms-player-mpd-connect)))
+   ("C-c e c"         . emms-player-mpd-connect)
+
+   ;; Direct Media Loading (Immediate Play)
+   ("C-c e f"         . emms-play-file)
+   ("C-c e d"         . emms-play-directory-tree)
+   ("C-c e u"         . emms-play-url)
+
+   ;; Queueing Media (Append without overwriting current playlist)
+   ("C-c e a f"       . emms-add-file)
+   ("C-c e a d"       . emms-add-directory-tree)
+   ("C-c e a u"       . emms-add-url)
+
+   ;; Playlist Management & Persistence
+   ("C-c e C"         . emms-playlist-clear)
+   ("C-c e z"         . emms-shuffle)
+   ("C-c e r"         . emms-toggle-repeat-track)
+   ("C-c e R"         . emms-toggle-repeat-playlist)
+   ("C-c e W"         . emms-playlist-save)
+   ("C-c e L"         . emms-playlist-load)
+   ("C-c e ."         . emms-playlist-mode-center-current)))
 
 (use-package ready-player
   :ensure t
