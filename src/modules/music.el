@@ -24,18 +24,6 @@
 (use-package fretboard
   :ensure (:host github :repo "vifon/fretboard.el" :branch "master"))
 
-;; Use Smudge to connect to Spotify
-;;
-;; (use-package smudge
-;;   :ensure t
-;;   :after (f)
-;;   :custom
-;;   (smudge-oauth2-client-secret (f-read-text "~/secrets/smudge-oauth2-client-secret"))
-;;   (smudge-oauth2-client-id (f-read-text "~/secrets/smudge-oauth2-client-id"))
-;;   (smudge-player-use-transient-map t)
-;;   :config
-;;   (define-key smudge-mode-map (kbd "C-c .") 'smudge-command-map))
-
 (use-package emms
   :ensure t
   :init
@@ -74,14 +62,23 @@
   (emms-source-file-default-directory heks-emacs-ews-music-directory)
   (emms-browser-covers #'emms-browser-cache-thumbnail-async)
   :bind
-  (("<f5>"   . emms-browser)
-   ("M-<f5>" . emms)
+  (("<f5>"            . emms-browser)
+   ("M-<f5>"          . emms)
    ("<XF86AudioPrev>" . emms-previous)
    ("<XF86AudioNext>" . emms-next)
-   ("<XF86AudioPlay>" . emms-pause)))
+   ("<XF86AudioPlay>" . emms-pause)
 
-(use-package listen
-  :ensure (:host github :repo "alphapapa/listen.el"))
+   ;; Global EMMS Prefix Bindings (C-c e)
+   ("C-c e SPC"       . emms-pause)
+   ("C-c e n"         . emms-next)
+   ("C-c e p"         . emms-previous)
+   ("C-c e s"         . emms-stop)
+   ("C-c e b"         . emms-browser)
+   ("C-c e e"         . emms-playlist-mode-go)
+   ("C-c e i"         . emms-show)
+   ("C-c e +"         . emms-volume-raise)
+   ("C-c e -"         . emms-volume-lower)
+   ("C-c e c"         . emms-player-mpd-connect)))
 
 (use-package ready-player
   :ensure t
