@@ -40,10 +40,36 @@
   :ensure t
   :init
   (require 'emms-setup)
-  (require 'emms-mpris)
+  (require 'emms-player-mpd)
+  ;; Load standard EMMS features
   (emms-all)
-  (emms-default-players)
-  (emms-mpris-enable)
+
+  ;; MPD Connection Details
+  (setq emms-player-mpd-server-name "localhost")
+  (setq emms-player-mpd-server-port "6600")
+  ;; (setq emms-player-mpd-server-password "your-password") ; Uncomment if MPD requires auth
+
+  ;; Absolute path to your MPD music directory
+  (setq emms-player-mpd-music-directory heks-emacs-ews-music-directory)
+
+  ;; Set MPD as the primary player
+  (setq emms-player-list '(emms-player-mpd))
+
+  ;; Use MPD for fetching track metadata
+  (add-to-list 'emms-info-functions #'emms-info-mpd)
+
+  ;; Use MPD to control playback volume
+  (setq emms-volume-change-function #'emms-volume-mpd-change)
+
+  ;; Auto-sync EMMS playlist with MPD status
+  (setq emms-player-mpd-sync-playlist t)
+
+  ;; Enable EMMS cache to read metadata from MPD
+  (setq emms-info-functions '(emms-info-mpd))
+
+  ;; Dump MPD database into EMMS cache automatically when starting emms-browser
+  (setq emms-cache-set-function #'emms-cache-set-from-mpd-all)
+
   :custom
   (emms-source-file-default-directory heks-emacs-ews-music-directory)
   (emms-browser-covers #'emms-browser-cache-thumbnail-async)
