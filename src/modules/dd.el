@@ -36,7 +36,7 @@
                          target-device (file-name-nondirectory iso-path))))
     (if (yes-or-no-p warning)
         (let* ((buf-name "*dd-usb-writer*")
-               (cmd (format "sudo dd if=%s of=%s bs=4M status=progress conv=fdatasync && sync"
+               (cmd (format "sudo dd if=%s of=%s bs=4M status=progress oflag=direct && sync"
                             (shell-quote-argument (expand-file-name iso-path))
                             (shell-quote-argument target-device)))
                (_ (async-shell-command cmd buf-name))
