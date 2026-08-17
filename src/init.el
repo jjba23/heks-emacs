@@ -107,6 +107,7 @@
                            consult
                            dashboard
                            dev
+                           dd
                            dired
                            editor
                            eglot
