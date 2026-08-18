@@ -1,4 +1,4 @@
-#+title: Heks Emacs 🐂
+#+title: heks-emacs
 #+author: Josep Bigorra
 #+email: jjbigorra@gmail.com
 #+options: toc:2
@@ -7,7 +7,7 @@
 
 The all-mighty magical witches' Emacs  - /De alle-machtige magische HeksenEmacs/
 
-You could see heks-emacs as my temple 🏛️, almost an operating system unto itself. Some highlights include:
+You could see heks-emacs as my temple to computing, almost an operating system unto itself. Some highlights include:
 - Advanced and modular Emacs configurations with Emacs Lisp + Elpaca
 - Multi-theme setup with powerful customizations and adaptable, configurable UI theming
 - Dev setup for: Scheme, Scala, Haskell, Lisp, Kotlin, Rust, Python, Shell, Nix, JavaScript, HTML, CSS, Golang and more
