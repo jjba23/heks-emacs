@@ -121,6 +121,193 @@ If you use [[https://codeberg.org/jjba23/heks-linux][Heks GNU/Linux]], there is 
 
 ------------------------
 
+* Modules
+
+HEKS-EMACS is organized as a collection of focused modules. Each module owns a particular aspect of the Emacs environment, keeping the configuration modular and independently maintainable.
+
+The configuration is deliberately split by responsibility:
+
+- *Core* modules establish Emacs behavior and HEKS-specific infrastructure.
+- *UI* modules control presentation, themes, completion, navigation, and interaction.
+- *Development* modules provide language tooling, LSP, Git, containers, formatting, and project workflows.
+- *Knowledge* modules handle Org, Org Roam, Markdown, and writing.
+- *System* modules integrate shells, Guix, Dired, USB image writing, and other operating-system workflows.
+- *.eld* files provide lightweight, mode-specific editor configuration and snippets without turning every file type into a standalone module.
+
+
+** Core & Bootstrap
+
+*** =init.el=
+The main entry point for the configuration. Loads the HEKS-EMACS environment, configures package-level infrastructure such as =gcmh= and =no-littering=, and provides helpers for loading the individual user configuration modules.
+
+*** =early-init.el=
+Early Emacs startup configuration. Handles settings that need to be applied before the normal initialization process begins.
+
+*** =emacs-core.el=
+Establishes the baseline behavior of Emacs. Configures core editing behavior, UTF-8, minibuffer behavior, state persistence, Tree-sitter, window management, Dired defaults, diagnostics, keybindings, prettification, and other global defaults.
+
+*** =heks-emacs.el=
+Contains the main HEKS-EMACS-specific utilities and project automation commands. Provides helpers for rebuilding the system/user configuration, project REPLs, formatting, development and test tasks, Guix integration, UUID generation, JSON buffers, Dired utilities, and other workflow commands.
+
+** User Interface
+
+*** =ui.el=
+Controls the interactive Emacs UI. Configures the completion interface, scrolling, icons, ligatures, context actions, visual feedback, modeline-related helpers, and general presentation behavior.
+
+*** =theme.el=
+Provides the theme system and look-and-feel configuration. Supports a selection of themes including EF/Modus, Everforest, Gruvbox, Dracula, Catppuccin, Rose Pine, Kaolin, Doom, and Kanagawa, selected through the HEKS-EMACS theme configuration.
+
+*** =dashboard.el=
+Configures the HEKS welcome/dashboard screen. Defines project, work, and action bookmarks and makes the welcome screen the initial buffer when possible.
+
+*** =editor.el=
+Contains general editor-quality-of-life improvements such as automatic saving, rainbow-mode, and convenient text movement.
+
+*** =completion.el=
+Provides the completion stack using CAPE, Corfu, and Orderless. Adds completion-at-point sources, popup completion, history, documentation, and flexible Orderless matching.
+
+*** =consult.el=
+Configures =consult= for enhanced minibuffer navigation, buffer switching, searching, registers, bookmarks, project buffers, diagnostics, xrefs, and recent files.
+
+*** =dired.el=
+Enhances Dired with subtree navigation, open-with support, utility helpers, and Nerd Font icons. Subtrees can be toggled interactively with mouse and keyboard bindings.
+
+*** =help.el=
+Improves Emacs help and introspection through =helpful=, providing richer views for functions, variables, commands, keys, and symbols.
+
+** Development
+
+*** =dev.el=
+The main development-language and developer-tooling module. Provides major-mode support for Rust, Python, Haskell, Scala, Lua, TypeScript, Nix, TOML, YAML, Kotlin, GraphQL, Dockerfiles, and other formats. It also configures Smartparens, Direnv, Scheme/Guile REPL tooling, compilation, Flymake, formatting, Kubernetes, Tree-sitter folding, EditorConfig, Maak, and related development utilities.
+
+*** =eglot.el=
+Configures Emacs's Language Server Protocol integration through Eglot. Enables LSP support for languages including Scala, Haskell, Nix, Go, Python, Rust, HTML, CSS, JavaScript, Kotlin, YAML, C, and Markdown, with language-specific server configuration, formatting, diagnostics, code actions, and completion fixes.
+
+It also contains specific integration workarounds for Metals and the Kotlin language server.
+
+*** =common-lisp.el=
+Configures Common Lisp development through SLY and SBCL, providing an interactive Common Lisp REPL environment.
+
+*** =go.el=
+Provides Go-specific editing and development configuration through =go-mode=.
+
+*** =git.el=
+Provides Git integration through Magit and related packages. Handles repository interaction, Git links, Git modes, and Git-related editing conveniences.
+
+*** =macros.el=
+Contains small keyboard-driven editing macros and transformations, particularly for Scheme/Guile development. Includes helpers for generating parameters and transforming Scheme association-list expressions.
+
+** Lisp, Scheme & Guix
+
+*** =guix-scheme.eld=
+Editor configuration for Guix Scheme source files. Defines indentation and editing behavior appropriate for Guix's Scheme conventions.
+
+*** =guix-commit.eld=
+Editor configuration for Guix commit-message buffers, providing appropriate editing/indentation behavior.
+
+*** =lisp.eld=
+Editor-local configuration for Lisp-family source files.
+
+*** =emacs-lisp.eld=
+Editor-local configuration for Emacs Lisp source files, including the mode-specific behavior used when editing =.el= files.
+
+*** =heks-commit.eld=
+Editor configuration for HEKS-specific commit messages.
+
+** Org & Knowledge Management
+
+*** =org.el=
+Configures Org mode as a major part of the HEKS workflow. Provides Org editing behavior, visual customization, Org Roam knowledge management, Org Roam UI, presentations, automatic tangling, HTTP and Mermaid source blocks, and related Org tooling.
+
+*** =org.eld=
+Editor-local configuration for Org files.
+
+*** =markdown.eld=
+Editor configuration for Markdown files.
+
+*** =text.eld=
+Editor configuration for general text buffers.
+
+** Shell & System Interaction
+
+*** =shell.el=
+Configures Eshell and terminal-oriented workflows. Provides a custom Eshell prompt with user, host, path, and Git branch information, convenient Eshell aliases, and Ghostel integration for project shells.
+
+*** =dd.el=
+Provides an interactive helper for writing ISO/IMG images directly to USB devices using =dd=. It performs an explicit destructive-operation confirmation, runs the write asynchronously, displays progress in an Emacs buffer, and reports successful completion.
+
+*** =batch-indent.el=
+Provides batch indentation helpers for files, including commands to indent a file and indent-and-save it.
+
+** Search & Navigation
+
+*** =search.el=
+Provides enhanced project/file searching using Ripgrep and Deadgrep.
+
+*** =consult.el=
+Acts as the broader navigation layer, integrating searching with buffers, projects, bookmarks, registers, xrefs, and the minibuffer.
+
+** Mail & Communication
+
+*** =mail.el=
+Configures Emacs mail/news functionality using Gnus and SMTP. Provides Gnus bindings, asynchronous/cached message retrieval, customized thread presentation, and SMTP sending/debugging configuration.
+
+*** =irc.el=
+Provides IRC connectivity through Circe. ERC configuration is retained in the module as an alternative/commented configuration.
+
+** Music & Maps
+
+*** =music.el=
+Configures music-related functionality. Provides fretboard/chord tooling and EMMS integration with MPD, including playback controls, metadata, playlists, covers, and media-key bindings.
+
+*** =maps.el=
+Provides map functionality through =osm=, integrating OpenStreetMap-related functionality into Emacs.
+
+** Writing & Content
+
+*** =proofreading.el=
+Provides proofreading and spelling assistance through =jinx=.
+
+*** =snippets.el=
+Configures Tempel as the snippet/template system. Snippets are loaded from the user's Emacs snippets directory and can be completed, inserted, or expanded interactively.
+
+*** =plot.el=
+Provides graphing and diagramming support through Gnuplot and Mermaid.
+
+*** =misc.el=
+Collects useful standalone utilities that do not belong to a larger subsystem, including Prodigy, Dagboek, speed typing, Guix integration, buffer-to-PDF conversion, and font inspection.
+
+** Libraries & Infrastructure
+
+*** =libs.el=
+Loads general-purpose Emacs Lisp libraries used throughout HEKS-EMACS, including =transient=, =f=, =queue=, =compat=, =aio=, =page-break-lines=, and =elmacro=.
+
+** Language / File-Type Definitions
+
+*** =fundamental.eld=
+Editor-local settings for fundamental-mode buffers.
+
+*** =js-ts-base.eld=
+Shared Tree-sitter JavaScript base configuration.
+
+*** =nix.eld=
+Editor-local configuration for Nix source files.
+
+*** =rust.eld=
+Editor-local configuration for Rust source files.
+
+*** =sh-base.eld=
+Shared shell-language editor configuration.
+
+These =.eld= files complement the main modules by keeping file-type-specific editor behavior separate from the higher-level configuration.
+
+** AI
+
+*** =ai.el=
+Configures AI-assisted development in Emacs. Provides GPTel with a Gemini backend and ECA for interactive AI coding assistance.
+
+-------
+
 
 * Licensing
 
