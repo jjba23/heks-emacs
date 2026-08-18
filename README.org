@@ -346,9 +346,13 @@ In summary, we foster an inclusive, respectful, and cooperative environment for 
 
 * On Reproducibility: Why GNU Guix?
 
-A build should never fail because "it worked on my machine." Reliable software development requires explicit, bit-for-bit reproducibility rather than best-effort environment management.
+A build should never fail because "it worked on my machine." Reliable software development requires explicit, bit-for-bit reproducibility and a functional approach to package management and system deployment.
 
-[[https://guix.gnu.org/][GNU Guix]] takes a functional approach to package management and system deployment:
+#+BEGIN_EXPORT html
+<a href="https://guix.gnu.org/">
+  <img src="https://jointhefreeworld.org/ggg/dist/gnu-guix.svg" alt="GNU Guix logo" style="max-width: 250px; width: 100%; height: auto;" />
+</a>
+#+END_EXPORT
 
 - *Declarative Build Graphs:* Packages are pure functions of their inputs with no implicit system state.
 - *Programmable with Guile:* Full system and package configurations written in [[https://www.gnu.org/software/guile/][Guile Scheme]] rather than rigid DSLs or static files.
