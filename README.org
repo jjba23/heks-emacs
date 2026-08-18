@@ -7,7 +7,7 @@
 
 The all-mighty magical witches' Emacs  - /De alle-machtige magische HeksenEmacs/
 
-You could see heks-emacs as my temple 🏛️, almost an operating system unto itself 🐂. Some highlights include:
+You could see heks-emacs as my temple 🏛️, almost an operating system unto itself. Some highlights include:
 - Advanced and modular Emacs configurations with Emacs Lisp + Elpaca
 - Multi-theme setup with powerful customizations and adaptable, configurable UI theming
 - Dev setup for: Scheme, Scala, Haskell, Lisp, Kotlin, Rust, Python, Shell, Nix, JavaScript, HTML, CSS, Golang and more
@@ -79,11 +79,11 @@ Feel free to ~setopt~ these:
 A curated collection of gorgeous, modern, and highly accessible color palettes with custom tweaks and custom Heks interpretation and styling aiming for harmony and uniformity across the stack.
 
 
-*** 🎨 The Ef Collection
+*** The Ef Collection
 - *Dark:* ~ef-autumn~, ~ef-bio~, ~ef-dream~
 - *Light:* ~ef-day~, ~ef-kassio~, ~ef-melissa-light~, ~ef-cyprus~
 
-*** ⚖️ Accessible & Classic
+*** Accessible & Classic
 - ~modus-vivendi~ & ~modus-operandi~ /(and all their variants: ~-tinted~, ~-deuteranopia~ and ~-tritanopia~)/
 - ~solarized-light~ & ~solarized-dark~
 - ~kaolin-dark~
@@ -92,7 +92,7 @@ A curated collection of gorgeous, modern, and highly accessible color palettes w
 - ~catppuccin-latte~
 - ~catppuccin-mocha~
 
-*** 💥 Modern & Neon
+*** Modern & Neon
 - ~dracula~
 - ~tokyo-night~
 - ~heavy-metal~
@@ -101,13 +101,13 @@ A curated collection of gorgeous, modern, and highly accessible color palettes w
 - ~everforest-dark~ / ~everforest-light~
 - ~gruvbox-dark~ / ~gruvbox-light~
 
-*** 🌊 Nordic & Pastel
+*** Nordic & Pastel
 - ~kanagawa~
 - ~nord~
 - ~rose-pine-moon~
 - ~rose-pine-dawn~
 
-*** 🦅 The Doom Pantheon
+*** The Doom Pantheon
 - ~doom-one~ & ~doom-one-light~
 - ~doom-tomorrow-night~
 - ~doom-molokai~ /(similar to monokai)/
@@ -344,23 +344,14 @@ In summary, we foster an inclusive, respectful, and cooperative environment for 
 
 -------
 
-* On Reproducibility, and Why GNU Guix? 🐂️
+* On Reproducibility: Why GNU Guix?
 
-A build should never fail because "it works on my machine." Software must aim to be transparent, fluid, powerful, and extensible, and for this, reproducibility is essential.
+A build should never fail because "it worked on my machine." Reliable software development requires explicit, bit-for-bit reproducibility rather than best-effort environment management.
 
-With [[https://guix.gnu.org/][GNU Guix]], you get:
+[[https://guix.gnu.org/][GNU Guix]] takes a functional approach to package management and system deployment:
 
-- 🧠 *Infinite Expressiveness:* [[https://www.gnu.org/software/guile/][Guile Scheme]] provides total, unconstrained control over packages and build definitions.
-- 🎯 *Bit-Identical Environments:* Every dependency graph is declarative, immutable, and functionally derived.
-- ⏳ *Time Travel:* Recreate the exact system state from months or years ago using ~guix time-machine~.
-- ✨ *No Hidden State:* Build artifacts are pure functions of their inputs—zero implicit system dependencies.
-- 🔍 *Total Inspectability:* Easily inspect, modify, and patch any point in the build graph.
-
-Far from rigid, absolute reproducibility empowers fearless experimentation:
-
-- *Declarative Shells:* Instantly spin up isolated environments:
-  #+BEGIN_SRC sh
-  guix shell -m manifest.scm
-  #+END_SRC
-- 🔄 *Transactional Upgrades & Rollbacks:* Experiment freely. If an update breaks, rollbacks are atomic and instantaneous.
-- *Unified Tooling:* One tool seamlessly handles dev shells, containers, system configs, and package builds.
+- *Declarative Build Graphs:* Packages are pure functions of their inputs with no implicit system state.
+- *Programmable with Guile:* Full system and package configurations written in [[https://www.gnu.org/software/guile/][Guile Scheme]] rather than rigid DSLs or static files.
+- *Time Travel:* Rebuild the exact system state from any point in git history using ~guix time-machine~.
+- *Atomic Operations:* Instantly upgrade or roll back environments without leaving orphaned dependencies or broken states.
+- *Unified Tooling:* One tool manages development shells, isolated containers, package builds, and full system configurations.
