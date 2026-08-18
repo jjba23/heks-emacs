@@ -138,7 +138,7 @@ The configuration is deliberately split by responsibility:
 ** Core & Bootstrap
 
 *** =init.el=
-The main entry point for the configuration. Loads the HEKS-EMACS environment, configures package-level infrastructure such as =gcmh= and =no-littering=, and provides helpers for loading the individual user configuration modules.
+The main entry point for the configuration. Loads the HEKS-EMACS environment, Elpaca package manager, and configures package-level infrastructure such as =gcmh= and =no-littering=, and provides helpers for loading the individual user configuration modules.
 
 *** =early-init.el=
 Early Emacs startup configuration. Handles settings that need to be applied before the normal initialization process begins.
@@ -200,19 +200,19 @@ Contains small keyboard-driven editing macros and transformations, particularly 
 ** Lisp, Scheme & Guix
 
 *** =guix-scheme.eld=
-Editor configuration for Guix Scheme source files. Defines indentation and editing behavior appropriate for Guix's Scheme conventions.
+Editor snippets for Guix Scheme source files. Defines indentation and editing behavior appropriate for Guix's Scheme conventions.
 
 *** =guix-commit.eld=
-Editor configuration for Guix commit-message buffers, providing appropriate editing/indentation behavior.
+Editor snippets for Guix commit-message buffers, providing appropriate editing/indentation behavior.
 
 *** =lisp.eld=
-Editor-local configuration for Lisp-family source files.
+Editor-local snippets for Lisp-family source files.
 
 *** =emacs-lisp.eld=
-Editor-local configuration for Emacs Lisp source files, including the mode-specific behavior used when editing =.el= files.
+Editor-local snippets for Emacs Lisp source files, including the mode-specific behavior used when editing =.el= files.
 
 *** =heks-commit.eld=
-Editor configuration for HEKS-specific commit messages.
+Editor snippets for HEKS-specific commit messages.
 
 ** Org & Knowledge Management
 
@@ -220,13 +220,13 @@ Editor configuration for HEKS-specific commit messages.
 Configures Org mode as a major part of the HEKS workflow. Provides Org editing behavior, visual customization, Org Roam knowledge management, Org Roam UI, presentations, automatic tangling, HTTP and Mermaid source blocks, and related Org tooling.
 
 *** =org.eld=
-Editor-local configuration for Org files.
+Editor-local snippets for Org files.
 
 *** =markdown.eld=
-Editor configuration for Markdown files.
+Editor snippets for Markdown files.
 
 *** =text.eld=
-Editor configuration for general text buffers.
+Editor snippets for general text buffers.
 
 ** Shell & System Interaction
 
@@ -285,21 +285,20 @@ Loads general-purpose Emacs Lisp libraries used throughout HEKS-EMACS, including
 ** Language / File-Type Definitions
 
 *** =fundamental.eld=
-Editor-local settings for fundamental-mode buffers.
+Editor-local snippets for general buffers.
 
 *** =js-ts-base.eld=
-Shared Tree-sitter JavaScript base configuration.
+Shared Tree-sitter JavaScript snippets.
 
 *** =nix.eld=
-Editor-local configuration for Nix source files.
+Editor-local snippets for Nix source files.
 
 *** =rust.eld=
-Editor-local configuration for Rust source files.
+Editor-local snippets for Rust source files.
 
 *** =sh-base.eld=
-Shared shell-language editor configuration.
+Shared shell-language editor snippets.
 
-These =.eld= files complement the main modules by keeping file-type-specific editor behavior separate from the higher-level configuration.
 
 ** AI
 
