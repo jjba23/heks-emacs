@@ -74,7 +74,7 @@ Feel free to ~setopt~ these:
 
 -----------------
 
-* Supported Palettes 🎨
+* Supported Palettes
 
 A curated collection of gorgeous, modern, and highly accessible color palettes with custom tweaks and custom Heks interpretation and styling aiming for harmony and uniformity across the stack.
 
