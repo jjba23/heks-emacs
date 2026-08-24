@@ -5,7 +5,7 @@
 
 [[https://jointhefreeworld.org/ggg/dist/gnu-emacs.svg]] [[https://jointhefreeworld.org/ggg/dist/maak.svg]]  [[https://jointhefreeworld.org/ggg/dist/license-gpl3+.svg]]    [[https://jointhefreeworld.org/ggg/dist/license-fdl13+.svg]]
 
-Emacs configuration of the warlock: modular, development setup for many languages, multi-theme setup, useful packages and custom functions, reproducible builds and Elpaca package manager
+Emacs configuration of the warlock: modular, development setup for many languages, multi-theme setup, useful packages and custom functions, reproducible builds and Elpaca package manager: GNU/Linux + macOS
 
 You could see heks-emacs as my temple to computing, almost an operating system unto itself. Some highlights include:
 - Advanced and modular Emacs configurations with Emacs Lisp + Elpaca
