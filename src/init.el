@@ -79,6 +79,12 @@
       (load-file (expand-file-name file user-init-dir))
     (message (format "file doesn't exist: %s" (expand-file-name file user-init-dir)))))
 
+(defconst heks/is-gnu-linux-p (equal system-type 'gnu/linux)
+  "Any GNU/Linux machine.")
+
+(defconst heks/is-darwin-p (equal system-type 'darwin)
+  "Any Darwin (macOS) machine.")
+
 ;; ====== Tweak GC =========
 
 (use-package gcmh

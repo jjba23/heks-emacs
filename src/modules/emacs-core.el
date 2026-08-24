@@ -323,6 +323,9 @@
     (add-to-list 'default-frame-alist '(alpha-background . 90)))
 
   ;; --- File Management (Dired) ---
+  (when heks/is-darwin-p
+    (setopt insert-directory-program (executable-find "gls")))
+
   (setopt dired-listing-switches "-lAh --group-directories-first" ; Human readable, dirs at the top
           dired-kill-when-opening-new-dired-buffer t)             ; Keep buffer list clean
 
