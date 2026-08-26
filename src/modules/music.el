@@ -26,41 +26,6 @@
 
 (use-package emms
   :ensure t
-  :init
-  (require 'emms-setup)
-  (require 'emms-player-mpd)
-  ;; Load standard EMMS features
-  (emms-all)
-
-  ;; MPD Connection Details
-  (setq emms-player-mpd-server-name "localhost")
-  (setq emms-player-mpd-server-port "6600")
-  ;; (setq emms-player-mpd-server-password "your-password") ; Uncomment if MPD requires auth
-
-  ;; Absolute path to your MPD music directory
-  (setq emms-player-mpd-music-directory heks-emacs-ews-music-directory)
-
-  ;; Set MPD as the primary player
-  (setq emms-player-list '(emms-player-mpd))
-
-  ;; Use MPD for fetching track metadata
-  (add-to-list 'emms-info-functions #'emms-info-mpd)
-
-  ;; Use MPD to control playback volume
-  (setq emms-volume-change-function #'emms-volume-mpd-change)
-
-  ;; Auto-sync EMMS playlist with MPD status
-  (setq emms-player-mpd-sync-playlist t)
-
-  ;; Enable EMMS cache to read metadata from MPD
-  (setq emms-info-functions '(emms-info-mpd))
-
-  ;; Dump MPD database into EMMS cache automatically when starting emms-browser
-  ;; (setq emms-cache-set-function #'emms-cache-set-from-mpd-all)
-
-  :custom
-  (emms-source-file-default-directory heks-emacs-ews-music-directory)
-  (emms-browser-covers #'emms-browser-cache-thumbnail-async)
   :bind
   (("<XF86AudioPrev>" . emms-previous)
    ("<XF86AudioNext>" . emms-next)
@@ -95,7 +60,35 @@
    ("C-c e R"         . emms-toggle-repeat-playlist)
    ("C-c e W"         . emms-playlist-save)
    ("C-c e L"         . emms-playlist-load)
-   ("C-c e ."         . emms-playlist-mode-center-current)))
+   ("C-c e ."         . emms-playlist-mode-center-current))
+  :config
+  (require 'emms-setup)
+  (require 'emms-player-mpd)
+  (emms-all)
+
+  ;; Connection details
+  (setq emms-player-mpd-server-name heks-emacs/mpd-server-name)
+  (setq emms-player-mpd-server-port heks-emacs/mpd-server-port)
+  (when (bound-and-true-p heks-emacs/mpd-server-password)
+    (setq emms-player-mpd-server-password heks-emacs/mpd-server-password))
+
+  ;; Disable local file path translation for remote MPD
+  ;; If this points to a local folder while MPD is on a remote server, track matching fails.
+  (setq emms-player-mpd-music-directory nil)
+
+  ;; Set MPD as the ONLY player backend (removes local mpv/vlc players)
+  (setq emms-player-list '(emms-player-mpd))
+
+  ;; Force MPD to manage info & volume
+  (setq emms-info-functions '(emms-info-mpd))
+  (setq emms-volume-change-function #'emms-volume-mpd-change)
+  (setq emms-player-mpd-sync-playlist t)
+
+  (add-hook 'emms-playlist-cleared-hook 'emms-player-mpd-clear)
+
+  :custom
+  (emms-browser-covers #'emms-browser-cache-thumbnail-async))
+
 
 (use-package ready-player
   :ensure t
