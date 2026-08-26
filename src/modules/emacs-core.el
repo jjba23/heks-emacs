@@ -65,7 +65,7 @@
                   ("defun"    . ?Λ)
                   ("define*"    . ?Λ)
                   ("func"    . ?Λ)
-                  ("function" . ?y)
+                  ("function" . ?Λ)
                   ("compose" . ?∘)
                   ("define-syntax" . ?μ)
                   ("define-syntax-rule" . ?μ)
@@ -74,7 +74,7 @@
                   ("define-record-type" . ?✦)
                   ("define-record-with-kw" . ?✦)
                   ("use-package" . ?ρ)
-                  ("defmacro" . ?✦)
+                  ("defmacro" . ?μ)
 
                   ;; --- Types & Optionals ---
                   ;; ("None"    . ?Ø)
