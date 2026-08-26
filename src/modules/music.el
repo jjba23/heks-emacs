@@ -41,7 +41,8 @@
    ("C-c e i"         . emms-show)
    ("C-c e +"         . emms-volume-raise)
    ("C-c e -"         . emms-volume-lower)
-   ("C-c e c"         . emms-player-mpd-connect)
+   ("C-c e C"         . emms-player-mpd-connect)
+   ("C-c e c" .         emms-cache-set-from-mpd-all)
 
    ;; Direct Media Loading (Immediate Play)
    ("C-c e f"         . emms-play-file)
