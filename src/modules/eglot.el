@@ -71,14 +71,24 @@
   :init
   (setq eglot-autoshutdown t
         eglot-confirm-server-edits nil
-        eglot-report-progress t
+        ;; Suppress mode-line progress animations
+        eglot-report-progress nil
         eglot-extend-to-xref t
-        eglot-sync-connect 1
+        eglot-sync-connect 0
         eglot-connect-timeout 60
         eglot-autoreconnect t)
   :config
+  ;; Disable event logging completely (Emacs >= 30)
+  (setq eglot-events-buffer-config '(:size 0 :format short))
+  ;; For Emacs <= 29
+  ;; (setq eglot-events-buffer-size 0)
 
-  (setopt eglot-code-action-indications nil)                   ;; EMACS-31
+  ;; Disabling the JSON-RPC event hook also avoids serializing JSON payloads:
+  ;;The tradeoff is that disabling the JSON-RPC event hook (jsonrpc-event-hook) removes useful debugging information.
+  (setq jsonrpc-event-hook nil)
+
+  ;; Disable automatic code action indicators to reduce background polling
+  (setq eglot-code-action-indications nil)
   (setq eglot-server-programs (assq-delete-all 'scala-mode eglot-server-programs))
   (setq eglot-server-programs (assq-delete-all 'scala-ts-mode eglot-server-programs))
 
@@ -144,7 +154,7 @@
               ;; Show flymake diagnostics first.
               (setq eldoc-documentation-functions
                     (cons #'flymake-eldoc-function
-                          (remove #'flymake-eldoc-function eldoc-documentation-functions)))
+                       (remove #'flymake-eldoc-function eldoc-documentation-functions)))
               ;; Show all eldoc feedback.
               (setq eldoc-documentation-strategy #'eldoc-documentation-compose)))
 
