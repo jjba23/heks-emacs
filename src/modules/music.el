@@ -73,8 +73,6 @@
   (when (bound-and-true-p heks-emacs/mpd-server-password)
     (setq emms-player-mpd-server-password heks-emacs/mpd-server-password))
 
-  ;; Disable local file path translation for remote MPD
-  ;; If this points to a local folder while MPD is on a remote server, track matching fails.
   (setq emms-player-mpd-music-directory heks-emacs/mpd-music-dir)
 
   ;; Set MPD as the ONLY player backend (removes local mpv/vlc players)
