@@ -68,8 +68,7 @@ Feel free to ~setopt~ these:
           heks-emacs-font-serif "IBM Plex Serif"
           heks-emacs-theme 'modus-vivendi
           heks-emacs-clone-dir "~/Hacking/heks-emacs"
-          heks-emacs-notes-roam-dir "~/Hacking/private-notes"
-          heks-emacs-ews-music-directory "~/Music")
+          heks-emacs-notes-roam-dir "~/Hacking/private-notes")
 #+end_src
 
 -----------------

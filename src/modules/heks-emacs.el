@@ -25,10 +25,6 @@
   "HEKS-EMACS customization group."
   :group 'tools)
 
-(defcustom heks-emacs-ews-music-directory "~/Muziek"
-  "My personal main directory where to read music from."
-  :type 'string)
-
 (defcustom heks-emacs-clone-dir nil
   "The directory where the HEKS-EMACS source code is located."
   :type 'string)
