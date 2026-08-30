@@ -55,7 +55,7 @@
    ("C-c e a u"       . emms-add-url)
 
    ;; Playlist Management & Persistence
-   ("C-c e C"         . emms-playlist-clear)
+   ("C-c e x"         . emms-playlist-clear)
    ("C-c e z"         . emms-shuffle)
    ("C-c e r"         . emms-toggle-repeat-track)
    ("C-c e R"         . emms-toggle-repeat-playlist)
@@ -75,7 +75,7 @@
 
   ;; Disable local file path translation for remote MPD
   ;; If this points to a local folder while MPD is on a remote server, track matching fails.
-  (setq emms-player-mpd-music-directory nil)
+  (setq emms-player-mpd-music-directory heks-emacs/mpd-music-dir)
 
   ;; Set MPD as the ONLY player backend (removes local mpv/vlc players)
   (setq emms-player-list '(emms-player-mpd))
