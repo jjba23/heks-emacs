@@ -65,6 +65,7 @@
   :config
   (require 'emms-setup)
   (require 'emms-player-mpd)
+  (require 'emms-player-mpv)
   (emms-all)
 
   ;; Connection details
@@ -76,7 +77,7 @@
   (setq emms-player-mpd-music-directory heks-emacs/mpd-music-dir)
 
   ;; Set MPD as the ONLY player backend (removes local mpv/vlc players)
-  (setq emms-player-list '(emms-player-mpd))
+  (setq emms-player-list '(emms-player-mpd emms-player-mpv))
 
   ;; Force MPD to manage info & volume
   (setq emms-info-functions '(emms-info-mpd))
