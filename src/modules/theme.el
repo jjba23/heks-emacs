@@ -123,7 +123,22 @@
                       :inherit 'font-lock-comment-face
                       :italic t)
   (set-face-attribute 'dired-directory nil
-                      :inherit 'font-lock-keyword-face))
+                      :inherit 'font-lock-keyword-face)
+  (if (eq heks-emacs-theme 'ayu-dark)
+      (custom-theme-set-faces
+       'ayu-dark
+       '(cursor ((t (:background "#ffb07c"))))
+       '(font-lock-comment-face ((t (:foreground "#8B92A0" :slant italic))))
+       '(font-lock-comment-delimiter-face ((t (:inherit font-lock-comment-face))))
+       '(font-lock-keyword-face ((t (:foreground "#ff9e64"))))
+       '(font-lock-type-face ((t (:foreground "#e0af68"))))
+       '(font-lock-function-name-face ((t (:foreground "#7aa2f7"))))
+       '(mode-line ((t (:box (:line-width 1 :color "#3E4451")
+                             :foreground "#ECEFF4"
+                             :background "#282C34"))))
+       '(mode-line-inactive ((t (:box (:line-width 1 :color "#181A1F")
+                                      :foreground "#4B5263"
+                                      :background "#0F1115")))))))
 
 (use-package doom-themes
   :ensure t
