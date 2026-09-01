@@ -111,6 +111,9 @@ A curated collection of gorgeous, modern, and highly accessible color palettes w
 - ~doom-tomorrow-night~
 - ~doom-molokai~ /(similar to monokai)/
 
+*** Ayu Themes
+- ~ayu-dark~, ~ayu-mirage~ and ~ayu-light~
+
 ------------
 
 * The bridges
