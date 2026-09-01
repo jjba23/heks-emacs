@@ -9,27 +9,123 @@ This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic 
 
 *[Unreleased]*
 
----------
+-------
 
-*[Released]*
+** v1.6.6 (2026-09-01)
+
+*** Added
+
+- Added the [[https://github.com/ayu-theme/ayu-vim][Ayu]] theme, including a customized ~ayu-dark~ variant.
+- Added [[https://github.com/rexim/ingress.el][Eglot]] support and improved the overall language-server configuration.
+- Added global control for enabling and disabling Eglot.
+- Added extensive [[https://github.com/doomemacs/themes][Doom]] and built-in theme support, including additional palettes and theme variants.
+- Added improved JVM language support through Eglot, including Java and Kotlin LSP configuration.
+- Added improved Scala Metals configuration.
+- Added Kotlin Tree-sitter support through ~kotlin-ts-mode~.
+- Added Scala Tree-sitter support.
+- Added C language-server support.
+- Added ~meson-mode~ for working with Meson projects.
+- Added support for Emacs 31 features while retaining compatibility with Emacs 32.
+- Added a dedicated ~maak~ task runner and subsequently expanded it into a reusable Make-like runner.
+- Added a visibility rule to the ~maak~ runner.
+- Externalized ~maak.el~ to make the runner easier to maintain and reuse.
+- Added menu-bar configuration.
+- Added additional Nerd Font icons and improved modeline iconography.
+- Added EditorConfig support.
+- Added ligature configuration.
+- Added improved Markdown configuration.
+- Added Dired functionality for copying file contents.
+- Added Nix Tree-sitter support.
+- Added multi-configuration support.
+- Added music configuration through EMMS.
+- Added remote EMMS support.
+- Added MPD integration and configuration.
+- Added macOS support.
+- Added macOS-compatible ~ls~ handling.
+- Added Kubernetes configuration.
+- Added GraphQL and GraphQLS support.
+- Added development-environment packages and configuration.
+- Added Git modes and Dumb Jump.
+- Added terminal integration and support for additional terminal workflows.
+
+*** Changed
+
+- Improved the overall theme architecture and theme loading.
+- Improved theme palettes and introduced a larger collection of color schemes.
+- Added and refined Kanagawa, Gruvbox, Rose Pine, Monokai, Solarized Light, Modus Vivendi, Modus Operandi, Doom One and Doom Tomorrow Night themes.
+- Added support for Modus theme variants.
+- Improved symbol mappings and expanded the set of symbols used throughout the configuration.
+- Improved prettify-symbols configuration.
+- Improved modeline layout, information density and readability.
+- Improved ergonomics and legibility across the editor configuration.
+- Improved completion configuration.
+- Simplified Eglot configuration and reduced duplication between language-server setups.
+- Improved Eglot Java configuration.
+- Improved Kotlin LSP configuration.
+- Improved Scala Metals configuration.
+- Improved EMMS setup and music-related configuration.
+- Improved MPD configuration and integration.
+- Improved Guix-related documentation and configuration.
+- Improved documentation around development workflows and project structure.
+- Improved the README with explanations of the project's configuration philosophy.
+- Improved diagrams-as-code and Mermaid configuration.
+- Changed diagram output to PDF.
+- Changed the terminal configuration to use Ghostty.
+- Changed the default development workflow to use ~maak~ compilation.
+- Simplified configuration for Markdown buffers.
+- Improved support for macOS-specific command-line behaviour.
+
+*** Fixed
+
+- Fixed compatibility issues between Eglot and JVM language servers.
+- Fixed Kotlin LSP integration.
+- Fixed Scala Metals integration.
+- Fixed theme loading issues caused by incompatible ~autothemer~ usage.
+- Fixed comments in the Modus Vivendi theme.
+- Fixed tree expansion icons.
+- Fixed padding and spacing in the UI.
+- Fixed transparency settings.
+- Fixed compatibility issues around the Emacs core configuration.
+- Addressed configuration warnings and improved overall configuration quality.
+
+*** Documentation
+
+- Expanded the README with explanations of the project's approach to Guix.
+- Documented why Guix is used as the foundation of the development environment.
+- Added and improved documentation for Modules and GNUS.
+- Added documentation for the changelog itself.
+- Expanded documentation for the development environment and tooling.
+- Improved documentation surrounding Mermaid and diagrams-as-code.
+- Added documentation for the Emacs build-from-source workflow.
+
+*** Infrastructure
+
+- Added support for building Emacs from source.
+- Improved the development environment and developer-experience packages.
+- Added a reusable ~maak~ runner for project automation.
+- Improved task visibility in the ~maak~ runner.
+- Added a more modular configuration structure.
+- Split configuration into smaller, more focused modules.
+- Improved conditional package loading.
+- Improved the maintainability of the overall configuration.
 
 ** v1.1.2 (2026-05-11)
 
 *** Added
 
-- Added JAR compatibility for ~jar://~ links in Eglot with Kotlin LSP
-- Added support for ~graphql-mode~ with ~.graphqls~ files
+- Added JAR compatibility for ~jar://~ links in Eglot with Kotlin LSP.
+- Added support for ~graphql-mode~ with ~.graphqls~ files.
 
 ** v1.1.1 (2026-05-06)
 
 *** Added
 
-- [[https://github.com/emacs-circe/circe][Circe]] package for IRC from inside Emacs (seems already friendlier than built-in ERC)
-- [[https://github.com/protesilaos/show-font][show-font]] package for font-family visualization from inside Emacs
+- [[https://github.com/emacs-circe/circe][Circe]] package for IRC from inside Emacs (seems already friendlier than built-in ERC).
+- [[https://github.com/protesilaos/show-font][show-font]] package for font-family visualization from inside Emacs.
 
 ** v1.1.0 (2026-05-05)
 
 *** Added
 
-- Automatically load images on Org mode file visit, by setting ~org-startup-with-inline-images~ to ~t~
-- Ability for Emacs Org mode to display remote images, cache them for fast posterior visit
+- Automatically load images on Org mode file visit, by setting ~org-startup-with-inline-images~ to ~t~.
+- Ability for Emacs Org mode to display remote images and cache them for faster subsequent visits.
