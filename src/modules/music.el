@@ -68,7 +68,8 @@
   (require 'emms-player-mpv)
   (emms-all)
 
-  ;; Connection details
+  (setq emms-player-list '(emms-player-mpd emms-player-mpv))
+
   (setq emms-player-mpd-server-name heks-emacs/mpd-server-name)
   (setq emms-player-mpd-server-port heks-emacs/mpd-server-port)
   (when (bound-and-true-p heks-emacs/mpd-server-password)
@@ -76,18 +77,14 @@
 
   (setq emms-player-mpd-music-directory heks-emacs/mpd-music-dir)
 
-  ;; Set MPD as the ONLY player backend (removes local mpv/vlc players)
-  (setq emms-player-list '(emms-player-mpd emms-player-mpv))
-
-  ;; Force MPD to manage info & volume
   (setq emms-info-functions '(emms-info-mpd))
   (setq emms-volume-change-function #'emms-volume-mpd-change)
   (setq emms-player-mpd-sync-playlist t)
 
   (add-hook 'emms-playlist-cleared-hook 'emms-player-mpd-clear)
-
+  (emms-player-mpd-connect)
   :custom
-  (emms-browser-covers #'emms-browser-cache-thumbnail-async))
+  (emms-browser-covers #'emms-browser-covers-mpd))
 
 
 (use-package ready-player
