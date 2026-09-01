@@ -329,8 +329,8 @@
 
   ;; Frame transparency (requires a compositor like Wayland or Picom)
   (ignore-errors
-    (set-frame-parameter nil 'alpha-background 90)
-    (add-to-list 'default-frame-alist '(alpha-background . 90)))
+    (set-frame-parameter nil 'alpha-background 86)
+    (add-to-list 'default-frame-alist '(alpha-background . 86)))
 
   ;; --- File Management (Dired) ---
   (when heks/is-darwin-p
