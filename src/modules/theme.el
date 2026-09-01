@@ -110,6 +110,12 @@
         kaolin-themes-git-gutter-solid t)
   (load-theme 'kaolin-dark t))
 
+(use-package ayu-theme
+  :ensure t
+  :if (memq heks-emacs-theme '(ayu-dark ayu-light ayu-mirage))
+  :config
+  (load-theme heks-emacs-theme t))
+
 (use-package doom-themes
   :ensure t
   :if (memq heks-emacs-theme '(doom-tomorrow-night doom-one nord tokyo-night solarized-light solarized-dark doom-one-light doom-molokai))
