@@ -112,9 +112,11 @@
 
 (use-package ayu-theme
   :ensure t
-  :if (memq heks-emacs-theme '(ayu-dark ayu-light ayu-mirage))
+  :if (memq heks-emacs-theme '(ayu-dark ayu-light ayu-mirage ayu-grey))
   :config
-  (load-theme heks-emacs-theme t)
+  (if (eq heks-emacs-theme 'ayu-mirage)
+      (load-theme 'ayu-grey t)
+    (load-theme heks-emacs-theme t))
   (set-face-attribute 'font-lock-string-face nil
                       :italic nil)
   (set-face-attribute 'font-lock-doc-face nil
