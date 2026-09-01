@@ -114,7 +114,12 @@
   :ensure t
   :if (memq heks-emacs-theme '(ayu-dark ayu-light ayu-mirage))
   :config
-  (load-theme heks-emacs-theme t))
+  (load-theme heks-emacs-theme t)
+  (set-face-attribute 'font-lock-string-face nil
+                      :italic nil)
+  (set-face-attribute 'font-lock-doc-face nil
+                      :inherit 'font-lock-comment-face
+                      :italic t))
 
 (use-package doom-themes
   :ensure t
