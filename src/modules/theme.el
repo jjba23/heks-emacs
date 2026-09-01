@@ -128,6 +128,7 @@
       (custom-theme-set-faces
        'ayu-dark
        '(cursor ((t (:background "#ffb07c"))))
+       '(default ((t (:foreground "#d4d1cc" :background "#0f1419" ))))
        '(font-lock-comment-face ((t (:foreground "#8B92A0" :slant italic))))
        '(font-lock-comment-delimiter-face ((t (:inherit font-lock-comment-face))))
        '(font-lock-keyword-face ((t (:foreground "#ff9e64"))))
