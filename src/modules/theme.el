@@ -119,7 +119,9 @@
                       :italic nil)
   (set-face-attribute 'font-lock-doc-face nil
                       :inherit 'font-lock-comment-face
-                      :italic t))
+                      :italic t)
+  (set-face-attribute 'dired-directory nil
+                      :inherit 'font-lock-keyword-face))
 
 (use-package doom-themes
   :ensure t
