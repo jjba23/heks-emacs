@@ -37,6 +37,10 @@
   "The MPD server port to connect to."
   :type 'string)
 
+(defcustom heks-emacs/mpd-music-dir "/mnt/music"
+  "The MPD music dir (even for remote MPD)."
+  :type 'string)
+
 (defcustom heks-emacs/mpd-server-password nil
   "The MPD password to connect with."
   :type 'string)

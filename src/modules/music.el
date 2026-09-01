@@ -69,6 +69,8 @@
 
   (setq emms-player-list '(emms-player-mpd))
 
+  (setq emms-player-mpd-music-directory heks-emacs/mpd-music-dir)
+
   (setq emms-player-mpd-server-name heks-emacs/mpd-server-name)
   (setq emms-player-mpd-server-port heks-emacs/mpd-server-port)
   (when (bound-and-true-p heks-emacs/mpd-server-password)
