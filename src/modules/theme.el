@@ -133,6 +133,7 @@
        '(font-lock-keyword-face ((t (:foreground "#ff9e64"))))
        '(font-lock-type-face ((t (:foreground "#e0af68"))))
        '(font-lock-function-name-face ((t (:foreground "#7aa2f7"))))
+       '(font-lock-string-face ((t (:foreground "#A9B665"))))
        '(mode-line ((t (:box (:line-width 1 :color "#3E4451")
                              :foreground "#ECEFF4"
                              :background "#282C34"))))
