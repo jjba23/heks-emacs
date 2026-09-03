@@ -270,6 +270,19 @@
           sentence-end-double-space t
           compile-command "maak --list")
 
+  (defun heks-emacs/project-compilation-buffer-name (mode)
+    "Create a compilation buffer name based on the current project."
+    (let* ((project (project-current))
+           ;; Extract the folder name if in a project, otherwise use "global"
+           (project-name (if project
+                             (file-name-nondirectory (directory-file-name (project-root project)))
+                           "global")))
+      ;; Returns e.g., "*compilation-my-project*"
+      (format "*%s-%s*" (downcase mode) project-name)))
+
+  ;; Tell Emacs to use your custom function
+  (setq compilation-buffer-name-function #'heks-emacs/project-compilation-buffer-name)
+
   (setq-default indent-tabs-mode nil)         ; Always use spaces instead of tabs
 
 
