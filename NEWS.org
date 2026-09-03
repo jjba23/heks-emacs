@@ -37,9 +37,6 @@ This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic 
 - Added Dired functionality for copying file contents.
 - Added Nix Tree-sitter support.
 - Added multi-configuration support.
-- Added music configuration through EMMS.
-- Added remote EMMS support.
-- Added MPD integration and configuration.
 - Added macOS support.
 - Added macOS-compatible ~ls~ handling.
 - Added Kubernetes configuration.
@@ -63,8 +60,6 @@ This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic 
 - Improved Eglot Java configuration.
 - Improved Kotlin LSP configuration.
 - Improved Scala Metals configuration.
-- Improved EMMS setup and music-related configuration.
-- Improved MPD configuration and integration.
 - Improved Guix-related documentation and configuration.
 - Improved documentation around development workflows and project structure.
 - Improved the README with explanations of the project's configuration philosophy.

@@ -29,22 +29,6 @@
   "The directory where the HEKS-EMACS source code is located."
   :type 'string)
 
-(defcustom heks-emacs/mpd-server-name "mpd-server.jointhefreeworld.org"
-  "The MPD server host to connect to.."
-  :type 'string)
-
-(defcustom heks-emacs/mpd-server-port "6600"
-  "The MPD server port to connect to."
-  :type 'string)
-
-(defcustom heks-emacs/mpd-music-dir "/mnt/music"
-  "The MPD music dir (even for remote MPD)."
-  :type 'string)
-
-(defcustom heks-emacs/mpd-server-password nil
-  "The MPD password to connect with."
-  :type 'string)
-
 (defcustom heks-emacs-notes-roam-dir nil
   "The directory where the Org roam notes should be stored."
   :type 'string)

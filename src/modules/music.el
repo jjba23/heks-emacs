@@ -24,63 +24,6 @@
 (use-package fretboard
   :ensure (:host github :repo "vifon/fretboard.el" :branch "master"))
 
-(use-package emms
-  :ensure t
-  :bind
-  (("<XF86AudioPrev>" . emms-previous)
-   ("<XF86AudioNext>" . emms-next)
-   ("<XF86AudioPlay>" . emms-pause)
-
-   ;; Playback & Controls
-   ("C-c e SPC"       . emms-pause)
-   ("C-c e n"         . emms-next)
-   ("C-c e p"         . emms-previous)
-   ("C-c e s"         . emms-stop)
-   ("C-c e b"         . emms-browser)
-   ("C-c e e"         . emms-playlist-mode-go)
-   ("C-c e i"         . emms-show)
-   ("C-c e +"         . emms-volume-raise)
-   ("C-c e -"         . emms-volume-lower)
-   ("C-c e C"         . emms-player-mpd-connect)
-   ("C-c e c" .         emms-cache-set-from-mpd-all)
-
-   ;; Direct Media Loading (Immediate Play)
-   ("C-c e f"         . emms-play-file)
-   ("C-c e d"         . emms-play-directory-tree)
-   ("C-c e u"         . emms-play-url)
-
-   ;; Queueing Media (Append without overwriting current playlist)
-   ("C-c e a f"       . emms-add-file)
-   ("C-c e a d"       . emms-add-directory-tree)
-   ("C-c e a u"       . emms-add-url)
-
-   ;; Playlist Management & Persistence
-   ("C-c e x"         . emms-playlist-clear)
-   ("C-c e z"         . emms-shuffle)
-   ("C-c e r"         . emms-toggle-repeat-track)
-   ("C-c e R"         . emms-toggle-repeat-playlist)
-   ("C-c e W"         . emms-playlist-save)
-   ("C-c e L"         . emms-playlist-load)
-   ("C-c e ."         . emms-playlist-mode-center-current))
-  :config
-  (require 'emms-setup)
-  (require 'emms-player-mpd)
-  (emms-all)
-
-  (setq emms-player-list '(emms-player-mpd))
-
-  (setq emms-player-mpd-music-directory heks-emacs/mpd-music-dir)
-
-  (setq emms-player-mpd-server-name heks-emacs/mpd-server-name)
-  (setq emms-player-mpd-server-port heks-emacs/mpd-server-port)
-  (when (bound-and-true-p heks-emacs/mpd-server-password)
-    (setq emms-player-mpd-server-password heks-emacs/mpd-server-password))
-
-  (setq emms-info-functions '(emms-info-mpd))
-
-  (setq emms-player-mpd-sync-playlist t))
-
-
 (use-package ready-player
   :ensure t
   :config

@@ -260,7 +260,7 @@ Provides IRC connectivity through Circe. ERC configuration is retained in the mo
 ** Music & Maps
 
 *** =music.el=
-Configures music-related functionality. Provides fretboard/chord tooling and EMMS integration with MPD, including playback controls, metadata, playlists, covers, and media-key bindings.
+Configures music-related functionality. Provides fretboard/chord tooling and the simple ready-player.
 
 *** =maps.el=
 Provides map functionality through =osm=, integrating OpenStreetMap-related functionality into Emacs.
