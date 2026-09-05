@@ -135,6 +135,7 @@
        '(font-lock-type-face ((t (:foreground "#e0af68"))))
        '(font-lock-function-name-face ((t (:foreground "#7aa2f7"))))
        '(font-lock-string-face ((t (:foreground "#A9B665"))))
+       '(hl-line ((t (:background "#1d252a"))))
        '(mode-line ((t (:box (:line-width 1 :color "#3E4451")
                              :foreground "#ECEFF4"
                              :background "#282C34"))))
