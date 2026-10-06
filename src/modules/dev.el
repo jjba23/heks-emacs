@@ -218,16 +218,8 @@
   :ensure t
   :mode ("\\.graphql\\'" "\\.graphqls\\'"))
 
-(use-package kubernetes
-  :ensure (:host github :repo "kubernetes-el/kubernetes-el" :branch "master")
-  :commands (kubernetes-overview)
-  :config
-  (setq kubernetes-poll-frequency 3600
-        kubernetes-redraw-frequency 3600)
-  ;; add workaround for K8s error reporting with new Emacs versions
-  (advice-add 'kubernetes-state-update-last-error :around
-              (lambda (orig &rest args)
-                (ignore-errors (apply orig args)))))
+(use-package kubed
+  :ensure (:host github :repo "eshelyaron/kubed" :branch "master"))
 
 (use-package dumb-jump
   :ensure t
