@@ -225,12 +225,9 @@
   (setq kubernetes-poll-frequency 3600
         kubernetes-redraw-frequency 3600)
   ;; add workaround for K8s error reporting with new Emacs versions
-  ;; there seems to be a bug related to timestamps and `current-time-list'
-  (advice-add 'kubernetes-state-update-last-error :filter-args
-              (lambda (args)
-                (pcase-let ((`(,msg ,cmd ,time) args))
-                  (list msg cmd
-                        (if (listp time) time (list (car time) (cdr time))))))))
+  (advice-add 'kubernetes-state-update-last-error :around
+              (lambda (orig &rest args)
+                (ignore-errors (apply orig args)))))
 
 (use-package dumb-jump
   :ensure t
