@@ -324,6 +324,9 @@
 (use-package meson-mode
   :ensure (:host github :repo "wentasah/meson-mode" :branch "master"))
 
+(use-package terraform-mode
+  :ensure t)
+
 (provide 'heks-emacs/dev)
 
 ;;; dev.el ends here
