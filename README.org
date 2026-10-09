@@ -218,36 +218,10 @@ Provides Git integration through Magit and related packages. Handles repository 
 *** =macros.el=
 Contains small keyboard-driven editing macros and transformations, particularly for Scheme/Guile development. Includes helpers for generating parameters and transforming Scheme association-list expressions.
 
-** Lisp, Scheme & Guix
-
-*** =guix-scheme.eld=
-Editor snippets for Guix Scheme source files. Defines indentation and editing behavior appropriate for Guix's Scheme conventions.
-
-*** =guix-commit.eld=
-Editor snippets for Guix commit-message buffers, providing appropriate editing/indentation behavior.
-
-*** =lisp.eld=
-Editor-local snippets for Lisp-family source files.
-
-*** =emacs-lisp.eld=
-Editor-local snippets for Emacs Lisp source files, including the mode-specific behavior used when editing =.el= files.
-
-*** =heks-commit.eld=
-Editor snippets for HEKS-specific commit messages.
-
 ** Org & Knowledge Management
 
 *** =org.el=
 Configures Org mode as a major part of the HEKS workflow. Provides Org editing behavior, visual customization, Org Roam knowledge management, Org Roam UI, presentations, automatic tangling, HTTP and Mermaid source blocks, and related Org tooling.
-
-*** =org.eld=
-Editor-local snippets for Org files.
-
-*** =markdown.eld=
-Editor snippets for Markdown files.
-
-*** =text.eld=
-Editor snippets for general text buffers.
 
 ** Shell & System Interaction
 
@@ -303,23 +277,9 @@ Collects useful standalone utilities that do not belong to a larger subsystem, i
 *** =libs.el=
 Loads general-purpose Emacs Lisp libraries used throughout HEKS-EMACS, including =transient=, =f=, =queue=, =compat=, =aio=, =page-break-lines=, and =elmacro=.
 
-** Language / File-Type Definitions
+** Snippets (=.eld=)
 
-*** =fundamental.eld=
-Editor-local snippets for general buffers.
-
-*** =js-ts-base.eld=
-Shared Tree-sitter JavaScript snippets.
-
-*** =nix.eld=
-Editor-local snippets for Nix source files.
-
-*** =rust.eld=
-Editor-local snippets for Rust source files.
-
-*** =sh-base.eld=
-Shared shell-language editor snippets.
-
+Mode-specific Tempel snippets live in =src/snippets/*.eld= (e.g. =lisp.eld=, =emacs-lisp.eld=, =org.eld=, =nix.eld=, =rust.eld=), one file per mode.
 
 ** AI
 
