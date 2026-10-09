@@ -138,8 +138,14 @@
                            ui))
 (mapc (lambda(f) (load-user-file (format "modules/%s.el" f))) heks-emacs-modules)
 
-;; load heks-linux bridge
+;; load heks-linux bridge if available (GNU/Linux system)
 (ignore-errors
-  (load-user-file "heks-linux-bridge.el"))
+  (when heks/is-gnu-linux-p
+    (load-user-file "heks-linux-bridge.el")))
+
+;; load cask-and-cons bridge if available (macOS system)
+(ignore-errors
+  (when heks/is-darwin-p
+    (load-user-file "cask-and-cons-bridge.el")))
 
 ;;; init.el ends here

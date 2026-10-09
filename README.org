@@ -31,11 +31,11 @@ If you like my work, please support me by [[https://bmc.link/jjbigorra][buying m
 
 ---------
 
-[[https://jointhefreeworld.org/static-assets/heks/screen-2026-08-17-23-39-19.png]]
+[[https://jointhefreeworld.org/static-assets/heks/screen-2026-07-15-23-32-24.png]]
 
 [[https://jointhefreeworld.org/static-assets/heks/screen-2025-12-27-00-46-50.png]]
 
-[[https://jointhefreeworld.org/static-assets/heks/screen-2026-07-15-23-32-24.png]]
+[[https://jointhefreeworld.org/static-assets/heks/screen-2026-08-17-23-39-19.png]]
 
 --------
 
@@ -48,27 +48,44 @@ For installing heks-emacs in one go, do:
 maak install-emacs-config
 #+end_src
 
-Since heks-emacs is a compilation of several packages and libraries, it's very likely you may need to restart Emacs a couple times before everything works in harmony, as packages get installed and loaded and dependency trees resolved.
-
 For a oneline command to nuke (destroy) your existing Emacs and replace it with heks-emacs, do:
 #+begin_src shell
 maak full-install-emacs-config
 #+end_src
 
-If you don't want to use Maak, you can just look at ~maak.scm~ to look at installation procedure, and copy relevant files.
+If you don't want to use Maak, you can just look at ~maak.scm~ to look at installation procedure, and copy relevant files. Alternatively run this one-liner:
+#+begin_src shell
+# optionally first
+# rm -rf ~/.emacs.d && mkdir -p ~/.emacs.d
+
+cp -rfv src/init.el src/early-init.el src/batch-indent.el src/modules src/snippets ~/.emacs.d/
+#+end_src
+
+Note: Since heks-emacs is a compilation of several packages and libraries, it's very likely you may need to restart Emacs a couple times before everything works in harmony, as packages get installed and loaded and dependency trees resolved. Elpaca is extremely reliable so don't be afraid to restart and try a few things.
 
 -----------------------------------
 
-You can customize heks-emacs with these variables.
+You can customize heks-emacs with these variables at your will. This can also be done conveniently via ~heks-linux-brige.el~ or ~cask-and-cons-bridge.el~
 
 Feel free to ~setopt~ these:
 #+begin_src elisp
+;; heks-linux-bridge.el --- Bridge to Heks Emacs  -*- lexical-binding: t -*-
 (setopt heks-emacs-font-mono "IBM Plex Mono"
-          heks-emacs-font-sans "IBM Plex Sans"
-          heks-emacs-font-serif "IBM Plex Serif"
-          heks-emacs-theme 'modus-vivendi
-          heks-emacs-clone-dir "~/Hacking/heks-emacs"
-          heks-emacs-notes-roam-dir "~/Hacking/private-notes")
+        heks-emacs-font-sans "IBM Plex Sans"
+        heks-emacs-font-serif "IBM Plex Serif"
+        heks-emacs-theme 'modus-vivendi
+        heks-emacs-clone-dir "~/Hacking/heks-emacs"
+        heks-emacs-notes-roam-dir "~/Hacking/private-notes")
+#+end_src
+
+#+begin_src elisp
+;; cask-and-cons-bridge.el --- Bridge to Heks Emacs  -*- lexical-binding: t -*-
+(setopt heks-emacs-font-mono "Intel One Mono"
+        heks-emacs-font-sans "Lucida Sans"
+        heks-emacs-font-serif "Baskerville"
+        heks-emacs-theme 'ayu-dark
+        heks-emacs-clone-dir "~/Hacking/heks-emacs"
+        heks-emacs-notes-roam-dir "~/Hacking/private-notes")
 #+end_src
 
 -----------------
@@ -119,6 +136,8 @@ A curated collection of gorgeous, modern, and highly accessible color palettes w
 * The bridges
 
 If you use [[https://codeberg.org/jjba23/heks-linux][Heks GNU/Linux]], there is a heks-emacs bridge available there.
+
+If you use [[https://codeberg.org/jjba23/cask-and-cons][Cask and Cons]], there is a cask-and-cons bridge available there.
 
 
 ------------------------
