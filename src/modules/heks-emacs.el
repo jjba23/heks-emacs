@@ -49,12 +49,7 @@
   "The font family to use for serif fonts."
   :type 'string)
 
-(defcustom heks-emacs-standup-people '("Joe"
-                                       "Marcel"
-                                       "Andrei"
-                                       "Bram"
-                                       "Rasim"
-                                       "Thibault")
+(defcustom heks-emacs-standup-people '("Joe" "Giga" "Yury" "Semih" "Soroush" "Eduard" "Andrian" "Viktoria" "René")
   "The people's names to be used for random standup order."
   :type 'list)
 
