@@ -48,7 +48,10 @@
     (font-lock-add-keywords
      nil
      '(("^-\\{5,\\}"  0 '(:inherit font-lock-comment-face))))
-    (ignore-errors (heks-emacs-set-base-faces))))
+    ;; Only the prose faces are re-applied here: calling the full
+    ;; `heks-emacs-set-base-faces' would reset the global text scale
+    ;; (C-= / C--) every time an Org buffer is opened.
+    (ignore-errors (heks-emacs-set-org-faces))))
 
 (use-package org-roam-ui
   :ensure t

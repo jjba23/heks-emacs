@@ -92,14 +92,51 @@ scheme-mode
  n> "(url \"" p "\")"
  n> "(revision " (p "revision") "))")
 
+;;; Modules
+
+(define-module\
+ "(define-module (" (p "module name") ")"
+ n> "#:use-module (guix packages)"
+ n> "#:use-module (guix download)"
+ n> "#:use-module (guix build-system gnu)"
+ n> "#:use-module (gnu packages " (p "module") "))")
+
+(use-modules\ "(use-modules (" (p "module name") "))")
+
+;;; Build systems and arguments
+
 (:phases\ "#:phases (modify-phases %standard-phases"
           n> p ")")
 (:phases~\ "#:phases"
            n> "#~(modify-phases %standard-phases"
            n> p ")")
+(arguments\ "(arguments"
+           n> "(list " p "))")
+
+;; G-expressions, for build phases and anything else evaluated by the
+;; daemon instead of at package definition time.
+(gexp\ "#~(" n> p ")")
+(with-imported-modules\
+ "(with-imported-modules '(" (p "modules") ")" n> p ")")
+
+;;; Working inside phases
+
+(substitute*\ "(substitute* \"" (p "file") "\""
+              n> "((\"" (p "regexp") "\") \"" (p "replacement") "\"))")
+(which\ "(which \"" (p "program") "\")")
+(search-input-file\
+ "(search-input-file " (p "inputs") " \"/bin/" (p "program") "\")")
+
+;;; Inputs, in the style `guix style -S inputs' produces
+
+(inputs\ "(inputs (list " p "))")
+(native-inputs\ "(native-inputs (list " p "))")
+(propagated-inputs\ "(propagated-inputs (list " p "))")
 
 (add-before\ "(add-before '" (p "next") " '" (p "previous")
              n > p ")")
 (add-after\ "(add-after '" (p "previous") " '" (p "next")
             n > p ")")
 (replace\ "(replace '" (p "old") " " p ")")
+(replace*\ "(replace '" (p "phase")
+           n > "(lambda _" n > "  " p "))")

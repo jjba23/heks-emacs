@@ -30,8 +30,7 @@
   (pulsar-highlight-face 'pulsar-yellow)
   :config
   (cond ((equal heks-emacs-theme 'ef-dream) (setq pulsar-face 'pulsar-magenta))
-        ((equal heks-emacs-theme 'everforest-hard-dark) (setq pulsar-face 'pulsar-green))
-        ((equal heks-emacs-theme 'everforest-hard-light) (setq pulsar-face 'pulsar-green))
+        ((memq heks-emacs-theme '(everforest-dark everforest-light)) (setq pulsar-face 'pulsar-green))
         (t (setq pulsar-face 'pulsar-green)))
   (pulsar-global-mode 1)
   (ignore-errors
@@ -47,23 +46,368 @@
         olivetti-body-width 94)
   (olivetti-set-width 94))
 
-(defun set-mode-line-faces()
-  (progn
-    (ignore-errors
-      (set-face-attribute 'mode-line nil
-                          :box `(:line-width 3 :color ,(face-attribute 'mode-line :background))
-                          :height (tekengrootte-mk-font-size 0.7)
-                          :font heks-emacs-font-sans))
+(defun set-mode-line-faces ()
+  (ignore-errors
+    (set-face-attribute 'mode-line nil
+                        :box `(:line-width 3 :color ,(face-attribute 'mode-line :background))
+                        :height 0.7
+                        :font heks-emacs-font-sans))
+  (ignore-errors
+    (set-face-attribute 'mode-line-active nil
+                        :box `(:line-width 3 :color ,(face-attribute 'mode-line :background))
+                        :height 0.7
+                        :font heks-emacs-font-sans))
+  (ignore-errors
+    (set-face-attribute 'mode-line-inactive nil
+                        :box `(:line-width 3 :color ,(face-attribute 'mode-line-inactive :background))
+                        :height 0.7
+                        :font heks-emacs-font-sans)))
+
+(defun heks-emacs--set-face (face &rest attributes)
+  "Set ATTRIBUTES on FACE, but only when FACE actually exists.
+
+Faces that belong to a library which has not been loaded yet are simply
+skipped; they are configured later through the `with-eval-after-load'
+calls below."
+  (when (facep face)
+    (apply #'set-face-attribute face nil attributes)))
+
+;;
+;; ====== Separators between windows ======
+;;
+;; Emacs draws the line between two side-by-side windows with the
+;; `window-divider' (or, when `window-divider-mode' is off, the
+;; `vertical-border') face.  Most themes leave those faces as the
+;; background color, which makes multiple buffers in a single frame
+;; impossible to tell apart.  The color is derived from the active
+;; theme instead of being hard-coded per palette, so separators stay
+;; visible whatever theme is selected.
+;;
+
+(defun heks-emacs--window-color (attribute fallback)
+  "Return the color currently used for ATTRIBUTE, or FALLBACK.
+
+ATTRIBUTE is a `default' face attribute such as :background.  The
+frame's own color is used when the face does not specify one."
+  (let ((face-color (ignore-errors (face-attribute 'default attribute nil t)))
+        (frame-color (ignore-errors
+                       (frame-parameter nil
+                                        (if (eq attribute :background)
+                                            'background-color
+                                          'foreground-color)))))
+    (cond ((and (stringp face-color)
+                (not (string-prefix-p "unspecified" face-color)))
+           face-color)
+          ((and (stringp frame-color)
+                (not (string-prefix-p "unspecified" frame-color)))
+           frame-color)
+          (t fallback))))
+
+(defun heks-emacs--color-components (color)
+  "Return COLOR as a list of three 16-bit integers, or nil when unknown.
+
+Hex colors are parsed here rather than through `color-values' because on
+a text terminal that function snaps colors to the terminal's palette,
+which would make the separator color unpredictable."
+  (cond
+   ((not (stringp color)) nil)
+   ((string-match "\\`#\\([0-9a-fA-F]\\{12\\}\\)\\'" color)
+    (let ((n (string-to-number (match-string 1 color) 16)))
+      (list (ash n -32) (logand (ash n -16) #xffff) (logand n #xffff))))
+   ((string-match "\\`#\\([0-9a-fA-F]\\{6\\}\\)\\'" color)
+    (let ((n (string-to-number (match-string 1 color) 16)))
+      (list (* #x101 (logand (ash n -16) #xff))
+            (* #x101 (logand (ash n -8) #xff))
+            (* #x101 (logand n #xff)))))
+   ((string-match "\\`#\\([0-9a-fA-F]\\{3\\}\\)\\'" color)
+    (let ((n (string-to-number (match-string 1 color) 16)))
+      (list (* #x1111 (logand (ash n -8) #xf))
+            (* #x1111 (logand (ash n -4) #xf))
+            (* #x1111 (logand n #xf)))))
+   (t (ignore-errors (color-values color)))))
+
+(defun heks-emacs--blend-colors (first second weight)
+  "Blend FIRST and SECOND, WEIGHT being the pull toward SECOND.
+
+WEIGHT is clamped to the 0.0-1.0 range.  Colors are accepted in any
+Emacs color format and a 16-bit hex string is returned."
+  (let ((one (heks-emacs--color-components first))
+        (two (heks-emacs--color-components second))
+        (weight (max 0.0 (min 1.0 (float weight)))))
+    (if (and one two)
+        (format "#%04x%04x%04x"
+                (round (+ (* (nth 0 one) (- 1.0 weight)) (* (nth 0 two) weight)))
+                (round (+ (* (nth 1 one) (- 1.0 weight)) (* (nth 1 two) weight)))
+                (round (+ (* (nth 2 one) (- 1.0 weight)) (* (nth 2 two) weight))))
+      second)))
+
+(defun heks-emacs--divider-color-for (themes)
+  "Return the first explicit separator color listed for THEMES."
+  (seq-some (lambda (theme) (alist-get theme heks-emacs-window-divider-colors))
+            themes))
+
+(defun heks-emacs-window-divider-color ()
+  "Return the color used to draw the separators between windows.
+
+Themes listed in `heks-emacs-window-divider-colors' win.  The
+configured `heks-emacs-theme' is consulted first, then whichever theme
+is actually enabled -- switching theme at runtime must not leave the
+separators painted with a color belonging to the previous one.  Every
+other theme gets a blend of its own background and foreground, so the
+separator always stands out."
+  (or (heks-emacs--divider-color-for
+       (cons heks-emacs-theme custom-enabled-themes))
+      (heks-emacs--blend-colors
+       (heks-emacs--window-color :background "#000000")
+       (heks-emacs--window-color :foreground "#ffffff")
+       heks-emacs-window-divider-contrast)))
+
+(defun heks-emacs-set-window-divider-faces (&rest _)
+  "Give the separators between windows a clearly visible color.
+
+Covers `window-divider' (used when `window-divider-mode' is enabled),
+its first/last pixel companions and `vertical-border' (used when it is
+not), so both split directions stay readable in every theme.  Themes
+that paint separators invisible -- `spacious-padding' does that on
+purpose -- are corrected as well, since face settings coming from an
+enabled theme take precedence over `set-face-attribute'."
+  (interactive)
+  (ignore-errors
+    (let* ((color (heks-emacs-window-divider-color))
+           (spec (list (list t (list :foreground color :background color)))))
+      ;; Both attributes are set: `vertical-border' is drawn with its
+      ;; foreground, whereas the `window-divider' pixels use the
+      ;; background, so one color has to cover both.
+      (dolist (face '(window-divider
+                      window-divider-first-pixel
+                      window-divider-last-pixel
+                      vertical-border))
+        (set-face-attribute face nil :foreground color :background color)
+        (when (memq 'spacious-padding custom-enabled-themes)
+          (custom-theme-set-faces 'spacious-padding (list face spec)))))))
+
+;;
+;; ====== Text scale and the faces derived from it ======
+;;
+;; Everything below is defined at file level on purpose.  Org, Markdown
+;; and the theme hooks call these functions, and they have to exist even
+;; while `tekengrootte' itself is still being installed or loaded.
+;;
+
+(defvar heks-emacs-is-first-frame t
+  "Non-nil until the first frame got its HEKS-EMACS UI scaling.")
+
+(defun heks-emacs-font-height (mult)
+  "Return an absolute face height for MULT times the current base size.
+
+The base size is `heks-emacs-base-font-size' scaled by
+`tekengrootte-scale'.  Because the result is absolute (tenths of a
+point), faces sized with it never compound with `default' or with a
+buffer face such as `variable-pitch'."
+  (round (* 10 heks-emacs-base-font-size
+            (if (boundp 'tekengrootte-scale) tekengrootte-scale 1.0)
+            mult)))
+
+(defun heks-emacs-set-org-faces ()
+  "Size and fontify the Org faces relative to the base size.
+
+The multipliers here are plain ratios of the base size: they are
+deliberately NOT scaled by `tekengrootte-scale', so changing the global
+text scale keeps the typographic hierarchy between body text, headings
+and code blocks intact."
+  (interactive)
+  (when (facep 'org-level-1)
+    (heks-emacs--set-face 'org-table :height 0.92 :font heks-emacs-font-mono)
+    (heks-emacs--set-face 'org-block :font heks-emacs-font-mono :height 0.9)
+    (heks-emacs--set-face 'org-block-end-line :font heks-emacs-font-mono :height 0.9)
+    (heks-emacs--set-face 'org-block-begin-line :font heks-emacs-font-mono :height 0.9)
+    (heks-emacs--set-face 'org-code :font heks-emacs-font-mono :height 0.85)
+    (heks-emacs--set-face 'org-verbatim :font heks-emacs-font-mono :height 1.0)
+    (heks-emacs--set-face 'org-document-title :font heks-emacs-font-sans :weight 'bold :height 1.5)
+    (heks-emacs--set-face 'org-document-info :font heks-emacs-font-sans :height 1.05)
+    (heks-emacs--set-face 'org-document-info-keyword :inherit '(font-lock-comment-face))
+    (heks-emacs--set-face 'org-quote :font heks-emacs-font-serif :slant 'italic)
+    (heks-emacs--set-face 'org-verse :font heks-emacs-font-serif :slant 'italic)
+    (heks-emacs--set-face 'org-level-1 :font heks-emacs-font-sans :weight 'bold :height 1.35)
+    (heks-emacs--set-face 'org-level-2 :font heks-emacs-font-sans :weight 'bold :height 1.22)
+    (heks-emacs--set-face 'org-level-3 :font heks-emacs-font-sans :weight 'bold :height 1.12)
+    (heks-emacs--set-face 'org-level-4 :font heks-emacs-font-sans :weight 'bold :height 1.06)
+    (heks-emacs--set-face 'org-level-5 :font heks-emacs-font-sans :weight 'bold :height 1.0)
+    (heks-emacs--set-face 'org-level-6 :font heks-emacs-font-sans :weight 'bold :height 0.98)
+    (heks-emacs--set-face 'org-level-7 :font heks-emacs-font-sans :weight 'bold :height 0.96)
+    (heks-emacs--set-face 'org-level-8 :font heks-emacs-font-sans :weight 'bold :height 0.94)))
+
+(defun heks-emacs-set-markdown-faces ()
+  "Size and fontify the Markdown faces relative to the base size.
+
+Covers both the built-in `markdown-ts-mode' (Emacs 31+) and the
+third-party `markdown-mode', with the same multipliers as Org so that
+the two modes look consistent.  Libraries that are not loaded yet are
+configured later, from the `with-eval-after-load' calls below."
+  (interactive)
+  ;; --- markdown-ts-mode (built-in) ---
+  (when (facep 'markdown-ts-heading-1)
+    (heks-emacs--set-face 'markdown-ts-heading-1 :font heks-emacs-font-sans :weight 'bold :height 1.35)
+    (heks-emacs--set-face 'markdown-ts-heading-2 :font heks-emacs-font-sans :weight 'bold :height 1.22)
+    (heks-emacs--set-face 'markdown-ts-heading-3 :font heks-emacs-font-sans :weight 'bold :height 1.12)
+    (heks-emacs--set-face 'markdown-ts-heading-4 :font heks-emacs-font-sans :weight 'bold :height 1.06)
+    (heks-emacs--set-face 'markdown-ts-heading-5 :font heks-emacs-font-sans :weight 'bold :height 1.0)
+    (heks-emacs--set-face 'markdown-ts-heading-6 :font heks-emacs-font-sans :weight 'bold :height 0.98)
+    (heks-emacs--set-face 'markdown-ts-setext-heading :font heks-emacs-font-sans :weight 'bold :height 1.35)
+    (heks-emacs--set-face 'markdown-ts-code-block :font heks-emacs-font-mono :height 0.9)
+    (heks-emacs--set-face 'markdown-ts-indented-code-block :font heks-emacs-font-mono :height 0.9)
+    (heks-emacs--set-face 'markdown-ts-code-span :font heks-emacs-font-mono :height 0.9)
+    (heks-emacs--set-face 'markdown-ts-block-quote :font heks-emacs-font-serif :slant 'italic))
+  ;; --- markdown-mode (third-party) ---
+  (when (facep 'markdown-header-face-1)
+    (heks-emacs--set-face 'markdown-header-face-1 :font heks-emacs-font-sans :weight 'bold :height 1.35)
+    (heks-emacs--set-face 'markdown-header-face-2 :font heks-emacs-font-sans :weight 'bold :height 1.22)
+    (heks-emacs--set-face 'markdown-header-face-3 :font heks-emacs-font-sans :weight 'bold :height 1.12)
+    (heks-emacs--set-face 'markdown-header-face-4 :font heks-emacs-font-sans :weight 'bold :height 1.06)
+    (heks-emacs--set-face 'markdown-header-face-5 :font heks-emacs-font-sans :weight 'bold :height 1.0)
+    (heks-emacs--set-face 'markdown-header-face-6 :font heks-emacs-font-sans :weight 'bold :height 0.98)
+    (heks-emacs--set-face 'markdown-pre-face :font heks-emacs-font-mono :height 0.9)
+    (heks-emacs--set-face 'markdown-code-face :font heks-emacs-font-mono :height 0.9)
+    (heks-emacs--set-face 'markdown-inline-code-face :font heks-emacs-font-mono :height 0.9)
+    (heks-emacs--set-face 'markdown-blockquote-face :font heks-emacs-font-serif :slant 'italic)))
+
+(defun heks-emacs-set-base-faces ()
+  "Adjust the base Emacs faces to my preferences.
+
+Only the base size (`default', `fixed-pitch') follows
+`tekengrootte-scale'; every other face is a plain multiple of it, so
+prose, Org and Markdown keep their proportions at any scale."
+  (interactive)
+  (set-face-attribute 'default nil
+                      :height (heks-emacs-font-height 1.0)
+                      :font heks-emacs-font-mono)
+
+  (set-face-attribute 'fixed-pitch nil
+                      :height (heks-emacs-font-height 1.0)
+                      :font heks-emacs-font-mono)
+
+  ;; Prose keeps the base size and only swaps family, which keeps the
+  ;; heading multipliers below exact multiples of the body text.
+  (set-face-attribute 'variable-pitch nil
+                      :font heks-emacs-font-sans
+                      :height heks-emacs-prose-scale)
+
+  (set-face-attribute 'button nil :background 'unspecified
+                      :weight 'bold)
+
+  (set-mode-line-faces)
+
+  (ignore-errors
+    (set-face-attribute 'font-lock-comment-face nil
+                        :italic t)
+    (set-face-attribute 'font-lock-doc-face nil
+                        :foreground (ef-themes-get-color-value 'yellow-faint)))
+
+  (heks-emacs-set-org-faces)
+
+  (heks-emacs-set-markdown-faces)
+
+  (ignore-errors
+    (set-face-attribute 'keycast-key nil
+                        :font heks-emacs-font-mono
+                        :background 'unspecified
+                        :box nil
+                        :height 0.8)
+    (set-face-attribute 'keycast-command nil
+                        :font heks-emacs-font-sans
+                        :height 0.8))
+
+  ;;
+  ;; ====== Theme specific tweaks ======
+  ;;
+
+  ;; ====== Catppuccin specific tweaks
+  (when (string-prefix-p "catppuccin-mocha" (format "%s" heks-emacs-theme))
     (ignore-errors
       (set-face-attribute 'mode-line-active nil
-                          :box `(:line-width 3 :color ,(face-attribute 'mode-line :background))
-                          :height (tekengrootte-mk-font-size 0.7)
-                          :font heks-emacs-font-sans))
-    (ignore-errors
+                          :background (catppuccin-color 'crust))
       (set-face-attribute 'mode-line-inactive nil
-                          :box `(:line-width 3 :color ,(face-attribute 'mode-line-inactive :background))
-                          :height (tekengrootte-mk-font-size 0.7)
-                          :font heks-emacs-font-sans))))
+                          :background (catppuccin-color 'base))))
+
+  ;; ======= Gruvbox specific tweaks ===========
+
+  (when (memq heks-emacs-theme '(gruvbox-light gruvbox-light-hard))
+    (ignore-errors
+      (set-face-attribute 'internal-border nil
+                          :background "#f9f5d7")))
+
+  (when (memq heks-emacs-theme '(gruvbox-dark gruvbox-dark-hard))
+    (ignore-errors
+      (set-face-attribute 'internal-border nil
+                          :background "#1d2021")))
+
+  ;; ====== Dracula specific tweaks ======
+  (when (equal heks-emacs-theme 'dracula)
+    (ignore-errors
+      (set-face-attribute 'font-lock-variable-use-face nil
+                          :bold nil)
+      (set-face-attribute 'font-lock-variable-name-face nil
+                          :bold nil)
+      (set-face-attribute 'mode-line nil
+                          :box `(:line-width 3 :color "#44475a")
+                          :background "#44475a")
+      (set-face-attribute 'mode-line-active nil
+                          :box `(:line-width 3 :color "#44475a")
+                          :background "#44475a")
+      (set-face-attribute 'mode-line-inactive nil
+                          :box `(:line-width 3 :color "#282a36")
+                          :background "#282a36")))
+
+  ;; ====== Everforest dark specific tweaks ======
+  (ignore-errors
+    (cond ((memq heks-emacs-theme '(everforest-dark everforest-hard-dark))
+           (progn
+             (set-face-attribute 'mode-line nil
+                                 :box 'unspecified
+                                 :foreground "#2b3339"
+                                 :background "#96b070")
+             (set-face-attribute 'mode-line-active nil
+                                 :box 'unspecified
+                                 :foreground "#2b3339"
+                                 :background "#96b070")
+             (set-face-attribute 'dired-directory nil
+                                 :inherit '(font-lock-string-face))))))
+
+  ;; ====== Everforest light specific tweaks ======
+  (ignore-errors
+    (cond ((memq heks-emacs-theme '(everforest-light everforest-hard-light))
+           (progn
+             (set-face-attribute 'mode-line nil
+                                 :box 'unspecified
+                                 :foreground "#2b3339"
+                                 :background "#96b070")
+             (set-face-attribute 'mode-line-active nil
+                                 :box 'unspecified
+                                 :foreground "#2b3339"
+                                 :background "#96b070")
+             (set-face-attribute 'dired-directory nil
+                                 :inherit '(font-lock-string-face))))))
+
+  ;; Keep the separators visible last, so no theme override wins over them.
+  (heks-emacs-set-window-divider-faces))
+
+(defun heks-emacs-refresh-faces (&rest _)
+  "Re-apply the HEKS-EMACS faces and the window separator colors.
+
+Registered on `tekengrootte-set-scale-hook' and on
+`enable-theme-functions', so a new text scale or a new theme is always
+reflected in the UI."
+  (interactive)
+  (heks-emacs-set-base-faces)
+  (heks-emacs-set-window-divider-faces))
+
+(defun new-frame-setup ()
+  "Scale the UI on the first frame and re-apply the faces on every frame."
+  (when heks-emacs-is-first-frame
+    (message "initializing HEKS-EMACS UI scaling for first frame")
+    (tekengrootte-set-scale-regular)
+    (setq heks-emacs-is-first-frame nil))
+  (heks-emacs-set-base-faces))
 
 (use-package tekengrootte
   :ensure (:host codeberg :repo "jjba23/tekengrootte.el" :branch "trunk")
@@ -76,229 +420,46 @@
          ("C-c f s" . tekengrootte-set-scale-small)
          ("C-c f t" . tekengrootte-set-scale-tiny)
          ("C-c f n" . tekengrootte-set-scale-nano))
-  :hook ((tekengrootte-set-scale . (lambda ()
-                                     (heks-emacs-set-base-faces))))
+  :hook ((tekengrootte-set-scale . heks-emacs-refresh-faces))
   :config
+  ;;
+  ;; ====== Separators between windows ======
+  ;;
 
-  (defun heks-emacs-set-base-faces ()
-    "Adjust the base Emacs faces to my preferences.
-According to size, color and font family"
-    (interactive)
-    (set-face-attribute 'default nil
-                        :height (round (tekengrootte-mk-font-size 114))
-                        :font heks-emacs-font-mono)
+  (setq window-divider-default-places heks-emacs-window-divider-places
+        window-divider-default-right-width 2
+        window-divider-default-bottom-width 1)
+  (window-divider-mode 1)
+  (heks-emacs-set-window-divider-faces)
 
-    (set-face-attribute 'fixed-pitch nil
-                        :height (round (tekengrootte-mk-font-size 114))
-                        :font heks-emacs-font-mono)
+  ;; Start from the "regular" scale so plain sessions and daemon sessions
+  ;; (with frames created later by emacsclient) agree on the initial size.
+  (setq tekengrootte-scale (alist-get 'regular tekengrootte-sizes))
 
-    (set-face-attribute 'variable-pitch nil
-                        :font heks-emacs-font-sans
-                        :height (tekengrootte-mk-font-size 1.1))
+  ;; Apply the faces right away: without a server frame, the
+  ;; `server-after-make-frame-hook' below never runs.
+  (heks-emacs-set-base-faces)
 
-    (set-face-attribute 'button nil :background 'unspecified
-                        :weight 'bold)
+  ;; Depth 10 puts `new-frame-setup' after the other frame functions, which
+  ;; matters because `spacious-padding' (see below) repaints the divider
+  ;; faces with the background color on every new frame.
+  (add-hook 'server-after-make-frame-hook 'new-frame-setup 10)
+  (add-hook 'server-after-make-frame-hook #'my-set-custom-modeline)
 
-    (set-mode-line-faces)
+  ;; Switching themes must not leave separators invisible or faces stale.
+  (add-hook 'enable-theme-functions #'heks-emacs-refresh-faces))
 
-    (ignore-errors
-      (set-face-attribute 'font-lock-comment-face nil
-                          :italic t)
-      (set-face-attribute 'font-lock-doc-face nil
-                          :foreground (ef-themes-get-color-value 'yellow-faint)))
+;; Org and Markdown faces only exist once their libraries are loaded, so
+;; configure them again at that point (and never mind that this may run
+;; several times; the operations are idempotent).
+(with-eval-after-load 'org
+  (heks-emacs-set-org-faces))
 
-    ;; (ignore-errors
-    ;;   (set-face-attribute 'markdown-pre-face nil
-    ;;                       :font heks-emacs-font-mono
-    ;;                       :height (tekengrootte-mk-font-size 0.95))
-    ;;   (set-face-attribute 'markdown-code-face nil
-    ;;                       :font heks-emacs-font-mono
-    ;;                       :height (tekengrootte-mk-font-size 0.95))
-    ;;   (set-face-attribute 'markdown-inline-code-face nil
-    ;;                       :font heks-emacs-font-mono
-    ;;                       :height (tekengrootte-mk-font-size 0.95))
-    ;;   (set-face-attribute 'markdown-header-face-1 nil
-    ;;                       :font heks-emacs-font-sans
-    ;;                       :weight 'bold
-    ;;                       :height (tekengrootte-mk-font-size 1.2))
-    ;;   (set-face-attribute 'markdown-header-face-2 nil
-    ;;                       :font heks-emacs-font-sans
-    ;;                       :weight 'bold
-    ;;                       :height (tekengrootte-mk-font-size 1.2))
-    ;;   (set-face-attribute 'markdown-header-face-3 nil
-    ;;                       :font heks-emacs-font-sans
-    ;;                       :weight 'bold
-    ;;                       :height (tekengrootte-mk-font-size 1.1))
-    ;;   (set-face-attribute 'markdown-header-face-4 nil
-    ;;                       :font heks-emacs-font-sans
-    ;;                       :weight 'bold
-    ;;                       :height (tekengrootte-mk-font-size 1.1))
-    ;;   (set-face-attribute 'markdown-header-face-5 nil
-    ;;                       :font heks-emacs-font-sans
-    ;;                       :weight 'bold
-    ;;                       :height (tekengrootte-mk-font-size 1.0)))
+(with-eval-after-load 'markdown-ts-mode
+  (heks-emacs-set-markdown-faces))
 
-    (ignore-errors
-      (set-face-attribute 'org-table nil
-                          :height (tekengrootte-mk-font-size 0.92)
-                          :font heks-emacs-font-mono)
-      (set-face-attribute 'org-default nil
-                          :height (tekengrootte-mk-font-size 1.05)
-                          :font heks-emacs-font-mono)
-      (set-face-attribute 'org-block nil
-                          :font heks-emacs-font-mono
-                          :height (tekengrootte-mk-font-size 0.9))
-      (set-face-attribute 'org-block-end-line nil
-                          :font heks-emacs-font-mono
-                          :height (tekengrootte-mk-font-size 0.9))
-      (set-face-attribute 'org-block-begin-line nil
-                          :font heks-emacs-font-mono
-                          :height (tekengrootte-mk-font-size 0.9))
-      (set-face-attribute 'org-code nil
-                          :font heks-emacs-font-mono
-                          :height (tekengrootte-mk-font-size 0.84))
-      (set-face-attribute 'org-verbatim nil
-                          :font heks-emacs-font-mono
-                          :height (tekengrootte-mk-font-size 1.05))
-      (set-face-attribute 'org-document-title nil
-                          :height (tekengrootte-mk-font-size 1.18))
-      (set-face-attribute 'org-document-info-keyword nil
-                          :inherit '(font-lock-comment-face))
-      (set-face-attribute 'org-level-1 nil
-                          :font heks-emacs-font-sans
-                          :weight 'bold
-                          :height (tekengrootte-mk-font-size 1.2))
-      (set-face-attribute 'org-level-2 nil
-                          :font heks-emacs-font-sans
-                          :weight 'bold
-                          :height (tekengrootte-mk-font-size 1.2))
-      (set-face-attribute 'org-level-3 nil
-                          :font heks-emacs-font-sans
-                          :weight 'bold
-                          :height (tekengrootte-mk-font-size 1.1))
-      (set-face-attribute 'org-level-4 nil
-                          :font heks-emacs-font-sans
-                          :weight 'bold
-                          :height (tekengrootte-mk-font-size 1.1))
-      (set-face-attribute 'org-level-5 nil
-                          :font heks-emacs-font-sans
-                          :weight 'bold
-                          :height (tekengrootte-mk-font-size 1.0)))
-    (ignore-errors
-      (set-face-attribute 'keycast-key nil
-                          :font heks-emacs-font-mono
-                          :background 'unspecified
-                          :box nil
-                          :height (tekengrootte-mk-font-size 0.8))
-      (set-face-attribute 'keycast-command nil
-                          :font heks-emacs-font-sans
-                          :height (tekengrootte-mk-font-size 0.8)))
-
-    ;;
-    ;; ====== Theme specific tweaks ======
-    ;;
-
-    ;; ====== Ef theme specific tweaks =============
-    (when (string-prefix-p "ef-" (format "%s" heks-emacs-theme))
-      (ignore-errors
-        (set-face-attribute 'window-divider nil
-                            :foreground (modus-themes-get-color-value 'bg-alt t heks-emacs-theme)
-                            :background (modus-themes-get-color-value 'bg-alt t heks-emacs-theme))))
-
-    ;; ====== Modus theme specific tweaks =============
-    (when (string-prefix-p "modus-" (format "%s" heks-emacs-theme))
-      (ignore-errors
-        (set-face-attribute 'window-divider nil
-                            :foreground (modus-themes-get-color-value 'bg-active t heks-emacs-theme)
-                            :background (modus-themes-get-color-value 'bg-active t heks-emacs-theme))))
-
-    ;; ====== Catppuccin specific tweaks
-    (when (string-prefix-p "catppuccin-mocha" (format "%s" heks-emacs-theme))
-      (ignore-errors
-        (set-face-attribute 'mode-line-active nil
-                            :background (catppuccin-color 'crust))
-        (set-face-attribute 'mode-line-inactive nil
-                            :background (catppuccin-color 'base))))
-
-    ;; ======= Gruvbox specific tweaks ===========
-
-    (when (equal heks-emacs-theme 'gruvbox-light-hard)
-      (ignore-errors
-        (set-face-attribute 'internal-border nil
-                            :background "#f9f5d7")))
-
-    (when (equal heks-emacs-theme 'gruvbox-dark-hard)
-      (ignore-errors
-        (set-face-attribute 'internal-border nil
-                            :background "#1d2021")))
-
-    ;; ====== Dracula specific tweaks ======
-    (when (equal heks-emacs-theme 'dracula)
-      (ignore-errors
-        (set-face-attribute 'font-lock-variable-use-face nil
-                            :bold nil)
-        (set-face-attribute 'font-lock-variable-name-face nil
-                            :bold nil)
-        (set-face-attribute 'mode-line nil
-                            :box `(:line-width 3 :color "#44475a")
-                            :background "#44475a")
-        (set-face-attribute 'mode-line-active nil
-                            :box `(:line-width 3 :color "#44475a")
-                            :background "#44475a")
-        (set-face-attribute 'mode-line-inactive nil
-                            :box `(:line-width 3 :color "#282a36")
-                            :background "#282a36")
-        (set-face-attribute 'window-divider nil
-                            :background "#6272a4"
-                            :foreground "#6272a4")))
-
-
-    ;; ====== Everforest dark specific tweaks ======
-    (ignore-errors
-      (cond ((equal heks-emacs-theme 'everforest-hard-dark)
-             (progn
-               (set-face-attribute 'mode-line nil
-                                   :box 'unspecified
-                                   :foreground "#2b3339"
-                                   :background "#96b070")
-               (set-face-attribute 'mode-line-active nil
-                                   :box 'unspecified
-                                   :foreground "#2b3339"
-                                   :background "#96b070")
-               (set-face-attribute 'dired-directory nil
-                                   :inherit '(font-lock-string-face))))))
-
-    ;; ====== Everforest light specific tweaks ======
-    (ignore-errors
-      (cond ((equal heks-emacs-theme 'everforest-hard-light)
-             (progn
-               (set-face-attribute 'mode-line nil
-                                   :box 'unspecified
-                                   :foreground "#2b3339"
-                                   :background "#96b070")
-               (set-face-attribute 'mode-line-active nil
-                                   :box 'unspecified
-                                   :foreground "#2b3339"
-                                   :background "#96b070")
-               (set-face-attribute 'dired-directory nil
-                                   :inherit '(font-lock-string-face))))))
-    ;; Set mode-line faces
-    (set-mode-line-faces)
-    )
-
-  (setq heks-emacs-is-first-frame t)
-
-  (defun new-frame-setup ()
-    (progn
-      (when heks-emacs-is-first-frame
-        (progn
-          (message "initializing HEKS-EMACS UI scaling for first frame")
-          (tekengrootte-set-scale-regular)
-          (setq heks-emacs-is-first-frame nil)))
-      (heks-emacs-set-base-faces)))
-
-  (add-hook 'server-after-make-frame-hook 'new-frame-setup)
-  (add-hook 'server-after-make-frame-hook #'my-set-custom-modeline))
+(with-eval-after-load 'markdown-mode
+  (heks-emacs-set-markdown-faces))
 
 (use-package nerd-icons
   :ensure t
@@ -309,6 +470,16 @@ According to size, color and font family"
                '("^settings-gradle\\.lockfile$" nerd-icons-faicon "nf-fa-lock"))
   (add-to-list 'nerd-icons-regexp-icon-alist
                '("^gradle\\.lockfile$" nerd-icons-faicon "nf-fa-lock"))
+  (add-to-list 'nerd-icons-regexp-icon-alist
+               '("^pom\\.xml$" nerd-icons-devicon "nf-dev-maven"))
+  (add-to-list 'nerd-icons-regexp-icon-alist
+               '("^build\\.gradle\\(\\.kts\\)?$" nerd-icons-devicon "nf-dev-gradle"))
+  (add-to-list 'nerd-icons-regexp-icon-alist
+               '("\\.tf\\(vars\\)?$" nerd-icons-devicon "nf-dev-terraform"))
+  (add-to-list 'nerd-icons-regexp-icon-alist
+               '("\\.mongo\\(sh\\)?$" nerd-icons-devicon "nf-dev-mongodb"))
+  (add-to-list 'nerd-icons-regexp-icon-alist
+               '("\\.sql$" nerd-icons-faicon "nf-fa-database"))
   (add-to-list 'nerd-icons-regexp-icon-alist
                '("^[Cc][Oo][Dd][Ee][Oo][Ww][Nn][Ee][Rr][Ss]$" nerd-icons-faicon "nf-fa-users")))
 
@@ -334,6 +505,19 @@ According to size, color and font family"
   :config
   (spacious-padding-mode)
   (set-face-attribute 'internal-border nil :background 'unspecified :inherit 'default))
+
+;; `spacious-padding' replaces the lines between windows with padding and
+;; therefore deliberately paints `window-divider', `vertical-border' and
+;; their companions with the background color -- which is exactly why
+;; several buffers in one frame used to be indistinguishable.  HEKS-EMACS
+;; wants those separators to be visible, so apply them once more *after*
+;; spacious-padding had its say: now, when `window-divider-mode' is
+;; toggled and on every theme change.  DEPTH 10 places these hooks after
+;; the ones registered by spacious-padding.
+(heks-emacs-set-window-divider-faces)
+(add-hook 'enable-theme-functions #'heks-emacs-set-window-divider-faces 10)
+(add-hook 'window-divider-mode-hook #'heks-emacs-set-window-divider-faces 10)
+(add-hook 'after-make-frame-functions #'heks-emacs-set-window-divider-faces 10)
 
 (use-package svg-lib
   :ensure (:host github :repo "rougier/svg-lib" :branch "master"))

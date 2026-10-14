@@ -49,9 +49,53 @@
   "The font family to use for serif fonts."
   :type 'string)
 
+(defcustom heks-emacs-base-font-size 11.4
+  "Base font size, in points, for buffers and UI chrome.
+
+Every face whose size HEKS-EMACS sets is expressed relative to this
+value, and this value itself is scaled by `tekengrootte-scale' (see
+`heks-emacs-font-height')."
+  :type 'number)
+
+(defcustom heks-emacs-prose-scale 1.0
+  "Relative size of the `variable-pitch' (prose) face.
+
+Org and Markdown body text uses this face.  A value of 1.0 keeps prose
+at the base size, values below 1.0 make it smaller and values above
+1.0 make it larger."
+  :type 'number)
+
+(defcustom heks-emacs-window-divider-contrast 0.45
+  "How far window separators are blended toward the theme foreground.
+
+0.0 makes separators invisible, 1.0 paints them with the foreground
+color.  This is used for every theme not listed in
+`heks-emacs-window-divider-colors', so separators stay visible
+regardless of which palette is active."
+  :type 'number)
+
+(defcustom heks-emacs-window-divider-colors
+  '((dracula . "#6272a4"))
+  "Alist of theme names to explicit window separator colors.
+
+Themes that are not listed get a separator color derived from their
+background and foreground, guaranteeing a visible separator in every
+palette."
+  :type '(alist :key-type symbol :value-type (string :tag "Color")))
+
+(defcustom heks-emacs-window-divider-places t
+  "Where dividers between windows are displayed.
+
+`t' displays dividers on the right and on the bottom of windows,
+`right-only' only separates horizontally split windows and
+`bottom-only' only separates vertically split windows."
+  :type '(choice (const :tag "Right and bottom" t)
+                 (const :tag "Right only" right-only)
+                 (const :tag "Bottom only" bottom-only)))
+
 (defcustom heks-emacs-standup-people '("Joe" "Giga" "Yury" "Semih" "Soroush" "Eduard" "Andrian" "Viktoria" "René")
   "The people's names to be used for random standup order."
-  :type 'list)
+  :type '(repeat string))
 
 (defcustom heks-emacs-standup-buffer-name "*Random Standup Order*"
   "The name of the buffer where we should show a random standup order."
@@ -267,11 +311,13 @@ This command will:
    start and completion of the formatting process.
 
 Note: This command assumes that the `guix` command-line utility is
-installed and accessible in your system's `exec-path`."
+installed and accessible in your system's `exec-path'.  The file name is
+quoted, so a path with spaces in it does not turn into several arguments."
   (interactive)
-  (let ((path (file-truename buffer-file-name)))
+  (let ((path (file-truename (or buffer-file-name
+                                 (user-error "The buffer is not visiting a file")))))
     (message "formatting current buffer with Guix style")
-    (shell-command (format "guix style -f %s" path))
+    (shell-command (format "guix style -f %s" (shell-quote-argument path)))
     (revert-buffer :ignore-auto :noconfirm)
     (message "formatted current buffer with Guix style")))
 
@@ -376,6 +422,137 @@ Operates on the selected region, or from point to the end of the buffer."
    nil  ; repeat-count
    nil  ; map
    start end))
+
+;;
+;; ====== JVM build tooling (Maven / Gradle / Spring Boot) ======
+;;
+
+(require 'cl-lib)
+
+(defun heks-emacs--locate-project-file (names &optional start-dir)
+  "Return the closest directory at or above START-DIR that holds one of NAMES.
+
+NAMES is a file name or a list of file names, such as a `pom.xml' or a
+`build.gradle' file, and START-DIR defaults to `default-directory'.
+Return nil when no such directory exists."
+  (let ((names (if (listp names) names (list names)))
+        (dir (file-truename (or start-dir default-directory))))
+    (catch 'found
+      (while dir
+        (when (cl-some (lambda (name) (file-exists-p (expand-file-name name dir))) names)
+          (throw 'found dir))
+        (let ((parent (file-name-directory (directory-file-name dir))))
+          (setq dir (unless (equal parent dir) parent))))
+      nil)))
+
+(defun heks-emacs--jvm-build-program (root wrapper default)
+  "Return the build program to run in ROOT.
+
+Wants the project WRAPPER script (e.g. mvnw) when it is executable,
+otherwise falls back to DEFAULT (e.g. mvn)."
+  (let ((wrapper (expand-file-name wrapper root)))
+    (if (file-executable-p wrapper) wrapper default)))
+
+(defun heks-emacs--jvm-build (root program &rest arguments)
+  "Compile the build command for ROOT using PROGRAM and ARGUMENTS."
+  (let ((default-directory root)
+        (command (mapconcat #'identity (cons (shell-quote-argument program) arguments) " ")))
+    (compile command)))
+
+(defun heks-emacs-maven-run (goal)
+  "Run a Maven GOAL for the closest Maven project.
+
+Prefers the project's `mvnw' wrapper over a system-wide `mvn', and
+reuses the HEKS-EMACS compilation buffer."
+  (interactive (list (read-string "Maven goal (default test): " nil nil "test")))
+  (let ((root (heks-emacs--locate-project-file "pom.xml")))
+    (unless root
+      (user-error "No pom.xml found above %s" default-directory))
+    (heks-emacs--jvm-build root
+                           (heks-emacs--jvm-build-program root "mvnw" "mvn")
+                           goal)))
+
+(defun heks-emacs-gradle-run (task)
+  "Run a Gradle TASK for the closest Gradle project.
+
+Understands both Groovy (`build.gradle') and Kotlin (`build.gradle.kts')
+projects, and prefers the `gradlew' wrapper."
+  (interactive (list (read-string "Gradle task (default test): " nil nil "test")))
+  (let ((root (heks-emacs--locate-project-file '("build.gradle" "build.gradle.kts"))))
+    (unless root
+      (user-error "No build.gradle or build.gradle.kts found above %s" default-directory))
+    (heks-emacs--jvm-build root
+                           (heks-emacs--jvm-build-program root "gradlew" "gradle")
+                           task)))
+
+(defun heks-emacs-spring-boot-run ()
+  "Run the Spring Boot application of the current project.
+
+Uses Maven (`spring-boot:run') for Maven projects and Gradle (`bootRun')
+for Gradle projects."
+  (interactive)
+  (cond ((heks-emacs--locate-project-file "pom.xml")
+         (heks-emacs-maven-run "spring-boot:run"))
+        ((heks-emacs--locate-project-file '("build.gradle" "build.gradle.kts"))
+         (heks-emacs-gradle-run "bootRun"))
+        (t (user-error "No pom.xml or Gradle build found above %s" default-directory))))
+
+;;
+;; ====== Databases (PostgreSQL / MongoDB) ======
+;;
+
+;; `sql.el' defines these as `defcustom's.  Declaring them here tells the
+;; byte-compiler that binding them is a *dynamic* binding, which is what
+;; `sql-postgres' reads when it builds the connection.
+(defvar sql-server)
+(defvar sql-user)
+(defvar sql-database)
+(defvar sql-port)
+
+(defun heks-emacs--run-in-terminal (name program &rest arguments)
+  "Run PROGRAM with ARGUMENTS in a dedicated terminal buffer called NAME.
+
+Uses a real pseudo-terminal (`term') so that interactive REPLs and
+database shells behave exactly as they do outside Emacs, and reuses an
+existing session buffer when it is still alive."
+  (require 'term)
+  (let ((buffer-name (format "*%s*" name)))
+    (if (comint-check-proc buffer-name)
+        (pop-to-buffer buffer-name)
+      (when (get-buffer buffer-name)
+        (kill-buffer buffer-name))
+      (pop-to-buffer (apply #'make-term name program nil arguments)))))
+
+(defun heks-emacs-sql-postgres ()
+  "Open a PostgreSQL session using the built-in `sql.el' client.
+
+Connection details come from the `sql.el' settings (`sql-server',
+`sql-user', `sql-database' and `sql-port') when those are set, and
+otherwise from the usual `PGHOST', `PGUSER', `PGDATABASE' and `PGPORT'
+environment variables.  `sql.el' prompts for anything that is still
+missing."
+  (interactive)
+  (require 'sql)
+  (let ((sql-server (or (default-value 'sql-server) (getenv "PGHOST")))
+        (sql-user (or (default-value 'sql-user) (getenv "PGUSER")))
+        (sql-database (or (default-value 'sql-database) (getenv "PGDATABASE")))
+        (sql-port (or (default-value 'sql-port)
+                      (let ((port (getenv "PGPORT")))
+                        (and port (string-to-number port))))))
+    (sql-postgres)))
+
+(defun heks-emacs-mongosh (&optional uri)
+  "Open a MongoDB `mongosh' REPL in a terminal buffer.
+
+URI defaults to the `MONGODB_URI' environment variable when set,
+otherwise `mongosh' connects to the default local server."
+  (interactive
+   (list (read-string "MongoDB URI (empty for default): "
+                      (or (getenv "MONGODB_URI") ""))))
+  (unless (executable-find "mongosh")
+    (user-error "Cannot find the `mongosh' executable in `exec-path'"))
+  (apply #'heks-emacs--run-in-terminal "mongosh" "mongosh"
+         (unless (string-empty-p (or uri "")) (list uri))))
 
 (provide 'heks-emacs/heks-emacs)
 

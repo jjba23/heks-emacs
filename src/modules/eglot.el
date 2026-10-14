@@ -102,10 +102,29 @@
 
   (add-to-list 'eglot-server-programs '(nix-ts-mode . ("nil")))
 
+  ;; --- Kotlin ---
+  ;; JetBrains' Kotlin LSP ships as `bin/intellij-server' in its release
+  ;; archive; the community `kotlin-language-server' is the fallback for
+  ;; setups that do not have it.  Resolving this at connect time means the
+  ;; right server is used whichever one is installed.
+  (defun heks/eglot-kotlin-server ()
+    "Return the command of the best available Kotlin language server."
+    (cond ((executable-find "intellij-server") '("intellij-server" "--stdio"))
+          ((executable-find "kotlin-lsp") '("kotlin-lsp" "--stdio"))
+          ((executable-find "kotlin-language-server") '("kotlin-language-server"))
+          (t '("intellij-server" "--stdio"))))
+
   (setq eglot-server-programs (assoc-delete-all 'kotlin-ts-mode eglot-server-programs))
-  (add-to-list 'eglot-server-programs '(kotlin-ts-mode . ("intellij-server" "--stdio")))
+  (setq eglot-server-programs (assoc-delete-all 'kotlin-mode eglot-server-programs))
+  (add-to-list 'eglot-server-programs
+               (cons '(kotlin-mode kotlin-ts-mode) #'heks/eglot-kotlin-server))
 
   (add-to-list 'eglot-server-programs '(markdown-mode . ("marksman")))
+
+  ;; --- Terraform / HCL ---
+  ;; `terraform-ls' provides completion, validation and hover for the
+  ;; Terraform and HCL major modes.
+  (add-to-list 'eglot-server-programs '(terraform-mode . ("terraform-ls" "serve")))
 
   (setq-default eglot-workspace-configuration
                 '(
@@ -237,7 +256,29 @@
   :ensure t
   :after (eglot)
   :hook ((java-mode . eglot-java-mode)
-         (java-ts-mode . eglot-java-mode)))
+         (java-ts-mode . eglot-java-mode))
+  :config
+  ;; `eglot-java' can be activated from its autoloads before the library
+  ;; itself is loaded, in which case `eglot-java-mode-map' does not exist
+  ;; yet; wait for the real load before touching its internals.
+  (with-eval-after-load 'eglot-java
+    ;; Bindings local to Java buffers using eglot-java; the global
+    ;; `C-c j m/g/s' build commands (see `heks-emacs-maven-run' and
+    ;; friends) keep working in every other buffer.
+    (keymap-set eglot-java-mode-map "C-c j n" #'eglot-java-file-new)
+    (keymap-set eglot-java-mode-map "C-c j r" #'eglot-java-run-main)
+    (keymap-set eglot-java-mode-map "C-c j t" #'eglot-java-run-test)
+    (keymap-set eglot-java-mode-map "C-c j N" #'eglot-java-project-new)
+    (keymap-set eglot-java-mode-map "C-c j b" #'eglot-java-project-build-task)
+    (keymap-set eglot-java-mode-map "C-c j B" #'eglot-java-project-build-refresh)
+
+    ;; Ask Eclipse JDT LS to re-import Maven/Gradle projects automatically
+    ;; when their build files change.  The function is called with the
+    ;; server and the JDT LS version, hence the ignored arguments.
+    (defun heks/eglot-java-init-opts (&rest _)
+      "JDT LS initialization options for HEKS-EMACS."
+      '(:settings (:java (:configuration (:updateBuildConfiguration "automatic")))))
+    (setq eglot-java-user-init-opts-fn #'heks/eglot-java-init-opts)))
 
 (use-package jarchive
   :ensure t

@@ -9,6 +9,45 @@ This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic 
 
 *[Unreleased]*
 
+*** Added
+
+- Added Maven, Gradle and Spring Boot build commands (~heks-emacs-maven-run~, ~heks-emacs-gradle-run~, ~heks-emacs-spring-boot-run~, bound to ~C-c j m~, ~C-c j g~ and ~C-c j s~). Each one walks up from the current buffer to the closest project and prefers the ~mvnw~ / ~gradlew~ wrapper over a system-wide installation.
+- Added Java, Kotlin, Terraform and SQL Tempel snippets.
+- Added Kotlin support for both the classic and Tree-sitter modes, including ~.kts~ files such as ~build.gradle.kts~.
+- Added Groovy support for Gradle build scripts and ~Jenkinsfile~ files.
+- Added Terraform and HCL support: ~.tf~, ~.tfvars~, ~.hcl~ (including ~.terraform.lock.hcl~) and Nomad jobs, with ~terraform fmt~ on save and ~terraform-ls~ through Eglot when the toolchain is installed.
+- Added SQL support through the built-in ~sql.el~: PostgreSQL is the default product, keywords are upper-cased as they are typed (~sqlup-mode~) and Flymake lints SQL when ~sql-lint~ is available.
+- Added database entry points: ~heks-emacs-sql-postgres~ (~C-c d p~) opens a PostgreSQL session and ~heks-emacs-mongosh~ (~C-c d m~) opens a MongoDB shell in a real terminal buffer.
+- Added Maven, Gradle, Terraform, MongoDB, SQL and Codeowners icons to Dired and the completion interfaces.
+- Added a Kotlin language-server selector which uses JetBrains' ~intellij-server~, then ~kotlin-lsp~, then the community ~kotlin-language-server~, whichever is installed.
+- Added Eclipse JDT LS settings to Eglot Java so that Maven and Gradle projects are re-imported automatically when their build files change.
+- Added keys for Kotlin and JVM work inside Eglot Java buffers (~C-c j n~, ~C-c j r~, ~C-c j t~, ~C-c j N~, ~C-c j b~, ~C-c j B~).
+- Added a ~guile.el~ module for Guile Scheme and Guix development, with the REPL as the centre of the workflow:
+  - ~C-c g r~ starts or switches to the current project's REPL. In a Guix buffer that REPL is a Guix REPL (through Emacs-Guix's ~guix-repl-guile-program~ when it knows where the Guix sources are, and ~guix repl~ otherwise), elsewhere a plain Guile one; the project root goes on Guile's load path and the REPL is kept per project. ~C-c g R~ restarts it.
+  - Evaluation, loading and interruption from the buffer: ~C-c g e~ (definition at point), ~C-c g E~ (region or buffer), ~C-c g b~ (the whole file) and ~C-c g i~. ~C-c g x~ runs the file as a script with the project root on the load path.
+  - Ares RS and arei for the asynchronous, image-oriented workflow: ~C-c g a~ starts the nREPL server in the project root and connects arei as soon as the server publishes its port (the server buffer doubles as the build log when ~guix shell~ has to build ~guile-ares-rs~), ~C-c g A~ connects to a server that is already running, ~C-c g d~ jumps back to the debugger after an exception and ~C-c g t~ runs the project's tests inside the running image. ~heks-emacs-scheme-repl-backend~ decides between arei and Geiser, preferring arei when its server is installed.
+  - Guix's own tooling, on save: a Flymake backend runs ~guix lint~ on the package defined in the buffer (checkers, style, and anything else the installed Guix checks), and a second one runs ~guix style~ on a copy of the buffer and reports the lines it would rewrite. ~C-c g L~ lints the buffer into a clickable compilation buffer (the hyperlinks Guix puts around file names are turned into real ones there), ~C-c g f~ formats it in place and ~C-c g S~ applies one of Guix's styling rules (~inputs~, ~arguments~, ~git-source~) and reloads it.
+  - ~guix-devel-mode~ is enabled in Guix buffers, which brings Emacs-Guix's own bindings: ~C-c . l~ to lint, ~C-c . b~ to build the package definition, ~C-c . s~ and ~C-c . d~ for its source, and ~C-c . u~ to insert a module at point.
+  - Folding works in Scheme now: a buffer is read as top-level forms, so each definition is a fold, collapsing the definition at point works from anywhere inside it, and the keys are the same as the Tree-sitter folding used for every other language (~C-c v c~, ~C-c v o~, ~C-c v m~, ~C-c v r~, ~C-c v a~).
+- Added Guix snippets for modules (~define-module~, ~use-modules~), G-expressions and imported modules, arguments, working inside phases (~substitute*~, ~which~, ~search-input-file~), inputs in the style ~guix style -S inputs~ produces, and ~replace~ with a body.
+
+*** Changed
+
+- Window separators are now derived from the active theme instead of being left at the background color, so several buffers in one frame are clearly distinguishable in every palette. The color is applied to ~window-divider~, ~window-divider-first-pixel~, ~window-divider-last-pixel~ and ~vertical-border~, it is refreshed whenever a theme or the text scale changes, and it corrects the invisible separators that ~spacious-padding~ paints on purpose.
+- ~window-divider-mode~ is now enabled with 2 pixel separators on the right and 1 pixel at the bottom.
+- Org, Markdown, prose and code faces are now sized as multiples of the base font size. Changing the text scale with ~tekengrootte~ no longer compounds with the ~default~ and ~variable-pitch~ faces, so headings, body text and code blocks keep their proportions at every scale.
+- Opening an Org or Markdown buffer no longer resets the global text scale to the regular size.
+- The face helpers in the UI module are defined at file level, so Org, Markdown and theme hooks can call them even while ~tekengrootte~ is still being installed or loaded. The same guard now protects the Eglot Java bindings, which are applied after ~eglot-java~ really loaded instead of when it was merely activated.
+- SQL buffers now start Flymake so that ~sql-lint~ actually runs, instead of only being registered as a backend.
+- The Scheme, Guile and Guix configuration moved out of ~dev.el~ into ~guile.el~, where the REPL engines, the checking and formatting backends and the keys live together. ~dev.el~ keeps the general-purpose development tooling.
+- Geiser is now configured for project work: one REPL per project, the project root on Guile's load path, the REPL in another window, and backtraces for failing evaluations. ~geiser-mode~ stays manual because arei advises against its completion when both are installed; ~C-c g r~ turns it on in the buffers that use it.
+
+*** Fixed
+
+- Fixed the ~ef-autumn~ palette overrides, which were assigned to a non-existent ~ef-autumn-palettes-overrides~ variable and were therefore silently ignored.
+- Fixed the ~heks-emacs-standup-people~ customization type, which warned about a ~list~ without arguments.
+- Fixed a startup error in ~dev.el~: ~fancy-compilation-mode~ was called from an ~after-load~ handler for ~compile~, which fails whenever ~compile~ is loaded before Elpaca has activated the package (an early ~require~, such as Flymake's, does that). The package is now loaded on demand.
+
 -------
 
 ** v1.6.6 (2026-09-01)

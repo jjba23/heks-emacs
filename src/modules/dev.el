@@ -109,25 +109,9 @@
   :ensure t
   :bind ("C-c d c" . docker))
 
-;; Provides a good Scheme REPL integration with Emacs and Guile Ares
-(use-package arei
-  :ensure (:host github :repo "abcdw/emacs-arei" :branch "master")
-  :demand t
-  :hook ((scheme-mode . arei-mode)))
-
-;; Provides Geiser for Scheme/Racket development, with an interactive
-;; environment and language support.
-(use-package geiser
-  :ensure t
-  :init
-  (setq geiser-active-implementations '(guile))
-  (setq geiser-mode-auto-p nil)
-  (ignore-errors
-    (define-key scheme-mode-map (kbd "C-c i f") #'heks-emacs-guix-fmt)))
-
-;; Specifically provides Geiser support for the Guile Scheme implementation.
-(use-package geiser-guile
-  :ensure t)
+;; Scheme, Guile and Guix development live in `modules/guile.el': arei and
+;; Geiser (the REPL), `guix lint' and `guix style' (checking and formatting)
+;; and the folding keys shared with the other languages.
 
 ;; Provdes a REPL session management tool for Emacs and more.
 (use-package sesman
@@ -165,7 +149,11 @@
                         :background 'unspecified)))
 
 (with-eval-after-load 'compile
-  (fancy-compilation-mode))
+  ;; `compile' can be loaded before Elpaca has activated `fancy-compilation'
+  ;; (an early `require', such as Flymake's, does that), so load it here
+  ;; instead of assuming that it is already there.
+  (when (require 'fancy-compilation nil t)
+    (fancy-compilation-mode)))
 
 ;; Provides a library for making HTTP requests from Emacs Lisp.
 (use-package request
@@ -175,8 +163,21 @@
 ;; enabling on-the-fly syntax checking and linting.
 (use-package flymake-collection
   :ensure t
-  :hook ((after-init . flymake-collection-hook-setup)
-         (emacs-lisp-mode . flymake-mode)))
+  ;; Deferred loading has to be forced here: the package is only reachable
+  ;; through the `:hook' entries below, and adding
+  ;; `flymake-collection-hook-setup' to `after-init-hook' -- as the package
+  ;; suggests -- does not work with Elpaca, which installs the library while
+  ;; `after-init-hook' is already running, so that entry is never reached and
+  ;; no backend would ever be registered.  Loading it up front and calling the
+  ;; setup from `:config' registers every backend the library configures.
+  :demand t
+  :config
+  (flymake-collection-hook-setup)
+  :hook (;; The backends are registered globally above; Flymake itself still has
+         ;; to be started per buffer.  SQL uses the `sql-lint' backend from the
+         ;; package defaults.
+         (emacs-lisp-mode . flymake-mode)
+         (sql-mode . flymake-mode)))
 
 ;; Configures Emacs for editing JSON files, providing
 ;; syntax highlighting and formatting.
@@ -203,9 +204,43 @@
 (use-package justl
   :ensure t)
 
+;;
+;; ====== JVM: Java, Kotlin, Maven, Gradle and Spring ======
+;;
+
+;; Kotlin through Tree-sitter.  The `.kts' association also covers the
+;; Gradle Kotlin DSL files (`build.gradle.kts', `settings.gradle.kts').
 (use-package kotlin-ts-mode
   :ensure t
-  :mode ("\\.kt\\'" "\\.kts\\'"))
+  :mode (("\\.kt\\'" . kotlin-ts-mode)
+         ("\\.kts\\'" . kotlin-ts-mode)))
+
+;; Groovy is the language of classic Gradle build scripts and of
+;; Jenkinsfiles, both of which are plain Groovy with a declarative shape.
+(use-package groovy-mode
+  :ensure t
+  :mode (("\\.gradle\\'" . groovy-mode)
+         ("\\`Jenkinsfile\\'" . groovy-mode)
+         ("\\`Jenkinsfile\\..+\\'" . groovy-mode)))
+
+;; `pom.xml' already opens in nxml-mode (XML files carrying a declaration
+;; are detected through `magic-mode-alist'), so what is left is Maven's own
+;; four-space indentation, applied buffer-locally.
+(defun heks-emacs-pom-xml-setup ()
+  "Apply Maven conventions when visiting a `pom.xml' file."
+  (when (and buffer-file-name
+             (string= "pom.xml" (file-name-nondirectory buffer-file-name)))
+    (setq-local nxml-child-indent 4)
+    (setq-local nxml-attribute-indent 4)
+    (setq-local tab-width 4)
+    (setq-local indent-tabs-mode nil)))
+
+(add-to-list 'auto-mode-alist '("pom\\.xml\\'" . nxml-mode))
+(add-hook 'nxml-mode-hook #'heks-emacs-pom-xml-setup)
+
+;; Spring Boot configuration lives either in `application*.properties'
+;; (already handled by `conf-javaprop-mode') or in `application*.yml',
+;; which the YAML mode above takes care of.
 
 (use-package pandoc-mode :ensure t)
 
@@ -324,8 +359,58 @@
 (use-package meson-mode
   :ensure (:host github :repo "wentasah/meson-mode" :branch "master"))
 
+;;
+;; ====== Terraform and HCL ======
+;;
+
+;; Generic HCL: `.hcl' files (including `.terraform.lock.hcl') and Nomad jobs.
+(use-package hcl-mode
+  :ensure t
+  :mode ("\\.hcl\\'" "\\.nomad\\'"))
+
 (use-package terraform-mode
-  :ensure t)
+  :ensure t
+  :mode (("\\.tf\\'" . terraform-mode)
+         ("\\.tfvars\\'" . terraform-mode))
+  :hook ((terraform-mode . heks-emacs-terraform-setup))
+  :custom
+  (terraform-indent-level 2)
+  :config
+  ;; `terraform fmt' on save and `terraform-ls' over Eglot, both guarded on
+  ;; the executable being available so that visiting a .tf file never
+  ;; fails on a machine without the Terraform toolchain.
+  (defun heks-emacs-terraform-setup ()
+    "Enable Terraform formatter and language server when available."
+    (when (executable-find terraform-command)
+      (terraform-format-on-save-mode 1))
+    (when (executable-find "terraform-ls")
+      (heks/eglot-ensure))))
+
+;;
+;; ====== Databases: SQL, PostgreSQL and MongoDB ======
+;;
+
+;; SQL editing: PostgreSQL is the default dialect, keywords are upper-cased
+;; as they are typed, and Flymake lints the buffer with `sql-lint' when that
+;; tool is installed (see the flymake-collection setup above).
+(use-package sql
+  :ensure nil
+  :mode (("\\.sql\\'" . sql-mode))
+  ;; Leave `sql-postgres-login-params' at its default: it already offers the
+  ;; database names of the server for completion.  `sql.el' reads the
+  ;; `sql-server', `sql-port', `sql-user' and `sql-database' variables when
+  ;; it connects, which `heks-emacs-sql-postgres' fills in from the
+  ;; environment.
+  :custom
+  (sql-product 'postgres))
+
+(use-package sqlup-mode
+  :ensure t
+  :hook (sql-mode . sqlup-mode))
+
+;; `mongosh' scripts are JavaScript; `C-c d m' (see `heks-emacs-mongosh')
+;; opens an interactive shell in a real terminal buffer.
+(add-to-list 'auto-mode-alist '("\\.mongo\\(sh\\)?\\'" . js-mode))
 
 (provide 'heks-emacs/dev)
 

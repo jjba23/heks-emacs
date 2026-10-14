@@ -168,10 +168,14 @@ Establishes the baseline behavior of Emacs. Configures core editing behavior, UT
 *** =heks-emacs.el=
 Contains the main HEKS-EMACS-specific utilities and project automation commands. Provides helpers for rebuilding the system/user configuration, project REPLs, formatting, development and test tasks, Guix integration, UUID generation, JSON buffers, Dired utilities, and other workflow commands.
 
+It also owns the JVM build commands (Maven, Gradle and Spring Boot, which find the project root upwards from the current buffer and prefer the ~mvnw~ / ~gradlew~ wrappers), the database entry points (PostgreSQL through the built-in ~sql.el~ and MongoDB through ~mongosh~ in a terminal buffer), and the shared customization variables for the window separators.
+
 ** User Interface
 
 *** =ui.el=
 Controls the interactive Emacs UI. Configures the completion interface, scrolling, icons, ligatures, context actions, visual feedback, modeline-related helpers, and general presentation behavior.
+
+It also sizes the base, Org, Markdown and prose faces as multiples of the base font size so ~tekengrootte~ scales stay proportional, and it guarantees that the separators between windows remain clearly visible: their color is derived from the active theme, applied to ~window-divider~, its first/last pixels and ~vertical-border~, refreshed on every theme or scale change, and corrected where ~spacious-padding~ deliberately hides them.
 
 *** =theme.el=
 Provides the theme system and look-and-feel configuration. Supports a selection of themes including EF/Modus, Everforest, Gruvbox, Dracula, Catppuccin, Rose Pine, Kaolin, Doom, and Kanagawa, selected through the HEKS-EMACS theme configuration.
@@ -197,10 +201,14 @@ Improves Emacs help and introspection through =helpful=, providing richer views 
 ** Development
 
 *** =dev.el=
-The main development-language and developer-tooling module. Provides major-mode support for Rust, Python, Haskell, Scala, Lua, TypeScript, Nix, TOML, YAML, Kotlin, GraphQL, Dockerfiles, and other formats. It also configures Smartparens, Direnv, Scheme/Guile REPL tooling, compilation, Flymake, formatting, Kubernetes, Tree-sitter folding, EditorConfig, Maak, and related development utilities.
+The main development-language and developer-tooling module. Provides major-mode support for Rust, Python, Haskell, Scala, Lua, TypeScript, Nix, TOML, YAML, Kotlin, Groovy, GraphQL, Dockerfiles, and other formats. It also configures Smartparens, Direnv, compilation, Flymake, formatting, Kubernetes, Tree-sitter folding, EditorConfig, Maak, and related development utilities. Scheme, Guile and Guix live in =guile.el=.
+
+JVM work is covered through Kotlin (~.kt~ and ~.kts~) and Groovy (~build.gradle~, ~Jenkinsfile~) modes and through Maven conventions for ~pom.xml~ (four-space ~nxml-mode~ indentation). Terraform and HCL get ~terraform-mode~, ~hcl-mode~, ~terraform fmt~ on save and ~terraform-ls~ over Eglot when the toolchain is installed. SQL files open in ~sql-mode~ with PostgreSQL as the default product, upper-cased keywords and Flymake linting, and ~mongosh~ scripts open in JavaScript mode.
 
 *** =eglot.el=
-Configures Emacs's Language Server Protocol integration through Eglot. Enables LSP support for languages including Scala, Haskell, Nix, Go, Python, Rust, HTML, CSS, JavaScript, Kotlin, YAML, C, and Markdown, with language-specific server configuration, formatting, diagnostics, code actions, and completion fixes.
+Configures Emacs's Language Server Protocol integration through Eglot. Enables LSP support for languages including Scala, Haskell, Nix, Go, Python, Rust, HTML, CSS, JavaScript, Kotlin, YAML, C, Terraform and Markdown, with language-specific server configuration, formatting, diagnostics, code actions, and completion fixes.
+
+Kotlin uses whichever server is installed (JetBrains' ~intellij-server~, ~kotlin-lsp~ or the community ~kotlin-language-server~), Terraform uses ~terraform-ls~, and Java is handled through ~eglot-java~ with JDT LS configured to re-import Maven and Gradle projects automatically.
 
 It also contains specific integration workarounds for Metals and the Kotlin language server.
 
@@ -209,6 +217,17 @@ Configures Common Lisp development through SLY and SBCL, providing an interactiv
 
 *** =go.el=
 Provides Go-specific editing and development configuration through =go-mode=.
+
+*** =guile.el=
+Guile Scheme and Guix development, built around the REPL.
+
+~C-c g r~ starts or switches to the current project's REPL: a Guix REPL inside Guix buffers (through Emacs-Guix's ~guix-repl-guile-program~ when it knows where the Guix sources are, and ~guix repl~ otherwise) and a plain Guile REPL anywhere else, always with the project root on Guile's load path and one REPL per project. ~C-c g R~ restarts it. Definitions, regions, whole files and scripts are sent to it with ~C-c g e~, ~C-c g E~, ~C-c g b~ and ~C-c g x~, and ~C-c g i~ interrupts a runaway evaluation.
+
+[[https://codeberg.org/abcdw/guile-ares-rs][Ares RS]] and [[https://github.com/abcdw/emacs-arei][arei]] provide the asynchronous, image-oriented side: ~C-c g a~ starts the nREPL server in the project root and connects as soon as it publishes its port, ~C-c g A~ connects to a server that is already running, ~C-c g d~ returns to the debugger buffer after an exception, and ~C-c g t~ loads the project's tests into the running image and runs them. ~heks-emacs-scheme-repl-backend~ chooses between arei and [[https://gitlab.com/emacs-geiser/geiser][Geiser]] (arei when its server is installed).
+
+Checking and formatting defer to Guix itself, on save rather than on every keystroke: Flymake runs ~guix lint~ on the package defined at point and runs ~guix style~ on a copy of the buffer to mark the lines it would rewrite, while ~C-c g L~ lints into a clickable compilation buffer, ~C-c g f~ formats the file in place and ~C-c g S~ applies one of Guix's styling rules (~inputs~, ~arguments~, ~git-source~) and reloads the buffer. ~guix-devel-mode~ is enabled in Guix buffers, so Emacs-Guix's ~C-c . l~ (lint), ~C-c . b~ (build), ~C-c . s~/~C-c . d~ (source) and ~C-c . u~ (use module) are available too.
+
+Folding treats the buffer as a sequence of top-level forms, so each definition is a fold, collapsing the definition at point works from anywhere inside it, and the keys are the ones the Tree-sitter folding uses elsewhere: ~C-c v c~, ~C-c v o~, ~C-c v m~, ~C-c v r~ and ~C-c v a~.
 
 *** =git.el=
 Provides Git integration through Magit and related packages. Handles repository interaction, Git links, Git modes, and Git-related editing conveniences.
@@ -277,7 +296,7 @@ Loads general-purpose Emacs Lisp libraries used throughout HEKS-EMACS, including
 
 ** Snippets (=.eld=)
 
-Mode-specific Tempel snippets live in =src/snippets/*.eld= (e.g. =lisp.eld=, =emacs-lisp.eld=, =org.eld=, =nix.eld=, =rust.eld=), one file per mode.
+Mode-specific Tempel snippets live in =src/snippets/*.eld= (e.g. =lisp.eld=, =emacs-lisp.eld=, =org.eld=, =nix.eld=, =rust.eld=, =java.eld=, =kotlin.eld=, =terraform.eld=, =sql.eld=), one file per mode.
 
 ** AI
 

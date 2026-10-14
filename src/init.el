@@ -121,6 +121,7 @@
                            irc
                            git
                            go
+                           guile
                            help
                            libs
                            macros

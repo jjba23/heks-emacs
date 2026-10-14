@@ -205,7 +205,14 @@
          ("C-c t c" . display-fill-column-indicator-mode)
          ("C-c t p" . kbd-scheme-make-parameter)
          ("C-c t m" . kbd-scheme-string-to-symbol-in-alist-access)
-         ("C-c t h" . kbd-scheme-hygguile-abstraction))
+         ("C-c t h" . kbd-scheme-hygguile-abstraction)
+         ;; JVM build tooling (Maven, Gradle, Spring Boot)
+         ("C-c j m" . heks-emacs-maven-run)
+         ("C-c j g" . heks-emacs-gradle-run)
+         ("C-c j s" . heks-emacs-spring-boot-run)
+         ;; Databases (PostgreSQL, MongoDB)
+         ("C-c d p" . heks-emacs-sql-postgres)
+         ("C-c d m" . heks-emacs-mongosh))
 
   :hook ((text-mode . visual-line-mode)
          (prog-mode . heks-activate-prettify)
@@ -540,7 +547,9 @@
     (variable-pitch-mode 1)
     (auto-fill-mode 0)
     (visual-line-mode 1)
-    (ignore-errors (heks-emacs-set-base-faces))))
+    ;; Only the prose faces, so opening a Markdown buffer never resets
+    ;; the global text scale (see `heks-emacs-org-mode').
+    (ignore-errors (heks-emacs-set-markdown-faces))))
 
 (provide 'heks-emacs/emacs-self)
 
