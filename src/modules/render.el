@@ -1,0 +1,740 @@
+;;; render.el --- Render a buffer into something to read  -*- lexical-binding: t -*-
+
+;; Copyright © Josep Bigorra <jjbigorra@gmail.com>
+
+;; heks-emacs is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; heks-emacs is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with heks-emacs.  If not, see <https://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; A file that is written to be read -- a README, a changelog, an API
+;; specification -- reads better with its Markdown turned into headings and
+;; tables than it does as text with `#' in front of the titles.  This module
+;; is the one place that knows how to do that: it renders a buffer to HTML
+;; and shows it in an Emacs buffer (EWW, which follows links and renders the
+;; stylesheet inline), or in the real browser, or as a file next to the
+;; source.
+;;
+;; Two rules shape it:
+;;
+;;   * the renderer is a pure function from a string to HTML, so it can be
+;;     tested without a frame or a network, and needs no external tool: no
+;;     pandoc, no node, no network at any point;
+;;   * a preview follows its buffer.  `heks-emacs-preview-follow-mode'
+;;     re-renders on save, which is what makes it worth leaving open next to
+;;     the file being edited.
+;;
+;; Markdown is rendered here; OpenAPI is rendered by `modules/openapi.el',
+;; which asks this module for the document it wraps its rendering in; Org and
+;; plain HTML are handled by their own exporters.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
+;; `browse-url' turns a file name into the URL the preview and the browser
+;; both want; EWW is loaded when a preview is actually shown, because it
+;; drags in the URL library and the DOM parser with it.
+(require 'browse-url)
+
+(defgroup heks-emacs-preview nil
+  "Rendering and previewing the buffer being edited."
+  :group 'tools)
+
+(defcustom heks-emacs-preview-buffer-name "*heks-emacs preview*"
+  "The buffer a preview is shown in."
+  :type 'string)
+
+(defcustom heks-emacs-preview-follow-on-save t
+  "Whether a preview re-renders itself when its source is saved."
+  :type 'boolean)
+
+;;
+;; ====== Turning text into HTML ======
+;;
+
+(defun heks-emacs-render--escape (text &optional attribute)
+  "Return TEXT with the characters that mean something in HTML escaped.
+
+When ATTRIBUTE is non-nil the quote is escaped too, for text that goes
+inside an attribute value."
+  (let ((escaped (replace-regexp-in-string "&" "&amp;" text t t)))
+    (setq escaped (replace-regexp-in-string "<" "&lt;" escaped t t))
+    (setq escaped (replace-regexp-in-string ">" "&gt;" escaped t t))
+    (when attribute
+      (setq escaped (replace-regexp-in-string "\"" "&quot;" escaped t t)))
+    escaped))
+
+(defvar heks-emacs-render--base-directory nil
+  "The directory a document's relative links are resolved against.
+
+Bound while rendering, so that `![a diagram](images/a.png)' in a file finds
+the image that sits next to it rather than one next to the preview, which
+lives in a temporary directory.")
+
+(defun heks-emacs-render--resolve (url)
+  "Return URL, made absolute against `heks-emacs-render--base-directory'."
+  (cond ((or (string-empty-p url)
+             (string-match-p "\\`\\([a-zA-Z][a-zA-Z0-9+.-]*:\\|#\\|/\\)" url))
+         url)
+        (heks-emacs-render--base-directory
+         (browse-url-file-url
+          (expand-file-name url heks-emacs-render--base-directory)))
+        (t url)))
+
+(defun heks-emacs-render--split-code-spans (text)
+  "Split TEXT at its `code spans', returning (IS-CODE . TEXT) pieces.
+
+Code is found first because inside a code span an asterisk is an asterisk:
+`a *b*' is code, not emphasis."
+  (let ((start 0) (pieces nil) (length (length text)))
+    (while (string-match "`\\([^`]+\\)`" text start)
+      (when (> (match-beginning 0) start)
+        (push (cons nil (substring text start (match-beginning 0))) pieces))
+      (push (cons t (match-string 1 text)) pieces)
+      (setq start (match-end 0)))
+    (when (< start length)
+      (push (cons nil (substring text start)) pieces))
+    (nreverse pieces)))
+
+(defun heks-emacs-render--inline-markup (text)
+  "Turn the emphasis, links and images of TEXT into HTML.
+
+TEXT is plain text, not yet escaped: escaping happens here so that the
+markup is found in what the author wrote."
+  (let ((result (heks-emacs-render--escape text)))
+    ;; Autolinks first: `&lt;https://...&gt;' is what an escaped one looks
+    ;; like by the time the patterns below run.
+    (setq result (replace-regexp-in-string
+                  "&lt;\\(https?://[^ <]+\\)&gt;"
+                  "<a href=\"\\1\">\\1</a>" result t))
+    ;; Images before links: an image is a link with a bang in front of it.
+    (setq result
+          (replace-regexp-in-string
+           "!\\[\\([^]]*\\)\\](\\([^) \t]+\\)\\(?:[ \t]+\"[^\"]*\"\\)?)"
+           ;; The replacement function is called with the match and
+           ;; nothing else, and the helpers below run regexps of their own,
+           ;; so the groups are read out first.
+           (lambda (match)
+             (let ((alt (match-string 1 match))
+                   (src (match-string 2 match)))
+               (format "<img src=\"%s\" alt=\"%s\">"
+                       (heks-emacs-render--resolve src)
+                       (heks-emacs-render--escape alt t))))
+           result t t))
+    (setq result
+          (replace-regexp-in-string
+           "\\[\\([^]]*\\)\\](\\([^) \t]+\\)\\(?:[ \t]+\"[^\"]*\"\\)?)"
+           (lambda (match)
+             (let ((text (match-string 1 match))
+                   (href (match-string 2 match)))
+               (format "<a href=\"%s\">%s</a>"
+                       (heks-emacs-render--resolve href) text)))
+           result t t))
+    ;; Strong before emphasis, so that `**x**' is not read as two
+    ;; one-asterisk pairs with nothing between them.
+    (setq result (replace-regexp-in-string "\\*\\*\\([^*]+\\)\\*\\*"
+                                           "<strong>\\1</strong>" result t))
+    (setq result (replace-regexp-in-string "__\\([^_]+\\)__"
+                                           "<strong>\\1</strong>" result t))
+    (setq result (replace-regexp-in-string "\\*\\([^*\n]+\\)\\*"
+                                           "<em>\\1</em>" result t))
+    (setq result (replace-regexp-in-string "\\(\\`\\|[^_a-zA-Z]\\)_\\([^_\n]+\\)_"
+                                           "\\1<em>\\2</em>" result t))
+    ;; Strikethrough and hard line breaks, the last two things a README
+    ;; actually uses.
+    (setq result (replace-regexp-in-string "~~\\([^~]+\\)~~"
+                                           "<del>\\1</del>" result t))
+    result))
+
+(defun heks-emacs-render--inline (text)
+  "Return TEXT, with its inline Markdown turned into HTML."
+  (mapconcat (lambda (piece)
+               (if (car piece)
+                   (format "<code>%s</code>"
+                           (heks-emacs-render--escape (cdr piece)))
+                 (heks-emacs-render--inline-markup (cdr piece))))
+             (heks-emacs-render--split-code-spans text)
+             ""))
+
+(defun heks-emacs-render--indent-of (line)
+  "Return the width of the indentation of LINE, counting a tab as four."
+  (let ((width 0)
+        (index 0))
+    (while (and (< index (length line))
+                (memq (aref line index) '(?\s ?\t)))
+      (setq width (+ width (if (eq (aref line index) ?\t) 4 1)))
+      (setq index (1+ index)))
+    width))
+
+(defun heks-emacs-render--cells (line)
+  "Return the cells of a table row LINE."
+  (let ((trimmed (string-trim line)))
+    (setq trimmed (string-remove-prefix "|" trimmed))
+    (setq trimmed (string-remove-suffix "|" trimmed))
+    (mapcar #'string-trim (split-string trimmed "|"))))
+
+(defun heks-emacs-render--table? (line next)
+  "Return whether LINE starts a table, given the NEXT line.
+
+A table is a row of cells followed by a delimiter row: `| a | b |' then
+`|---|:--:|'."
+  (and line next
+       (string-match-p "|" line)
+       ;; A pipe in the delimiter row too: a paragraph with a rule
+       ;; under it (`text' then `---') is a setext heading, not a
+       ;; one-column table.
+       (string-match-p "|" next)
+       (string-match-p "\\`[ \t]*|?[ \t]*:?-\\{2,\\}" next)))
+
+(defun heks-emacs-render--table (lines index)
+  "Render the table that starts at INDEX in LINES.
+
+Return a cons of the HTML and the index just past the table."
+  (let ((header (heks-emacs-render--cells (nth index lines)))
+        (aligns (mapcar (lambda (cell)
+                          (cond ((and (string-prefix-p ":" cell)
+                                      (string-suffix-p ":" cell)) "center")
+                                ((string-suffix-p ":" cell) "right")
+                                (t "left")))
+                        (heks-emacs-render--cells (nth (1+ index) lines))))
+        (rows nil)
+        (i (+ index 2))
+        (n (length lines)))
+    (while (and (< i n)
+                (string-match-p "|" (nth i lines))
+                (not (string-match-p "\\`[ \t]*\\'" (nth i lines))))
+      (push (heks-emacs-render--cells (nth i lines)) rows)
+      (setq i (1+ i)))
+    ;; The alignment of a column comes from its position in the delimiter
+    ;; row, not from the cell's text: a row of `| a | a |' has two columns
+    ;; that look alike and align differently.
+    (cons
+     (concat
+      "<table>\n<thead><tr>"
+      (cl-loop for cell in header
+               for index from 0
+               collect (format "<th style=\"text-align:%s\">%s</th>"
+                               (or (nth index aligns) "left")
+                               (heks-emacs-render--inline cell))
+               into cells
+               finally return (apply #'concat cells))
+      "</tr></thead>\n"
+      (if rows
+          (concat "<tbody>"
+                  (mapconcat
+                   (lambda (row)
+                     (concat "<tr>"
+                             (cl-loop for cell in row
+                                      for index from 0
+                                      collect (format "<td style=\"text-align:%s\">%s</td>"
+                                                      (or (nth index aligns) "left")
+                                                      (heks-emacs-render--inline cell))
+                                      into cells
+                                      finally return (apply #'concat cells))
+                             "</tr>"))
+                   (nreverse rows) "")
+                  "</tbody>")
+        "")
+      "</table>")
+     i)))
+
+(defun heks-emacs-markdown-to-html (text)
+  "Return the Markdown in TEXT rendered as a fragment of HTML.
+
+The subset covered is the one documents are written in: headings, fenced
+code, tables, lists (including task lists), blockquotes, thematic breaks,
+paragraphs, and the inline markup -- emphasis, code spans, links and
+images.  A block of raw HTML is passed through, so a README can embed a
+badge.  Indented code blocks are not recognised: the lists here are more
+likely than the code."
+  (let* ((lines (split-string (string-trim-right text) "\n"))
+         (n (length lines))
+         (i 0)
+         (out nil)
+         (paragraph nil)
+         (lists nil))            ; stack of (INDENT . ORDERED-P)
+    ;; `cl-labels', not `cl-flet': the helpers call each other (`closing a
+    ;; paragraph' pushes through `emit'), and only `cl-labels' makes every
+    ;; one of them visible to the others.
+    (cl-labels ((emit (html) (push html out))
+              (close-paragraph ()
+                (when paragraph
+                  ;; The NUL a hard break left behind becomes its tag only
+                  ;; now, after escaping has run over the text.
+                  ;; The space that joined the two lines belongs to the
+                  ;; joining, not to the text, so it goes with the newline
+                  ;; it is replacing.
+                  (emit (replace-regexp-in-string
+                         "\u0000 *" "<br>"
+                         (format "<p>%s</p>"
+                                 (heks-emacs-render--inline
+                                  (mapconcat #'identity (nreverse paragraph) " ")))
+                         t t))
+                  (setq paragraph nil)))
+              (close-lists (up-to)
+                (while (and lists (> (caar lists) up-to))
+                  (emit (if (cdar lists) "</ol>" "</ul>"))
+                  (pop lists))))
+      (while (< i n)
+        (let* ((line (nth i lines))
+               (trimmed (string-trim line))
+               (consumed 1))
+          (cond
+           ;; A blank line ends the paragraph; lists stay open across it,
+           ;; because that is how Markdown reads a loose list.
+           ((string-empty-p trimmed)
+            (close-paragraph))
+
+           ;; Fenced code, with the language it names kept as a class.
+           ((string-match "\\`\\(```+\\)\\(.*\\)\\'" trimmed)
+            (close-paragraph)
+            (close-lists 0)
+            (let* ((fence (match-string 1 trimmed))
+                   (info (string-trim (match-string 2 trimmed)))
+                   (body nil)
+                   (closed nil)
+                   (j (1+ i))
+                   (pattern (format "\\`%s" (regexp-quote fence))))
+              (while (and (< j n) (not closed))
+                (if (string-match-p pattern (string-trim (nth j lines)))
+                    (setq closed t)
+                  (push (nth j lines) body))
+                (setq j (1+ j)))
+              (setq consumed (- j i))
+              (emit (format "<pre class=\"code\"><code%s>%s</code></pre>"
+                            (if (string-empty-p info)
+                                ""
+                              (format " class=\"language-%s\""
+                                      (heks-emacs-render--escape info t)))
+                            (heks-emacs-render--escape
+                             (mapconcat #'identity (nreverse body) "\n"))))))
+
+           ;; A table, before the list branch: a row of cells also starts
+           ;; with a dash-and-space when it is `| - |'.
+           ((heks-emacs-render--table? line (nth (1+ i) lines))
+            (close-paragraph)
+            (close-lists 0)
+            (let ((rendered (heks-emacs-render--table lines i)))
+              (emit (car rendered))
+              (setq consumed (- (cdr rendered) i))))
+
+           ;; A blockquote: the quoted lines render as their own document.
+           ((string-match "\\`> ?\\(.*\\)\\'" trimmed)
+            (close-paragraph)
+            (close-lists 0)
+            (let ((quoted nil)
+                  (j i))
+              (while (and (< j n)
+                          (string-match "\\`> ?\\(.*\\)\\'" (string-trim (nth j lines))))
+                (push (match-string 1 (string-trim (nth j lines))) quoted)
+                (setq j (1+ j)))
+              (setq consumed (- j i))
+              (emit (format "<blockquote>%s</blockquote>"
+                            (string-trim
+                             (heks-emacs-markdown-to-html
+                              (mapconcat #'identity (nreverse quoted) "\n")))))))
+
+           ((string-match "\\`\\(#\\{1,6\\}\\)[ \t]+\\(.*?\\)[ \t]*#*\\'" trimmed)
+            (close-paragraph)
+            (close-lists 0)
+            (let ((level (length (match-string 1 trimmed))))
+              (emit (format "<h%d>%s</h%d>" level
+                            (heks-emacs-render--inline (match-string 2 trimmed))
+                            level))))
+
+           ;; A setext heading is a paragraph with a line under it.
+           ((and paragraph (string-match "\\`=\\{2,\\}[ \t]*\\'" trimmed))
+            (let ((text (mapconcat #'identity (nreverse paragraph) " ")))
+              (setq paragraph nil)
+              (emit (format "<h1>%s</h1>" (heks-emacs-render--inline text)))))
+           ((and paragraph (string-match "\\`-\\{2,\\}[ \t]*\\'" trimmed))
+            (let ((text (mapconcat #'identity (nreverse paragraph) " ")))
+              (setq paragraph nil)
+              (emit (format "<h2>%s</h2>" (heks-emacs-render--inline text)))))
+
+           ((string-match "\\`\\([-*_]\\)\\([ \t]*\\1\\)\\{2,\\}[ \t]*\\'" trimmed)
+            (close-paragraph)
+            (close-lists 0)
+            (emit "<hr>"))
+
+           ;; A list item, nested by its indentation.
+           ((string-match "\\`\\([-*+]\\|[0-9]+[.)]\\)[ \t]+\\(.*\\)\\'" trimmed)
+            (let* ((indent (heks-emacs-render--indent-of line))
+                   (ordered (string-match-p "\\`[0-9]" (match-string 1 trimmed)))
+                   (item (match-string 2 trimmed)))
+              (close-paragraph)
+              ;; Close the deeper lists first, then open the one this item
+              ;; belongs to: an item indented less than the previous one
+              ;; ends that list and may start a shallower one.
+              (close-lists indent)
+              ;; A numbered list that follows bullet points at the same
+              ;; indentation is a new list, not more items of the old one.
+              (when (and lists (= indent (caar lists)) (not (eq (cdar lists) ordered)))
+                (emit (if (cdar lists) "</ol>" "</ul>"))
+                (pop lists))
+              (when (or (null lists) (> indent (caar lists)))
+                (push (cons indent ordered) lists)
+                (emit (if ordered "<ol>" "<ul>")))
+              ;; Task lists are the one extension every README uses.
+              (when (string-match "\\`\\[\\([ xX]?\\)\\][ \t]+\\(.*\\)\\'" item)
+                (setq item (format "%s %s"
+                                   (if (string-blank-p (match-string 1 item)) "☐" "☑")
+                                   (match-string 2 item))))
+              (emit (format "<li>%s</li>" (heks-emacs-render--inline item)))))
+
+           ;; Raw HTML blocks pass through, so a badge or a `<details>' in
+           ;; a README survives being previewed.
+           ((and (string-prefix-p "<" trimmed)
+                 (string-match-p "\\`</?[a-zA-Z][^>]*>" trimmed))
+            (close-paragraph)
+            (close-lists 0)
+            (emit line))
+
+           (t
+            ;; A line that ends in two spaces is a hard break, which is
+            ;; what a README uses to keep an address or a list of flags
+            ;; one line each.  The NUL is a marker no document contains;
+            ;; it is turned into a tag once the paragraph is joined and
+            ;; escaped.
+            (push (if (string-suffix-p "  " line)
+                      (concat (string-trim-right line) "\u0000")
+                    line)
+                  paragraph)))
+          (setq i (+ i consumed))))
+      (close-paragraph)
+      (close-lists 0))
+    (concat (string-join (nreverse out) "\n") "\n")))
+
+;;
+;; ====== The document the fragment goes in ======
+;;
+
+(defun heks-emacs-render--color (attribute fallback)
+  "Return the colour of the default face's ATTRIBUTE, or FALLBACK."
+  (let ((value (ignore-errors (face-attribute 'default attribute nil t))))
+    (if (and (stringp value) (not (string-empty-p value))
+             (not (string= value "unspecified")))
+        value
+      fallback)))
+
+(defun heks-emacs-render--mix (one two weight)
+  "Return ONE blended towards TWO by WEIGHT, as a colour string."
+  (let* ((first (color-values one))
+         (second (color-values two)))
+    (if (or (null first) (null second))
+        one
+      (apply #'format "#%02x%02x%02x"
+             (cl-mapcar (lambda (a b)
+                          (round (/ (+ (* a (- 1 weight)) (* b weight)) 257.0)))
+                        first second)))))
+
+(defun heks-emacs-render-stylesheet ()
+  "Return the stylesheet a rendered document carries.
+
+It is built from the colours of the current theme, so a preview looks
+like the rest of Emacs, and embedded in the document rather than linked,
+so that neither the preview nor an exported file needs the network."
+  (let* ((background (heks-emacs-render--color :background "#ffffff"))
+         (foreground (heks-emacs-render--color :foreground "#000000"))
+         (surface (heks-emacs-render--mix background foreground 0.06))
+         (border (heks-emacs-render--mix background foreground 0.20))
+         (muted (heks-emacs-render--mix foreground background 0.45))         (accent (heks-emacs-render--color :link "#2a6fd6")))
+    (format "
+:root { color-scheme: light dark; }
+body { max-width: 60em; margin: 0 auto; padding: 2em 1.5em 6em;
+       font-family: system-ui, sans-serif; font-size: 16px; line-height: 1.6;
+       background: %s; color: %s; }
+h1, h2, h3, h4, h5, h6 { line-height: 1.25; margin: 1.6em 0 0.6em; font-weight: 600; }
+h1 { font-size: 1.9em; border-bottom: 3px solid %s; padding-bottom: 0.2em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid %s; padding-bottom: 0.2em; }
+h3 { font-size: 1.25em; } h4 { font-size: 1.1em; } h5, h6 { font-size: 1em; color: %s; }
+p, ul, ol, blockquote, table, pre { margin: 0.9em 0; }
+a { color: %s; text-decoration: none; } a:hover { text-decoration: underline; }
+code, pre, kbd { font-family: ui-monospace, monospace; font-size: 0.92em; }
+code { background: %s; padding: 0.1em 0.35em; border-radius: 4px; }
+pre.code { background: %s; border: 1px solid %s; border-radius: 6px;
+           padding: 0.9em 1.1em; overflow-x: auto; }
+pre.code code { background: none; padding: 0; }
+pre.plain { white-space: pre-wrap; }
+blockquote { border-left: 4px solid %s; margin-left: 0; padding: 0.1em 0 0.1em 1em;
+             color: %s; }
+table { border-collapse: collapse; width: 100%%; }
+th, td { border: 1px solid %s; padding: 0.45em 0.7em; text-align: left; }
+th { background: %s; font-weight: 600; }
+hr { border: none; border-top: 1px solid %s; margin: 2em 0; }
+img { max-width: 100%%; }
+.headline { color: %s; font-size: 0.85em; font-weight: 500;
+            text-transform: uppercase; letter-spacing: 0.08em; }
+.badge { display: inline-block; font-size: 0.8em; font-weight: 700;
+         padding: 0.15em 0.5em; border-radius: 4px;
+         background: %s; color: %s; }
+
+"
+            ;; body
+            background foreground
+            ;; the two rules under the headings
+            border border
+            ;; muted text (h5 and h6, blockquote, the headline)
+            muted
+            ;; links
+            accent
+            ;; code, inline and fenced
+            surface surface border
+            ;; blockquote framing and text
+            border muted
+            ;; tables
+            border surface
+            ;; the rule between sections
+            border
+            ;; the headline above the title
+            muted
+            ;; the badge chip: a filled label
+            foreground background)))
+
+(defun heks-emacs-html-document (title body &optional headline)
+  "Return a complete HTML document.
+
+TITLE becomes the title of the document and HEADLINE, when given, the
+small line printed above it."
+  (format "<!DOCTYPE html>
+<html lang=\"en\">
+<head>
+<meta charset=\"utf-8\">
+<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+<title>%s</title>
+<style>%s</style>
+</head>
+<body>
+%s
+%s
+</body>
+</html>
+"
+          (heks-emacs-render--escape title)
+          (heks-emacs-render-stylesheet)
+          (if headline (format "<p class=\"headline\">%s</p>\n"
+                               (heks-emacs-render--escape headline))
+            "")
+          body))
+
+;;
+;; ====== Which renderer a buffer gets ======
+;;
+
+;; The predicates below answer yes or no rather than a position or a
+;; sublist, so that `(if (heks-emacs-render-markdown-p) ...)' and a check
+;; that expects `t' both read the same.
+
+(defun heks-emacs-render-markdown-p (&optional buffer)
+  "Return whether BUFFER, defaulting to the current one, holds Markdown."
+  (with-current-buffer (or buffer (current-buffer))
+    (and (or (memq major-mode '(markdown-mode markdown-ts-mode gfm-mode))
+             (and buffer-file-name
+                  (string-match-p "\\.\\(md\\|markdown\\|mkd\\)\\'"
+                                  buffer-file-name)))
+         t)))
+
+(defun heks-emacs-render-html-p (&optional buffer)
+  "Return whether BUFFER, defaulting to the current one, holds HTML."
+  (with-current-buffer (or buffer (current-buffer))
+    (and (or (memq major-mode '(html-mode html-ts-mode mhtml-mode sgml-mode web-mode))
+             (and buffer-file-name
+                  (string-match-p "\\.\\(html?\\|xhtml\\)\\'" buffer-file-name)))
+         t)))
+
+(defun heks-emacs-render--org-body (buffer)
+  "Return the body of BUFFER's Org export, or nil when Org cannot export.
+
+Org is asked for the body only, so that its own stylesheet and its own
+header do not end up inside this module's document."
+  (with-current-buffer buffer
+    (when (require 'ox-html nil t)
+      (let ((org-html-html-helper-timestamp nil)
+            (org-html-postamble nil)
+            (html (ignore-errors (org-html-export-as-html nil nil nil t nil))))
+        (cond ((bufferp html)
+               (with-current-buffer html
+                 (string-trim (buffer-string))))
+              ((stringp html) (string-trim html))
+              (t nil))))))
+
+(defun heks-emacs-render-body (&optional buffer)
+  "Return the HTML body for BUFFER, asking the renderer that fits it.
+
+This is the single place that decides how a buffer is previewed, which is
+what makes `C-c r p' work in a Markdown file, an OpenAPI specification, an
+Org note and a plain text file alike."
+  (with-current-buffer (or buffer (current-buffer))
+    (let ((heks-emacs-render--base-directory
+           (and buffer-file-name (file-name-directory buffer-file-name))))
+      (cond
+       ((heks-emacs-render-markdown-p)
+        (heks-emacs-markdown-to-html (buffer-string)))
+       ((and (fboundp 'heks-emacs-openapi-spec-p) (heks-emacs-openapi-spec-p))
+        (heks-emacs-openapi-html))
+       ((and (eq major-mode 'org-mode) (heks-emacs-render--org-body (current-buffer))))
+       ((heks-emacs-render-html-p) (buffer-string))
+       (t (format "<pre class=\"plain\">%s</pre>"
+                  (heks-emacs-render--escape (buffer-string))))))))
+
+(defun heks-emacs-render-title (&optional buffer)
+  "Return what to call BUFFER's preview."
+  (with-current-buffer (or buffer (current-buffer))
+    (or (and buffer-file-name (file-name-nondirectory buffer-file-name))
+        (buffer-name))))
+
+(defun heks-emacs-render-document (&optional buffer)
+  "Return BUFFER's content as a complete HTML document."
+  (let ((target (or buffer (current-buffer))))
+    (heks-emacs-html-document (heks-emacs-render-title target)
+                              (heks-emacs-render-body target)
+                              (heks-emacs-render--variant-name target))))
+
+(defun heks-emacs-render--variant-name (buffer)
+  "Return the name of the renderer BUFFER is being shown with."
+  (with-current-buffer buffer
+    (cond ((heks-emacs-render-markdown-p) "Markdown")
+          ((and (fboundp 'heks-emacs-openapi-spec-p) (heks-emacs-openapi-spec-p))
+           "OpenAPI")
+          ((eq major-mode 'org-mode) "Org")
+          ((heks-emacs-render-html-p) "HTML")
+          (t "Text"))))
+
+;;
+;; ====== Showing it ======
+;;;
+
+(defvar heks-emacs-preview--files nil
+  "Alist of source buffer name to the file its preview was written to.")
+
+(defun heks-emacs-render-file (&optional buffer)
+  "Write BUFFER's rendering to a file and return its name.
+
+The file is written once per buffer and rewritten after that, so that EWW
+keeps its history for a document that is being edited."
+  (let* ((source (or buffer (current-buffer)))
+         (key (buffer-name source))
+         (known (assoc key heks-emacs-preview--files))
+         (file (or (cdr known)
+                   (make-temp-file "heks-emacs-preview-" nil ".html"))))
+    (unless known
+      (push (cons key file) heks-emacs-preview--files))
+    (write-region (heks-emacs-render-document source) nil file nil 'silent)
+    file))
+
+(defun heks-emacs-preview (&optional buffer)
+  "Render BUFFER and show it in the Emacs buffer made for previews.
+
+EWW renders it, which means links work and the stylesheet that came with
+the document is applied, without leaving Emacs."
+  (interactive)
+  (require 'eww)
+  (let* ((source (or buffer (current-buffer)))
+         (file (heks-emacs-render-file source))
+         (target (get-buffer-create heks-emacs-preview-buffer-name))
+         (url (browse-url-file-url file)))
+    (with-current-buffer target
+      (let ((inhibit-read-only t))
+        (erase-buffer))
+      (eww-mode)
+      (eww-render nil url nil target))
+    (pop-to-buffer target)
+    (message "%s preview: %s" (heks-emacs-render--variant-name source) file)))
+
+(defun heks-emacs-preview-browser (&optional buffer)
+  "Render BUFFER and open it in the browser configured for Emacs.
+
+This is the faithful path: the browser applies the whole stylesheet,
+which is what one wants before sharing a document or checking a table's
+alignment."
+  (interactive)
+  (let ((file (heks-emacs-render-file (or buffer (current-buffer)))))
+    (browse-url (browse-url-file-url file))
+    (message "Preview opened in the browser: %s" file)))
+
+(defun heks-emacs-preview-export (&optional buffer)
+  "Render BUFFER next to its file, as a `.html' file to keep."
+  (interactive)
+  (let* ((source (or buffer (current-buffer)))
+         (file (or buffer-file-name (user-error "This buffer is not visiting a file")))
+         (target (concat (file-name-sans-extension file) ".html")))
+    (write-region (heks-emacs-render-document source) nil target)
+    (message "Wrote %s" target)
+    target))
+
+;;
+;; ====== A preview that follows its buffer ======
+;;;
+
+(defun heks-emacs-preview--reload (buffer)
+  "Show BUFFER's current rendering in the preview buffer again."
+  (let ((file (cdr (assoc (buffer-name buffer) heks-emacs-preview--files))))
+    (when (and file (get-buffer heks-emacs-preview-buffer-name))
+      (let ((target (get-buffer heks-emacs-preview-buffer-name)))
+        (with-current-buffer target
+          (let ((inhibit-read-only t))
+            (erase-buffer))
+          (eww-render nil (browse-url-file-url file) nil target))
+        t))))
+
+(defun heks-emacs-preview-follow--refresh (&optional buffer)
+  "Re-render the preview of BUFFER, which has just been saved.
+
+Only buffers that asked for it reach here: the mode installs this as a
+buffer-local `after-save-hook', and a preview is only worth refreshing
+while it is on screen."
+  (let ((source (or buffer (current-buffer))))
+    (when (and heks-emacs-preview-follow-on-save
+               (get-buffer-window heks-emacs-preview-buffer-name))
+      (require 'eww)
+      (heks-emacs-render-file source)
+      (heks-emacs-preview--reload source))))
+
+(defun heks-emacs-preview-refresh ()
+  "Re-render the preview of this buffer if one is showing."
+  (interactive)
+  (heks-emacs-render-file (current-buffer))
+  (if (heks-emacs-preview--reload (current-buffer))
+      (message "Preview refreshed")
+    (heks-emacs-preview)))
+
+(define-minor-mode heks-emacs-preview-follow-mode
+  "Re-render this buffer's preview whenever the buffer is saved.
+
+Off by default: a preview refreshed on every save is the point of leaving
+it open, but it costs a render per save, so it is asked for."
+  :lighter " Preview"
+  (if heks-emacs-preview-follow-mode
+      (add-hook 'after-save-hook #'heks-emacs-preview-follow--refresh nil t)
+    (remove-hook 'after-save-hook #'heks-emacs-preview-follow--refresh t)))
+
+(defun heks-emacs-preview-toggle-follow ()
+  "Turn the preview's re-rendering on save on or off for this buffer."
+  (interactive)
+  (heks-emacs-preview-follow-mode 'toggle)
+  (when heks-emacs-preview-follow-mode
+    (heks-emacs-preview)))
+
+(use-package emacs
+  :ensure nil
+  :bind (("C-c r p" . heks-emacs-preview)
+         ("C-c r b" . heks-emacs-preview-browser)
+         ("C-c r e" . heks-emacs-preview-export)
+         ("C-c r m" . heks-emacs-preview-toggle-follow)
+         ("C-c r r" . heks-emacs-preview-refresh)))
+
+(provide 'heks-emacs/render)
+
+;;; render.el ends here

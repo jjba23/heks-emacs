@@ -219,15 +219,25 @@ Configures Common Lisp development through SLY and SBCL, providing an interactiv
 Provides Go-specific editing and development configuration through =go-mode=.
 
 *** =guile.el=
-Guile Scheme and Guix development, built around the REPL.
+Guile Scheme development, built around the REPL, [[https://gitlab.com/emacs-geiser/geiser][Geiser]] driving it.
 
-~C-c g r~ starts or switches to the current project's REPL: a Guix REPL inside Guix buffers (through Emacs-Guix's ~guix-repl-guile-program~ when it knows where the Guix sources are, and ~guix repl~ otherwise) and a plain Guile REPL anywhere else, always with the project root on Guile's load path and one REPL per project. ~C-c g R~ restarts it. Definitions, regions, whole files and scripts are sent to it with ~C-c g e~, ~C-c g E~, ~C-c g b~ and ~C-c g x~, and ~C-c g i~ interrupts a runaway evaluation.
+*Guix is optional here.* On a machine that has it the module adds what only Guix can give (a Guix REPL, ~guix lint~, ~guix style~, Emacs-Guix's own bindings); on a machine that does not -- a Mac, say -- it is a complete plain Guile setup instead: a ~guile~ REPL, the Guile compiler as the checker and Emacs' own indentation as the formatter. Nothing has to be reconfigured for that; the module looks for ~guix~ and uses what it finds.
 
-[[https://codeberg.org/abcdw/guile-ares-rs][Ares RS]] and [[https://github.com/abcdw/emacs-arei][arei]] provide the asynchronous, image-oriented side: ~C-c g a~ starts the nREPL server in the project root and connects as soon as it publishes its port, ~C-c g A~ connects to a server that is already running, ~C-c g d~ returns to the debugger buffer after an exception, and ~C-c g t~ loads the project's tests into the running image and runs them. ~heks-emacs-scheme-repl-backend~ chooses between arei and [[https://gitlab.com/emacs-geiser/geiser][Geiser]] (arei when its server is installed).
+~C-c g r~ starts or switches to the current project's REPL: a Guix REPL (~guix repl~) in a buffer that defines packages, a plain Guile one elsewhere, always with the project root on Guile's load path and one REPL per project. ~C-c g R~ restarts it and ~C-c g s~ points it at the module of the current buffer. Definitions, regions, whole files and scripts go to it with ~C-c g e~, ~C-c g E~, ~C-c g b~ and ~C-c g x~, ~C-c g i~ interrupts a runaway evaluation, and ~C-c g d~ returns to Geiser's debugger after an exception.
 
-Checking and formatting defer to Guix itself, on save rather than on every keystroke: Flymake runs ~guix lint~ on the package defined at point and runs ~guix style~ on a copy of the buffer to mark the lines it would rewrite, while ~C-c g L~ lints into a clickable compilation buffer, ~C-c g f~ formats the file in place and ~C-c g S~ applies one of Guix's styling rules (~inputs~, ~arguments~, ~git-source~) and reloads the buffer. ~guix-devel-mode~ is enabled in Guix buffers, so Emacs-Guix's ~C-c . l~ (lint), ~C-c . b~ (build), ~C-c . s~/~C-c . d~ (source) and ~C-c . u~ (use module) are available too.
+Geiser also answers the navigation questions, so this is a code-intelligence setup with no language server in it: ~C-c g g~ goes to a definition, ~C-c g h~ shows its documentation, ~C-c g c~ and ~C-c g C~ list callers and callees, and ~C-c g u~ lists the methods of a generic function. Completion is Geiser's, through ~completion-at-point~ (so Corfu shows it like any other source), and ~geiser-autodoc-mode~ puts the signature of the symbol at point in the echo area. Geiser activates itself in Scheme buffers, so none of this needs a command to start.
 
-Folding treats the buffer as a sequence of top-level forms, so each definition is a fold, collapsing the definition at point works from anywhere inside it, and the keys are the ones the Tree-sitter folding uses elsewhere: ~C-c v c~, ~C-c v o~, ~C-c v m~, ~C-c v r~ and ~C-c v a~.
+Checking and formatting run on save, from whichever tool is the authority:
+- ~guix lint~ on the package defined at point, so Guix's checkers appear as Flymake diagnostics;
+- ~guix style~ on a copy of the buffer, marking the lines it would rewrite;
+- the Guile compiler (~guild compile~) in every other Scheme buffer, which is where the checking comes from without Guix: unbound and unused variables, unused modules and arity mismatches. It runs on a copy of the buffer too, so code that has been typed but not saved is checked as well.
+~C-c g L~ lints into a clickable compilation buffer (the hyperlinks Guix puts around file names become real ones there), ~C-c g f~ formats the buffer in place, and ~C-c g S~ applies one of Guix's styling rules (~inputs~, ~arguments~, ~git-source~) and reloads it. ~guix-devel-mode~ is enabled in Guix buffers, so Emacs-Guix's ~C-c . l~ (lint), ~C-c . b~ (build), ~C-c . s~/~C-c . d~ (source) and ~C-c . u~ (use module) are available too.
+
+Folding treats the buffer as a sequence of top-level forms, so each definition is a fold, collapsing the definition at point works from anywhere inside it, and the keys are the ones the Tree-sitter folding uses elsewhere: ~C-c v c~ (fold), ~C-c v o~ (unfold), ~C-c v O~ (unfold recursively), ~C-c v r~ (unfold everything), ~C-c v t~ (toggle) and ~C-c v C~ (fold everything).
+
+~C-c g t~ runs the project's own test task, so the tests run the way the project runs them.
+
+~C-c i f~ is the one format key of the configuration, and a Scheme buffer is one of the buffers that answers it: the formatter is ~C-c g f~.
 
 *** =git.el=
 Provides Git integration through Magit and related packages. Handles repository interaction, Git links, Git modes, and Git-related editing conveniences.
@@ -283,8 +293,17 @@ Provides proofreading and spelling assistance through =jinx=.
 *** =snippets.el=
 Configures Tempel as the snippet/template system. Snippets are loaded from the user's Emacs snippets directory and can be completed, inserted, or expanded interactively.
 
-*** =plot.el=
-Provides graphing and diagramming support through Gnuplot and Mermaid.
+*** =render.el=
+Renders what one is reading, from Emacs itself: a Markdown file, an Org file, an OpenAPI specification and a plain text file each become one HTML document, themed with the colours of the current Emacs theme, with no stylesheet to download and no network access. The document is written to a file and shown either inside Emacs, where EWW renders it and the links work, or in the browser, which applies the whole stylesheet and is the one to look at before sharing a document or checking a table's alignment.
+
+~C-c r p~ previews the buffer at point in Emacs, ~C-c r b~ opens the same page in the browser, ~C-c r r~ renders it again after an edit, ~C-c r e~ writes it next to the file being read as a ~.html~ file to keep, and ~C-c r m~ makes the preview follow the buffer: the document is rendered again whenever that buffer is saved.
+
+*** =openapi.el=
+Reads, checks and explains OpenAPI specifications, in JSON or YAML. ~C-c a v~ renders the specification at point the way Swagger UI would -- operations grouped by tag, parameters and responses in tables, schemas listed -- in the same document the module above produces, so a specification is read as documentation instead of as nested brackets. The operations also appear in the imenu menu under their tags.
+
+It checks the document as it is written, and ~C-c a l~ says what is wrong with the file at point. The rules are the mistakes a specification actually makes: a path that is not a path, a key under a path that is not an operation, an identifier used by two operations, a path variable nobody declares, a response code that is not one, a response that says nothing about itself, a body with no shape, and a ~$ref~ that points at nothing. Each one is a Flymake diagnostic on the line it is written on, named ~OpenAPI~ so that it reads ~OpenAPI : ...~ rather than as a sentence with a gap in front of it.
+
+~C-c a r~ calls one of the operations (the server, the method and the parameters come from the document, and the answer is shown in a buffer of its own), and ~C-c a b~ writes one as an Org request block instead, which is what a request with a body or a request worth keeping wants.
 
 *** =misc.el=
 Collects useful standalone utilities that do not belong to a larger subsystem, including Prodigy, Dagboek, speed typing, Guix integration, buffer-to-PDF conversion, and font inspection.

@@ -414,7 +414,11 @@ reflected in the UI."
   :demand t
   :bind (("C-c f c" . tekengrootte-set-scale-colossal)
          ("C-c f j" . tekengrootte-set-scale-jumbo)
-         ("C-c f x" . tekengrootte-set-scale-larger)
+         ;; The ladder reads `n' nano, `t' tiny, `s' small, `r' regular,
+         ;; `l' large, `L' larger, `j' jumbo, `c' colossal: the capital is
+         ;; the next step up, which is what it means everywhere else in
+         ;; this configuration.
+         ("C-c f L" . tekengrootte-set-scale-larger)
          ("C-c f l" . tekengrootte-set-scale-large)
          ("C-c f r" . tekengrootte-set-scale-regular)
          ("C-c f s" . tekengrootte-set-scale-small)

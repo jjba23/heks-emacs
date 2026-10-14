@@ -23,7 +23,10 @@
 
 (use-package gnus
   :ensure nil
-  :bind (("C-c o m" . gnus))
+  :bind (("C-c o m" . gnus)
+         ;; Reading one group by name used to be a stray `C-c C-m C-s'
+         ;; in the core module; it is a mail action, so it is here.
+         ("C-c o g" . gnus-group-read-ephemeral-group))
   :config
   (setq gnus-use-cache t
         gnus-asynchronous t

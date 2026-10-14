@@ -25,8 +25,15 @@
   :ensure nil
   :hook ((org-mode . heks-emacs-org-mode))
   :bind (:map org-mode-map
-              ("C-c #" . nil))
-  :bind (("C-c l v" . org-toggle-link-display))
+              ;; Org binds `C-c #' to statistics cookies, which is where
+              ;; the global `C-c #' system keys used to disappear: in an
+              ;; Org buffer, three of them did nothing.  The command moves
+              ;; one key over, to `C-c C-#', and the prefix is free again.
+              ("C-c #" . nil)
+              ("C-c C-#" . org-update-statistics-cookies))
+  ;; Toggling how links read is a view action on a note, so it lives
+  ;; under the notes topic with roam.
+  :bind (("C-c n v" . org-toggle-link-display))
   :custom
   (org-todo-keywords '((sequence "TODO" "WIP" "REVIEWING" "|" "DONE")))
   (org-log-done 'time)

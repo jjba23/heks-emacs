@@ -66,7 +66,9 @@
          ("C-c i x" . eglot-reconnect)
          ("C-c i a" . eglot-code-actions)
          ("C-c i m" . eglot-menu)
-         ("C-c i f" . eglot-format-buffer)
+         ;; No `C-c i f' here: formatting is `heks-emacs-format-buffer',
+         ;; which asks Eglot when a server manages the buffer and the
+         ;; language's own formatter when it does not.
          ("C-c i h" . eglot-inlay-hints-mode))
   :init
   (setq eglot-autoshutdown t

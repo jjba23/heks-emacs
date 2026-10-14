@@ -26,7 +26,9 @@
 
 (use-package deadgrep
   :ensure t
-  :bind (("C-c z g" . deadgrep)))
+  ;; A project-wide search is a workspace action, so it lives with the
+  ;; other `C-c w' keys instead of under a `C-c z' that meant nothing.
+  :bind (("C-c w g" . deadgrep)))
 
 
 (provide 'heks-emacs/search)

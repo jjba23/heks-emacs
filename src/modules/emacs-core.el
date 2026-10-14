@@ -22,15 +22,99 @@
 
 ;;; Code:
 
+;;
+;; ====== The key scheme ======
+;;
+;; Everything this configuration adds lives under `C-c': one letter for
+;; the topic, then a letter for the action.  Two rules keep a map of a
+;; few hundred keys learnable, and they are written down here because a
+;; binding nobody can describe is a binding nobody uses:
+;;
+;;   * a topic letter means one thing, everywhere (`d' is databases and
+;;     only databases; direnv and Docker used to live there too) -- and a
+;;     topic may be a modified stroke, such as `C-#', when a mode's own
+;;     key would otherwise sit in the topic's way;
+;;   * an action letter means the same thing under every topic: `f'
+;;     formats, `t' tests, `d' debugs, `b' builds, `r' runs or opens a
+;;     REPL, `e' evaluates, `g' goes to a definition, `h' explains, `c'
+;;     lists callers, `l' lints, `n' creates, `v' views, `a' applies.
+;;
+;; So `C-c g f' formats a Scheme file with Guix, `C-c i f' formats
+;; whatever buffer is current, and `C-c j t' runs the tests of a JVM
+;; project.  `test/heks-emacs-keys.el' reads these two tables, prints the
+;; whole key tree and refuses a binding whose topic is not here or that
+;; disagrees with another binding of the same key.
 
+(defconst heks-emacs-key-topics
+  '(("!"     . "diagnostics: Flymake")
+    ("#"     . "system: this machine and the Guix system")
+    ("C-#"   . "Org statistics cookies, kept off `C-c #'")
+    (";"     . "diary")
+    ("SPC"   . "dashboard")
+    ("C-d"   . "diagrams: Mermaid")
+    ("a"     . "API and HTTP: OpenAPI specs and requests")
+    ("c"     . "containers: Docker")
+    ("d"     . "databases: PostgreSQL and MongoDB")
+    ("e"     . "environment: direnv")
+    ("f"     . "fonts and text size")
+    ("g"     . "Guile and Guix")
+    ("h"     . "help and documentation")
+    ("i"     . "IDE: language server, formatting, diagnostics")
+    ("j"     . "JVM: Maven, Gradle, Spring, Java and Kotlin")
+    ("l"     . "Emacs itself: evaluating and debugging Elisp")
+    ("m"     . "make-style tasks: maak")
+    ("n"     . "notes: Org and roam")
+    ("o"     . "mail: Gnus")
+    ("p"     . "completion at point: cape")
+    ("r"     . "render and preview")
+    ("s"     . "snippets and recorded macros")
+    ("t"     . "text tools")
+    ("u"     . "utilities")
+    ("v"     . "view: folding and comparisons")
+    ("w"     . "workspace and project"))
+  "What each `C-c' topic letter is for.
 
-;; Configure Flymake (built-in linter)
+Read by `test/heks-emacs-keys.el', which fails when a key uses a topic
+that is not described here.")
+
+(defconst heks-emacs-key-actions
+  '(("a" . "apply an action, add something")
+    ("b" . "build")
+    ("c" . "show the callers of this definition")
+    ("d" . "debug, or the difference between two things")
+    ("e" . "evaluate")
+    ("f" . "format")
+    ("g" . "go to a definition")
+    ("h" . "explain: documentation at point")
+    ("l" . "lint and list problems")
+    ("m" . "a menu, or turn the mode on and off")
+    ("n" . "new, or next")
+    ("o" . "open")
+    ("p" . "preview, or previous")
+    ("r" . "run, or open a REPL")
+    ("s" . "send to a REPL, or switch")
+    ("t" . "test")
+    ("u" . "update")
+    ("v" . "view or validate")
+    ("w" . "write or work on")
+    ("x" . "execute a script"))
+  "What each action letter means under every topic.")
+
+;; Configure Flymake (built-in linter).
+;;
+;; All of diagnostics is one topic: `n' and `N' walk them, `b' and `a'
+;; list them for this buffer and for the whole project, and `m' turns the
+;; background checking on and off.  (`p' used to list the project's
+;; diagnostics, one letter away from a "previous error" key that did not
+;; exist, while `C-c i p' formatted the buffer -- three letters that had
+;; nothing to do with each other.)
 (use-package flymake
   :ensure nil
-  :bind(("C-c ! b" . flymake-show-buffer-diagnostics)
-        ("C-c ! n" . flymake-goto-next-error)
-        ("C-c ! p" . flymake-show-project-diagnostics)
-        ("C-c ! f" . flymake-mode)))
+  :bind (("C-c ! n" . flymake-goto-next-error)
+         ("C-c ! N" . flymake-goto-prev-error)
+         ("C-c ! b" . flymake-show-buffer-diagnostics)
+         ("C-c ! a" . flymake-show-project-diagnostics)
+         ("C-c ! m" . flymake-mode)))
 
 ;; Discoverability: Show available keybindings after a short delay
 (use-package which-key
@@ -181,12 +265,23 @@
   :after (modusregel)
 
   ;; --- Global Keybindings ---
-  ;; Note: Custom heks-emacs-* functions must be defined elsewhere
+  ;; Note: Custom heks-emacs-* functions must be defined elsewhere.
+  ;; The topic table above says what each group is for; these are the
+  ;; global keys, and the language modules add theirs under the same
+  ;; topics (`C-c g' for Guile, `C-c r' for previewing a Markdown file,
+  ;; `C-c a' for an OpenAPI spec) so that one letter keeps one meaning.
   :bind (("C-x C-b" . ibuffer) ; Use the superior interactive buffer menu
-         ("C-c a h" . highlight-compare-buffers)
+         ;; View: folding and comparisons.  The fold keys dispatch, so they
+         ;; work in every buffer whichever folding engine it uses.
+         ("C-c v o" . heks-emacs-fold-open)
+         ("C-c v O" . heks-emacs-fold-open-recursive)
+         ("C-c v c" . heks-emacs-fold-close)
+         ("C-c v C" . heks-emacs-fold-close-all)
+         ("C-c v r" . heks-emacs-fold-open-all)
+         ("C-c v t" . heks-emacs-fold-toggle)
+         ("C-c v d" . highlight-compare-buffers)
          ("C-c l d" . toggle-debug-on-error)
          ("C-c l e" . eval-buffer)
-         ("C-c C-m C-s" . gnus-group-read-ephemeral-group)
          ("C-c u u" . heks-emacs-uuidgen)
          ("C-c # j" . heks-emacs-joe-reconfigure)
          ("C-c # s" . heks-emacs-sys-reconfigure)
@@ -199,17 +294,20 @@
          ("C-c w t" . heks-emacs-project-start-test)
          ("C-c w d" . heks-emacs-project-start-dev)
          ("C-c w s" . heks-emacs-print-random-standup-order)
-         ("C-c g l" . guix-package-location-on-mark)
+         ;; Text tools, in every buffer.
          ("C-c t a" . sort-lines)
          ("C-c t w" . delete-trailing-whitespace)
          ("C-c t c" . display-fill-column-indicator-mode)
-         ("C-c t p" . kbd-scheme-make-parameter)
-         ("C-c t m" . kbd-scheme-string-to-symbol-in-alist-access)
-         ("C-c t h" . kbd-scheme-hygguile-abstraction)
-         ;; JVM build tooling (Maven, Gradle, Spring Boot)
+         ;; Formatting: one key, and the language decides who formats.
+         ("C-c i f" . heks-emacs-format-buffer)
+         ;; JVM build tooling (Maven, Gradle, Spring Boot).  The capital
+         ;; letters open the menus, which name the goals by what they do.
          ("C-c j m" . heks-emacs-maven-run)
+         ("C-c j M" . heks-emacs-maven-menu)
          ("C-c j g" . heks-emacs-gradle-run)
+         ("C-c j G" . heks-emacs-gradle-menu)
          ("C-c j s" . heks-emacs-spring-boot-run)
+         ("C-c j R" . heks-emacs-jvm-refresh-project)
          ;; Databases (PostgreSQL, MongoDB)
          ("C-c d p" . heks-emacs-sql-postgres)
          ("C-c d m" . heks-emacs-mongosh))

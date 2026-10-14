@@ -129,9 +129,11 @@
                            maps
                            misc
                            music
+                           openapi
                            org
                            plot
                            proofreading
+                           render
                            search
                            shell
                            snippets

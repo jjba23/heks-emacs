@@ -77,11 +77,13 @@
   (require 'smartparens-config))
 
 ;; Integrates direnv with Emacs, allowing automatic loading and unloading
-;; of environment variables based on directory.
+;; of environment variables based on directory.  The environment a project
+;; needs is its own topic, `C-c e', which Docker and the databases used to
+;; share with it.
 (use-package direnv
   :ensure t
-  :bind (("C-c d d" . direnv-mode)
-         ("C-c d a" . direnv-allow)))
+  :bind (("C-c e d" . direnv-mode)
+         ("C-c e a" . direnv-allow)))
 
 ;; Provides aggressive indentation for Lisp-like languages,
 ;; automatically formatting code as you type.
@@ -104,14 +106,17 @@
   (setq dockerfile-mode-command "podman"))
 
 ;; Provides an interface for interacting with Docker from within Emacs,
-;; allowing management of containers and images.
+;; allowing management of containers and images.  Containers are their own
+;; topic: `C-c c d' starts Docker and `C-c d p' is a database.
 (use-package docker
   :ensure t
-  :bind ("C-c d c" . docker))
+  :bind (("C-c c d" . docker)))
 
-;; Scheme, Guile and Guix development live in `modules/guile.el': arei and
-;; Geiser (the REPL), `guix lint' and `guix style' (checking and formatting)
-;; and the folding keys shared with the other languages.
+;; Scheme, Guile and Guix development live in `modules/guile.el': Geiser for
+;; the REPL, the completion, the debugger and the call hierarchy; the Guile
+;; compiler and `guix lint' for checking, `guix style' for formatting, and
+;; the folding keys shared with the other languages.  Guix is optional
+;; there: without it the module is a plain Guile setup.
 
 ;; Provdes a REPL session management tool for Emacs and more.
 (use-package sesman
@@ -191,8 +196,11 @@
 
 (use-package format-all
   :ensure t
-  :commands format-all-mode
-  :bind ("C-c i p" . format-all-region-or-buffer)
+  ;; No keys: formatting is `C-c i f' everywhere, and this is the last
+  ;; resort that key falls back to when the buffer has no language server
+  ;; and no language-specific formatter.  The commands are kept in the
+  ;; autoloads, because the dispatcher decides at call time.
+  :commands (format-all-region-or-buffer format-all-buffer format-all-mode)
   :config
   (setq-default format-all-formatters
                 '(("CSS"     (prettierd))
@@ -318,12 +326,29 @@
 
 (use-package kirigami
   :ensure t
-  :bind (("C-c v o" . kirigami-open-fold)
-         ("C-c v O" . kirigami-open-fold-rec)
-         ("C-c v r" . kirigami-open-folds)
-         ("C-c v c" . kirigami-close-fold)
-         ("C-c v m" . kirigami-close-folds)
-         ("C-c v a" . kirigami-toggle-fold)))
+  ;; No keys either: `C-c v c/o/r/t' dispatch to whichever folding engine
+  ;; the buffer has, and kirigami is the fallback for the modes that have
+  ;; neither Tree-sitter folds nor Hideshow.
+  :commands (kirigami-open-fold
+             kirigami-open-fold-rec
+             kirigami-open-folds
+             kirigami-close-fold
+             kirigami-close-folds
+             kirigami-toggle-fold
+             kirigami-mode)
+  :config
+  ;; kirigami answers with the first engine in its list whose mode is on,
+  ;; and `outline-minor-mode' is on in almost every buffer here.  In the
+  ;; buffers where `hs-minor-mode' was turned on deliberately -- a Scheme
+  ;; buffer, which folds its definitions with it -- that deliberate choice
+  ;; has to win, or `C-c v c' folds headings that a Scheme file does not
+  ;; have.  The list is reordered rather than rewritten, so an engine
+  ;; kirigami adds later is still used wherever Hideshow is off.
+  (setq kirigami-fold-list
+        (append (seq-filter (lambda (entry) (memq 'hs-minor-mode (car entry)))
+                            kirigami-fold-list)
+                (seq-remove (lambda (entry) (memq 'hs-minor-mode (car entry)))
+                            kirigami-fold-list))))
 
 (use-package stripspace
   :ensure t
