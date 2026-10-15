@@ -33,6 +33,20 @@
   "The directory where the Org roam notes should be stored."
   :type 'string)
 
+(defun heks-emacs-notes-roam-directory ()
+  "Return the directory the Org roam notes live in, or nil when none is set.
+
+`heks-emacs-notes-roam-dir' is a string the user's own configuration gives a
+value to, because no checkout can know where somebody keeps their notes: the
+bridge installed next to this configuration sets it.  A directory that was
+never set -- or set to nothing -- is not a directory, and nil is how a caller
+says so rather than building a path out of it, which is what pointing
+org-roam at an empty string would do."
+  (let ((directory (and (stringp heks-emacs-notes-roam-dir)
+                        (string-trim heks-emacs-notes-roam-dir))))
+    (when (and directory (not (string-empty-p directory)))
+      (file-truename (string-replace "$HOME" "~" directory)))))
+
 (defcustom heks-emacs-theme nil
   "The name of the Emacs theme to use, acording to HEKS-EMACS palette."
   :type 'symbol)

@@ -102,7 +102,23 @@
 
 ;; ====== Load user modules ======
 
+;; The settings come first, then the modules that read them: this file defines
+;; the customization variables, the bridge below gives them this user's own
+;; values (which fonts, which theme, where the notes are), and only then is a
+;; module loaded.  A module that reads a setting while it is still nil is
+;; configured wrongly whatever the setting says a moment later -- org-roam,
+;; whose notes directory is nobody's default, is where that showed.
 (load-user-file "modules/heks-emacs.el")
+
+;; load heks-linux bridge if available (GNU/Linux system)
+(ignore-errors
+  (when heks/is-gnu-linux-p
+    (load-user-file "heks-linux-bridge.el")))
+
+;; load cask-and-cons bridge if available (macOS system)
+(ignore-errors
+  (when heks/is-darwin-p
+    (load-user-file "cask-and-cons-bridge.el")))
 
 ;; Load more user modules
 (defvar heks-emacs-modules '())
@@ -141,15 +157,5 @@
                            theme
                            ui))
 (mapc (lambda(f) (load-user-file (format "modules/%s.el" f))) heks-emacs-modules)
-
-;; load heks-linux bridge if available (GNU/Linux system)
-(ignore-errors
-  (when heks/is-gnu-linux-p
-    (load-user-file "heks-linux-bridge.el")))
-
-;; load cask-and-cons bridge if available (macOS system)
-(ignore-errors
-  (when heks/is-darwin-p
-    (load-user-file "cask-and-cons-bridge.el")))
 
 ;;; init.el ends here

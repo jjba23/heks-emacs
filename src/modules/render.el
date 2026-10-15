@@ -35,8 +35,11 @@
 ;;     the file being edited.
 ;;
 ;; Markdown is rendered here; OpenAPI is rendered by `modules/openapi.el',
-;; which asks this module for the document it wraps its rendering in; Org and
-;; plain HTML are handled by their own exporters.
+;; which asks this module for the document it wraps its rendering in; Org is
+;; exported by Org's own exporter, which is asked for the body of the note and
+;; nothing around it, so a note has the shape a Markdown file has: this
+;; module's document, this module's stylesheet and this module's contents
+;; list; plain HTML is used as it is.
 
 ;;; Code:
 
@@ -869,16 +872,42 @@ headline and the body when the body has enough sections to want one."
                   (string-match-p "\\.\\(html?\\|xhtml\\)\\'" buffer-file-name)))
          t)))
 
+(defun heks-emacs-render--org-output-type ()
+  "Return what `org-html-htmlize-output-type' should be for a preview.
+
+Colouring the code in a note is `htmlize's work and Org says as much: it
+hands the block to `htmlize', and with `htmlize' absent -- a batch Emacs
+reading this module on its own, with the packages elpaca installs nowhere
+near it -- it writes the block as plain text and warns about it, on every
+export.  So where `htmlize' is here the colours are asked for as inline
+styles, because a preview carries none of Org's own stylesheet and a class
+name with no stylesheet behind it is a snippet with no colour; where it is
+not, the setting is nil, which is Org's plain text asked for rather than
+warned about."
+  (if (require 'htmlize nil t) 'inline-css nil))
+
 (defun heks-emacs-render--org-body (buffer)
   "Return the body of BUFFER's Org export, or nil when Org cannot export.
 
 Org is asked for the body only, so that its own stylesheet and its own
-header do not end up inside this module's document."
+header do not end up inside this module's document, and a note ends up with
+the same shape as a Markdown file: the contents list is this module's own --
+a document is given one when it has enough headings to want one -- so Org's
+is asked for rather than left in as a second one, and the code in a note is
+coloured by Org itself, with the colours of the theme in force written into
+the page, because a preview carries no stylesheet of Org's and a class name
+without one is a snippet with no colour."
   (with-current-buffer buffer
     (when (require 'ox-html nil t)
-      (let ((org-html-html-helper-timestamp nil)
-            (org-html-postamble nil)
-            (html (ignore-errors (org-html-export-as-html nil nil nil t nil))))
+      ;; `let*' rather than `let': the export is asked for in the last
+      ;; binding, and `let' evaluates every value before it binds any of
+      ;; them, so the settings above it would not be in force yet and Org
+      ;; would write its own contents list into the body.
+      (let* ((org-html-html-helper-timestamp nil)
+             (org-html-postamble nil)
+             (org-export-with-toc nil)
+             (org-html-htmlize-output-type (heks-emacs-render--org-output-type))
+             (html (ignore-errors (org-html-export-as-html nil nil nil t nil))))
         (cond ((bufferp html)
                (with-current-buffer html
                  (string-trim (buffer-string))))
@@ -953,22 +982,46 @@ keeps its history for a document that is being edited."
     (write-region (heks-emacs-render-document source) nil file nil 'silent)
     file))
 
+(defun heks-emacs-preview--data-buffer (file)
+  "Return a buffer holding FILE as the answer EWW reads a document from.
+
+`eww-render' takes the document out of the buffer it is called in and
+kills that buffer when it is done, which is what it is for: it is the
+callback of a retrieval, and the buffer is the retrieval's own.  A file
+that is already here was never retrieved, so the answer it would have
+arrived as is made -- the content type, then the document -- and EWW is
+asked to render that."
+  (with-current-buffer (generate-new-buffer " *heks-emacs preview data*")
+    (set-buffer-multibyte nil)
+    (insert "Content-type: text/html\n\n")
+    (insert-file-contents file)
+    (goto-char (point-min))
+    (current-buffer)))
+
+(defun heks-emacs-preview--render (file target)
+  "Show FILE's HTML in TARGET, which becomes an EWW buffer again.
+
+TARGET is prepared the way EWW prepares its own buffer, so what it ends up
+holding is what `eww-open-file' would have shown -- links, faces, the whole
+of the stylesheet -- in a buffer this module can find again and render
+into a second time."
+  (require 'eww)
+  (with-current-buffer target
+    (eww-setup-buffer))
+  (with-current-buffer (heks-emacs-preview--data-buffer file)
+    (eww-render nil (browse-url-file-url file) nil target))
+  target)
+
 (defun heks-emacs-preview (&optional buffer)
   "Render BUFFER and show it in the Emacs buffer made for previews.
 
 EWW renders it, which means links work and the stylesheet that came with
 the document is applied, without leaving Emacs."
   (interactive)
-  (require 'eww)
   (let* ((source (or buffer (current-buffer)))
          (file (heks-emacs-render-file source))
-         (target (get-buffer-create heks-emacs-preview-buffer-name))
-         (url (browse-url-file-url file)))
-    (with-current-buffer target
-      (let ((inhibit-read-only t))
-        (erase-buffer))
-      (eww-mode)
-      (eww-render nil url nil target))
+         (target (get-buffer-create heks-emacs-preview-buffer-name)))
+    (heks-emacs-preview--render file target)
     (pop-to-buffer target)
     (message "%s preview: %s" (heks-emacs-render--variant-name source) file)))
 
@@ -999,14 +1052,11 @@ alignment."
 
 (defun heks-emacs-preview--reload (buffer)
   "Show BUFFER's current rendering in the preview buffer again."
-  (let ((file (cdr (assoc (buffer-name buffer) heks-emacs-preview--files))))
-    (when (and file (get-buffer heks-emacs-preview-buffer-name))
-      (let ((target (get-buffer heks-emacs-preview-buffer-name)))
-        (with-current-buffer target
-          (let ((inhibit-read-only t))
-            (erase-buffer))
-          (eww-render nil (browse-url-file-url file) nil target))
-        t))))
+  (let ((file (cdr (assoc (buffer-name buffer) heks-emacs-preview--files)))
+        (target (get-buffer heks-emacs-preview-buffer-name)))
+    (when (and file target)
+      (heks-emacs-preview--render file target)
+      t)))
 
 (defun heks-emacs-preview-follow--refresh (&optional buffer)
   "Re-render the preview of BUFFER, which has just been saved.
@@ -1045,6 +1095,12 @@ it open, but it costs a render per save, so it is asked for."
   (heks-emacs-preview-follow-mode 'toggle)
   (when heks-emacs-preview-follow-mode
     (heks-emacs-preview)))
+
+;; Colouring the code in a note is `htmlize's work, and Org says as much:
+;; it is what Org hands a source block to, and without it a block is text.
+;; Declared here because this module is what asks Org for the colours.
+(use-package htmlize
+  :ensure t)
 
 (use-package emacs
   :ensure nil

@@ -69,7 +69,11 @@
         org-roam-ui-update-on-save t
         org-roam-ui-open-on-start t))
 
-(use-package org-present :ensure t)
+;; `org-present' is not declared here: it is declared -- and therefore
+;; queued for installation, hooked and bound -- by `present.el', which is
+;; the module that presents things.  A package queued twice is a package
+;; elpaca answers with a warning rather than a queued item, and that answer
+;; used to stop the configuration while it loaded.
 
 (use-package org-auto-tangle
   :ensure t
@@ -85,12 +89,24 @@
          ("C-c n c" . org-roam-capture)
          ("C-c n j" . org-roam-dailies-capture-today))
   :init
-  (setq org-roam-directory (file-truename (string-replace "$HOME" "~" heks-emacs-notes-roam-dir))
-        org-roam-v2-ack t
-        org-roam-node-display-template (concat "$\{title:*} " (propertize "$\{tags:10}" 'face 'org-tag)))
+  ;; Where the notes are is this user's own business -- no default can know
+  ;; it -- so it is read from `heks-emacs-notes-roam-dir', which the bridge
+  ;; next to the installed configuration sets.  A module is loaded after the
+  ;; settings it reads, so by the time this runs the directory is either a
+  ;; directory or nobody has said where the notes go; in that second case
+  ;; org-roam is loaded but not started, and the variable to set is named
+  ;; rather than a path quietly built out of a nil.
+  (let ((directory (heks-emacs-notes-roam-directory)))
+    (if directory
+        (setq org-roam-directory directory
+              org-roam-v2-ack t
+              org-roam-node-display-template
+              (concat "${title:*} " (propertize "${tags:10}" 'face 'org-tag)))
+      (message "heks-emacs: org-roam starts when `heks-emacs-notes-roam-dir' names a directory")))
   :config
-  (org-roam-db-autosync-mode)
-  (org-roam-setup))
+  (when org-roam-directory
+    (org-roam-db-autosync-mode)
+    (org-roam-setup)))
 
 (use-package ob-http :ensure t)
 

@@ -81,7 +81,6 @@
     ("C-#"   . "Org statistics cookies, kept off `C-c #'")
     (";"     . "diary")
     ("C-d"   . "diagrams: Mermaid")
-    ("M"     . "music: EMMS, with MPD as the player")
     ("SPC"   . "dashboard")
     ("a"     . "API and HTTP: OpenAPI specs and requests")
     ("c"     . "containers: Docker")
@@ -106,8 +105,7 @@
   "What each `C-c' topic letter is for.
 
 A capital letter is a topic of its own and not a variant of the small
-one: `C-c M' is music where `C-c m' is maak, the same way that `C-c C-d'
-is the diagrams where `C-c d' is the databases.
+one: `C-c C-d' is the diagrams where `C-c d' is the databases.
 
 Read by `test/heks-emacs-keys.el', which fails when a key uses a topic
 that is not described here.")
@@ -200,18 +198,6 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
     ("l" ("l" . "a library, opened by name")
          ("L" . "a library, loaded from disk")
          ("p" . "the parentheses of this buffer"))
-    ("M" ("a" . "the music, paused or resumed")
-         ("b" . "the music browser")
-         ("c" . "the music daemon, connected to")
-         ("C" . "the playlist, cleared")
-         ("i" . "the track that is playing now")
-         ("l" . "the playlist")
-         ("m" . "the player")
-         ("n" . "the next track")
-         ("o" . "a stream, played from its URL")
-         ("p" . "the previous track")
-         ("r" . "the selected track, played")
-         ("u" . "the track cache, read from the daemon"))
     ("n" ("c" . "capture a note")
          ("f" . "find a node")
          ("g" . "the graph of the notes")
@@ -282,18 +268,6 @@ of its own and prints, for every key, what this scheme calls it.")
     ("C-c C-d h" . "the Mermaid documentation")
     ("C-c C-d o" . "the rendered diagram in the browser")
     ("C-c C-d r" . "the diagram in the region")
-    ("C-c M C" . "the playlist, cleared")
-    ("C-c M a" . "the music, paused or resumed")
-    ("C-c M b" . "the music browser")
-    ("C-c M c" . "the music daemon, connected to")
-    ("C-c M i" . "the track that is playing now")
-    ("C-c M l" . "the playlist")
-    ("C-c M m" . "the player")
-    ("C-c M n" . "the next track")
-    ("C-c M o" . "a stream, played from its URL")
-    ("C-c M p" . "the previous track")
-    ("C-c M r" . "the selected track, played")
-    ("C-c M u" . "the track cache, read from the daemon")
     ("C-c SPC SPC" . "the dashboard")
     ("C-c a b" . "the request written as a block to paste")
     ("C-c a l" . "the spec's problems, listed")

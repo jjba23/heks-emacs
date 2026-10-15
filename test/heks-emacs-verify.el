@@ -137,6 +137,27 @@ configuration."
         (heks-verify--check (format "%s is loaded" feature)
                             (and feature (featurep feature)))))))
 
+(heks-verify--section "the settings reach the modules that read them")
+
+;; The customization variables are defined by `heks-emacs.el', given their
+;; values by the bridge installed next to this configuration, and read by
+;; every module after that.  A module that read one while it was still nil is
+;; configured wrongly whatever the setting says a moment later, and org-roam
+;; -- whose notes directory is nobody's default -- is where that showed: it
+;; was named after a nil, which stopped the configuration where it loaded.
+(let ((notes (heks-emacs-notes-roam-directory)))
+  (if notes
+      (heks-verify--check
+       "org-roam is pointed at the notes directory"
+       (and (boundp 'org-roam-directory)
+            (stringp org-roam-directory)
+            (equal (file-name-as-directory (file-truename org-roam-directory))
+                   (file-name-as-directory notes))))
+    (heks-verify--check
+     "org-roam is not pointed at a directory built out of nothing"
+     (or (not (boundp 'org-roam-directory))
+         (stringp org-roam-directory)))))
+
 (heks-verify--section "reading what a tool says")
 (heks-verify--check
  "a warning is parsed into its parts"
@@ -437,7 +458,20 @@ configuration."
     (heks-verify--check "and holds the rendered document"
                         (with-temp-buffer
                           (insert-file-contents file)
-                          (and (string-match-p "<h1 id=\"title\">Title</h1>" (buffer-string)) t)))))
+                          (and (string-match-p "<h1 id=\"title\">Title</h1>" (buffer-string)) t))))
+  ;; And the preview shows it, which is the part a key is pressed for.  It is
+  ;; asked to show the document in the preview buffer and then that buffer is
+  ;; looked at: EWW kills the buffer it renders *from*, so a preview that
+  ;; renders from its own destination is left holding a dead one.
+  (let ((preview (get-buffer heks-emacs-preview-buffer-name)))
+    (when preview (kill-buffer preview)))
+  (heks-emacs-preview)
+  (let ((shown (get-buffer heks-emacs-preview-buffer-name)))
+    (heks-verify--check "and the preview holds it, in a buffer that survives"
+                        (and (buffer-live-p shown)
+                             (with-current-buffer shown
+                               (and (eq major-mode 'eww-mode)
+                                    (string-match-p "Title" (buffer-string)) t))))))
 
 (heks-verify--section "an OpenAPI specification is read, checked and shown")
 

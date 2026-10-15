@@ -69,6 +69,14 @@
 (dolist (module '("render" "present" "heks-emacs" "emacs-core" "dev" "openapi"))
   (heks-ert--module module))
 
+;; `htmlize' is what Org colours the code in a note with, and the
+;; configuration installs it: where it has been installed it is looked for,
+;; so that the test of how a note asks for colours is not always a test of
+;; what happens without them.
+(let ((build (expand-file-name "htmlize" (expand-file-name "~/.emacs.d/elpaca/builds/"))))
+  (when (file-directory-p build)
+    (add-to-list 'load-path build)))
+
 ;; `which-key' is part of Emacs 30 and later; on anything older the two
 ;; tests that read its replacement list are skipped.
 (require 'which-key nil t)
@@ -115,6 +123,17 @@ file written next to it."
 (defun heks-ert--temp-directory ()
   "Return a new empty temporary directory."
   (make-temp-file "heks-ert-project-" t))
+
+(defun heks-ert--text (buffer)
+  "Return BUFFER's text as one line, with the line breaks taken out.
+
+A preview is filled by `shr' into whatever the window is wide, and in
+batch that is a guess; what the document *says* is what is checked here,
+so the check is not also a check on where the text was wrapped."
+  (with-current-buffer buffer
+    (string-trim
+     (replace-regexp-in-string "[ \t\n]+" " "
+                               (buffer-substring-no-properties (point-min) (point-max))))))
 
 ;;
 ;; ====== The renderer ======
@@ -222,6 +241,79 @@ the list cannot reach."
       ;; The stylesheet is written after the body, because it colours the
       ;; faces the body turned out to use.
       (should (string-match-p "@media print" document)))))
+
+;;
+;; ====== A note, rendered by Org ======
+;;
+
+(defconst heks-ert--org-note
+  "* One\n\nfirst\n\n* Two\n\nsecond\n\n* Three\n\n#+begin_src elisp\n(setq x \"<not markup>\")\n#+end_src\n"
+  "A note with enough headings to want a contents list, and a code block.")
+
+(ert-deftest heks-emacs-render/an-org-note-is-exported-by-org-itself ()
+  "An Org buffer is rendered, and it is Org's own exporter that renders it.
+
+A note is read as Org and not as text, so what Org knows -- a heading, a
+list, a table, a link, a block of code -- arrives as the markup for it."
+  (heks-ert--with-file ".org" heks-ert--org-note
+    (should (eq major-mode 'org-mode))
+    (should (equal (heks-emacs-render--variant-name (current-buffer)) "Org"))
+    (let ((body (heks-emacs-render-body)))
+      (should (stringp body))
+      (should (string-match-p "One</h" body))
+      (should (string-match-p "Three</h" body))
+      ;; The code in the note is the note's own text on the page, escaped
+      ;; rather than poured in as markup.
+      (should (string-match-p "&lt;not markup&gt;" body))
+      (should-not (string-match-p "<not markup>" body)))))
+
+(ert-deftest heks-emacs-render/a-note-gets-one-contents-list-and-it-is-this-modules ()
+  "Org's own contents list is asked for and dropped, not left in the body.
+
+`org-export-with-toc' is on by default, so an export asked for it before
+the settings around it were in force would carry Org's list -- and the
+page would then have two, one of them linking to ids of Org's making.
+The values of a `let' are evaluated before any of them is bound, which is
+why these settings are bound one by one."
+  (heks-ert--with-file ".org" heks-ert--org-note
+    (let* ((body (heks-emacs-render-body))
+           (document (heks-emacs-html-document "A note" body)))
+      (should-not (string-match-p "table-of-contents" body))
+      (should (equal (heks-ert--count "<nav class=\"toc\"" document) 1))
+      (should (string-match-p "Contents" document))
+      ;; And the one list there is lists the note's headings.
+      (dolist (heading '("One" "Two" "Three"))
+        (should (string-match-p heading document))))))
+
+(ert-deftest heks-emacs-render/every-link-in-a-notes-contents-list-reaches-a-heading ()
+  "Each entry of the list points at an id the page really has.
+
+Org gives its headings ids of its own, so the list has to keep them: a
+list that named unanchored slugs would be entries nobody can follow, which
+is what the OpenAPI page's list was before this was checked."
+  (heks-ert--with-file ".org" heks-ert--org-note
+    (let* ((body (heks-emacs-render-body))
+           (document (heks-emacs-html-document "A note" body))
+           (position 0)
+           (links 0))
+      (while (string-match "href=\"#\\([^\"]+\\)\"" document position)
+        (let ((target (match-string 1 document)))
+          (setq position (match-end 0)
+                links (1+ links))
+          (should (string-match-p (regexp-quote (format "id=\"%s\"" target)) document))))
+      (should (> links 0)))))
+
+(ert-deftest heks-emacs-render/a-note-asks-for-colours-htmlize-can-give-it ()
+  "Colouring a block of code is asked for when it can be done, and not otherwise.
+
+`htmlize' is what Org colours a source block with.  Where it is here the
+preview asks for its colours as inline styles, because the page carries
+none of Org's stylesheet and a class name with no stylesheet behind it is
+a block with no colour; where it is not, the setting is nil -- Org's plain
+text -- because asking Org for colours it cannot produce is a warning on
+every export."
+  (should (eq (heks-emacs-render--org-output-type)
+              (if (require 'htmlize nil t) 'inline-css nil))))
 
 (defface heks-ert-coloured-face '((t :foreground "#123456" :weight bold))
   "A face for the test of the stylesheet, with a colour of its own.")
@@ -372,6 +464,70 @@ which is a different way of reading the same document."
   (with-temp-buffer
     (insert "text\n")
     (should-error (heks-emacs-present-insert-slide) :type 'user-error)))
+
+;;
+;; ====== The preview ======
+;;
+
+(ert-deftest heks-emacs-preview/the-document-is-shown-in-a-buffer-that-survives ()
+  "EWW renders the document into the preview buffer, and it is still there
+afterwards.
+
+`eww-render' kills the buffer it is *called from*, because it is the
+callback of a retrieval and that buffer is the retrieval's own; a preview
+that renders from its own destination buffer is left holding a dead one,
+and the document that was rendered is gone with it."
+  (heks-ert--with-file ".md" "# Title\n\nSome text.\n"
+    (let ((heks-emacs-preview-buffer-name "*heks-ert preview*"))
+      (unwind-protect
+          (progn
+            (heks-emacs-preview)
+            (let ((shown (get-buffer heks-emacs-preview-buffer-name)))
+              (should (buffer-live-p shown))
+              (with-current-buffer shown
+                (should (eq major-mode 'eww-mode)))
+              (should (string-match-p "Some text\\." (heks-ert--text shown)))))
+        (when (get-buffer heks-emacs-preview-buffer-name)
+          (kill-buffer heks-emacs-preview-buffer-name))))))
+
+(ert-deftest heks-emacs-preview/rendering-it-again-shows-what-the-buffer-says-now ()
+  "The preview follows its buffer: the same call renders the current text."
+  (heks-ert--with-file ".md" "# One\n\nfirst\n"
+    (let ((source (current-buffer))
+          (heks-emacs-preview-buffer-name "*heks-ert preview*"))
+      (unwind-protect
+          (progn
+            (heks-emacs-preview)
+            (with-current-buffer source
+              (goto-char (point-max))
+              (insert "\nsecond paragraph\n")
+              (heks-emacs-render-file source)
+              (should (heks-emacs-preview--reload source)))
+            (should (string-match-p "second paragraph"
+                                    (heks-ert--text heks-emacs-preview-buffer-name))))
+        (when (get-buffer heks-emacs-preview-buffer-name)
+          (kill-buffer heks-emacs-preview-buffer-name))))))
+
+;;
+;; ====== Where the notes are ======
+;;
+
+(ert-deftest heks-emacs-notes/a-directory-nobody-set-is-not-a-directory ()
+  "A setting that was never given a value cannot be turned into a path.
+
+This is what naming org-roam's notes directory after nothing used to do:
+`file-truename' of nil stops the configuration where it is loaded."
+  (dolist (unset '(nil "" "   "))
+    (let ((heks-emacs-notes-roam-dir unset))
+      (should-not (heks-emacs-notes-roam-directory)))))
+
+(ert-deftest heks-emacs-notes/a-directory-that-is-set-is-answered-expanded ()
+  (dolist (written '("~/Hacking/private-notes" "$HOME/Hacking/private-notes"))
+    (let* ((heks-emacs-notes-roam-dir written)
+           (directory (heks-emacs-notes-roam-directory)))
+      (should (stringp directory))
+      (should (string-suffix-p "private-notes" directory))
+      (should (string-prefix-p (file-truename (expand-file-name "~")) directory)))))
 
 ;;
 ;; ====== The JVM build tools ======
@@ -600,7 +756,6 @@ answers is the one that formats."
       (should (equal (shown "C-c i") "IDE: language server, formatting, diagnostics"))
       ;; A key is named by what it does there.
       (should (equal (shown "C-c i f") "the buffer, formatted by whoever knows how"))
-      (should (equal (shown "C-c M m") "the player"))
       (should (equal (shown "C-c w i") "the providers and state, initialised"))
       ;; And `C-c' itself says what the letters under it are.
       (should (string-match-p "topic" (shown "C-c"))))

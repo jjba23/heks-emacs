@@ -65,6 +65,8 @@ Note: Since heks-emacs is a compilation of several packages and libraries, it's 
 
 You can customize heks-emacs with these variables at your will. This can also be done conveniently via ~heks-linux-brige.el~ or ~cask-and-cons-bridge.el~
 
+The bridge is loaded *before* the modules, and the modules are loaded after it, because these are the settings they read while they are set up: a module that reads one of them while it is still ~nil~ -- ~heks-emacs-notes-roam-dir~ is the one with no sensible default, since nobody can guess where somebody else keeps their notes -- is configured wrongly whatever the setting says a moment later.
+
 Feel free to ~setopt~ these:
 #+begin_src elisp
 ;; heks-linux-bridge.el --- Bridge to Heks Emacs  -*- lexical-binding: t -*-
@@ -298,7 +300,7 @@ Provides IRC connectivity through Circe. ERC configuration is retained in the mo
 ** Music & Maps
 
 *** =music.el=
-Configures music-related functionality. Provides fretboard/chord tooling and the simple ready-player.
+Configures music-related functionality. Provides fretboard/chord tooling and the simple ready-player. Nothing here reads a music directory: there is no library to point at and no daemon to keep running.
 
 *** =maps.el=
 Provides map functionality through =osm=, integrating OpenStreetMap-related functionality into Emacs.
@@ -313,6 +315,8 @@ Configures Tempel as the snippet/template system. Snippets are loaded from the u
 
 *** =render.el=
 Renders what one is reading, from Emacs itself: a Markdown file, an Org file, an OpenAPI specification and a plain text file each become one HTML document, themed with the colours of the current Emacs theme, with no stylesheet to download and no network access. The document is written to a file and shown either inside Emacs, where EWW renders it and the links work, or in the browser, which applies the whole stylesheet and is the one to look at before sharing a document or checking a table's alignment.
+
+An Org note is exported by Org itself, asked for the body of the note and nothing around it, so a note comes out in this configuration's document, with its own list of contents rather than Org's as well; the code in a note is coloured by Org through ~htmlize~, which the configuration installs, and is left as plain text -- rather than warned about -- on a machine where it is not there.
 
 A document shows its code in colour: a fenced block is fontified with the mode the fence's language names, and the stylesheet that wraps the page carries the colours of the *current* theme for each face the code used, so a README looks like the Emacs it was written in and stays readable in a light theme and a dark one. A snippet is escaped before it is coloured, so a ~<~ in code is still a ~<~ on the page. Every heading gets an id and, once a document has enough sections, a list of contents above the body -- which is what makes an OpenAPI page, an operation per heading, navigable as well as searchable -- and the stylesheet ends with a print block (page margins, no fixed navigation on paper) for the reader who prints what they read.
 

@@ -1,4 +1,4 @@
-;;; maps.el --- Music configuration for Emacs -*- lexical-binding: t -*-
+;;; maps.el --- Maps configuration for Emacs -*- lexical-binding: t -*-
 
 ;; Copyright © Josep Bigorra <jjbigorra@gmail.com>
 

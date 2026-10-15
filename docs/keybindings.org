@@ -55,7 +55,6 @@ described only by a letter.
 | ~;~ | diary |
 | ~C-#~ | Org statistics cookies, kept off `C-c #' |
 | ~C-d~ | diagrams: Mermaid |
-| ~M~ | music: EMMS, with MPD as the player |
 | ~SPC~ | dashboard |
 | ~a~ | API and HTTP: OpenAPI specs and requests |
 | ~c~ | containers: Docker |
@@ -102,18 +101,6 @@ in every other topic.
 | ~C-d~ | ~r~ | the diagram in the region |
 | ~C-d~ | ~b~ | the diagrams in this buffer |
 | ~C-d~ | ~f~ | the diagrams in this file |
-| ~M~ | ~a~ | the music, paused or resumed |
-| ~M~ | ~b~ | the music browser |
-| ~M~ | ~c~ | the music daemon, connected to |
-| ~M~ | ~C~ | the playlist, cleared |
-| ~M~ | ~i~ | the track that is playing now |
-| ~M~ | ~l~ | the playlist |
-| ~M~ | ~m~ | the player |
-| ~M~ | ~n~ | the next track |
-| ~M~ | ~o~ | a stream, played from its URL |
-| ~M~ | ~p~ | the previous track |
-| ~M~ | ~r~ | the selected track, played |
-| ~M~ | ~u~ | the track cache, read from the daemon |
 | ~a~ | ~b~ | the request written as a block to paste |
 | ~c~ | ~d~ | Docker |
 | ~d~ | ~p~ | PostgreSQL |
@@ -240,23 +227,6 @@ in every other topic.
 | ~C-c C-d h~ | ~mermaid-open-doc~ | the Mermaid documentation | plot.el (a mode's own map) |
 | ~C-c C-d o~ | ~mermaid-open-browser~ | the rendered diagram in the browser | plot.el (a mode's own map) |
 | ~C-c C-d r~ | ~mermaid-compile-region~ | the diagram in the region | plot.el (a mode's own map) |
-
-** ~C-c M~ music: EMMS, with MPD as the player
-
-| Key | Command | What it does | In |
-|-----+---------+--------------+----|
-| ~C-c M C~ | ~emms-player-mpd-clear~ | the playlist, cleared | music.el |
-| ~C-c M a~ | ~emms-pause~ | the music, paused or resumed | music.el |
-| ~C-c M b~ | ~emms-browser~ | the music browser | music.el |
-| ~C-c M c~ | ~emms-player-mpd-connect~ | the music daemon, connected to | music.el |
-| ~C-c M i~ | ~emms-player-mpd-show~ | the track that is playing now | music.el |
-| ~C-c M l~ | ~emms-playlist-mode-go~ | the playlist | music.el |
-| ~C-c M m~ | ~emms~ | the player | music.el |
-| ~C-c M n~ | ~emms-next~ | the next track | music.el |
-| ~C-c M o~ | ~emms-play-url~ | a stream, played from its URL | music.el |
-| ~C-c M p~ | ~emms-previous~ | the previous track | music.el |
-| ~C-c M r~ | ~emms-player-mpd-play~ | the selected track, played | music.el |
-| ~C-c M u~ | ~emms-cache-set-from-mpd-all~ | the track cache, read from the daemon | music.el |
 
 ** ~C-c SPC~ dashboard
 
