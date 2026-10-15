@@ -520,6 +520,102 @@ for those modes instead, with `which-key's own mode-scoped table."
       (which-key-add-major-mode-key-based-replacements
        (car mode-entry) (car entry) (cdr entry)))))
 
+;;
+;; ====== Where the menu can be shown ======
+;;
+;; `which-key' makes the window it asks for by splitting the frame's main
+;; window in two and keeping the lower half, with `split-window-no-error' --
+;; whose nil answer it does not read.  `split-window' refuses to split a
+;; window that is not twice the size of the smallest it is allowed to be, so
+;; the bottom of the frame is unavailable when its windows are already that
+;; small, and the refusal is silent: the keys are written into
+;; `which-key's own buffer, which nobody is looking at, and all that is left
+;; on screen is the line the echo area has about the menu -- its title, the
+;; page it is on and `C-h' -- with no keys under it.
+
+(defvar heks-emacs-which-key-echoing nil
+  "Non-nil while the menu is in the echo area rather than in a window.")
+
+(defun heks-emacs-which-key-side-window-p ()
+  "Non-nil when Emacs will make the menu the bottom window it asks for.
+
+`split-window' refuses when the window it is asked to split is smaller
+than twice the smallest it is allowed to be (`window-min-size', which is
+`window-min-height' -- four lines -- for every window in the frame's main
+window).  So the window is unavailable when the frame's windows are
+already that small: three windows of a twenty-four line frame, two of a
+sixteen line one, one of a frame shorter than nine lines.  The menu's own
+height is not the reason and cannot be: the split makes the new window
+half the frame's main window, so a smaller menu would not need a smaller
+split."
+  (let ((root (frame-root-window)))
+    (and (window-valid-p root)
+         (>= (window-size root nil t)
+             (* 2 (window-min-size root nil nil t))))))
+
+(defun heks-emacs-which-key-popup-dimensions (_width)
+  "How much of the frame the menu may take, and where it will go.
+
+`which-key' asks for this before it makes its pages, so the place is
+chosen here -- once -- and the pages are made to fit it: the window when
+the frame can give the menu one, the echo area when it cannot (see
+`heks-emacs-which-key-side-window-p').  There the line which-key says
+about the menu is part of the menu (see
+`heks-emacs-which-key-show-popup'), so the keys are given one line less
+than the echo area has."
+  (setq heks-emacs-which-key-echoing (not (heks-emacs-which-key-side-window-p)))
+  (if heks-emacs-which-key-echoing
+      (let ((dims (which-key--minibuffer-max-dimensions)))
+        (cons (max 1 (1- (car dims))) (cdr dims)))
+    (which-key--side-window-max-dimensions)))
+
+(defun heks-emacs-which-key-show-popup (dimensions)
+  "Show the menu in the window which-key asked for, or in the echo area.
+
+`which-key--show-buffer-side-window' answers nil, without a word, when
+Emacs will not make the window -- and it is `which-key' that asks, so the
+answer has to be read here.  A menu nobody can see is worse than a small
+menu: when there is no window, the keys and the line which-key says about
+them go to the echo area."
+  (unless (and (not heks-emacs-which-key-echoing)
+               (condition-case nil
+                   (which-key--show-buffer-side-window dimensions)
+                 (error nil)))
+    (which-key--echo (heks-emacs-which-key-echoed-menu))))
+
+(defun heks-emacs-which-key-echoed-menu ()
+  "Return the menu as one message, with the line which-key says about it.
+
+That line -- the prefix, the page of how many, and `C-h' -- is composed
+by `which-key--process-page', from the pages object it is given; asking it
+for the line rather than writing one here is what keeps the two the same.
+It is put first because the echo area keeps the first lines of a message
+and loses the last ones.
+
+The line reaches this function by being echoed -- that is how
+`which-key--process-page' hands it over -- and `message' answers with what
+it showed, so a `message' which answers something else leaves the keys
+alone rather than putting a `nil' in front of them."
+  (let* ((echoed (which-key--process-page which-key--pages-obj))
+         (page (car echoed))
+         (status (when (cdr echoed) (funcall (cdr echoed)))))
+    (if (stringp status) (concat status "\n" page) page)))
+
+(defun heks-emacs-which-key-hide-popup ()
+  "Hide the menu, from wherever it was shown."
+  (which-key--hide-buffer-side-window)
+  (when heks-emacs-which-key-echoing
+    (message nil)))
+
+(defun heks-emacs-which-key-popup-visible-p (original)
+  "Say that the menu is on screen when it is in the echo area.
+
+`which-key' looks for its buffer in a window to know whether its menu is
+showing, which the echo area is not: without this, `C-h' in the echo area
+would ask for the menu again instead of opening the dispatch menu it opens
+in the window."
+  (or (funcall original) heks-emacs-which-key-echoing))
+
 ;; Configure Flymake (built-in linter).
 ;;
 ;; All of diagnostics is one topic: `n' and `N' walk them, `b' and `a'
@@ -567,10 +663,28 @@ for those modes instead, with `which-key's own mode-scoped table."
   ;; instead of leaving a reader to wonder whether that was all of them.
   ;; The buffers that were visible get their window configuration back when
   ;; it goes.
+  ;;
+  ;; That is the window when the frame can give the menu one.  When it
+  ;; cannot -- a small frame, or one already filled with windows -- the
+  ;; echo area is better than the nothing which-key leaves behind, and the
+  ;; two functions below choose between the two places each time the menu
+  ;; is about to be shown.
   (which-key-setup-side-window-bottom)
   (setq which-key-side-window-max-height 0.4
         which-key-show-remaining-keys t
         which-key-preserve-window-configuration t)
+  ;; Which of the two places the menu goes in is decided per popup, in
+  ;; `heks-emacs-which-key-popup-dimensions', and shown in
+  ;; `heks-emacs-which-key-show-popup': `which-key' has no fallback of its
+  ;; own, so this configuration shows the menu itself (the `custom' popup
+  ;; is which-key's own way of being told that).
+  (setq which-key-popup-type 'custom
+        which-key-custom-popup-max-dimensions-function
+        #'heks-emacs-which-key-popup-dimensions
+        which-key-custom-show-popup-function #'heks-emacs-which-key-show-popup
+        which-key-custom-hide-popup-function #'heks-emacs-which-key-hide-popup)
+  (advice-add 'which-key--popup-showing-p :around
+              #'heks-emacs-which-key-popup-visible-p)
   ;; Every topic and every key, in the words the scheme gives them.
   (heks-emacs-which-key-setup)
   (which-key-mode))

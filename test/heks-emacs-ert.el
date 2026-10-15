@@ -1001,6 +1001,207 @@ asked after the lifetime has passed."
         (heks-emacs-scheme-defined-names)
         (should (equal asked 3))))))
 
+(ert-deftest heks-emacs-scheme/the-repls-false-is-no-answer-at-all ()
+  "A `#f' from Guile is not a place, whichever question it answers.
+
+Guile answers `#f' for a symbol it has and cannot place -- a procedure
+written in C, whose module it knows and whose file it does not -- and the
+`#f' of such an answer comes back through Geiser as the keyword `:f'
+rather than as nothing at all.  So what is a place is what Geiser's own
+jump reads as one (`geiser-edit--try-edit'): a list, and anything else is
+no answer, read in the one function that reads a location
+(`heks-emacs-scheme--location-p') so that every question that carries one
+-- a definition, a module, the places a name is called from -- is answered
+without a stop."
+  (should-not (heks-emacs-scheme--location-p :f))
+  (should-not (heks-emacs-scheme--location-p nil))
+  (should (equal (heks-emacs-scheme--location-p '(("file" . "/tmp/x"))) '(("file" . "/tmp/x"))))
+  (should-not (heks-emacs-scheme--location-xref :f "string->number"))
+  (cl-letf (((symbol-function 'heks-emacs-scheme-repl-connected-p) (lambda () t))
+            ((symbol-function 'geiser-edit-symbol-location) (lambda (_) :f))
+            ((symbol-function 'geiser-completion--module-at-point)
+             (lambda () '(ice-9 popen)))
+            ((symbol-function 'geiser-edit-module-location) (lambda (_) :f))
+            ;; Nothing may reach the accessors with a `:f', and a stop here
+            ;; is how that would arrive.
+            ((symbol-function 'geiser-edit--location-file)
+             (lambda (_) (error "A `:f' was read as a location")))
+            ((symbol-function 'geiser-eval--send/result)
+             (lambda (_)
+               '( (("location" . :f)
+                   ("signature" . ("greet")))))))
+    (should-not (heks-emacs-scheme--repl-definition "string->number"))
+    (should-not (heks-emacs-scheme--repl-module "string->number"))
+    ;; A caller whose place Guile has as `#f' is dropped, not read as one.
+    (should-not (heks-emacs-scheme--repl-callers "greet"))))
+
+(ert-deftest heks-emacs-scheme/a-head-says-which-name-it-defines ()
+  "A line says which name it defines, or that it defines none.
+
+The name is read out of the head of the definition, and a `define' that
+begins the line is the only head that counts: one mentioned inside another
+form, or commented out, defines nothing this project can jump to."
+  (dolist (case '(("(define (greet name) name)" "greet")
+                  ("(define-public pub-var 1)" "pub-var")
+                  ("  (define* (f x) x)" "f")
+                  ("(define-syntax-rule (twice x) (* 2 x))" "twice")
+                  ("(define-record-type <ping> (fields (name ping-name)))" "<ping>")
+                  ("(define-values (a b) (values 1 2))" "a")
+                  ("(greet world)" nil)
+                  ("  (greet world)" nil)
+                  ("(list (define (greet name) name))" nil)
+                  (";; (define (greet name) name)" nil)
+                  ("" nil)))
+    (should (equal (heks-emacs-scheme-definition-name (nth 0 case)) (nth 1 case)))))
+
+(ert-deftest heks-emacs-scheme/the-files-answer-with-the-definitions-that-match ()
+  "A pattern is answered with the definitions whose name matches it.
+
+One search of the files answers a pattern of any kind, and what makes an
+answer is the name the head of the definition defines rather than the line
+the search found: a `define' of a name the pattern does not match is not
+one.  The entry shows the head itself -- the name, the arguments, the body
+-- because that is what one is looking at a list of matches for, and the
+name is kept beside it, since the names of the REPL are read against
+these."
+  (skip-unless (or (executable-find "rg") (executable-find "grep")))
+  (let* ((root (file-name-as-directory (heks-ert--temp-directory)))
+         (main (expand-file-name "main.scm" root))
+         (utility (expand-file-name "utility.scm" root)))
+    (unwind-protect
+        (progn
+          (write-region (concat "(define (main)\n"
+                                "  (greet name))\n"
+                                "(define-public pub-var 1)\n")
+                        nil main nil 'silent)
+          (write-region (concat "(define (greet name)\n"
+                                "  name)\n"
+                                "(define-syntax-rule (greeting name) name)\n")
+                        nil utility nil 'silent)
+          (heks-ert--in root
+            (with-current-buffer (find-file-noselect main)
+              (unwind-protect
+                  (progn
+                    ;; A name, and the names that contain it: a fragment of
+                    ;; one is a pattern like any other.
+                    (should (equal (mapcar #'car
+                                           (heks-emacs-scheme-definitions-in-files-matching
+                                            "greet"))
+                                   '("greet" "greeting")))
+                    (should (equal (heks-ert--xref-locations
+                                    (mapcar #'cdr
+                                            (heks-emacs-scheme-definitions-in-files-matching
+                                             "greet")))
+                                   '(("utility.scm" 1) ("utility.scm" 3))))
+                    ;; A pattern of words: all of them, in any order.
+                    (should (equal (mapcar #'car
+                                           (heks-emacs-scheme-definitions-in-files-matching
+                                            "var pub"))
+                                   '("pub-var")))
+                    ;; A regexp, and the head as the line of the entry.
+                    (let ((items (mapcar #'cdr
+                                         (heks-emacs-scheme-definitions-in-files-matching
+                                          "^pub-"))))
+                      (should (equal (heks-ert--xref-locations items)
+                                     '(("main.scm" 3))))
+                      (should (equal (xref-item-summary (car items))
+                                     "(define-public pub-var 1)"))
+                      (should (equal (xref-file-location-column
+                                      (xref-item-location (car items)))
+                                     15)))
+                    ;; A name no head defines is answered with nothing.
+                    (should-not (heks-emacs-scheme-definitions-in-files-matching
+                                 "no-such-name")))
+                (set-buffer-modified-p nil)
+                (kill-buffer))))
+      (delete-directory root t)))))
+
+(ert-deftest heks-emacs-scheme/the-repl-answers-with-the-names-it-has-loaded ()
+  "The names of the REPL are asked of Guile, and read in Emacs.
+
+What is asked is Guile's own question about the names it has -- the same
+one Guile's `apropos' is built on -- named through the module it lives in
+rather than imported, because the module a REPL is in is `(guile-user)' or
+a project's own.  What comes back is read against the pattern here, so
+that a question which is wider than the answer -- the first word of a list
+of words, say -- still answers with the pattern's own names."
+  (let ((asked nil)
+        (names '("string-append" "string-append/shared" "string-copy")))
+    (cl-letf (((symbol-function 'heks-emacs-scheme-repl-connected-p) (lambda () t))
+              ((symbol-function 'geiser-eval--send/result)
+               (lambda (question) (setq asked question) names)))
+      (should (equal (heks-emacs-scheme--repl-names "string-append")
+                     '("string-append" "string-append/shared")))
+      (should (equal (cadr (nth 1 asked))
+                     (concat "(sort (map symbol->string ((@ (ice-9 session) "
+                             "apropos-internal) \"string-append\")) string<?)")))
+      ;; A list of words is asked for by its first word, and the names are
+      ;; read against all of them.
+      (setq names '("pub-var" "public-name" "var-pub"))
+      (should (equal (heks-emacs-scheme--repl-names "pub var")
+                     '("pub-var" "var-pub")))
+      (should (equal (cadr (nth 1 asked))
+                     (concat "(sort (map symbol->string ((@ (ice-9 session) "
+                             "apropos-internal) \"pub\")) string<?)"))))))
+
+(ert-deftest heks-emacs-scheme/apropos-is-answered-by-both-sources-once-each ()
+  "`M-s .' in a Scheme buffer is answered by the files and by the REPL.
+
+The files' answer comes first, with the place each definition is in, and
+the names the REPL has that no definition answered for follow it as names;
+a name both sources have is one entry, because the files know where it is
+and the REPL knows only that it has it."
+  (cl-letf (((symbol-function 'heks-emacs-scheme-definitions-in-files-matching)
+             (lambda (_pattern)
+               (list (cons "greet"
+                           (xref-make "(define (greet name)"
+                                      (xref-make-file-location
+                                       "/tmp/heks-greet.scm" 1 9))))))
+            ((symbol-function 'heks-emacs-scheme--repl-names)
+             (lambda (_pattern) '("greet" "greeting" "string-append"))))
+    (let ((items (xref-backend-apropos 'heks-emacs-scheme "greet")))
+      (should (equal (mapcar #'xref-item-summary items)
+                     '("(define (greet name)" "greeting" "string-append")))
+      (should (equal (mapcar (lambda (item)
+                               (xref-location-group (xref-item-location item)))
+                             items)
+                     '("/tmp/heks-greet.scm" "the REPL" "the REPL"))))))
+
+(ert-deftest heks-emacs-scheme/a-name-the-repl-knows-asks-it-where-it-is-when-jumped-to ()
+  "What the REPL knows of one of its names is asked when the name is jumped to.
+
+The names a program has loaded are many and their files are files the
+project does not hold, so a name of the REPL's arrives as the name alone
+and the question of where it is is asked of the one that is chosen -- the
+same question `M-.' asks.  A name the REPL has no place for is a jump that
+says so rather than one that lands wherever the name was searched for."
+  (let* ((root (file-name-as-directory (heks-ert--temp-directory)))
+         (file (expand-file-name "greet.scm" root))
+         (asked '()))
+    (unwind-protect
+        (progn
+          (write-region "(define (greet name)\n  name)\n" nil file nil 'silent)
+          (cl-letf (((symbol-function 'heks-emacs-scheme--repl-definition)
+                     (lambda (name)
+                       (push name asked)
+                       (when (equal name "greet")
+                         (list (xref-make "greet"
+                                          (xref-make-file-location file 1 0)))))))
+            (let ((location (heks-emacs-scheme--repl-name "greet")))
+              ;; The name is all there is until it is jumped to.
+              (should-not asked)
+              (let ((marker (xref-location-marker location)))
+                (should (equal asked '("greet")))
+                (should (equal (buffer-file-name (marker-buffer marker)) file))
+                (with-current-buffer (marker-buffer marker)
+                  (should (equal (line-number-at-pos marker) 1))
+                  (set-buffer-modified-p nil)
+                  (kill-buffer)))
+              (should-error (xref-location-marker
+                             (heks-emacs-scheme--repl-name "no-such-name"))
+                            :type 'user-error)))
+      (delete-directory root t)))))
+
 (ert-deftest heks-emacs-scheme/the-places-a-name-is-used-are-found-in-the-files ()
   "`M-?' is answered by the files where the REPL has no callers.
 
@@ -1041,6 +1242,7 @@ mentions has no places."
              (lambda (_) (error "The REPL was asked although there is none"))))
     (should-not (heks-emacs-scheme--repl-definition "greet"))
     (should-not (heks-emacs-scheme--repl-callers "greet"))
+    (should-not (heks-emacs-scheme--repl-names "greet"))
     (should-not (heks-emacs-scheme-repl-connected-p))))
 
 ;;
@@ -1308,6 +1510,49 @@ was not when the length was a round number, and it is the longest of them."
           (push text cut))))
     (should (equal cut '())))
   (should (member heks-emacs-key-root-description (heks-emacs-key-description-texts))))
+
+(ert-deftest heks-emacs-which-key/the-menu-goes-where-the-frame-has-room ()
+  "The bottom window needs twice the smallest a frame's window may be.
+
+`which-key' makes the window it shows the menu in by splitting the frame's
+main window in two and keeping one half, and it asks `split-window' for
+that with `split-window-no-error', whose nil answer it does not read -- so
+when the split is refused, the menu is written into `which-key's buffer and
+nobody sees it.  `heks-emacs-which-key-side-window-p' is the rule that
+decides the place instead, and the rule is checked here against
+`split-window-no-error' itself: what the predicate answers and what the
+split does are the same question, so a change in Emacs's own rule is a
+failing test rather than a menu that disappears again."
+  (skip-unless (and (featurep 'which-key)
+                    (fboundp 'heks-emacs-which-key-side-window-p)))
+  (let ((configuration (current-window-configuration))
+        (min-height window-min-height)
+        ;; A refused split is an error `split-window-no-error' is meant to
+        ;; swallow, and `ert' stops at every error it is told about.
+        (debug-on-error nil))
+    (unwind-protect
+        (progn
+          ;; One window: room for the menu, and the place is the window.
+          (delete-other-windows)
+          (should (heks-emacs-which-key-side-window-p))
+          (should (windowp (split-window-no-error (frame-root-window) nil 'below)))
+          (heks-emacs-which-key-popup-dimensions 80)
+          (should-not heks-emacs-which-key-echoing)
+          (delete-other-windows)
+          ;; Windows which are too small to be split in two: no room, and the
+          ;; menu is asked for in the echo area, with one line less than the
+          ;; echo area has -- the line which-key says about the menu is not
+          ;; part of the page but is shown with it.
+          (dotimes (_ 2) (split-window-no-error (selected-window) nil 'below))
+          (setq window-min-height 5)
+          (should-not (heks-emacs-which-key-side-window-p))
+          (should-not (split-window-no-error (frame-root-window) nil 'below))
+          (heks-emacs-which-key-popup-dimensions 80)
+          (should heks-emacs-which-key-echoing)
+          (should (equal (car (heks-emacs-which-key-popup-dimensions 80))
+                         (1- (car (which-key--minibuffer-max-dimensions))))))
+      (setq window-min-height min-height)
+      (set-window-configuration configuration))))
 
 ;;
 ;; Run.

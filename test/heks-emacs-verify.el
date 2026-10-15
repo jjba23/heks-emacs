@@ -494,6 +494,30 @@ configuration."
                                      (xref-file-location-line location))))
                            references)
                    '(("utility.scm" 1) ("main.scm" 2)))
+                  ;; `M-s .' is the other question this backend answers: not
+                  ;; where one name is, but which names match a pattern.
+                  ;; With no REPL the heads of the definitions of the project
+                  ;; answer it, and the head is what an entry shows.
+                  (let ((matches nil))
+                    (cl-letf (((symbol-function 'read-string)
+                               (lambda (&rest _) "pub")))
+                      (let ((xref-show-xrefs-function
+                             (lambda (fetcher _action)
+                               (setq matches (funcall fetcher)))))
+                        (call-interactively #'xref-find-apropos)))
+                    (heks-verify--check
+                     "a pattern is answered with the definitions that match it"
+                     (mapcar (lambda (item)
+                               (let ((location (xref-item-location item)))
+                                 (list (file-name-nondirectory
+                                        (xref-file-location-file location))
+                                       (xref-file-location-line location))))
+                             matches)
+                     '(("utility.scm" 3) ("main.scm" 3)))
+                    (heks-verify--check
+                     "and the head of the definition is the line of the entry"
+                     (xref-item-summary (car matches))
+                     "(define-public pub-var 1)"))
                   (heks-verify--check "no REPL was started to answer"
                                       (heks-emacs-scheme-repl-connected-p) nil)))
             (set-buffer-modified-p nil)
@@ -1102,9 +1126,18 @@ paths:
 (heks-verify--section "which-key shows a whole sentence, and how many keys")
 
 (heks-verify--check "which-key is loaded" (and (featurep 'which-key) t))
-(heks-verify--check "the menu is a window, not the echo area"
-                    which-key-popup-type 'side-window)
-(heks-verify--check "it opens at the bottom"
+(heks-verify--check "the menu is shown by this configuration, which chooses where"
+                    which-key-popup-type 'custom)
+(heks-verify--check "which is asked how much of the frame it may take"
+                    which-key-custom-popup-max-dimensions-function
+                    'heks-emacs-which-key-popup-dimensions)
+(heks-verify--check "and shows it"
+                    which-key-custom-show-popup-function
+                    'heks-emacs-which-key-show-popup)
+(heks-verify--check "and hides it"
+                    which-key-custom-hide-popup-function
+                    'heks-emacs-which-key-hide-popup)
+(heks-verify--check "the window it asks for opens at the bottom"
                     which-key-side-window-location 'bottom)
 (heks-verify--check "it may take two fifths of the frame"
                     which-key-side-window-max-height 0.4)
@@ -1158,6 +1191,77 @@ paths:
                  (split-string (or shown "") "\n"))
        nil))
     (which-key--hide-popup)))
+
+;;
+;; Where the menu goes is decided from the window tree, so it is checked
+;; against the tree: with room the height is the window which-key asks for,
+;; and without it the menu is the echo area's (one line less, for the line
+;; which-key says about it), asking for no window at all.
+;;
+
+(heks-verify--section "where the menu goes when the frame has no room for the window")
+
+(let ((configuration (current-window-configuration))
+      (min-height window-min-height))
+  (unwind-protect
+      (progn
+        (delete-other-windows)
+        (heks-verify--check "one window of a frame this size can be split in two"
+                            (and (heks-emacs-which-key-side-window-p) t))
+        (heks-verify--check "so the menu is the bottom window"
+                            (car (heks-emacs-which-key-popup-dimensions (window-width)))
+                            (car (which-key--side-window-max-dimensions)))
+        (dotimes (_ 2) (ignore-errors (split-window-below)))
+        (setq window-min-height 5)
+        (heks-verify--check "windows too small to be split in two leave no room"
+                            (heks-emacs-which-key-side-window-p) nil)
+        (heks-verify--check "so the menu is the echo area's"
+                            (car (heks-emacs-which-key-popup-dimensions (window-width)))
+                            (1- (car (which-key--minibuffer-max-dimensions))))
+        (heks-verify--check "one line less than the echo area has, for which-key's line"
+                            heks-emacs-which-key-echoing t))
+    (setq window-min-height min-height)
+    (set-window-configuration configuration)))
+
+;; And the display itself in that case: no window, the keys in the echo area,
+;; and the line which-key says about them above the keys rather than after
+;; them, because the echo area loses the end of a long message.
+(when (fboundp 'which-key--update)
+  (let ((configuration (current-window-configuration))
+        (min-height window-min-height)
+        (which-key-this-command-keys-function (lambda () (kbd "C-c")))
+        (this-command nil)
+        (echoed nil)
+        (debug-on-error nil))
+    (unwind-protect
+        (progn
+          (delete-other-windows)
+          (dotimes (_ 2) (ignore-errors (split-window-below)))
+          (setq window-min-height 5)
+          ;; `which-key--echo' is the one door the menu has to the echo area
+          ;; (it calls `message'), so the last text it is given is the menu.
+          (cl-letf (((symbol-function 'which-key--echo)
+                     (lambda (text) (setq echoed text))))
+            (which-key--update))
+          (heks-verify--check "the menu is in no window"
+                              (and (buffer-live-p which-key--buffer)
+                                   (get-buffer-window which-key--buffer))
+                              nil)
+          (heks-verify--check "it is in the echo area"
+                              (and heks-emacs-which-key-echoing t))
+          (heks-verify--check "with the line which-key says about it"
+                              (and (string-match-p "(1 of [0-9]+)" (format "%s" echoed)) t))
+          (heks-verify--check "and with keys of the scheme under it"
+                              (and (string-match-p "diagnostics" (format "%s" echoed)) t))
+          (heks-verify--check "and with nothing cut off"
+                              (seq-find (lambda (line)
+                                          (string-match-p (regexp-quote which-key-ellipsis)
+                                                          line))
+                                        (split-string (or echoed "") "\n"))
+                              nil))
+      (setq window-min-height min-height)
+      (set-window-configuration configuration)
+      (which-key--hide-popup))))
 
 ;;;
 ;;; The verdict
