@@ -66,7 +66,8 @@
   "Load the module NAME from the source tree and return its feature."
   (load (expand-file-name (format "modules/%s.el" name) heks-ert--source) nil t))
 
-(dolist (module '("render" "present" "heks-emacs" "emacs-core" "dev" "openapi"))
+(dolist (module '("render" "present" "heks-emacs" "emacs-core" "dev" "openapi"
+                 "shell" "guile"))
   (heks-ert--module module))
 
 ;; `htmlize' is what Org colours the code in a note with, and the
@@ -123,6 +124,14 @@ file written next to it."
 (defun heks-ert--temp-directory ()
   "Return a new empty temporary directory."
   (make-temp-file "heks-ert-project-" t))
+
+(defun heks-ert--xref-locations (items)
+  "Return the FILE:LINE of the xref ITEMS as a list of (NAME LINE) pairs."
+  (mapcar (lambda (item)
+            (let ((location (xref-item-location item)))
+              (list (file-name-nondirectory (xref-file-location-file location))
+                    (xref-file-location-line location))))
+          items))
 
 (defun heks-ert--text (buffer)
   "Return BUFFER's text as one line, with the line breaks taken out.
@@ -667,6 +676,374 @@ answers is the one that formats."
       (delete-directory root t))))
 
 ;;
+;; ====== Shell scripts ======
+;;
+
+(ert-deftest heks-emacs-shell/shellcheck-is-told-to-follow-the-sources-of-a-script ()
+  "Emacs runs shellcheck itself (`sh-shellcheck-flymake'); what this
+configuration says to it is that the files a script sources are part of
+what is checked, rather than a note on every `source' line."
+  (require 'sh-script)
+  (should (member "--external-sources" sh-shellcheck-arguments)))
+
+(ert-deftest heks-emacs-shell/a-copy-keeps-the-extension-of-the-file ()
+  "shfmt and shellcheck read the dialect from the name too."
+  (with-temp-buffer
+    (setq-local buffer-file-name "/tmp/heks-ert/one/script.bash")
+    (should (equal (heks-emacs-shell-copy-suffix) ".bash")))
+  (with-temp-buffer
+    (should (equal (heks-emacs-shell-copy-suffix) ".sh"))))
+
+(ert-deftest heks-emacs-shell/shfmt-arguments-come-before-the-file ()
+  (let ((heks-emacs-shfmt-arguments '("-i" "2")))
+    (should (equal (heks-emacs-shfmt-command "/tmp/a.sh")
+                   (list (heks-emacs-tool-path heks-emacs-shfmt-program)
+                         "-w" "-i" "2" "/tmp/a.sh")))))
+
+
+(ert-deftest heks-emacs-shell/both-of-the-modes-of-a-script-are-shell-buffers ()
+  (with-temp-buffer
+    (sh-mode)
+    (should (heks-emacs-shell-buffer-p)))
+  ;; The other mode a `.sh' file opens in.  It is not run here -- the
+  ;; Tree-sitter parser is not what is being tested -- only recognised.
+  (with-temp-buffer
+    (setq major-mode 'bash-ts-mode)
+    (should (heks-emacs-shell-buffer-p)))
+  (with-temp-buffer
+    (fundamental-mode)
+    (should-not (heks-emacs-shell-buffer-p))))
+
+;;
+;; ====== A language server and the checkers of a buffer ======
+;;
+;; Eglot replaces `flymake-diagnostic-functions' with a list of its own
+;; backend alone while it manages a buffer; one function of `dev.el' puts
+;; back what the buffer had.  The swap below is made with the macro Eglot's
+;; own mode is written with, so what is read is Eglot's behaviour rather
+;; than a list this file made up: if Eglot stops keeping the old value where
+;; `heks-emacs-flymake-keep-backends' reads it, these tests fail instead of
+;; quietly leaving a buffer checked by its server alone.
+
+(ert-deftest heks-emacs-flymake/a-server-does-not-take-the-checkers-of-a-buffer ()
+  "Whatever checked a buffer before a server manages it checks it still."
+  (require 'eglot)
+  (with-temp-buffer
+    (setq-local flymake-diagnostic-functions
+                '(python-flymake sh-shellcheck-flymake heks-emacs-shfmt-backend))
+    (eval '(eglot--setq-saving flymake-diagnostic-functions
+                               '(eglot-flymake-backend))
+          t)
+    (should (equal flymake-diagnostic-functions '(eglot-flymake-backend)))
+    (setq-local eglot--managed-mode t)
+    (heks-emacs-flymake-keep-backends)
+    ;; The buffer is one Flymake is not on in, so being asked to check it --
+    ;; which is the other half of what the call above does -- does nothing.
+    (should (memq 'eglot-flymake-backend flymake-diagnostic-functions))
+    (should (memq 'python-flymake flymake-diagnostic-functions))
+    (should (memq 'sh-shellcheck-flymake flymake-diagnostic-functions))
+    (should (memq 'heks-emacs-shfmt-backend flymake-diagnostic-functions))))
+
+(ert-deftest heks-emacs-flymake/a-buffer-no-server-manages-keeps-what-it-has ()
+  (require 'eglot)
+  (with-temp-buffer
+    (setq-local flymake-diagnostic-functions '(python-flymake))
+    (heks-emacs-flymake-keep-backends)
+    (should (equal flymake-diagnostic-functions '(python-flymake)))))
+
+;;
+;; ====== What a Scheme definition looks like, and where it is ======
+;;
+
+(ert-deftest heks-emacs-scheme/a-definition-is-the-head-and-not-a-mention ()
+  "A name is defined by the head of a `define', not by being mentioned.
+
+The search itself cannot tell a definition from a use -- it looks for a
+name and a `define' on one line -- so what is checked here is what reads
+the hits back, which is what keeps a call of `greet' from being offered as
+its definition."
+  (dolist (case '(("(define (greet name) name)" "greet" t)
+                  ("(define-public (pub-fn x) x)" "pub-fn" t)
+                  ("(define pub-var 1)" "pub-var" t)
+                  ("(define* (f x) x)" "f" t)
+                  ("(define-syntax-rule (when-let* ((x y)) x)" "when-let*" t)
+                  ("(define-record-type <ping> (fields (name ping-name)))" "<ping>" t)
+                  ("(define (publish! x) x)" "publish!" t)
+                  ("(define (empty? x) x)" "empty?" t)
+                  ("  (define-public (scm->string x) x)" "scm->string" t)
+                  ("(define-module (verify demo))" "demo" nil)
+                  ("(greet world)" "greet" nil)
+                  ("(define pub-var-2 1)" "pub-var" nil)
+                  ("(define (greet name) (string-append name))" "string-append" nil)))
+    (should (equal (and (heks-emacs-scheme-definition-line-p (nth 0 case) (nth 1 case)) t)
+                   (nth 2 case)))))
+
+(ert-deftest heks-emacs-scheme/the-column-is-where-the-name-is-defined ()
+  "The jump lands on the name being defined, not on the name first seen."
+  (should (equal (heks-emacs-scheme-definition-column "(define (greet name) name)" "greet") 9))
+  (should (equal (heks-emacs-scheme-definition-column "(define-public pub-var 1)" "pub-var") 15)))
+
+(ert-deftest heks-emacs-scheme/the-files-answer-with-the-definitions ()
+  "A definition is found in another file, and a use is not a definition.
+
+The files are what answer when no REPL can: the buffer is reading a file
+that both calls the name and defines it, the definition that is meant is
+in another file of the project, and a file that is not Scheme defining the
+name is not searched at all."
+  (skip-unless (or (executable-find "rg") (executable-find "grep")))
+  ;; A project of its own, so that what is found is what was written here
+  ;; and not whatever else the directory happens to hold.
+  (let* ((root (file-name-as-directory (heks-ert--temp-directory)))
+         (main (expand-file-name "main.scm" root))
+         (utility (expand-file-name "utility.scm" root))
+         (notes (expand-file-name "notes.txt" root)))
+    (unwind-protect
+        (progn
+          (write-region (concat "(define (main)\n"
+                                "  (greet name))\n"
+                                "(define-public pub-var 1)\n"
+                                "(define (twice x) (+ x x))\n")
+                        nil main nil 'silent)
+          (write-region (concat "(define (greet name)\n"
+                                "  name)\n"
+                                "(define (twice x) (* 2 x))\n")
+                        nil utility nil 'silent)
+          ;; Not Scheme, so not searched, though it defines the name too.
+          (write-region "(define (greet name) name)\n" nil notes nil 'silent)
+          (heks-ert--in root
+            (with-current-buffer (find-file-noselect main)
+              (unwind-protect
+                  (progn
+                    (should (equal (heks-ert--xref-locations
+                                    (heks-emacs-scheme-definitions-in-files "greet"))
+                                   '(("utility.scm" 1))))
+                    (should (equal (heks-ert--xref-locations
+                                    (heks-emacs-scheme-definitions-in-files "pub-var"))
+                                   '(("main.scm" 3))))
+                    ;; Defined in both: the file being read comes first.
+                    (should (equal (heks-ert--xref-locations
+                                    (heks-emacs-scheme-definitions-in-files "twice"))
+                                   '(("main.scm" 4) ("utility.scm" 3))))
+                    (should-not (heks-emacs-scheme-definitions-in-files "no-such-name")))
+                (set-buffer-modified-p nil)
+                (kill-buffer))))
+      (delete-directory root t)))))
+
+(ert-deftest heks-emacs-scheme/the-backend-answers-for-a-scheme-buffer-alone ()
+  "The backend of this module is the one a Scheme buffer is jumped with.
+
+`xref' takes the first function of `xref-backend-functions' that answers,
+so what makes `M-.' a Scheme jump is this function saying
+`heks-emacs-scheme' in a Scheme buffer -- and saying nothing in a buffer
+that is not one, where the backends the rest of the configuration has
+should still answer."
+  (with-temp-buffer
+    (scheme-mode)
+    (should (eq (heks-emacs-scheme-xref-backend) 'heks-emacs-scheme)))
+  (with-temp-buffer
+    (emacs-lisp-mode)
+    (should-not (heks-emacs-scheme-xref-backend))))
+
+(ert-deftest heks-emacs-scheme/the-repl-is-asked-before-the-files ()
+  "A jump asks the REPL, then the files, then the wider search.
+
+What the REPL says is the answer when it has one; where it has none -- or
+where what it says is a module rather than a definition in a file -- the
+files are asked, and where the files have nothing the search the rest of
+the configuration gives a buffer is asked last (see `dev.el').  Each of
+the four is stubbed, so what is checked is the order they are asked in
+rather than what they answer with."
+  (let ((asked '()))
+    (cl-letf (((symbol-function 'heks-emacs-scheme--repl-definition)
+               (lambda (_) (push 'repl asked) nil))
+              ((symbol-function 'heks-emacs-scheme--repl-module)
+               (lambda (_) (push 'module asked) nil))
+              ((symbol-function 'heks-emacs-scheme-definitions-in-files)
+               (lambda (_) (push 'files asked) nil))
+              ((symbol-function 'heks-emacs-scheme--dumb-jump)
+               (lambda (_) (push 'dumb-jump asked) 'the-wider-answer)))
+      (should (eq (xref-backend-definitions 'heks-emacs-scheme "greet")
+                  'the-wider-answer)))
+    (should (equal (nreverse asked) '(repl module files dumb-jump)))))
+
+(ert-deftest heks-emacs-scheme/the-repl-says-a-line-and-the-column-is-read ()
+  "What the REPL says is turned into a jump onto the name itself.
+
+Guile's location of a procedure is a file and a line and no column at
+all, and a line is where Geiser's own jump goes; here the head that
+defines the name is looked for in the file the REPL named, and the point
+lands on the name rather than on the parenthesis in front of it.  A file
+that is not on this machine is not an answer to jump to."
+  (let* ((root (file-name-as-directory (heks-ert--temp-directory)))
+         (file (expand-file-name "utility.scm" root)))
+    (unwind-protect
+        (progn
+          (write-region (concat ";; The name is defined twice, on purpose,\n"
+                                "(define (greet name)\n"
+                                "  name)\n"
+                                "(define (other) (greet \"x\"))\n"
+                                "(define (greet name)\n"
+                                "  name)\n")
+                        nil file nil 'silent)
+          (cl-letf (((symbol-function 'geiser-edit--location-file)
+                     (lambda (location) (cdr (assoc "file" location))))
+                    ((symbol-function 'geiser-edit--location-line)
+                     (lambda (location) (cdr (assoc "line" location))))
+                    ((symbol-function 'geiser-edit--location-name)
+                     (lambda (_) nil))
+                    ;; Geiser's own two patterns, as they are: the head of a
+                    ;; `define' of the name, and the head of the two forms
+                    ;; whose names arrive as a list.
+                    ((symbol-function 'geiser-edit--def-re)
+                     (lambda (name)
+                       (concat "[(]define[^[:space:]()]*[[:space:]]+[(]?"
+                               (regexp-quote name))))
+                    ((symbol-function 'geiser-edit--def-re*)
+                     (lambda (name)
+                       (concat "[(]define-syntaxes[[:space:]]+[(]"
+                               (regexp-quote name)))))
+            (let* ((xref (heks-emacs-scheme--location-xref
+                          `(("file" . ,file) ("line" . 2)) "greet"))
+                   (place (xref-item-location xref)))
+              (should (equal (file-name-nondirectory (xref-file-location-file place))
+                             "utility.scm"))
+              (should (equal (xref-file-location-line place) 2))
+              (should (equal (xref-file-location-column place) 9))
+              (should (equal (xref-item-summary xref) "(define (greet name)")))
+              ;; The line the REPL named is looked at first, so the second
+              ;; definition is the one that arrives when it named that one.
+              (should (equal (xref-file-location-line
+                              (xref-item-location
+                               (heks-emacs-scheme--location-xref
+                                `(("file" . ,file) ("line" . 5)) "greet")))
+                             5))
+              (should-not (heks-emacs-scheme--location-xref
+                           '(("file" . "/no/such/file.scm") ("line" . 1))
+                           "greet")))))
+      (delete-directory root t)))
+
+(ert-deftest heks-emacs-scheme/a-mention-is-a-name-of-its-own ()
+  "A name is mentioned where it is written as a name.
+
+`greet' is not mentioned by `greeting' or by `greet-and-run', and it is
+mentioned by `greet?' -- which a word boundary cannot say, because `1+',
+`string-append' and `set-x!' are names that a word boundary falls in the
+middle of."
+  (should (heks-emacs-scheme-mention-line-p "(greet name)" "greet"))
+  (should (heks-emacs-scheme-mention-line-p "  greet" "greet"))
+  (should-not (heks-emacs-scheme-mention-line-p "(greeting)" "greet"))
+  (should-not (heks-emacs-scheme-mention-line-p "(greet-and-run)" "greet"))
+  (should (heks-emacs-scheme-mention-line-p "(greet? x)" "greet?"))
+  (should-not (heks-emacs-scheme-mention-line-p "(greet? x)" "greet"))
+  (should-not (heks-emacs-scheme-mention-line-p "(string-append a b)" "append"))
+  (should (heks-emacs-scheme-mention-line-p "(set-x! v)" "set-x!"))
+  (should-not (heks-emacs-scheme-mention-line-p "1+" "1"))
+  (should (heks-emacs-scheme-mention-line-p "(let ((a 1+)) 1+)" "1+")))
+
+(ert-deftest heks-emacs-scheme/the-names-the-files-define-are-what-is-asked-for ()
+  "What `M-.' can be asked for is what the project's files define.
+
+A `define' of any kind is one name, a name defined twice in two files is
+one name, and a file that is not Scheme contributes nothing -- the same
+files the definitions are searched in, asked the one question that has no
+name in it to search for."
+  (skip-unless (or (executable-find "rg") (executable-find "grep")))
+  (let* ((root (file-name-as-directory (heks-ert--temp-directory)))
+         (main (expand-file-name "main.scm" root))
+         (utility (expand-file-name "utility.scm" root))
+         (notes (expand-file-name "notes.txt" root)))
+    (unwind-protect
+        (progn
+          (write-region (concat "(define (main) (greet name))\n"
+                                "(define-public pub-var 1)\n")
+                        nil main nil 'silent)
+          (write-region (concat "(define (greet name) name)\n"
+                                "(define-syntax-rule (twice x) (* 2 x))\n")
+                        nil utility nil 'silent)
+          (write-region "(define (greet name) name)\n" nil notes nil 'silent)
+          (heks-ert--in root
+            (with-current-buffer (find-file-noselect main)
+              (unwind-protect
+                  (should (equal (heks-emacs-scheme-defined-names)
+                                 '("greet" "main" "pub-var" "twice")))
+                (set-buffer-modified-p nil)
+                (kill-buffer))))
+      (delete-directory root t)))))
+
+(ert-deftest heks-emacs-scheme/the-names-are-read-once-and-remembered ()
+  "The search behind the prompt is not made twice in the same minute.
+
+The names a project defines are what `M-.' completes from, so they are
+asked for every time a jump is asked for, and reading them is a search of
+every Scheme file of the project.  The answer is remembered by the
+directory it was read from and by its age: the second question is answered
+from it, a question about another directory is not, and neither is one
+asked after the lifetime has passed."
+  (let ((asked 0)
+        (heks-emacs-scheme--defined-names-cache nil))
+    (cl-letf (((symbol-function 'heks-emacs-scheme--search-files)
+               (lambda (&rest _) (setq asked (1+ asked)) nil))
+              ((symbol-function 'heks-emacs-scheme-load-path)
+               (lambda () temporary-file-directory)))
+      (should-not (heks-emacs-scheme-defined-names))
+      (should-not (heks-emacs-scheme-defined-names))
+      (should (equal asked 1))
+      ;; Another project, read from another directory, is a new question.
+      (let ((temporary-file-directory (file-name-as-directory
+                                       (heks-ert--temp-directory))))
+        (unwind-protect
+            (progn
+              (heks-emacs-scheme-defined-names)
+              (should (equal asked 2)))
+          (delete-directory temporary-file-directory t)))
+      ;; And so is the same project once the answer has gone stale.
+      (let ((heks-emacs-scheme-defined-names-lifetime -1))
+        (heks-emacs-scheme-defined-names)
+        (should (equal asked 3))))))
+
+(ert-deftest heks-emacs-scheme/the-places-a-name-is-used-are-found-in-the-files ()
+  "`M-?' is answered by the files where the REPL has no callers.
+
+Every file that mentions the name is offered -- the call, the definition
+and the other call -- with the file being read first, and a name nothing
+mentions has no places."
+  (skip-unless (or (executable-find "rg") (executable-find "grep")))
+  (let* ((root (file-name-as-directory (heks-ert--temp-directory)))
+         (main (expand-file-name "main.scm" root))
+         (utility (expand-file-name "utility.scm" root)))
+    (unwind-protect
+        (progn
+          (write-region (concat "(define (main)\n"
+                                "  (greet name))\n"
+                                "(define (greeting) (greet\"hi\"))\n")
+                        nil main nil 'silent)
+          (write-region (concat "(define (greet name)\n"
+                                "  name)\n")
+                        nil utility nil 'silent)
+          (heks-ert--in root
+            (with-current-buffer (find-file-noselect main)
+              (unwind-protect
+                  (progn
+                    (should (equal (heks-ert--xref-locations
+                                    (heks-emacs-scheme-mentions-in-files "greet"))
+                                   '(("main.scm" 2) ("main.scm" 3) ("utility.scm" 1))))
+                    (should-not (heks-emacs-scheme-mentions-in-files "no-such-name")))
+                (set-buffer-modified-p nil)
+                (kill-buffer))))
+      (delete-directory root t)))))
+
+(ert-deftest heks-emacs-scheme/no-repl-is-a-question-the-repl-answers-with-nil ()
+  "A buffer with no REPL says so rather than starting one."
+  (cl-letf (((symbol-function 'heks-emacs-scheme-repl-connected-p) (lambda () nil))
+            ((symbol-function 'geiser-edit-symbol-location)
+             (lambda (_) (error "The REPL was asked although there is none")))
+            ((symbol-function 'geiser-eval--send/result)
+             (lambda (_) (error "The REPL was asked although there is none"))))
+    (should-not (heks-emacs-scheme--repl-definition "greet"))
+    (should-not (heks-emacs-scheme--repl-callers "greet"))
+    (should-not (heks-emacs-scheme-repl-connected-p))))
+
+;;
 ;; ====== Dired ======
 ;;
 
@@ -908,6 +1285,29 @@ ever, since the next run would find it missing and try again from scratch."
                                     replacements))))
     (should replacements)
     (should (equal described "the test at point, through the language server"))))
+
+(ert-deftest heks-emacs-which-key/no-sentence-of-the-scheme-is-cut ()
+  "The length which-key is told fits every description the scheme gives a key.
+
+`which-key' cuts a description longer than that with `which-key-ellipsis',
+and a sentence with its end cut off is not a sentence: at the length this
+replaced, `+go to: a definition, an implementation, a location' was shown
+as `+go to: a definition, an implementation, a ..'.  Every description is
+tried with the `+' of `which-key-prefix-prefix' in front of it, because
+that is the character which-key puts in front of a key that opens a keymap
+and counts when it cuts.  The cutting is `which-key's own, so the setting
+is held to which-key's behaviour rather than to a copy of it, and the
+description of `C-c' itself is checked to be among the ones measured -- it
+was not when the length was a round number, and it is the longest of them."
+  (skip-unless (and (featurep 'which-key) (fboundp 'which-key--truncate-description)))
+  (let ((which-key-max-description-length heks-emacs-which-key-description-length)
+        (cut '()))
+    (dolist (text (heks-emacs-key-description-texts))
+      (let ((cell (concat which-key-prefix-prefix text)))
+        (unless (equal (which-key--truncate-description cell 80) cell)
+          (push text cut))))
+    (should (equal cut '())))
+  (should (member heks-emacs-key-root-description (heks-emacs-key-description-texts))))
 
 ;;
 ;; Run.

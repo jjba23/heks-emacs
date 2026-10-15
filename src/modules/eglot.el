@@ -37,7 +37,14 @@
 (use-package eglot
   :ensure nil
   :hook ((scala-ts-mode . heks/eglot-ensure)
-         (sh-mode . heks/eglot-ensure)
+         ;; Both of the modes Emacs opens a shell script in: `bash-ts-mode'
+         ;; is what a `.sh' file gets when the bash grammar is built, and
+         ;; `sh-mode' is what it falls back to (and what a `.ksh' or `.zsh'
+         ;; file always gets).  The server completes and explains the
+         ;; script; it does not check it -- see the `:bashIde' section of
+         ;; `eglot-workspace-configuration' below -- because `shellcheck'
+         ;; is run for every shell buffer by `sh-shellcheck-flymake'.
+         ((sh-mode bash-ts-mode) . heks/eglot-ensure)
          (haskell-mode . heks/eglot-ensure)
          (markdown-mode . heks/eglot-ensure)
          (markdown-ts-mode . heks/eglot-ensure)
@@ -198,7 +205,28 @@
                                     https://gitlab.com/gitlab-org/gitlab/-/raw/master/app/assets/javascripts/editor/schema/ci.json ["**/.gitlab-ci.yml" "**/.gitlab-ci.yaml"]
                                     https://json.schemastore.org/woodpecker.json ["**/.woodpecker/*.yml" "**/.woodpecker/*.yaml"])
                           :schemaStore (:enable t))
-                  :nil (:formatting (:command ["nixfmt"]))))
+                  :nil (:formatting (:command ["nixfmt"]))
+
+                  ;; --- Shell: what the server is for ---
+                  ;; bash-language-server is kept for what it knows about a
+                  ;; script that is not a diagnostic: completion of the
+                  ;; variables, functions and options it parses, hover, the
+                  ;; symbols of a file, going to a definition, its
+                  ;; references and a rename.  Its own two tools are turned
+                  ;; off in it, because the branch that runs them is not the
+                  ;; only one: it lints with shellcheck, and Emacs's own
+                  ;; `sh-shellcheck-flymake' already checks every shell
+                  ;; buffer (see `shell.el'); it formats with shfmt, and
+                  ;; this configuration already formats one -- with the
+                  ;; arguments it was given, from the drift it reports to
+                  ;; `C-c i f'.  An empty `shellcheckPath' and an empty
+                  ;; `shfmt.path' are the server's own way of saying "do not
+                  ;; lint" and "do not format", and leaving either on would
+                  ;; report every problem on a line twice, or quietly
+                  ;; reformat a script on save in a style the formatter that
+                  ;; is configured here would then report as drift.
+                  :bashIde (:shellcheckPath ""
+                            :shfmt (:path ""))))
 
   ;; --- YAML: the schema a file names for itself ---
   ;; What `yaml.schemas' above cannot cover is named by the file itself,
@@ -340,14 +368,16 @@ there."
 
   (advice-add 'eglot-client-capabilities :around #'my/eglot-disable-metals-semantic-refresh)
 
-  (setq python-flymake-command '("~/.local/bin/flake8" "-") )
-  (add-hook 'eglot-managed-mode-hook
-            (lambda ()
-              (when (or (derived-mode-p 'python-mode)
-                        (derived-mode-p 'python-ts-mode))
-                (add-hook 'flymake-diagnostic-functions
-                          'python-flymake nil t)
-                (flymake-start)))))
+  ;; No language is named here for the Flymake backends a server would take
+  ;; with it, which is what used to be written for Python alone.  Eglot
+  ;; replaces `flymake-diagnostic-functions' with a list of its own backend
+  ;; alone while it manages a buffer, and what the buffer had is put back for
+  ;; every language at once by `heks-emacs-flymake-keep-backends' (see
+  ;; `dev.el') -- Python's flake8 among them, registered by `python-base-mode'
+  ;; itself, and the command it runs set in that module with it.  A server is
+  ;; then language intelligence and never the reason a buffer stops being
+  ;; checked.
+  )
 
 (use-package eglot-java
   :ensure t

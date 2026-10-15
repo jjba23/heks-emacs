@@ -252,7 +252,10 @@ configuration."
 (dolist (name '(heks-emacs-scheme-repl
                 heks-emacs-scheme-eval-definition
                 heks-emacs-scheme-debugger
-                heks-emacs-scheme-find-definition
+                heks-emacs-scheme-xref-backend
+                heks-emacs-scheme-definitions-in-files
+                heks-emacs-scheme-mentions-in-files
+                heks-emacs-scheme-defined-names
                 heks-emacs-scheme-callers
                 heks-emacs-scheme-test
                 heks-emacs-scheme-format-buffer
@@ -386,6 +389,361 @@ configuration."
                                         flymake-diagnostic-functions))
                              t))
     (heks-verify--check "a Guix REPL is not offered" (heks-emacs-scheme-guile-binary) nil)))
+
+;;;
+;;; Finding a definition
+;;;
+
+;; A project of its own: a definition in one file, a call of it in the
+;; other, and no REPL anywhere.  This is the case that used to be the error
+;; that said to try M-x geiser.
+(defconst heks-verify--scheme-definition-dir
+  (file-name-as-directory
+   (expand-file-name "heks-verify-scheme" temporary-file-directory)))
+
+(heks-verify--section "a definition is found with no REPL to ask")
+(let* ((root heks-verify--scheme-definition-dir)
+       (utility (expand-file-name "utility.scm" root))
+       (main (expand-file-name "main.scm" root)))
+  (unwind-protect
+      (progn
+        (make-directory root t)
+        (write-region (concat "(define (greet name)\n"
+                              "  name)\n"
+                              "(define-public pub-var 1)\n")
+                      nil utility nil 'silent)
+        (write-region (concat "(define (main)\n"
+                              "  (greet name))\n"
+                              "(define-public pub-var 2)\n")
+                      nil main nil 'silent)
+        (let ((buffer (find-file-noselect main)))
+          (unwind-protect
+              (with-current-buffer buffer
+                (setq-local default-directory root)
+                (heks-verify--check "the file is a Scheme buffer"
+                                    (and (derived-mode-p 'scheme-mode) t))
+                (heks-verify--check
+                 "the definition is found in the other file"
+                 (mapcar (lambda (item)
+                           (file-name-nondirectory
+                            (xref-file-location-file (xref-item-location item))))
+                         (heks-emacs-scheme-definitions-in-files "greet"))
+                 '("utility.scm"))
+                (heks-verify--check
+                 "defined in both files, and the one being read comes first"
+                 (mapcar (lambda (item)
+                           (let ((location (xref-item-location item)))
+                             (list (file-name-nondirectory
+                                    (xref-file-location-file location))
+                                   (xref-file-location-line location))))
+                         (heks-emacs-scheme-definitions-in-files "pub-var"))
+                 '(("main.scm" 3) ("utility.scm" 3)))
+                ;; The command is Emacs's own -- `xref-find-definitions',
+                ;; which is what `M-.' is everywhere -- and what answers it
+                ;; in this buffer is the backend the configuration installs.
+                ;; The prompt and the display are caught, because a batch
+                ;; Emacs has no minibuffer and the configuration shows a
+                ;; list of definitions in `consult-xref'.
+                (heks-verify--check "`M-.' is `xref-find-definitions' here"
+                                    (key-binding (kbd "M-.")) 'xref-find-definitions)
+                (heks-verify--check "and `C-c g g' is that same command"
+                                    (key-binding (kbd "C-c g g")) 'xref-find-definitions)
+                (heks-verify--check "the backend a Scheme buffer is jumped with"
+                                    (xref-find-backend) 'heks-emacs-scheme)
+                (goto-char (point-min))
+                (search-forward "(greet name)")
+                (goto-char (match-beginning 0))
+                (forward-char 1)
+                (let* ((found nil)
+                       (prompted nil)
+                       (references nil))
+                  (cl-letf (((symbol-function 'completing-read)
+                             (lambda (prompt collection &rest _)
+                               (setq prompted (list prompt
+                                                    (and (listp collection)
+                                                         (all-completions "" collection))))
+                               "")))
+                    (let ((xref-show-definitions-function
+                           (lambda (fetcher _alist)
+                             (setq found (funcall fetcher))
+                             (when found (xref-pop-to-location (car found) nil)))))
+                      (call-interactively #'xref-find-definitions))
+                    (let ((xref-show-xrefs-function
+                           (lambda (fetcher _alist)
+                             (setq references (funcall fetcher)))))
+                      (call-interactively #'xref-find-references)))
+                  (heks-verify--check "one definition is offered" (length found) 1)
+                  (heks-verify--check "the jump lands in the file that defines it"
+                                      (file-name-nondirectory (buffer-file-name))
+                                      "utility.scm")
+                  (heks-verify--check "and on the line of the definition"
+                                      (line-number-at-pos) 1)
+                  (heks-verify--check "and on the name itself"
+                                      (thing-at-point 'symbol) "greet")
+                  (heks-verify--check "the names a jump can be asked for"
+                                      (nth 1 prompted) '("greet" "main" "pub-var"))
+                  ;; `M-?' is `xref-find-references', and with no REPL the
+                  ;; files say where a name is written -- the file being read
+                  ;; first, which after the jump is the one that defines it.
+                  (heks-verify--check
+                   "the definition and the call are the places greet is used"
+                   (mapcar (lambda (item)
+                             (let ((location (xref-item-location item)))
+                               (list (file-name-nondirectory
+                                      (xref-file-location-file location))
+                                     (xref-file-location-line location))))
+                           references)
+                   '(("utility.scm" 1) ("main.scm" 2)))
+                  (heks-verify--check "no REPL was started to answer"
+                                      (heks-emacs-scheme-repl-connected-p) nil)))
+            (set-buffer-modified-p nil)
+            (kill-buffer buffer))))
+    (ignore-errors (delete-directory root t))))
+
+;;;
+;;; Shell: the checker and the formatter
+;;;
+
+(heks-verify--section "the shell tools are wired up")
+(dolist (name '(heks-emacs-shfmt-backend
+                heks-emacs-shfmt-command
+                heks-emacs-shell-format-buffer))
+  (heks-verify--check (format "%s is defined" name) (fboundp name)))
+(heks-verify--check "sh-mode runs the shell setup"
+                    (and (memq #'heks-emacs-shell-setup-flymake sh-mode-hook) t))
+(heks-verify--check "and so does bash-ts-mode, the mode a `.sh' file opens in"
+                    (and (memq #'heks-emacs-shell-setup-flymake bash-ts-mode-hook) t))
+
+;; A real shell buffer is what the checks below run in, made the way a file
+;; makes one, so that the mode hook of the configuration runs on it.
+(defmacro heks-verify--with-shell-buffer (text &rest body)
+  "Run BODY in a temporary shell buffer holding TEXT.
+
+The buffer is given a `.sh' file name and put through a real shell major
+mode, so what BODY sees is what a `.sh' file gets."
+  (declare (indent 1))
+  `(with-temp-buffer
+     (insert ,text)
+     (setq-local buffer-file-name
+                 (expand-file-name "heks-verify.sh" temporary-file-directory))
+     (sh-mode)
+     (goto-char (point-min))
+     ,@body))
+
+(heks-verify--with-shell-buffer "#!/bin/bash\necho \"$x\"\n"
+  (heks-verify--check "Flymake is on in a shell buffer" flymake-mode)
+  ;; Shellcheck is Emacs's own backend, registered by the mode itself, and
+  ;; what this configuration adds to it is the flag that makes a script's
+  ;; `source'd files count.
+  (heks-verify--check "Emacs's shellcheck backend is registered"
+                      (and (memq 'sh-shellcheck-flymake flymake-diagnostic-functions) t))
+  (heks-verify--check "and told to follow the sources a script names"
+                      (and (member "--external-sources" sh-shellcheck-arguments) t))
+  (heks-verify--check "shfmt reports the drift of the buffer"
+                      (and (memq 'heks-emacs-shfmt-backend
+                                 flymake-diagnostic-functions)
+                           t))
+  ;; The library registers a shellcheck backend of its own; Emacs's is the
+  ;; one authority, so the library's must not be there as well.
+  (heks-verify--check "and the library's shellcheck is not there"
+                      (not (memq 'flymake-collection-shellcheck
+                                 flymake-diagnostic-functions))))
+
+;; Flymake's backends are asynchronous, so a check that wants to look at
+;; what one reports has to wait for it rather than read what is there.
+(defun heks-verify--run-backend (backend)
+  "Run the Flymake BACKEND in this buffer and return (ANSWERED . DIAGNOSTICS)."
+  (let (reported done)
+    (funcall backend (lambda (diagnostics) (setq reported diagnostics done t)))
+    (let ((tries 0))
+      (while (and (not done) (< tries 60))
+        (accept-process-output nil 0.25)
+        (setq tries (1+ tries))))
+    (cons done reported)))
+
+(defun heks-verify--backend-messages (answer)
+  "Return the messages of the diagnostics an ANSWER from a backend holds."
+  (mapcar (lambda (diagnostic)
+            (format "%s" (flymake-diagnostic-text diagnostic '(message))))
+          (cdr answer)))
+
+(defun heks-verify--diagnostic-line (diagnostic)
+  "Return the line DIAGNOSTIC is on.
+
+A backend may give a position as the `(LINE . COLUMN)' pair Emacs's own
+shellcheck backend does rather than as a buffer position, and the line is
+the first of the two either way."
+  (let ((beg (flymake-diagnostic-beg diagnostic)))
+    (if (consp beg) (car beg) (line-number-at-pos beg))))
+
+;; The checker itself, run the way Flymake runs it: Emacs's own backend,
+;; with the flags this configuration gives it, has to report the unquoted
+;; variable on the line it is on.  Where shellcheck is not installed there
+;; is nothing to report, so what is checked is that the flag is set and the
+;; backend is registered for when it is.
+(heks-verify--section "shellcheck really checks a script")
+(heks-verify--with-shell-buffer "#!/bin/bash\necho $foo\n"
+  (if (executable-find sh-shellcheck-program)
+      (let* ((answer (heks-verify--run-backend #'sh-shellcheck-flymake))
+             (diagnostics (cdr answer)))
+        (heks-verify--check "shellcheck answers" (car answer))
+        (heks-verify--check
+         "and reports the unquoted variable as a diagnostic on its own line"
+         (and (seq-find (lambda (diagnostic)
+                          (and (= 2 (heks-verify--diagnostic-line diagnostic))
+                               (string-match-p "SC2086"
+                                               (format "%s" (flymake-diagnostic-text
+                                                             diagnostic '(message))))))
+                        diagnostics)
+              t)))
+    (heks-verify--check "shellcheck is not installed, so there is nothing to report"
+                        (executable-find sh-shellcheck-program) nil)))
+
+;; And what the flag it was given is worth: the variables a *sourced* file
+;; sets are known, so a script that sources its own library is not covered
+;; in warnings about them being unassigned.
+(heks-verify--section "the sources a script names are followed")
+(if (executable-find sh-shellcheck-program)
+    (let* ((dir (file-name-as-directory (make-temp-file "heks-verify-source" t)))
+           (file (expand-file-name "script.sh" dir)))
+      (unwind-protect
+          (progn
+            (write-region "a=1\n" nil (expand-file-name "lib.sh" dir) nil 'silent)
+            (write-region "#!/bin/bash\nsource ./lib.sh\necho \"$a\"\n" nil file nil 'silent)
+            (with-current-buffer (find-file-noselect file)
+              (unwind-protect
+                  (let* ((answer (heks-verify--run-backend #'sh-shellcheck-flymake))
+                         (messages (heks-verify--backend-messages answer)))
+                    (heks-verify--check "shellcheck answers" (car answer))
+                    (heks-verify--check
+                     "a variable set by a sourced file is not called unassigned"
+                     (not (seq-find (lambda (message)
+                                      (string-match-p "SC2154" message))
+                                    messages))))
+                (set-buffer-modified-p nil)
+                (kill-buffer))))
+        (delete-directory dir t)))
+  (heks-verify--check "shellcheck is not installed, so nothing is followed" t))
+
+(heks-verify--section "shfmt really formats a script")
+(if (heks-emacs-shfmt-available-p)
+    (let ((file (make-temp-file "heks-verify-shfmt" nil ".sh")))
+      (unwind-protect
+          (progn
+            ;; A block whose body is not indented, which is what `shfmt'
+            ;; has an opinion about: the body comes back indented.
+            (write-region "#!/bin/bash\nif [ \"$x\" = 1 ]; then\necho hi\nfi\n"
+                          nil file nil 'silent)
+            (let ((command (heks-emacs-shfmt-command file)))
+              (apply #'call-process (car command) nil nil nil (cdr command)))
+            (heks-verify--check
+             "the file is rewritten the way shfmt writes shell"
+             (with-temp-buffer
+               (insert-file-contents file)
+               (and (string-match-p "^[ \t]+echo hi$" (buffer-string)) t))))
+        (delete-file file)))
+  (heks-verify--check "shfmt is not installed, so its backend bows out"
+                      (heks-emacs-shfmt-applies-p) nil))
+
+;; And the one format key reaches it, which is the part a user presses.
+(heks-verify--section "the format key reaches shfmt in a shell buffer")
+(if (heks-emacs-shfmt-available-p)
+    (heks-verify--with-shell-buffer "echo hi\n"
+      (heks-verify--check "a shell buffer is claimed by the shell formatter"
+                          (eq (cdr (seq-find (lambda (entry) (funcall (car entry)))
+                                             heks-emacs-format-dispatch))
+                              'heks-emacs-shell-format-buffer)))
+  (heks-verify--check "without shfmt the key falls through to another formatter"
+                      (heks-emacs-shell-format-applies-p) nil))
+
+;;;
+;;; The shell language server
+;;;
+
+;; The server is kept for what it knows that is not a diagnostic --
+;; completion, hover, the symbols of a file, a definition and its
+;; references, a rename -- and its own shellcheck and shfmt are turned off
+;; in it, because the checking and the formatting of a shell script are
+;; already done for every one of them (Emacs's `sh-shellcheck-flymake' and
+;; the shfmt of `shell.el').
+(heks-verify--section "a shell script gets a language server, not a second toolchain")
+;; Eglot is part of Emacs, and loading it here is what makes the checks
+;; below read the configuration it is given rather than a symbol on a hook.
+(require 'eglot)
+(heks-verify--check "sh-mode asks for a language server"
+                    (and (memq 'heks/eglot-ensure sh-mode-hook) t))
+(heks-verify--check "and so does bash-ts-mode, the mode a `.sh' file opens in"
+                    (and (memq 'heks/eglot-ensure bash-ts-mode-hook) t))
+(heks-verify--check "Emacs knows which server to start for one"
+                    (equal (cdr (seq-find
+                                 (lambda (entry)
+                                   (let ((modes (if (listp (car entry))
+                                                    (car entry)
+                                                  (list (car entry)))))
+                                     (memq 'bash-ts-mode modes)))
+                                 eglot-server-programs))
+                           '("bash-language-server" "start")))
+(let ((shell (plist-get (default-value 'eglot-workspace-configuration) :bashIde)))
+  (heks-verify--check "the server is told not to run shellcheck"
+                      (plist-get shell :shellcheckPath) "")
+  (heks-verify--check "and not to format either, which shfmt does here"
+                      (plist-get (plist-get shell :shfmt) :path) ""))
+
+;; And the other half of that, which is what would leave a buffer checked by
+;; nothing: Eglot makes its own backend the only Flymake one for as long as
+;; it manages a buffer -- it saves `flymake-diagnostic-functions' and
+;; replaces it -- so what the buffer already had is put back by one function,
+;; for every language, in `dev.el'.  The swap below is the one Eglot makes,
+;; made with the macro its own mode is written with, so what is being read is
+;; Eglot's behaviour and not a list this file made up.
+(heks-verify--section "a language server does not take the checkers away")
+(heks-verify--check "one function answers for every language at once"
+                    (and (memq 'heks-emacs-flymake-keep-backends
+                               eglot-managed-mode-hook)
+                         t))
+(heks-verify--with-shell-buffer "#!/bin/bash\necho $foo\n"
+  (setq-local eglot--managed-mode t)
+  (eval '(eglot--setq-saving flymake-diagnostic-functions
+                             '(eglot-flymake-backend))
+        t)
+  (heks-verify--check "a managed shell buffer is checked by the server alone"
+                      flymake-diagnostic-functions '(eglot-flymake-backend))
+  (let ((asked nil))
+    (cl-letf (((symbol-function 'flymake-start)
+               (lambda (&rest _) (setq asked t))))
+      (heks-emacs-flymake-keep-backends))
+    (heks-verify--check "Flymake is asked to check it again" asked))
+  (heks-verify--check "the server's own backend stays where it is"
+                      (and (memq 'eglot-flymake-backend flymake-diagnostic-functions) t))
+  (heks-verify--check "and shellcheck is put back beside it"
+                      (and (memq 'sh-shellcheck-flymake flymake-diagnostic-functions) t))
+  (heks-verify--check "and so is the drift shfmt reports"
+                      (and (memq 'heks-emacs-shfmt-backend flymake-diagnostic-functions) t)))
+
+;; Nor is it a shell function.  A Python buffer is checked by whatever
+;; registers its checkers -- `python-base-mode', the library's configuration
+;; above -- and the whole of that set comes back, with no line of the
+;; configuration about Python's server or Python's checkers.
+(require 'python)
+;; The configuration's own `python-mode-hook' entries are not what is being
+;; read here, and one of them would start a server.
+(let ((python-mode-hook nil))
+  (with-temp-buffer
+    (python-mode)
+    (let ((before flymake-diagnostic-functions))
+      (heks-verify--check "a Python buffer is checked before any server is"
+                          (and before t))
+      (setq-local eglot--managed-mode t)
+      (eval '(eglot--setq-saving flymake-diagnostic-functions
+                                 '(eglot-flymake-backend))
+            t)
+      (cl-letf (((symbol-function 'flymake-start) (lambda (&rest _) nil)))
+        (heks-emacs-flymake-keep-backends))
+      (heks-verify--check "and every one of its checkers survives a server"
+                          (seq-difference before flymake-diagnostic-functions) nil)
+      (heks-verify--check "with only the server's own backend added"
+                          (- (length flymake-diagnostic-functions) (length before))
+                          1))))
 
 ;;;
 ;;; The interface
@@ -736,6 +1094,70 @@ paths:
                                                  (flymake-diagnostic-beg diagnostic)))
                                           diagnostics)
                              t))))
+
+;;;
+;;; What which-key shows
+;;;
+
+(heks-verify--section "which-key shows a whole sentence, and how many keys")
+
+(heks-verify--check "which-key is loaded" (and (featurep 'which-key) t))
+(heks-verify--check "the menu is a window, not the echo area"
+                    which-key-popup-type 'side-window)
+(heks-verify--check "it opens at the bottom"
+                    which-key-side-window-location 'bottom)
+(heks-verify--check "it may take two fifths of the frame"
+                    which-key-side-window-max-height 0.4)
+(heks-verify--check "the mode line counts the prefix's keys"
+                    which-key-show-remaining-keys t)
+(heks-verify--check "the windows that were there come back"
+                    which-key-preserve-window-configuration t)
+(heks-verify--check "and the length it may cut to is the longest sentence"
+                    which-key-max-description-length
+                    heks-emacs-which-key-description-length)
+
+;; Cutting is which-key's own function, given the same length, and the `+'
+;; which-key puts in front of a key that opens a keymap is part of what it
+;; cuts -- which is why every description is tried with one.
+(let ((cut '()))
+  (dolist (text (heks-emacs-key-description-texts))
+    (let ((cell (concat which-key-prefix-prefix text)))
+      (unless (equal (which-key--truncate-description cell 80) cell)
+        (push text cut))))
+  (heks-verify--check "no description the scheme has arrives cut" cut nil))
+
+;; And the real display, of the real `C-c': the idle timer's own function is
+;; called with the prefix key the timer would have read.
+(when (fboundp 'which-key--update)
+  (let ((which-key-this-command-keys-function (lambda () (kbd "C-c")))
+        (this-command nil)
+        (echoed nil))
+    (cl-letf (((symbol-function 'message)
+               (lambda (format-string &rest arguments)
+                 (setq echoed (apply #'format format-string arguments))
+                 nil)))
+      (which-key--update))
+    (let ((window (and (buffer-live-p which-key--buffer)
+                       (get-buffer-window which-key--buffer)))
+          (shown (or (and (buffer-live-p which-key--buffer)
+                          (with-current-buffer which-key--buffer
+                            (buffer-string)))
+                     echoed)))
+      (heks-verify--check "the keys are shown in a window" (and window t))
+      (heks-verify--check "on the bottom side of the frame"
+                          (window-parameter window 'window-side) 'bottom)
+      (heks-verify--check
+       "the mode line says how many of the prefix's keys are in it"
+       (and (string-match-p "[0-9]+/[0-9]+ keys"
+                            (format "%s" (cdr (assq 'which-key-mode minor-mode-alist))))
+            t))
+      (heks-verify--check
+       "and nothing it shows is a sentence with its end cut off"
+       (seq-find (lambda (line)
+                   (string-match-p (regexp-quote which-key-ellipsis) line))
+                 (split-string (or shown "") "\n"))
+       nil))
+    (which-key--hide-popup)))
 
 ;;;
 ;;; The verdict

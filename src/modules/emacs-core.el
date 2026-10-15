@@ -448,6 +448,56 @@ letter means everywhere."
         (and letter (cdr (assoc letter heks-emacs-key-actions #'equal)))
         (and topic (cdr (assoc topic heks-emacs-key-topics #'equal))))))
 
+(defconst heks-emacs-key-root-description
+  "this configuration: a letter for the topic, then one for the action"
+  "What `C-c' itself says, above the topics of the scheme.
+
+Every other description is a row of a table -- what a key does in its own
+words, or what a letter means under a topic -- and this is the one the
+scheme has for the root of it, written next to the tables rather than
+inside `heks-emacs-which-key-setup' so that the length which-key is told
+(see `heks-emacs-which-key-description-length') measures it too: it is the
+longest sentence of them all, and it was the one that arrived cut.")
+
+(defun heks-emacs-key-description-texts ()
+  "Return every description the scheme has, in one list.
+
+The four tables are read the way `heks-emacs-key-description' reads them:
+what a topic is for, what an action letter means under a topic that keys
+something of its own, what an action letter means everywhere, and what each
+key does in its own words -- and `heks-emacs-key-root-description', which
+is what the tables hang under rather than a row of one."
+  (let ((texts (list heks-emacs-key-root-description)))
+    (dolist (table (list heks-emacs-key-topics heks-emacs-key-actions
+                         heks-emacs-key-descriptions))
+      (dolist (entry table) (push (cdr entry) texts)))
+    (dolist (table (list heks-emacs-key-letters heks-emacs-key-major-mode-descriptions))
+      (dolist (entry table)
+        (dolist (inner (cdr entry)) (push (cdr inner) texts))))
+    (nreverse texts)))
+
+(defconst heks-emacs-which-key-description-length
+  (1+ (apply #'max (mapcar #'length (heks-emacs-key-description-texts))))
+  "The length `which-key' is told the scheme's descriptions have.
+
+`which-key' cuts a description longer than it is allowed to be, with
+`which-key-ellipsis' where the end of it was, and what this scheme gives a
+key is a sentence -- `the buffer, formatted by whoever knows how'; `go to:
+a definition, an implementation, a location'.  A sentence with its end
+removed is not a sentence, and which-key cuts the cell it shows rather
+than the description in it: a key that is a prefix is shown with the `+'
+of `which-key-prefix-prefix' in front of it, so that character is counted
+here too.  The length of the longest sentence is what is measured rather
+than a round number, and the longest of them all is the one the scheme has
+for `C-c' itself -- see `heks-emacs-key-root-description', the row that
+was missing from this count when the round number was written.
+
+The setting is the one in the `which-key' setup below, and
+`test/heks-emacs-verify.el' checks it there, in an Emacs that has loaded
+this configuration; `test/heks-emacs-ert.el' checks the rule instead, with
+`which-key's own truncation: no description the scheme has is touched at
+this length.")
+
 (defun heks-emacs-which-key-setup ()
   "Teach `which-key' what the key scheme means.
 
@@ -460,8 +510,7 @@ declared first.
 
 The four keys that mean something else inside a Java buffer are declared
 for those modes instead, with `which-key's own mode-scoped table."
-  (which-key-add-key-based-replacements
-   "C-c" "this configuration: a letter for the topic, then one for the action")
+  (which-key-add-key-based-replacements "C-c" heks-emacs-key-root-description)
   (dolist (topic heks-emacs-key-topics)
     (which-key-add-key-based-replacements (concat "C-c " (car topic)) (cdr topic)))
   (dolist (entry heks-emacs-key-descriptions)
@@ -492,16 +541,36 @@ for those modes instead, with `which-key's own mode-scoped table."
   :ensure nil
   :config
   (setq which-key-sort-order 'which-key-key-order-alpha
-        ;; Long enough for the scheme's own sentences -- "the operation,
-        ;; sent as a live request" -- and short enough for one line.
-        which-key-max-description-length 45)
+        ;; Long enough for every sentence the scheme has, so that none of
+        ;; them is shown with its end replaced by `..' -- see
+        ;; `heks-emacs-which-key-description-length', which is what the
+        ;; longest of them measures.
+        which-key-max-description-length heks-emacs-which-key-description-length)
   ;; Fast enough to be useful, slow enough not to flash
   (setq-default which-key-idle-delay 0.4)
   ;; `C-h' after a prefix asks for the menu at once, for when the 0.4s
   ;; of waiting is one breath too long.
   (setq which-key-show-early-on-C-h t
         which-key-idle-secondary-delay 0.05)
-  (which-key-setup-minibuffer)
+  ;; The window at the bottom rather than the echo area, which is the one
+  ;; choice here that which-key's own documentation asks for: of
+  ;; `which-key-setup-minibuffer' it says "do not use this setup if you use
+  ;; the paging commands", and this scheme needs them.  The echo area can
+  ;; never grow past `max-mini-window-height', a quarter of the frame -- six
+  ;; lines of a 25 line one -- and `C-c' alone has 29 keys, so a page of
+  ;; them arrived six at a time, five pages of a menu that is one menu.  A
+  ;; window is as tall as the page it shows (up to two fifths of the frame
+  ;; here), which is three pages of the same keys in that small frame and
+  ;; one in a larger one; it leaves the echo area to eldoc and to messages;
+  ;; and it has a mode line, which is where `which-key-show-remaining-keys'
+  ;; says how many of the prefix's keys are in it -- "WK: 10/29 keys" --
+  ;; instead of leaving a reader to wonder whether that was all of them.
+  ;; The buffers that were visible get their window configuration back when
+  ;; it goes.
+  (which-key-setup-side-window-bottom)
+  (setq which-key-side-window-max-height 0.4
+        which-key-show-remaining-keys t
+        which-key-preserve-window-configuration t)
   ;; Every topic and every key, in the words the scheme gives them.
   (heks-emacs-which-key-setup)
   (which-key-mode))

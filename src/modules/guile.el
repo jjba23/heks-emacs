@@ -43,7 +43,16 @@
 ;; Geiser's own database answers the navigation questions, so this is a
 ;; code intelligence setup with no language server in it:
 ;;
-;;   `C-c g g'   go to the definition of the symbol at point.
+;;   `C-c g g'   go to the definition of the symbol at point, which is what
+;;               `M-.' does -- the same command, `xref-find-definitions'.
+;;               Nothing about a Scheme definition is done by a key: what
+;;               `M-.' asks in a Scheme buffer is a backend, and that
+;;               backend knows both the REPL -- which has loaded the symbol
+;;               and knows the file and line it read it from -- and the
+;;               files of the project, which are searched for a symbol the
+;;               REPL has never seen.  `M-?' asks the same backend where a
+;;               name is used: the callers the REPL knows, or the places
+;;               the files mention it.
 ;;   `C-c g h'   its documentation.
 ;;   `C-c g c'   who calls it; `C-c g C' what it calls (a call hierarchy).
 ;;   `C-c g m'   a menu of its generic methods, for a generic function.
@@ -94,6 +103,7 @@
 (require 'hideshow)
 (require 'scheme)
 (require 'seq)
+(require 'xref)
 
 ;;;
 ;;; Customization
@@ -577,10 +587,519 @@ else, which is the point of a debugger that lives in a buffer."
   (interactive)
   (geiser-doc-symbol-at-point))
 
-(defun heks-emacs-scheme-find-definition ()
-  "Jump to the definition of the symbol at point."
-  (interactive)
-  (geiser-edit-symbol-at-point))
+;;;
+;;; Finding a definition, and where a name is used
+;;;
+;;; All of it is `xref': `M-.' is `xref-find-definitions' in a Scheme buffer
+;;; as it is in every other buffer, `M-?' is `xref-find-references', and
+;;; what this section gives them is a backend -- the answers they look for
+;;; and the fallbacks for the places that have none.  A key of this
+;;; configuration's own that jumped to a definition would be a second way to
+;;; do what `M-.' does, learned on its own and working on its own; the
+;;; commands stay Emacs's and what knows about Scheme is put behind them.
+;;;
+;;; Two sources of answers, and the REPL is asked first because its answer is
+;;; the better one: it knows the file and the line of the symbols of the
+;;; modules it has loaded, which is what makes it right about a module of
+;;; Guile's or Guix's own that this project merely imports.  What it cannot
+;;; answer is a symbol that has never been loaded -- Guix's modules are
+;;; loaded when a package uses them, and reading code is not running it --
+;;; and in the other case there is no REPL at all, a Scheme file opened on
+;;; its own.  Then the files answer: the project is searched for the
+;;; `define' head that names the symbol, and a symbol defined in several
+;;; files arrives as a list to choose from, in `consult-xref'.  What neither
+;;; source has is left to `dumb-jump', which is the wider search the rest of
+;;; the configuration gives a buffer that has no language server.
+
+(defconst heks-emacs-scheme-file-extensions
+  '("*.scm" "*.ss" "*.sld")
+  "The extensions of the Scheme sources searched for a definition.
+
+Guile's own, which is what the modules of a project are written in.  A name
+defined in a file with another extension is not found where the files are
+searched, and `dumb-jump' (see `heks-emacs-scheme-xref-backend') is the
+wider search that follows this one.")
+
+(defconst heks-emacs-scheme-definition-forms
+  "[(]define[^[:space:]()]*[[:space:]]+[(]?%s"
+  "How the head of a definition of a name looks, as a search pattern.
+
+The name goes where the `%s' is.  It matches the head of a `define' of any
+kind -- `define', `define-public', `define*', `define-syntax',
+`define-record-type', `define-values', `define-method', and the rest --
+because the name comes right after the defining word in all of them.  The
+pattern is written so that one string is a pattern for `rg' and `grep -E' as
+well as for Emacs, which reads the hits back: a literal parenthesis as
+`[(]', whitespace as `[[:space:]]'.  A searcher and Emacs that disagreed
+about what was found would be a search whose hits Emacs then judged
+unfound.")
+
+(defconst heks-emacs-scheme-definition-hit-regexp
+  "\\`\\(.+?\\):\\([0-9]+\\):\\(.*\\)\\'"
+  "Regexp matching the `FILE:LINE:REST' line a search tool answers with.
+
+Both of the searchers are given the arguments that make them print this,
+which is one line per hit: the name of the file, the line, and the line
+itself.")
+
+(defun heks-emacs-scheme-definition-line-p (line name)
+  "Return non-nil when LINE is the line of a definition of NAME.
+
+What a search cannot tell apart is a name being defined and a name being
+used, which is why every hit is read back here: the head has to end where
+the name ends -- at a space, or at the closing parenthesis of `(define
+(name) ...)' -- so that the line of a call of `greet' is not offered as
+its definition.  The end of the name is checked against those characters rather
+than at a word boundary because `publish!' and `empty?' are names, and
+there is no word boundary after the last character of either."
+  (string-match-p (concat (format heks-emacs-scheme-definition-forms
+                                  (regexp-quote name))
+                          "\\([[:space:])]\\|\\'\\)")
+                  line))
+
+(defun heks-emacs-scheme-definition-column (line name)
+  "Return the column at which LINE defines NAME, or nil.
+
+The column is what `xref' moves to, so it is where the name being defined
+is, not where the name first appears: a line can mention a name before
+defining it."
+  (let ((head (string-match (format heks-emacs-scheme-definition-forms
+                                    (regexp-quote name))
+                            line)))
+    (and head (string-match (regexp-quote name) line head))))
+
+(defun heks-emacs-scheme--search-files (pattern &optional only-matching)
+  "Return the hits of PATTERN in the Scheme files of this project.
+
+Ripgrep does the searching where it is installed, and `grep -E' does it
+where it is not, over the Scheme files of `heks-emacs-scheme-load-path':
+the project root, or the directory of the file being edited when it is in
+no project Emacs knows.  Each hit is a list of the file it is in, the line
+it is on and the text of that line -- with ONLY-MATCHING non-nil, the text
+is what matched rather than the line it was found on.  A project with
+neither searcher installed answers with nothing, which is all the question
+can be answered with."
+  (let* ((root (file-name-as-directory (expand-file-name (heks-emacs-scheme-load-path))))
+         (ripgrep (heks-emacs-tool-available-p "rg"))
+         (program (if ripgrep "rg" "grep"))
+         (args (append (if ripgrep
+                           (list "--no-heading" "--line-number" "--with-filename"
+                                 "--color=never")
+                         (list "-r" "-n" "--exclude-dir=.git"))
+                       (when only-matching
+                         (list (if ripgrep "--only-matching" "-o")))
+                       (cl-mapcan (lambda (extension)
+                                    (if ripgrep
+                                        (list "--glob" extension)
+                                      (list (concat "--include=" extension))))
+                                  heks-emacs-scheme-file-extensions)
+                       (list "--" pattern)))
+         (text (with-temp-buffer
+                 (apply #'process-file (heks-emacs-tool-path program)
+                        nil (list t nil) nil args)
+                 (buffer-string)))
+         (hits '()))
+    (dolist (line (split-string text "\n" t))
+      (when (string-match heks-emacs-scheme-definition-hit-regexp line)
+        (push (list (expand-file-name (match-string 1 line) root)
+                    (string-to-number (match-string 2 line))
+                    (match-string 3 line))
+              hits)))
+    (nreverse hits)))
+
+(defun heks-emacs-scheme--hits-ordered (hits)
+  "Return HITS ordered, with the file being read in front.
+
+A name defined in the file one is reading is usually the one meant, so the
+hits of that file come first; the rest are ordered by file and line, which
+is what makes the same question asked twice answer the same way."
+  (let* ((here (and buffer-file-name (expand-file-name buffer-file-name)))
+         (sorted (sort (copy-sequence hits)
+                       (lambda (one other)
+                         (if (equal (nth 0 one) (nth 0 other))
+                             (< (nth 1 one) (nth 1 other))
+                           (string< (nth 0 one) (nth 0 other)))))))
+    (append (seq-filter (lambda (hit) (equal (nth 0 hit) here)) sorted)
+            (seq-remove (lambda (hit) (equal (nth 0 hit) here)) sorted))))
+
+(defun heks-emacs-scheme-definitions-in-files (name)
+  "Return the definitions of NAME in the files of this project, as xrefs.
+
+The project is searched for the head of a `define' of NAME, and every hit
+is read back and kept only if it really defines it: a search cannot tell a
+name being defined from a name being used.  What is left is ordered with
+the definitions of the buffer being edited first (see
+`heks-emacs-scheme--hits-ordered')."
+  (mapcar (lambda (hit)
+            (xref-make (string-trim (nth 2 hit))
+                       (xref-make-file-location (nth 0 hit) (nth 1 hit)
+                                                (heks-emacs-scheme-definition-column
+                                                 (nth 2 hit) name))))
+          (heks-emacs-scheme--hits-ordered
+           (seq-filter (lambda (hit)
+                         (heks-emacs-scheme-definition-line-p (nth 2 hit) name))
+                       (heks-emacs-scheme--search-files
+                        (format heks-emacs-scheme-definition-forms
+                                (regexp-quote name)))))))
+
+(defconst heks-emacs-scheme-name-character-regexp
+  "[a-zA-Z0-9!$%&*/:<=>?^_~+.@-]"
+  "Regexp matching one character a Scheme name can be made of.
+
+What tells a mention of a name from a mention of a longer name it is part
+of: `greet' is not mentioned by `greeting', because the character after it
+is a character a name can be made of.  A word boundary cannot say that,
+because `1+', `string-append' and `set-x!' are names and a word boundary
+falls in the middle of all three.  `.` and `-` are characters of a name for
+the same reason, and the list is Guile's own `char-set:scheme-name'.")
+
+(defun heks-emacs-scheme-mention-line-p (line name)
+  "Return non-nil when LINE mentions NAME as a name of its own.
+
+Every occurrence of NAME in LINE is looked at -- a line can mention it
+more than once -- and the one that is a name of its own is what makes the
+answer true.  The characters in front of and behind it are what decide
+that, and the two ends of the line count as neither."
+  (let ((start 0)
+        (found nil))
+    (while (and (not found) (string-match (regexp-quote name) line start))
+      (let ((head (match-beginning 0))
+            (tail (match-end 0)))
+        (setq start (1+ head))
+        (setq found (and (or (zerop head)
+                             (not (string-match-p
+                                   heks-emacs-scheme-name-character-regexp
+                                   (substring line (1- head) head))))
+                         (or (= tail (length line))
+                             (not (string-match-p
+                                   heks-emacs-scheme-name-character-regexp
+                                   (substring line tail (1+ tail)))))))))
+    found))
+
+(defun heks-emacs-scheme-mentions-in-files (name)
+  "Return the places NAME is mentioned in the files of this project, as xrefs.
+
+This is what `M-?' answers with where the REPL has no callers to give: the
+places the name is written are what the files know, and it is the REPL
+that knows which of them call it.  The search and the order are the ones
+the definitions are found with, so the file being read comes first here
+too, and the definition of the name is one of the places it is mentioned."
+  (mapcar (lambda (hit)
+            (xref-make (string-trim (nth 2 hit))
+                       (xref-make-file-location (nth 0 hit) (nth 1 hit)
+                                                (string-match (regexp-quote name)
+                                                              (nth 2 hit)))))
+          (heks-emacs-scheme--hits-ordered
+           (seq-filter (lambda (hit)
+                         (heks-emacs-scheme-mention-line-p (nth 2 hit) name))
+                       (heks-emacs-scheme--search-files (regexp-quote name))))))
+
+(defconst heks-emacs-scheme-defined-name-forms
+  "[(]define[^[:space:]()]*[[:space:]]+[(]?[^[:space:]()]+"
+  "How the head of a definition looks, with the name itself in the match.
+
+Where `heks-emacs-scheme-definition-forms' has a hole in it for the name,
+this one asks for whatever is in that place, because the question it
+answers -- which names does this project define -- is asked before there is
+a name to put in it.  It is a pattern for `rg', for `grep -E' and for
+Emacs alike, and the searchers are asked for the match alone, so what
+comes back is the head of a definition rather than the line it is on.")
+
+(defconst heks-emacs-scheme-defined-name-regexp
+  "\\`[(]define[^[:space:]()]*[[:space:]]+[(]?\\([^[:space:]()]+\\)"
+  "Regexp reading the name out of the head above.
+
+The head is what `heks-emacs-scheme-defined-name-forms' matched: the word
+that defines, the opening parenthesis of the name when a name is what
+follows, and the name.")
+
+(defconst heks-emacs-scheme-defined-names-lifetime 60
+  "How long an answer of `heks-emacs-scheme-defined-names' stays good.
+
+Reading the names is a search of every Scheme file of the project and the
+reading of its hits in Emacs, and the names are what the prompt of `M-.'
+completes from, so they are asked for every time a jump is asked for: a
+sixth of a second over Guile's own 346 Scheme files, and more over a
+project the size of Guix's.  A minute old is good enough for a list of
+names to type into a prompt -- a name added to the project within the
+minute is not offered, and is still found by the search the jump itself
+does -- and it is what keeps the same question from being asked twice in
+the time it takes to make two jumps.")
+
+(defvar heks-emacs-scheme--defined-names-cache nil
+  "The last answer of `heks-emacs-scheme-defined-names' as (ROOT TIME NAMES).
+
+The directory the names were read from is kept with them, so that moving
+to another project asks the question again rather than being answered with
+the names of the one before.")
+
+(defun heks-emacs-scheme-defined-names ()
+  "Return the names the Scheme files of this project define.
+
+The names are read out of the heads of the `define's the files hold, so a
+`define' of any kind is one name and a name defined twice is one name.
+They are the names `M-.' can be given when there is no name at point to
+look up: `C-u M-.' asks for one, and what can be asked for of a project is
+what its files define in it.  The answer is remembered for
+`heks-emacs-scheme-defined-names-lifetime' seconds -- see there for why."
+  (let* ((root (file-name-as-directory (expand-file-name (heks-emacs-scheme-load-path))))
+         (cached heks-emacs-scheme--defined-names-cache)
+         (fresh (and cached
+                     (equal (nth 0 cached) root)
+                     (< (- (float-time) (nth 1 cached))
+                        heks-emacs-scheme-defined-names-lifetime))))
+    (if fresh
+        ;; Including the answer that no file defines anything: a project of
+        ;; Scheme files that are not Scheme files is asked once, not once a
+        ;; jump.
+        (nth 2 cached)
+        (let ((names '()))
+          (dolist (hit (heks-emacs-scheme--search-files
+                        heks-emacs-scheme-defined-name-forms t))
+            (when (string-match heks-emacs-scheme-defined-name-regexp (nth 2 hit))
+              (push (match-string 1 (nth 2 hit)) names)))
+          (setq names (sort (delete-dups names) #'string<))
+          (setq heks-emacs-scheme--defined-names-cache
+                (list root (float-time) names))
+          names))))
+
+(defun heks-emacs-scheme-xref-backend ()
+  "Return this configuration's backend when the buffer is a Scheme one.
+
+`xref' picks a backend by running the functions of
+`xref-backend-functions' in turn and taking the first that answers, so
+this is one of those.  It is put at the front of the hook, so that what
+answers `M-.' in a Scheme buffer is this backend and not whichever one was
+added to the hook last -- `dumb-jump' is the one the rest of the
+configuration adds (see `dev.el') -- and the other backends are not thrown
+away: the methods below ask `dumb-jump' themselves when the REPL and the
+files have nothing to say."
+  (when (derived-mode-p 'scheme-mode 'geiser-repl-mode) 'heks-emacs-scheme))
+
+;; A depth rather than a flag: a negative depth is a place at the front of
+;; the hook, and a backend added later would otherwise be the one that
+;; answers first.  The function says nil in every buffer that is not a
+;; Scheme one, so nothing else is affected by its being there.
+(add-hook 'xref-backend-functions #'heks-emacs-scheme-xref-backend -90)
+
+(cl-defmethod xref-backend-identifier-at-point ((_backend (eql heks-emacs-scheme)))
+  "Return the name at point, read the way Scheme reads it.
+
+Geiser's own reader, because a Scheme name can be made of the characters
+-- `?', `!', `->' -- that a reader which knows words alone stops at, and
+the reader of a Scheme buffer in an Emacs without Geiser is
+`thing-at-point', which is what every other command there would name it
+with."
+  (heks-emacs-scheme--symbol-at-point))
+
+(cl-defmethod xref-backend-identifier-completion-table ((_backend (eql heks-emacs-scheme)))
+  "Return the names the Scheme files of this project define.
+
+A jump with no name at point to look up asks for one, and the names the
+project's own files define are the ones it can be answered with.  The REPL
+is not asked for them even when it is running: the point of the question
+is a name the code being read mentions -- about to be written, and not
+loaded yet -- which is exactly what a REPL cannot complete."
+  (heks-emacs-scheme-defined-names))
+
+(cl-defmethod xref-backend-definitions ((_backend (eql heks-emacs-scheme)) identifier)
+  "Return the definitions of IDENTIFIER: the REPL's, or the files'.
+
+The REPL is asked first, and its answer is used when it names a file that
+is on this machine: it is the source of the code that is running, so it is
+right about a symbol of a module of Guile's or of Guix's own that this
+project only imports, which no search of this project's files can find.
+Where it has no answer -- a symbol whose module has never been loaded, a
+name in a `use-modules' clause, or a buffer opened with no REPL at all --
+the files answer instead, and where they have nothing, `dumb-jump' is
+asked: it looks for a name wherever it appears in the shape of a
+definition rather than only in the head of a `define', which is what finds
+the names this cannot -- one bound by a `let', the accessor a record
+declares."
+  (or (heks-emacs-scheme--repl-definition identifier)
+      (heks-emacs-scheme--repl-module identifier)
+      (heks-emacs-scheme-definitions-in-files identifier)
+      (heks-emacs-scheme--dumb-jump identifier)))
+
+(cl-defmethod xref-backend-references ((_backend (eql heks-emacs-scheme)) identifier)
+  "Return the places IDENTIFIER is used: the REPL's callers, or the files'.
+
+`M-?' in a Scheme buffer used to answer with nothing, because the places a
+name is used are the callers the REPL knows and nothing else, and a
+project that is being read rather than run has no REPL to know them.  What
+the REPL says is asked first, since it is reading the code that is
+running; where there is no REPL, or it has no callers for the name, every
+file of the project that mentions the name is offered instead."
+  (or (heks-emacs-scheme--repl-callers identifier)
+      (heks-emacs-scheme-mentions-in-files identifier)))
+
+;;;
+;;; The REPL's answers
+;;;
+;;; Geiser's own questions, asked with Geiser's own accessors, and every
+;;; answer read the same way: what it says about a file is only worth
+;;; something if the file is here (a REPL started from a source tree this
+;;; machine does not have can name the file the code was read from and send
+;;; one nowhere), and what it says about a line is a line rather than a
+;;; column, because that is all Guile keeps.
+
+(defun heks-emacs-scheme-repl-connected-p ()
+  "Say whether a REPL is running that this buffer can ask.
+
+Geiser's commands stop and offer to start one when there is none -- see
+`geiser-repl--connection*', which is what Geiser itself asks -- and a key
+that jumps to a definition should not have to: the files can answer."
+  (and (fboundp 'geiser-repl--connection*) (geiser-repl--connection*) t))
+
+(defun heks-emacs-scheme--symbol-at-point ()
+  "Return the name at point, as Geiser reads it, or nil.
+
+Geiser's own reader -- the one its commands look a name up with, so that
+`M-.' and `C-c g h' name the same thing -- and `thing-at-point' where
+Geiser is not loaded: a buffer with no Geiser in it still has files to
+answer with.  The name comes back as a string, which is what `xref'
+carries; the `symbol' Geiser makes is for its own questions."
+  (let ((name (or (and (fboundp 'geiser--symbol-at-point)
+                       (geiser--symbol-at-point))
+                  (thing-at-point 'symbol 'no-properties))))
+    (and name (symbolp name) (symbol-name name))))
+
+(defun heks-emacs-scheme--definition-head-regexp (name)
+  "Return a regexp matching the head that defines NAME.
+
+Geiser's own two patterns where Geiser is loaded -- the one for the shapes
+a `define' head comes in, and the one for the names that arrive as a list,
+`define-syntaxes' and `define-values' -- because a jump that lands where
+Geiser's own jump lands is the point of this backend."
+  (if (fboundp 'geiser-edit--def-re)
+      (concat "\\(" (geiser-edit--def-re name) "\\|" (geiser-edit--def-re* name) "\\)")
+    (format heks-emacs-scheme-definition-forms (regexp-quote name))))
+
+(defun heks-emacs-scheme--file-location (file name line)
+  "Return where NAME is defined in FILE, as (LINE COLUMN TEXT).
+
+LINE is the line the REPL named, or nil where it named none, and the head
+that defines NAME is looked for at or after it -- and from the beginning
+of the file when it is not there, which is where this parts company with
+Geiser's own jump: Geiser goes to the line it was told and then to the
+first definition in the file, which is not always the one it was told
+about.  TEXT is the text of the line that was landed on, and nil where the
+file holds no head that defines NAME at all, whose caller then says the
+name itself instead."
+  (if (not (and (file-regular-p file) (file-readable-p file)))
+      (list (or line 1) 0 nil)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (let* ((regexp (heks-emacs-scheme--definition-head-regexp name))
+             (reported (save-excursion
+                         (goto-char (point-min))
+                         (when line (forward-line (1- (max 1 line))))
+                         (point)))
+             (found nil))
+        (goto-char reported)
+        (when (re-search-forward regexp nil t) (setq found (match-beginning 0)))
+        (unless found
+          (goto-char (point-min))
+          (when (re-search-forward regexp nil t) (setq found (match-beginning 0))))
+        (if found
+            (progn
+              (goto-char found)
+              ;; Onto the name itself, which is where a jump should land:
+              ;; the head begins one character, its parenthesis, to the left.
+              (when (re-search-forward (concat (regexp-quote name)
+                                               "\\([[:space:])]\\|\\'\\)")
+                                       (line-end-position) t)
+                (goto-char (match-beginning 0)))
+              (list (line-number-at-pos) (current-column)
+                    (string-trim (buffer-substring-no-properties
+                                  (line-beginning-position) (line-end-position)))))
+          (list (or line 1) 0 nil))))))
+
+(defun heks-emacs-scheme--location-xref (location name)
+  "Return the xref for LOCATION, the place the REPL gave for NAME, or nil.
+
+Nil is any answer that cannot be jumped to -- a location with no file, a
+file that is not on this machine, a file that cannot be read -- and the
+caller reads all of them the same way, by asking the files instead: they
+are one nil rather than three errors because the question they answer is
+the same one."
+  (let* ((file (and location (geiser-edit--location-file location)))
+         (reported (and location (geiser-edit--location-line location))))
+    (when (and file (file-exists-p file) (file-readable-p file))
+      (let* ((place (heks-emacs-scheme--file-location
+                     file (or (geiser-edit--location-name location) name) reported))
+             (number (nth 0 place))
+             (column (nth 1 place)))
+        (xref-make (or (nth 2 place) name)
+                   (xref-make-file-location file number column))))))
+
+(defun heks-emacs-scheme--repl-definition (identifier)
+  "Return the definition the REPL has for IDENTIFIER, as a list of xrefs.
+
+Nil covers all the ways there is no answer to be had: no REPL is running,
+the REPL does not know the name (its module was never loaded), the REPL
+knows a file that is not on this machine, and the answer names a module
+rather than a definition in it -- which is a jump to the top of a file and
+nothing more, so the files of this project are asked instead.
+
+The name is asked as a Scheme symbol, which is what Geiser's own commands
+give `geiser-edit-symbol-location' and what its questions are written for:
+a string becomes a Scheme string on the way to Guile, and a string is not a
+name there."
+  (when (heks-emacs-scheme-repl-connected-p)
+    (let ((location (ignore-errors
+                      (geiser-edit-symbol-location (intern identifier)))))
+      (when location
+        (let ((xref (heks-emacs-scheme--location-xref location identifier)))
+          (and xref (list xref)))))))
+
+(defun heks-emacs-scheme--repl-module (identifier)
+  "Return the module named at point, as an xref, or nil.
+
+A name in a `use-modules' clause -- `(ice-9 popen)' -- has no definition
+to jump to, and Geiser's own jump opens the module's file for it; that
+answer is kept here, so that the one jump to a definition also goes to a
+module, which is what `M-.' did in a Scheme buffer before `xref' did it."
+  (when (heks-emacs-scheme-repl-connected-p)
+    (let* ((module (ignore-errors (geiser-completion--module-at-point)))
+           (location (and module
+                          (ignore-errors (geiser-edit-module-location module))))
+           (file (and location (geiser-edit--location-file location))))
+      (when (and module file (file-exists-p file) (file-readable-p file))
+        (xref-make (format "module %s" module)
+                   (xref-make-file-location file 1 0))))))
+
+(defun heks-emacs-scheme--repl-callers (identifier)
+  "Return what the REPL says calls IDENTIFIER, as a list of xrefs, or nil.
+
+Geiser's own question, asked the way Geiser's own caller list asks it, and
+every caller is turned into the xref of the place it is defined in, with
+its signature as the line `consult-xref' shows.  A caller whose file is
+not here is dropped rather than offered as a jump that goes nowhere."
+  (when (heks-emacs-scheme-repl-connected-p)
+    (let ((answer (ignore-errors
+                    (geiser-eval--send/result
+                     `(:eval (:ge callers (quote (:scm ,identifier))))))))
+      (when (listp answer)
+        (seq-remove
+         #'null
+         (mapcar (lambda (caller)
+                   (let ((location (cdr (assoc "location" caller)))
+                         (signature (cdr (assoc "signature" caller))))
+                     (heks-emacs-scheme--location-xref
+                      location (or (and (listp signature) (car signature))
+                                   identifier))))
+                 answer))))))
+
+(defun heks-emacs-scheme--dumb-jump (identifier)
+  "Return what `dumb-jump' makes of IDENTIFIER, the wider search.
+
+`dumb-jump' searches the project it finds on its own, and answers for the
+home directory when it finds none; told which directory this is, it
+searches that one."
+  (when (and (fboundp 'dumb-jump-xref-activate) (dumb-jump-xref-activate))
+    (let ((dumb-jump-project (heks-emacs-scheme-load-path)))
+      (xref-backend-definitions 'dumb-jump identifier))))
 
 (defun heks-emacs-scheme-callers ()
   "List what calls the function at point."
@@ -743,6 +1262,23 @@ applied."
 ;; buffers use, so a Scheme buffer folds with the same keys as a Java
 ;; buffer folds with.
 
+(defun heks-emacs-scheme--jump-keys ()
+  "Make `M-.' the jump it is everywhere else in a Geiser buffer.
+
+Geiser binds `M-.' to its own `geiser-edit-symbol-at-point' in both of the
+maps it makes -- the one a Scheme buffer uses and the one its REPL uses --
+and a minor mode's map answers before the buffer's own does.  What that
+key does in the rest of Emacs is `xref-find-definitions', and the Scheme
+answers are behind it here (see `heks-emacs-scheme-xref-backend'), so the
+key is given back to it: the jump stays the command it is everywhere, and
+how good it is in Scheme is the backend's business rather than the key's.
+`M-,' is left as Geiser binds it, because what it calls is `xref-go-back',
+which is the command it is everywhere else too."
+  (when (boundp 'geiser-mode-map)
+    (define-key geiser-mode-map (kbd "M-.") #'xref-find-definitions))
+  (when (boundp 'geiser-repl-mode-map)
+    (define-key geiser-repl-mode-map (kbd "M-.") #'xref-find-definitions)))
+
 (defvar heks-emacs-scheme-mode-map
   (let ((map (make-sparse-keymap)))
     ;; The REPL and evaluation: `r' opens it, `R' restarts it, `e' and
@@ -764,7 +1300,10 @@ applied."
     (define-key map (kbd "C-c g x") #'heks-emacs-scheme-run-script)
     (define-key map (kbd "C-c g d") #'heks-emacs-scheme-debugger)
     ;; Navigation, from Geiser's own database.
-    (define-key map (kbd "C-c g g") #'heks-emacs-scheme-find-definition)
+    ;; `C-c g g' is the same command `M-.' is -- `xref-find-definitions' --
+    ;; because what finds a Scheme definition is the backend this module
+    ;; installs (see `heks-emacs-scheme-xref-backend'), not a key.
+    (define-key map (kbd "C-c g g") #'xref-find-definitions)
     (define-key map (kbd "C-c g h") #'heks-emacs-scheme-documentation)
     (define-key map (kbd "C-c g c") #'heks-emacs-scheme-callers)
     (define-key map (kbd "C-c g C") #'heks-emacs-scheme-callees)
@@ -812,7 +1351,10 @@ applied."
   (defun heks-emacs-scheme--geiser-project ()
     "Project directory of the current buffer, for Geiser's REPL."
     (ignore-errors (project-root (project-current nil))))
-  (setq geiser-repl-current-project-function #'heks-emacs-scheme--geiser-project))
+  (setq geiser-repl-current-project-function #'heks-emacs-scheme--geiser-project)
+  ;; Geiser's own two maps are loaded with it, so `M-.' is taken back here
+  ;; rather than waiting for the first Scheme buffer.
+  (heks-emacs-scheme--jump-keys))
 
 (use-package geiser-guile
   :ensure t
@@ -829,6 +1371,7 @@ applied."
   "Set up a Scheme buffer for Guile and Guix work."
   (use-local-map (make-composed-keymap heks-emacs-scheme-mode-map
                                        (current-local-map)))
+  (heks-emacs-scheme--jump-keys)
   (when (and (heks-emacs-guix-available-p) (heks-emacs-guix-buffer-p))
     ;; Guix's own modules, and the highlighting and commands of Emacs-Guix
     ;; (C-c . l to lint, C-c . b to build, C-c . u to use a module).

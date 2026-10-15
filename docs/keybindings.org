@@ -291,7 +291,7 @@ in every other topic.
 | ~C-c g d~ | ~heks-emacs-scheme-debugger~ | the Guile debugger | guile.el (a mode's own map) |
 | ~C-c g e~ | ~heks-emacs-scheme-eval-definition~ | the definition at point | guile.el (a mode's own map) |
 | ~C-c g f~ | ~heks-emacs-scheme-format-buffer~ | the buffer, formatted with Guix style | guile.el (a mode's own map) |
-| ~C-c g g~ | ~heks-emacs-scheme-find-definition~ | the definition of the symbol at point | guile.el (a mode's own map) |
+| ~C-c g g~ | ~xref-find-definitions~ | the definition of the symbol at point | guile.el (a mode's own map) |
 | ~C-c g h~ | ~heks-emacs-scheme-documentation~ | the documentation of the symbol at point | guile.el (a mode's own map) |
 | ~C-c g k~ | ~heks-emacs-scheme-interrupt~ | the running Guile, interrupted | guile.el (a mode's own map) |
 | ~C-c g m~ | ~heks-emacs-scheme-generic-methods~ | the generic methods of this symbol | guile.el (a mode's own map) |
