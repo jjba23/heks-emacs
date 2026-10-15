@@ -226,8 +226,8 @@ configuration."
 (with-temp-buffer
   (insert "(define (f x) x)")
   (dolist (key '("C-c g r" "C-c g R" "C-c g s" "C-c g e" "C-c g E" "C-c g b"
-                 "C-c g i" "C-c g x" "C-c g d" "C-c g g" "C-c g h" "C-c g c"
-                 "C-c g C" "C-c g u" "C-c g t" "C-c g L" "C-c g f" "C-c g S"
+                 "C-c g k" "C-c g x" "C-c g d" "C-c g g" "C-c g h" "C-c g c"
+                 "C-c g C" "C-c g m" "C-c g t" "C-c g L" "C-c g f" "C-c g S"
                  "C-c g p" "C-c s p" "C-c s a" "C-c s h"))
     (heks-verify--check (format "a Scheme buffer has %s" key)
                         (commandp (lookup-key heks-emacs-scheme-mode-map (kbd key))))))
@@ -497,6 +497,101 @@ configuration."
                       (heks-emacs-openapi-server-url) "https://api.example.com/v1")
   (heks-verify--check "the menu lists the operation under its tag"
                       (and (assoc "widgets" (heks-emacs-openapi-imenu)) t)))
+
+(heks-verify--section "and a specification written in YAML reads like one in JSON")
+
+;; A YAML document is read by a package rather than by Emacs, and it hands
+;; back what a scalar looks like instead of what a specification means: a
+;; bare key arrives as a symbol, a response written `200' arrives as the
+;; number 200, and `false' arrives as a symbol, which is a true value.
+;; Every one of those used to be a way for a specification to render as an
+;; empty page or to stop the rendering with an error, so they are checked
+;; here on a real file -- the two spellings of one specification that the
+;; golden renderings are also taken from.
+(defconst heks-verify--test-dir
+  (file-name-as-directory (file-name-directory (or load-file-name buffer-file-name)))
+  "The directory this file lives in, where the fixtures and pages are.")
+
+(defconst heks-verify--fixtures (expand-file-name "fixtures/" heks-verify--test-dir)
+  "The documents the renderings are taken from.")
+
+(defconst heks-verify--golden (expand-file-name "golden/" heks-verify--test-dir)
+  "The renderings those documents are compared with.")
+
+(defconst heks-verify--openapi-yaml
+  "openapi: 3.0.3
+info:
+  title: Broken
+  version: 1.0.0
+paths:
+  /things:
+    get:
+      operationId: getThing
+      responses:
+        999:
+          description: not a code
+")
+
+(defmacro heks-verify--with-yaml-buffer (text name &rest body)
+  "Run BODY in a temporary buffer holding TEXT, as the YAML file NAME."
+  (declare (indent 2))
+  `(let ((buffer (generate-new-buffer ,name)))
+     (unwind-protect
+         (with-current-buffer buffer
+           (insert ,text)
+           (setq-local buffer-file-name (expand-file-name ,name temporary-file-directory))
+           (goto-char (point-min))
+           ,@body)
+       (kill-buffer buffer))))
+
+(heks-verify--with-yaml-buffer heks-verify--openapi-yaml "openapi.yaml"
+  (heks-verify--check "it is recognised as a specification" (heks-emacs-openapi-spec-p))
+  (heks-verify--check "it reads" (let ((spec (heks-emacs-openapi-parse)))
+                             (and (hash-table-p spec) t)))
+  (heks-verify--check "a response code is read as the text it is written as"
+                      (let* ((spec (heks-emacs-openapi-parse))
+                             (operation (car (heks-emacs-openapi-operations spec))))
+                        (and (heks-emacs-openapi-get
+                              (heks-emacs-openapi-get (plist-get operation :operation)
+                                                      "responses")
+                              "999")
+                             t)))
+  (heks-verify--check "and the checker names it as a code"
+                      (let (said)
+                        (dolist (diagnostic (heks-emacs-openapi-diagnostics))
+                          (when (string-match-p
+                                 "is not a response code"
+                                 (format "%s" (flymake-diagnostic-text diagnostic '(message))))
+                            (setq said t)))
+                        said)))
+
+;; The two files are one specification, so they have to come out as one
+;; page: that is the check that would have caught a document read with
+;; symbol keys, where every lookup misses and the page comes out empty.
+(let ((page (lambda (name)
+              (with-temp-buffer
+                (insert-file-contents (expand-file-name name heks-verify--fixtures))
+                (setq-local buffer-file-name (expand-file-name name heks-verify--fixtures))
+                (heks-emacs-openapi-html)))))
+  (let ((json (funcall page "render-petstore.json"))
+        (yaml (funcall page "render-petstore.yaml")))
+    (heks-verify--check "a YAML fixture is a specification"
+                        (with-temp-buffer
+                          (insert-file-contents
+                           (expand-file-name "render-petstore.yaml" heks-verify--fixtures))
+                          (setq-local buffer-file-name
+                                      (expand-file-name "render-petstore.yaml"
+                                                        heks-verify--fixtures))
+                          (heks-emacs-openapi-spec-p)))
+    (heks-verify--check "the same specification in two languages is the same page"
+                        (equal json yaml) t)
+    (heks-verify--check "and the page is the one kept beside it"
+                        (with-temp-buffer
+                          (insert-file-contents
+                           (expand-file-name "render-petstore.html"
+                                             heks-verify--golden))
+                          (equal yaml (buffer-string)))
+                        t)))
 
 (heks-verify--section "and what it says about a specification that is wrong")
 

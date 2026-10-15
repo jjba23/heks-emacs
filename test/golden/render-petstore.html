@@ -1,0 +1,27 @@
+<h1>Pet Store <span style="background:#57606a;color:#fff;font-weight:700;font-size:0.78em;padding:0.2em 0.55em;border-radius:5px;letter-spacing:0.04em">v1.0.0</span></h1>
+<p>A small API used to check the renderer.</p>
+<p class="headline">Servers</p><ul><li><code>https://api.example.com/v1</code> — Production</li><li><code>http://localhost:8080</code></li></ul><h2>pets</h2>
+<h3 id="get-/pets"><span style="background:#1f8b4c;color:#fff;font-weight:700;font-size:0.78em;padding:0.2em 0.55em;border-radius:5px;letter-spacing:0.04em">GET</span> <code>/pets</code></h3>
+<p><strong>List the pets</strong></p>
+<p>Returns every pet the store knows about.</p>
+<p class="headline">operationId: listPets</p>
+<p class="headline">Parameters</p><table><thead><tr><th>Name</th><th>In</th><th>Type</th><th>Required</th><th></th></tr></thead><tbody><tr><td><code>limit</code></td><td>query</td><td><code>integer</code> (int32)</td><td></td><td>How many pets to return</td></tr></tbody></table><p class="headline">Responses</p><table><thead><tr><th>Code</th><th>What it returns</th><th></th></tr></thead><tbody><tr><td><code>200</code></td><td>The pets</td><td>application/json → <code>array</code> of <code>Pet</code><br>application/xml → <code>PetList</code></td></tr><tr><td><code>default</code></td><td>Something went wrong</td><td>application/json → <code>Error</code></td></tr></tbody></table><h3 id="post-/pets"><span style="background:#1f6feb;color:#fff;font-weight:700;font-size:0.78em;padding:0.2em 0.55em;border-radius:5px;letter-spacing:0.04em">POST</span> <code>/pets</code></h3>
+<p><strong>Add a pet</strong></p>
+<p class="headline">operationId: createPet</p>
+<p>The pet to add</p><p class="headline">Request body</p><ul><li><code>application/json</code> — <code>NewPet</code></li></ul><p class="headline">Responses</p><table><thead><tr><th>Code</th><th>What it returns</th><th></th></tr></thead><tbody><tr><td><code>201</code></td><td>The pet that was created</td><td>application/json → <code>Pet</code></td></tr></tbody></table><h3 id="get-/pets/{petId}"><span style="background:#1f8b4c;color:#fff;font-weight:700;font-size:0.78em;padding:0.2em 0.55em;border-radius:5px;letter-spacing:0.04em">GET</span> <code>/pets/{petId}</code></h3>
+<p><strong>One pet</strong></p>
+<p class="headline">operationId: getPet</p>
+<p class="headline">Parameters</p><table><thead><tr><th>Name</th><th>In</th><th>Type</th><th>Required</th><th></th></tr></thead><tbody><tr><td><code>petId</code></td><td>path</td><td><code>string</code></td><td>yes</td><td>The identity of the pet</td></tr></tbody></table><p class="headline">Responses</p><table><thead><tr><th>Code</th><th>What it returns</th><th></th></tr></thead><tbody><tr><td><code>200</code></td><td>The pet</td><td>application/json → <code>Pet</code></td></tr></tbody></table><h3 id="delete-/pets/{petId}"><span style="background:#c4342a;color:#fff;font-weight:700;font-size:0.78em;padding:0.2em 0.55em;border-radius:5px;letter-spacing:0.04em">DELETE</span> <code>/pets/{petId}</code> <em>(deprecated)</em></h3>
+<p><strong>Remove a pet</strong></p>
+<p class="headline">operationId: deletePet</p>
+<p class="headline">Parameters</p><table><thead><tr><th>Name</th><th>In</th><th>Type</th><th>Required</th><th></th></tr></thead><tbody><tr><td><code>petId</code></td><td>path</td><td><code>string</code></td><td>yes</td><td>The identity of the pet</td></tr></tbody></table><p class="headline">Responses</p><table><thead><tr><th>Code</th><th>What it returns</th><th></th></tr></thead><tbody><tr><td><code>204</code></td><td>The pet is gone</td><td></td></tr></tbody></table><h2>Schemas</h2>
+<h3><code>Error</code></h3>
+<p>What the API says when it refuses.</p>
+<p><code>object</code> with <code>code</code>, <code>message</code></p>
+<h3><code>NewPet</code></h3>
+<p><code>object</code> with <code>name</code></p>
+<h3><code>Pet</code></h3>
+<p>A pet the store sells.</p>
+<p><code>object</code> with <code>id</code>, <code>name</code>, <code>tag</code></p>
+<h3><code>PetList</code></h3>
+<p><code>array</code> of <code>Pet</code></p>

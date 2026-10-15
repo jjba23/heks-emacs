@@ -47,7 +47,10 @@
           (define-key map (kbd "C-c C-d b") 'mermaid-compile-buffer)
           (define-key map (kbd "C-c C-d r") 'mermaid-compile-region)
           (define-key map (kbd "C-c C-d o") 'mermaid-open-browser)
-          (define-key map (kbd "C-c C-d d") 'mermaid-open-doc)
+          ;; `h' is help, as it is under `C-c h' and everywhere else: this
+          ;; was `d', which is the debugger and the difference between two
+          ;; things.
+          (define-key map (kbd "C-c C-d h") 'mermaid-open-doc)
           map)))
 
 (provide 'heks-emacs/plot)

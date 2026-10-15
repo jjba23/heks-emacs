@@ -76,6 +76,16 @@ on a binding whose command does not exist."
   (install-emacs-config)
   (syscall "emacs -Q --batch -l test/heks-emacs-keys.el"))
 
+(define (keys-update)
+  "Write the keybindings reference from the configuration.
+
+`docs/keybindings.org' is written from the same tables the audit checks
+the keys against and from the bindings it reads, so it cannot say
+something the configuration does not; this is how it is made.  Read the
+diff before committing it."
+  (install-emacs-config)
+  (syscall "HEKS_KEYS_WRITE=1 emacs -Q --batch -l test/heks-emacs-keys.el"))
+
 (define (render)
   "Check the Markdown renderer on its own.
 
@@ -83,9 +93,25 @@ Fast, and without loading any of the configuration: the renderer is a
 pure function from a string to HTML, so it is checked as one."
   (syscall "emacs -Q --batch -l test/heks-emacs-render.el"))
 
+(define (golden)
+  "Check that the renderers still produce the pages they produced last time.
+
+The documents in `test/fixtures/' are rendered and compared, line by line,
+with the pages kept in `test/golden/', so that a change in what a preview
+shows arrives as a diff rather than as a page one has to read and judge."
+  (syscall "emacs -Q --batch -l test/heks-emacs-golden.el"))
+
+(define (golden-update)
+  "Write the pages the renderers produce now over the golden ones.
+
+Run this when the change is the one that was wanted, then read the diff it
+leaves in `test/golden/' before committing it."
+  (syscall "HEKS_GOLDEN_UPDATE=1 emacs -Q --batch -l test/heks-emacs-golden.el"))
+
 (define (check)
   "Everything: parse the source, then check the installed configuration."
   (lint)
   (keys)
   (render)
+  (golden)
   (verify))

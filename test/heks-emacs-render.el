@@ -108,6 +108,14 @@
   (heks-render--matches "an unchecked task" html "☐ todo")
   (heks-render--matches "a checked task" html "☑ done")
   (heks-render--matches "an ordered list" html "<ol>\n<li>one</li>")
+  ;; A list has to be closed when the next block is not a list, and at
+  ;; the end of a document: an unclosed one puts the heading that follows
+  ;; it inside the list, where no browser puts it.
+  (heks-render--matches "the ordered list is closed before the blockquote"
+                        html "<li>two</li>\n</ol>")
+  (heks-render--check "a list at the end of a document is closed"
+                      (heks-emacs-markdown-to-html "- one\n- two\n")
+                      "<ul>\n<li>one</li>\n<li>two</li>\n</ul>\n")
   (heks-render--matches "a blockquote" html "<blockquote><p>quoted <em>text</em></p></blockquote>")
   (heks-render--matches "a fence keeps its language" html "class=\"language-elisp\"")
   (heks-render--matches "code is escaped, not interpreted" html "&lt;not markup&gt;")

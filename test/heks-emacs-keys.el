@@ -27,19 +27,31 @@
 ;; the `:bind' entries that only take effect when a package finally loads,
 ;; which a runtime dump of the keymaps cannot see -- and reports:
 ;;
-;;   * the whole key tree, grouped by the scheme's topic letter;
+;;   * the whole key tree, grouped by the scheme's topic letter, with the
+;;     meaning of every key read out of the scheme's own tables;
 ;;   * every two-letter key that means more than one thing;
 ;;   * every key that is a command in one map and a prefix in another,
 ;;     where the prefix silently wins;
 ;;   * every command whose name is claimed by this configuration but
-;;     cannot be called, which is what a typo in a binding looks like.
+;;     cannot be called, which is what a typo in a binding looks like;
+;;   * every letter that neither the action alphabet nor the topic's own
+;;     letters describe, which is what an undocumented key looks like.
 ;;
 ;; Run it on this checkout:
 ;;
 ;;   emacs -Q --batch -l test/heks-emacs-keys.el
+;;   HEKS_KEYS_WRITE=1 emacs -Q --batch -l test/heks-emacs-keys.el
+;;
+;; The second form writes `docs/keybindings.org', the reference a person
+;; reads: every topic, every key under it, and what both letters of it
+;; mean.  The file is checked like any other: it is compared with what
+;; the configuration says now, so it cannot quietly stop being true.  The
+;; tables it is written from are read from the source rather than from
+;; the loaded configuration, because they are the thing being written.
 ;;
 ;; It exits non-zero when it finds a conflict that is not on the list of
-;; deliberate ones below, so `maak keys' fails with it.
+;; deliberate ones below, or a key the scheme does not describe, so
+;; `maak keys' fails with it.
 
 ;;; Code:
 
@@ -57,6 +69,16 @@
 
 (defvar heks-keys--entries nil
   "One entry per binding found in the source, as (KEY MAP COMMAND FILE FORM).")
+
+(defvar heks-keys--tables nil
+  "The scheme's own tables, as read from the source: (NAME . VALUE).")
+
+(defconst heks-keys--table-names
+  '(heks-emacs-key-topics heks-emacs-key-actions heks-emacs-key-letters)
+  "The tables the scheme is written in.")
+
+(defconst heks-keys--reference-file "docs/keybindings.org"
+  "The reference this audit writes and checks.")
 
 ;;
 ;; Reading the source.
@@ -147,6 +169,25 @@
         (while (consp tail)
           (heks-keys--walk (car tail) file)
           (setq tail (cdr tail)))))))
+(defun heks-keys--read-tables (form)
+  "Remember the scheme table FORM defines, if it defines one.
+
+The tables are read here, from the source, rather than off the loaded
+configuration: they are what every key is going to be judged against, and
+a configuration that failed to load must not turn that judgement into
+something else."
+  (when (and (consp form)
+             (eq (car form) 'defconst)
+             (memq (nth 1 form) heks-keys--table-names))
+    (let ((value (nth 2 form)))
+      (when (and (consp value) (eq (car value) 'quote) (consp (cdr value)))
+        (setq heks-keys--tables
+              (cons (cons (nth 1 form) (car (cdr value))) heks-keys--tables))))))
+
+(defun heks-keys--table (name)
+  "Return the scheme table called NAME, or nil when it was not read."
+  (or (cdr (assq name heks-keys--tables))
+      (and (boundp name) (symbol-value name))))
 
 (defun heks-keys--read-source ()
   "Fill `heks-keys--entries' from the configuration's source.
@@ -154,7 +195,8 @@
 A file that cannot be read, or a form the walker chokes on, is reported
 and skipped: a binding that was never seen must not be mistaken for a
 binding that is not there."
-  (setq heks-keys--entries nil)
+  (setq heks-keys--entries nil
+        heks-keys--tables nil)
   (dolist (file (heks-keys--files))
     (with-temp-buffer
       (insert-file-contents file)
@@ -162,6 +204,7 @@ binding that is not there."
       (condition-case err
           (while t
             (let ((form (read (current-buffer))))
+              (heks-keys--read-tables form)
               (condition-case walk-error
                   (heks-keys--walk form (file-name-nondirectory file))
                 (error
@@ -233,12 +276,59 @@ binding that is not there."
   (when (string-match "\\`\\(C-c [^ ]+ [^ ]+\\)" key)
     (match-string 1 key)))
 
+(defun heks-keys--letter-of (key)
+  "Return the action letter of KEY, when KEY has one.
+
+The last stroke of a two-letter key is its action: `C-c' then the topic,
+then what the key does.  A stroke that is not a single letter -- the `SPC'
+of the dashboard, a digit -- is not an action letter."
+  (let* ((two-letter (heks-keys--two-letter key))
+         (letter (and two-letter (car (last (split-string two-letter " "))))))
+    (and letter
+         (= (length letter) 1)
+         (string-match-p "[a-zA-Z]" letter)
+         letter)))
+
+(defun heks-keys--letter-meaning (topic letter)
+  "Return what LETTER means under TOPIC, or nil when neither table says.
+
+The topic's own letters come first: a topic that names things is the one
+that knows what its letters name."
+  (or (cdr (assoc letter
+                  (cdr (assoc topic (heks-keys--table 'heks-emacs-key-letters) #'equal))
+                  #'equal))
+      (cdr (assoc letter (heks-keys--table 'heks-emacs-key-actions) #'equal))))
+
+(defun heks-keys--placement (entry)
+  "Return where ENTRY's key lives, as the report and the reference show it.
+
+A key written in a mode's own map only works there, which is worth
+seeing: it is the difference between a key every buffer has and one that
+only a Scheme buffer has.  A map that is not a variable this configuration
+can name -- the one a `let' in a package's own setup made -- is called
+one."
+  (let ((map (nth 1 entry)))
+    (cond ((eq map 'global-map) (nth 3 entry))
+          ((and (symbolp map) (boundp map) (keymapp (symbol-value map)))
+           (format "%s (%s)" (nth 3 entry) map))
+          (t (format "%s (a mode's own map)" (nth 3 entry))))))
+
+(defun heks-keys--meaning-of (topic key)
+  "Return what KEY does under TOPIC, for the report and the reference.
+
+A key whose last stroke is not a letter -- the dashboard's `C-c SPC SPC',
+Org's `C-c C-#' -- is described by what its topic is for."
+  (let ((letter (heks-keys--letter-of key)))
+    (or (and letter (heks-keys--letter-meaning topic letter))
+        (cdr (assoc topic (or (heks-keys--table 'heks-emacs-key-topics)
+                              heks-keys--fallback-topics)
+                    #'equal)))))
+
 (defun heks-keys--report ()
   "Print the key tree and the problems found in it."
   (let* ((entries (reverse heks-keys--entries))
-         (topics (if (boundp 'heks-emacs-key-topics)
-                     heks-emacs-key-topics
-                   heks-keys--fallback-topics))
+         (topics (or (heks-keys--table 'heks-emacs-key-topics)
+                     heks-keys--fallback-topics))
          (by-topic (make-hash-table :test #'equal)))
     (dolist (entry entries)
       (let ((topic (heks-keys--top (car entry))))
@@ -253,14 +343,11 @@ binding that is not there."
           (message "        ^ no documented meaning for this topic letter"))
         (dolist (entry (sort (reverse (gethash topic by-topic))
                              (lambda (a b) (string< (car a) (car b)))))
-          ;; A binding written inside a mode's own map only applies there,
-          ;; and that is worth seeing in the report.
-          (message "    %-16s %-42s %s"
+          (message "    %-16s %-42s %-34s %s"
                    (car entry)
                    (format "%s" (nth 2 entry))
-                   (if (eq (nth 1 entry) 'global-map)
-                       (nth 3 entry)
-                     (format "%s (%s)" (nth 3 entry) (nth 1 entry)))))))
+                   (or (heks-keys--meaning-of topic (car entry)) "")
+                   (heks-keys--placement entry)))))
 
     ;; One key, two meanings.
     (message "\n== keys with more than one meaning ==")
@@ -318,25 +405,174 @@ binding that is not there."
     (when (zerop found)
       (message "  none")))
 
-  ;; An action letter that the scheme does not describe is not a mistake by
-  ;; itself -- it is a letter the scheme should probably say something
-  ;; about -- so it is reported and not counted against the build.
-  (message "\n== action letters the scheme does not describe ==")
-  (let ((actions (if (boundp 'heks-emacs-key-actions)
-                     heks-emacs-key-actions
-                   nil))
-        (unknown nil))
-    (dolist (entry (reverse heks-keys--entries))
-      (let* ((two-letter (heks-keys--two-letter (car entry)))
-             (action (and two-letter (car (last (split-string two-letter " "))))))
-        (when (and action (= (length action) 1)
-                   (string-match-p "[a-zA-Z]" action)
-                   (not (alist-get (downcase action) actions nil nil #'equal))
-                   (not (member action unknown)))
-          (push action unknown)
-          (message "  note the action letter `%s' is not in `heks-emacs-key-actions'" action))))
-    (when (null unknown)
+  ;; A letter that neither the action alphabet nor the topic's own letters
+  ;; describe is a key nobody can be told about, which is the state this
+  ;; whole scheme exists to avoid -- `i' had come to mean an implementation
+  ;; under one topic and an interrupt under another -- so it fails here.
+  (message "\n== letters the scheme does not describe ==")
+  (let ((found 0)
+        (letters (heks-keys--table 'heks-emacs-key-letters)))
+    (if (not (and letters (heks-keys--table 'heks-emacs-key-actions)))
+        (message "  none (the scheme's tables were not read, so this was not checked)")
+      (dolist (entry (reverse heks-keys--entries))
+        (let* ((key (car entry))
+               (topic (heks-keys--top key))
+               (letter (heks-keys--letter-of key)))
+          (when (and letter (not (heks-keys--letter-meaning topic letter)))
+            (setq found (1+ found)
+                  heks-keys--failures (1+ heks-keys--failures))
+            (message "  FAIL %-12s `%s' means nothing under topic `%s' (%s)"
+                     key letter topic (nth 3 entry)))))
+      (when (zerop found)
+        (message "  none"))))
+
+  ;; A letter the tables describe and no key uses is documentation that
+  ;; has stopped being true.  The reference is written from the keys
+  ;; rather than from the tables, so this is a note and not a failure.
+  (message "\n== letters the scheme describes and no key uses ==")
+  (let ((unused nil))
+    (dolist (topic-entry (heks-keys--table 'heks-emacs-key-letters))
+      (dolist (letter-entry (cdr topic-entry))
+        (unless (seq-find (lambda (entry)
+                            (and (equal (heks-keys--top (car entry)) (car topic-entry))
+                                 (equal (heks-keys--letter-of (car entry))
+                                        (car letter-entry))))
+                          (reverse heks-keys--entries))
+          (push (format "%s %s" (car topic-entry) (car letter-entry)) unused))))
+    (if unused
+        (message "  note %s" (string-join (nreverse unused) ", "))
       (message "  none"))))
+
+;;
+;; The reference.
+;;
+
+(defun heks-keys--diff (actual expected &optional limit)
+  "Describe how ACTUAL differs from EXPECTED, line by line.
+
+LIMIT, four by default, is how many differing lines are shown: the point
+is a diff one can read, not a full one."
+  (let* ((limit (or limit 4))
+         (actual-lines (split-string (string-remove-suffix "\n" actual) "\n"))
+         (expected-lines (split-string (string-remove-suffix "\n" expected) "\n"))
+         (rows (max (length actual-lines) (length expected-lines)))
+         (shown 0)
+         (found 0))
+    (dotimes (index rows)
+      (let ((mine (nth index actual-lines))
+            (theirs (nth index expected-lines)))
+        (unless (equal mine theirs)
+          (setq found (1+ found))
+          (when (< shown limit)
+            (setq shown (1+ shown))
+            (message "       %-4s file:  %s" (1+ index)
+                     (if mine mine "<nothing: the file ends here>"))
+            (message "       %-4s now:   %s" (1+ index)
+                     (if theirs theirs "<nothing: the document ends here>"))))))
+    (format "%d line%s differ, of %d"
+            found (if (= found 1) "" "s") rows)))
+
+(defun heks-keys--reference ()
+  "Return `docs/keybindings.org' as the text it should hold.
+
+It is written from the same three tables the audit judges the
+configuration by, and from the bindings it read, so it says what the keys
+are rather than what they were when somebody last edited it."
+  (let ((entries (reverse heks-keys--entries))
+        (topics (or (heks-keys--table 'heks-emacs-key-topics)
+                    heks-keys--fallback-topics))
+        (actions (sort (copy-sequence (heks-keys--table 'heks-emacs-key-actions))
+                       (lambda (a b) (string< (car a) (car b)))))
+        (letters (heks-keys--table 'heks-emacs-key-letters))
+        (by-topic (make-hash-table :test #'equal))
+        (out nil))
+    (dolist (entry entries)
+      (let ((topic (heks-keys--top (car entry))))
+        (when topic
+          (push entry (gethash topic by-topic)))))
+    (cl-labels ((say (&rest rows) (dolist (row rows) (push row out)))
+                (description (topic)
+                             (or (cdr (assoc topic topics #'equal)) "UNDOCUMENTED"))
+                (keys-of (topic)
+                         (sort (reverse (gethash topic by-topic))
+                               (lambda (a b) (string< (car a) (car b))))))
+      (say "#+title: The keybindings 🗝️"
+           "#+author: Josep Bigorra"
+           "#+options: toc:2"
+           ""
+           "Everything this configuration adds lives under ~C-c~: a letter for the"
+           "topic, then a letter for the action.  This file is written from the"
+           "configuration itself, so it says what the keys are rather than what they"
+           "were; editing it by hand changes nothing.  Edit the scheme in"
+           "~emacs-core.el~ and run =maak keys-update= -- =maak keys= fails while this"
+           "file and the configuration disagree."
+           ""
+           "* The alphabet"
+           ""
+           "** The action letters, the same under every topic"
+           ""
+           "| Letter | Meaning |"
+           "|--------+---------|")
+      (dolist (row actions)
+        (say (format "| ~%s~ | %s |" (car row) (cdr row))))
+      (say ""
+           "** The topic letters"
+           ""
+           "| Letter | What it is for |"
+           "|--------+----------------|")
+      (dolist (topic (sort (hash-table-keys by-topic) #'string<))
+        (say (format "| ~%s~ | %s |" topic (description topic))))
+      (say ""
+           "** The letters of a topic that names things"
+           ""
+           "A few topics key something that is not an action -- a font size, the"
+           "configuration being written, the journal entry for today -- and their"
+           "letters are the first letter of what they name."
+           ""
+           "| Topic | Letter | What it names |"
+           "|-------+--------+---------------|")
+      (dolist (topic-entry (sort (copy-sequence letters)
+                                 (lambda (a b) (string< (car a) (car b)))))
+        (dolist (letter-entry (cdr topic-entry))
+          (say (format "| ~%s~ | ~%s~ | %s |"
+                       (car topic-entry) (car letter-entry) (cdr letter-entry)))))
+      (say ""
+           "* The keys, by topic")
+      (dolist (topic (sort (hash-table-keys by-topic) #'string<))
+        (say ""
+             (format "** ~C-c %s~ %s" topic (description topic))
+             ""
+             "| Key | Command | The letter means | In |"
+             "|-----+---------+------------------+----|")
+        (dolist (entry (keys-of topic))
+          (say (format "| ~%s~ | ~%s~ | %s | %s |"
+                       (car entry)
+                       (nth 2 entry)
+                       (or (heks-keys--meaning-of topic (car entry)) "")
+                       (heks-keys--placement entry))))))
+    (concat (string-join (nreverse out) "\n") "\n")))
+
+(defun heks-keys--check-reference ()
+  "Write `docs/keybindings.org', or fail when it is not what it should say."
+  (let ((file (expand-file-name heks-keys--reference-file heks-keys--root))
+        (text (heks-keys--reference)))
+    (if (getenv "HEKS_KEYS_WRITE")
+        (progn
+          (make-directory (file-name-directory file) t)
+          (with-temp-file file (insert text))
+          (message "\n== wrote %s, %d lines ==" heks-keys--reference-file
+                   (length (split-string text "\n"))))
+      (message "\n== the reference, %s ==" heks-keys--reference-file)
+      (let ((current (if (file-exists-p file)
+                         (with-temp-buffer
+                           (insert-file-contents file)
+                           (buffer-string))
+                       "")))
+        (if (equal current text)
+            (message "  ok   it says what the configuration says")
+          (setq heks-keys--failures (1+ heks-keys--failures))
+          (message "  FAIL it does not; write it with\n        HEKS_KEYS_WRITE=1 emacs -Q --batch -l test/heks-emacs-keys.el")
+          (message "       %s" (heks-keys--diff current text)))))))
 
 ;;
 ;; Run.
@@ -360,6 +596,7 @@ binding that is not there."
         (load init nil t)
       (error (message "  the configuration did not load: %s" (error-message-string err))))
     (heks-keys--report)
+    (heks-keys--check-reference)
     (message "\n== %d failures, %d deliberate %s =="
              heks-keys--failures heks-keys--warnings
              (if (= heks-keys--warnings 1) "conflict" "conflicts"))

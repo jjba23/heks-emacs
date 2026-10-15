@@ -34,7 +34,7 @@
 ;;               project, with the project root on Guile's load path so that
 ;;               `(use-modules (my project))' just works.
 ;;   `C-c g e'   evaluate the definition at point, `C-c g E' the region or
-;;               the buffer, `C-c g b' load the file, `C-c g i' interrupt a
+;;               the buffer, `C-c g b' load the file, `C-c g k' interrupt a
 ;;               runaway evaluation, `C-c g x' run the file as a script.
 ;;   `C-c g s'   point the REPL at the module of this buffer.
 ;;   `C-c g d'   return to the debugger buffer after an exception, where
@@ -46,7 +46,7 @@
 ;;   `C-c g g'   go to the definition of the symbol at point.
 ;;   `C-c g h'   its documentation.
 ;;   `C-c g c'   who calls it; `C-c g C' what it calls (a call hierarchy).
-;;   `C-c g u'   its generic methods, for a generic function.
+;;   `C-c g m'   a menu of its generic methods, for a generic function.
 ;;
 ;; Completion in the buffer and at the prompt is Geiser's, through
 ;; `completion-at-point', which reaches Corfu here like any other source;
@@ -746,14 +746,18 @@ applied."
 (defvar heks-emacs-scheme-mode-map
   (let ((map (make-sparse-keymap)))
     ;; The REPL and evaluation: `r' opens it, `R' restarts it, `e' and
-    ;; `E' evaluate, and `s' points it at the module of this buffer.
+    ;; `E' evaluate, `k' stops what it is running, and `s' points it at
+    ;; the module of this buffer.  (`k' rather than the `i' this used to
+    ;; be: `i' inserts everywhere else in the scheme, and stopping a
+    ;; process is what `k' says -- the same letter that shuts a language
+    ;; server down under `C-c i'.)
     (define-key map (kbd "C-c g r") #'heks-emacs-scheme-repl)
     (define-key map (kbd "C-c g R") #'heks-emacs-scheme-repl-restart)
     (define-key map (kbd "C-c g s") #'heks-emacs-scheme-repl-switch-to-module)
     (define-key map (kbd "C-c g e") #'heks-emacs-scheme-eval-definition)
     (define-key map (kbd "C-c g E") #'heks-emacs-scheme-eval-region-or-buffer)
     (define-key map (kbd "C-c g b") #'heks-emacs-scheme-load-buffer)
-    (define-key map (kbd "C-c g i") #'heks-emacs-scheme-interrupt)
+    (define-key map (kbd "C-c g k") #'heks-emacs-scheme-interrupt)
     (define-key map (kbd "C-c g x") #'heks-emacs-scheme-run-script)
     (define-key map (kbd "C-c g d") #'heks-emacs-scheme-debugger)
     ;; Navigation, from Geiser's own database.
@@ -761,7 +765,8 @@ applied."
     (define-key map (kbd "C-c g h") #'heks-emacs-scheme-documentation)
     (define-key map (kbd "C-c g c") #'heks-emacs-scheme-callers)
     (define-key map (kbd "C-c g C") #'heks-emacs-scheme-callees)
-    (define-key map (kbd "C-c g u") #'heks-emacs-scheme-generic-methods)
+    ;; `m' is a menu of the methods, which is what `m' is everywhere else.
+    (define-key map (kbd "C-c g m") #'heks-emacs-scheme-generic-methods)
     ;; Testing, linting and formatting: `t' tests, `L' lints the Guix
     ;; packages in the buffer, `f' formats it and `S' applies one of
     ;; Guix's styling rules.  Formatting is only bound here for Scheme:

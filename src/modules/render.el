@@ -283,6 +283,12 @@ likely than the code."
                                   (mapconcat #'identity (nreverse paragraph) " ")))
                          t t))
                   (setq paragraph nil)))
+              ;; UP-TO is the indentation a list has to be nested deeper
+              ;; than to be closed.  A block that is not a list closes them
+              ;; all, and says so with -1, because a list at column zero is
+              ;; deeper than -1 like any other: passing 0 there left the
+              ;; last list of a section unclosed, and the heading that
+              ;; followed it inside it.
               (close-lists (up-to)
                 (while (and lists (> (caar lists) up-to))
                   (emit (if (cdar lists) "</ol>" "</ul>"))
@@ -300,7 +306,7 @@ likely than the code."
            ;; Fenced code, with the language it names kept as a class.
            ((string-match "\\`\\(```+\\)\\(.*\\)\\'" trimmed)
             (close-paragraph)
-            (close-lists 0)
+            (close-lists -1)
             (let* ((fence (match-string 1 trimmed))
                    (info (string-trim (match-string 2 trimmed)))
                    (body nil)
@@ -325,7 +331,7 @@ likely than the code."
            ;; with a dash-and-space when it is `| - |'.
            ((heks-emacs-render--table? line (nth (1+ i) lines))
             (close-paragraph)
-            (close-lists 0)
+            (close-lists -1)
             (let ((rendered (heks-emacs-render--table lines i)))
               (emit (car rendered))
               (setq consumed (- (cdr rendered) i))))
@@ -333,7 +339,7 @@ likely than the code."
            ;; A blockquote: the quoted lines render as their own document.
            ((string-match "\\`> ?\\(.*\\)\\'" trimmed)
             (close-paragraph)
-            (close-lists 0)
+            (close-lists -1)
             (let ((quoted nil)
                   (j i))
               (while (and (< j n)
@@ -348,7 +354,7 @@ likely than the code."
 
            ((string-match "\\`\\(#\\{1,6\\}\\)[ \t]+\\(.*?\\)[ \t]*#*\\'" trimmed)
             (close-paragraph)
-            (close-lists 0)
+            (close-lists -1)
             (let ((level (length (match-string 1 trimmed))))
               (emit (format "<h%d>%s</h%d>" level
                             (heks-emacs-render--inline (match-string 2 trimmed))
@@ -366,7 +372,7 @@ likely than the code."
 
            ((string-match "\\`\\([-*_]\\)\\([ \t]*\\1\\)\\{2,\\}[ \t]*\\'" trimmed)
             (close-paragraph)
-            (close-lists 0)
+            (close-lists -1)
             (emit "<hr>"))
 
            ;; A list item, nested by its indentation.
@@ -399,7 +405,7 @@ likely than the code."
            ((and (string-prefix-p "<" trimmed)
                  (string-match-p "\\`</?[a-zA-Z][^>]*>" trimmed))
             (close-paragraph)
-            (close-lists 0)
+            (close-lists -1)
             (emit line))
 
            (t
@@ -414,7 +420,7 @@ likely than the code."
                   paragraph)))
           (setq i (+ i consumed))))
       (close-paragraph)
-      (close-lists 0))
+      (close-lists -1))
     (concat (string-join (nreverse out) "\n") "\n")))
 
 ;;

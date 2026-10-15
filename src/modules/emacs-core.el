@@ -37,13 +37,29 @@
 ;;   * an action letter means the same thing under every topic: `f'
 ;;     formats, `t' tests, `d' debugs, `b' builds, `r' runs or opens a
 ;;     REPL, `e' evaluates, `g' goes to a definition, `h' explains, `c'
-;;     lists callers, `l' lints, `n' creates, `v' views, `a' applies.
+;;     lists callers, `i' inserts, `k' kills, `l' lints, `n' creates,
+;;     `v' views, `a' applies.
 ;;
 ;; So `C-c g f' formats a Scheme file with Guix, `C-c i f' formats
 ;; whatever buffer is current, and `C-c j t' runs the tests of a JVM
-;; project.  `test/heks-emacs-keys.el' reads these two tables, prints the
-;; whole key tree and refuses a binding whose topic is not here or that
-;; disagrees with another binding of the same key.
+;; project.
+;;
+;; Some topics key something that is not one of those verbs at all, and
+;; the letter is then the first letter of what it names: the font sizes
+;; (`C-c f t' is tiny, `C-c f c' colossal), what the system topic
+;; reconfigures (`C-c # j' is his own configuration, `C-c # s' the
+;; system), what the notes topic opens (`C-c n f' finds a node, `C-c n j'
+;; the journal entry for today).  Those letters are written down per
+;; topic in `heks-emacs-key-letters' rather than being pushed into the
+;; action alphabet until it means everything and nothing -- which is what
+;; `i' had come to mean, with a key for the implementation and a key for
+;; an interrupt under it.
+;;
+;; `test/heks-emacs-keys.el' reads these three tables, prints the whole
+;; key tree with the meaning of every key, writes `docs/keybindings.org'
+;; -- the reference to read -- and refuses a binding whose topic is not
+;; described here, that disagrees with another binding of the same key,
+;; whose command does not exist, or whose letters are in no table.
 
 (defconst heks-emacs-key-topics
   '(("!"     . "diagnostics: Flymake")
@@ -78,15 +94,17 @@ Read by `test/heks-emacs-keys.el', which fails when a key uses a topic
 that is not described here.")
 
 (defconst heks-emacs-key-actions
-  '(("a" . "apply an action, add something")
+  '(("a" . "apply an action, or add something")
     ("b" . "build")
     ("c" . "show the callers of this definition")
     ("d" . "debug, or the difference between two things")
     ("e" . "evaluate")
     ("f" . "format")
-    ("g" . "go to a definition")
-    ("h" . "explain: documentation at point")
-    ("l" . "lint and list problems")
+    ("g" . "go to: a definition, an implementation, a location")
+    ("h" . "explain: the documentation of what is at point")
+    ("i" . "insert")
+    ("k" . "kill: stop a process or a server")
+    ("l" . "lint, or list the problems")
     ("m" . "a menu, or turn the mode on and off")
     ("n" . "new, or next")
     ("o" . "open")
@@ -95,10 +113,105 @@ that is not described here.")
     ("s" . "send to a REPL, or switch")
     ("t" . "test")
     ("u" . "update")
-    ("v" . "view or validate")
-    ("w" . "write or work on")
+    ("v" . "view, or validate")
+    ("w" . "write, or work on")
     ("x" . "execute a script"))
-  "What each action letter means under every topic.")
+  "What each action letter means under every topic.
+
+An action letter is one meaning in every topic that uses it.  A topic
+that keys something other than an action says so in
+`heks-emacs-key-letters', and the two together are what every key under
+`C-c' is held to; an uppercase letter is the further one of a pair (`C-c
+g E' evaluates more than `C-c g e', `C-c v C' closes everything where
+`C-c v c' closes one fold).")
+
+(defconst heks-emacs-key-letters
+  '(("!" ("n" . "the next diagnostic")
+         ("N" . "the previous diagnostic")
+         ("b" . "the diagnostics of this buffer")
+         ("a" . "all the diagnostics of the project"))
+    ("#" ("j" . "his own configuration")
+         ("s" . "the system")
+         ("f" . "everything: his configuration and the system"))
+    (";" ("v" . "the entry for today")
+         ("g" . "the entry for yesterday"))
+    ("C-d" ("c" . "the diagram at point")
+           ("r" . "the diagram in the region")
+           ("b" . "the diagrams in this buffer")
+           ("f" . "the diagrams in this file"))
+    ("a" ("b" . "the request written as a block to paste"))
+    ("c" ("d" . "Docker"))
+    ("d" ("p" . "PostgreSQL")
+         ("m" . "the MongoDB shell"))
+    ("e" ("a" . "allow this `.envrc'")
+         ("d" . "direnv, in every buffer"))
+    ("f" ("c" . "colossal")
+         ("j" . "jumbo")
+         ("l" . "large")
+         ("L" . "larger")
+         ("n" . "nano")
+         ("r" . "regular")
+         ("s" . "small")
+         ("t" . "tiny"))
+    ("g" ("b" . "the whole buffer, sent to the REPL")
+         ("L" . "lint it with `guix lint'")
+         ("S" . "apply one of `guix style''s rules")
+         ("p" . "the package at the mark")
+         ("R" . "restart it")
+         ("E" . "the region, or the whole buffer")
+         ("C" . "the callees of this definition"))
+    ("h" ("f" . "the function at point, as `C-h f'")
+         ("v" . "the variable at point, as `C-h v'")
+         ("k" . "the key at point, as `C-h k'"))
+    ("i" ("e" . "Eglot itself, and what it is doing")
+         ("r" . "rename the symbol at point")
+         ("R" . "restart the language server")
+         ("h" . "the server's inlay hints, on and off"))
+    ("j" ("m" . "Maven")
+         ("M" . "the Maven menu")
+         ("g" . "Gradle")
+         ("G" . "the Gradle menu")
+         ("s" . "Spring Boot")
+         ("N" . "a new project")
+         ("B" . "the project, built again")
+         ("R" . "the project's classpath, reloaded"))
+    ("n" ("c" . "capture a note")
+         ("f" . "find a node")
+         ("g" . "the graph of the notes")
+         ("j" . "the journal entry for today")
+         ("l" . "the buffer that lists the links"))
+    ("o" ("m" . "Gnus itself")
+         ("g" . "a group, read once"))
+    ("r" ("b" . "the browser")
+         ("e" . "keep it as a file")
+         ("m" . "follow the buffer, re-rendering on save")
+         ("r" . "render it again"))
+    ("s" ("a" . "an alist accessor out of a string one")
+         ("c" . "the snippet at point, completed")
+         ("h" . "a hygguile class set out of a list of classes")
+         ("p" . "a parameter out of a value")
+         ("x" . "the named snippet, expanded"))
+    ("t" ("a" . "the lines, sorted")
+         ("c" . "the fill column indicator")
+         ("o" . "Olivetti, writing in the middle of the window")
+         ("w" . "the whitespace at the end of the lines"))
+    ("u" ("u" . "a UUID"))
+    ("v" ("c" . "this fold")
+         ("C" . "every fold")
+         ("o" . "this fold, opened")
+         ("O" . "this fold and everything under it")
+         ("r" . "every fold, revealed")
+         ("t" . "the fold at point, toggled"))
+    ("w" ("d" . "the development server")
+         ("g" . "a search of the project")
+         ("s" . "a random order for the standup")))
+  "What the letters of a topic that names things mean, topic by topic.
+
+These are the topics whose keys do not perform one of the actions in
+`heks-emacs-key-actions': the letter is the first letter of what the key
+names.  Both tables are read by `test/heks-emacs-keys.el', which fails on
+a letter that is in neither of them, so a key always has a description
+to show in `docs/keybindings.org'.")
 
 ;; Configure Flymake (built-in linter).
 ;;

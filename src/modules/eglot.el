@@ -57,13 +57,17 @@
          (yaml-mode . heks/eglot-ensure)
          (yaml-ts-mode . heks/eglot-ensure)
          (before-save . eglot-format-buffer))
-  :bind (("C-c i i" . eglot-find-implementation)
+  ;; `g' goes to the implementation and `k' shuts the server down, so that
+  ;; both are the letters they are everywhere else; `x' used to reconnect
+  ;; it, which is not what `x' means (running a script), and is now the
+  ;; `R' that restarts the REPL one topic down.
+  :bind (("C-c i g" . eglot-find-implementation)
          ("C-c i e" . eglot)
          ("C-c i k" . eglot-shutdown-all)
          ("C-c i 1" . heks/eglot-enable)
          ("C-c i 0" . heks/eglot-disable)
          ("C-c i r" . eglot-rename)
-         ("C-c i x" . eglot-reconnect)
+         ("C-c i R" . eglot-reconnect)
          ("C-c i a" . eglot-code-actions)
          ("C-c i m" . eglot-menu)
          ;; No `C-c i f' here: formatting is `heks-emacs-format-buffer',

@@ -131,6 +131,23 @@ A curated collection of gorgeous, modern, and highly accessible color palettes w
 
 ------------
 
+------------------------
+
+* The keybindings 🗝️
+
+Everything this configuration adds lives under ~C-c~: a letter for the topic, then a letter for the action.  An action letter means the same thing under every topic -- ~f~ formats, ~t~ tests, ~g~ goes to a definition, ~k~ stops a process, ~i~ inserts -- and a topic that keys something which is not an action (a font size, *whose* configuration is being written, the journal entry for today) says so in a table of its own rather than stretching the alphabet until it means nothing.
+
+The whole of it -- every topic, every key, and what both letters of it mean -- is in [[docs/keybindings.org][the keybindings reference]].  That file is not written by hand: ~maak keys-update~ writes it from the configuration, ~maak keys~ fails while the two disagree, and it is checked along with everything else by ~maak check~:
+
+#+begin_src shell
+maak keys         # the whole key tree, and every key that means two things
+maak keys-update  # write docs/keybindings.org from the keys that are there
+maak golden       # compare the renderers with the pages they produced last time
+maak golden-update  # write those pages again, deliberately
+maak check        # lint, keys, render, golden, verify
+#+end_src
+
+
 * The bridges
 
 If you use [[https://codeberg.org/jjba23/heks-linux][Heks GNU/Linux]], there is a heks-emacs bridge available there.
@@ -223,9 +240,9 @@ Guile Scheme development, built around the REPL, [[https://gitlab.com/emacs-geis
 
 *Guix is optional here.* On a machine that has it the module adds what only Guix can give (a Guix REPL, ~guix lint~, ~guix style~, Emacs-Guix's own bindings); on a machine that does not -- a Mac, say -- it is a complete plain Guile setup instead: a ~guile~ REPL, the Guile compiler as the checker and Emacs' own indentation as the formatter. Nothing has to be reconfigured for that; the module looks for ~guix~ and uses what it finds.
 
-~C-c g r~ starts or switches to the current project's REPL: a Guix REPL (~guix repl~) in a buffer that defines packages, a plain Guile one elsewhere, always with the project root on Guile's load path and one REPL per project. ~C-c g R~ restarts it and ~C-c g s~ points it at the module of the current buffer. Definitions, regions, whole files and scripts go to it with ~C-c g e~, ~C-c g E~, ~C-c g b~ and ~C-c g x~, ~C-c g i~ interrupts a runaway evaluation, and ~C-c g d~ returns to Geiser's debugger after an exception.
+~C-c g r~ starts or switches to the current project's REPL: a Guix REPL (~guix repl~) in a buffer that defines packages, a plain Guile one elsewhere, always with the project root on Guile's load path and one REPL per project. ~C-c g R~ restarts it and ~C-c g s~ points it at the module of the current buffer. Definitions, regions, whole files and scripts go to it with ~C-c g e~, ~C-c g E~, ~C-c g b~ and ~C-c g x~, ~C-c g k~ interrupts a runaway evaluation, and ~C-c g d~ returns to Geiser's debugger after an exception.
 
-Geiser also answers the navigation questions, so this is a code-intelligence setup with no language server in it: ~C-c g g~ goes to a definition, ~C-c g h~ shows its documentation, ~C-c g c~ and ~C-c g C~ list callers and callees, and ~C-c g u~ lists the methods of a generic function. Completion is Geiser's, through ~completion-at-point~ (so Corfu shows it like any other source), and ~geiser-autodoc-mode~ puts the signature of the symbol at point in the echo area. Geiser activates itself in Scheme buffers, so none of this needs a command to start.
+Geiser also answers the navigation questions, so this is a code-intelligence setup with no language server in it: ~C-c g g~ goes to a definition, ~C-c g h~ shows its documentation, ~C-c g c~ and ~C-c g C~ list callers and callees, and ~C-c g m~ lists the methods of a generic function. Completion is Geiser's, through ~completion-at-point~ (so Corfu shows it like any other source), and ~geiser-autodoc-mode~ puts the signature of the symbol at point in the echo area. Geiser activates itself in Scheme buffers, so none of this needs a command to start.
 
 Checking and formatting run on save, from whichever tool is the authority:
 - ~guix lint~ on the package defined at point, so Guix's checkers appear as Flymake diagnostics;
