@@ -142,9 +142,10 @@ The whole of it -- every topic, every key, and what both letters of it mean -- i
 #+begin_src shell
 maak keys         # the whole key tree, and every key that means two things
 maak keys-update  # write docs/keybindings.org from the keys that are there
+maak test         # the configuration's own test suite
 maak golden       # compare the renderers with the pages they produced last time
 maak golden-update  # write those pages again, deliberately
-maak check        # lint, keys, render, golden, verify
+maak check        # lint, keys, render, test, golden, verify
 #+end_src
 
 
@@ -313,7 +314,14 @@ Configures Tempel as the snippet/template system. Snippets are loaded from the u
 *** =render.el=
 Renders what one is reading, from Emacs itself: a Markdown file, an Org file, an OpenAPI specification and a plain text file each become one HTML document, themed with the colours of the current Emacs theme, with no stylesheet to download and no network access. The document is written to a file and shown either inside Emacs, where EWW renders it and the links work, or in the browser, which applies the whole stylesheet and is the one to look at before sharing a document or checking a table's alignment.
 
+A document shows its code in colour: a fenced block is fontified with the mode the fence's language names, and the stylesheet that wraps the page carries the colours of the *current* theme for each face the code used, so a README looks like the Emacs it was written in and stays readable in a light theme and a dark one. A snippet is escaped before it is coloured, so a ~<~ in code is still a ~<~ on the page. Every heading gets an id and, once a document has enough sections, a list of contents above the body -- which is what makes an OpenAPI page, an operation per heading, navigable as well as searchable -- and the stylesheet ends with a print block (page margins, no fixed navigation on paper) for the reader who prints what they read.
+
 ~C-c r p~ previews the buffer at point in Emacs, ~C-c r b~ opens the same page in the browser, ~C-c r r~ renders it again after an edit, ~C-c r e~ writes it next to the file being read as a ~.html~ file to keep, and ~C-c r m~ makes the preview follow the buffer: the document is rendered again whenever that buffer is saved.
+
+*** =present.el=
+Presents what one has written, from the same family as ~render.el~ and with the keys next to it. An Org note is presented in Emacs itself -- ~org-present~ narrows the buffer to one heading at a time, scales the text up and takes ~SPC~ and the arrow keys for the next and previous heading, ~q~ leaves it, and the mode line is hidden for the duration because it is not part of what is being shown -- while anything else becomes a deck in the browser, one ~section~ per slide.
+
+~C-c r P~ presents the buffer (Org in Emacs, anything else as a deck), ~C-c r d~ opens the deck in the browser, ~C-c r D~ writes it next to the file as a ~.deck.html~ to keep, and ~C-c r n~ starts the next slide where point is, in the document's own way: a line of dashes in Markdown, a heading at the level the file's own slides are at in Org. A deck is walked with the arrow keys, the space bar, Home and End or two buttons, and carries its own stylesheet and its own navigation and fetches nothing, so the exported file opens from a ~file://~ URL on a machine that is not this one -- no server, no network, no Emacs. Printing puts one slide on each page.
 
 *** =openapi.el=
 Reads, checks and explains OpenAPI specifications, in JSON or YAML. ~C-c a v~ renders the specification at point the way Swagger UI would -- operations grouped by tag, parameters and responses in tables, schemas listed -- in the same document the module above produces, so a specification is read as documentation instead of as nested brackets. The operations also appear in the imenu menu under their tags.

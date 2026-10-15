@@ -963,7 +963,11 @@ and an `imenu' that lists the operations by tag."
   :bind (("C-c a v" . heks-emacs-openapi-view)
          ("C-c a l" . heks-emacs-openapi-check)
          ("C-c a r" . heks-emacs-openapi-request)
-         ("C-c a b" . heks-emacs-openapi-rest-block)))
+         ("C-c a b" . heks-emacs-openapi-rest-block)
+         ;; The mode is turned on by the hooks above; the key is there for
+         ;; the buffer the hooks do not reach -- a specification with an
+         ;; extension nobody expects, or one being written from scratch.
+         ("C-c a m" . heks-emacs-openapi-mode)))
 
 (provide 'heks-emacs/openapi)
 

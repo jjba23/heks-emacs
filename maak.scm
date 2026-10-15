@@ -93,6 +93,15 @@ Fast, and without loading any of the configuration: the renderer is a
 pure function from a string to HTML, so it is checked as one."
   (syscall "emacs -Q --batch -l test/heks-emacs-render.el"))
 
+(define (test)
+  "Run the configuration's own test suite.
+
+The other checks read this configuration and judge what it says; this one
+loads the modules and calls the code, which is the only way to find out
+that a function does what its docstring says.  It needs nothing installed:
+the modules are loaded from `src' by name, with `use-package' stubbed out."
+  (syscall "emacs -Q --batch -l test/heks-emacs-ert.el"))
+
 (define (golden)
   "Check that the renderers still produce the pages they produced last time.
 
@@ -113,5 +122,6 @@ leaves in `test/golden/' before committing it."
   (lint)
   (keys)
   (render)
+  (test)
   (golden)
   (verify))

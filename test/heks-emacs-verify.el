@@ -432,10 +432,12 @@ configuration."
   ;; in batch as well as it does in a frame.
   (let ((file (heks-emacs-render-file)))
     (heks-verify--check "the preview file is written" (file-exists-p file))
+    ;; What is written is a whole document, and a document's headings are
+    ;; given ids, because that is what a link to one of them points at.
     (heks-verify--check "and holds the rendered document"
                         (with-temp-buffer
                           (insert-file-contents file)
-                          (and (string-match-p "<h1>Title</h1>" (buffer-string)) t)))))
+                          (and (string-match-p "<h1 id=\"title\">Title</h1>" (buffer-string)) t)))))
 
 (heks-verify--section "an OpenAPI specification is read, checked and shown")
 

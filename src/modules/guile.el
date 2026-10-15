@@ -752,6 +752,9 @@ applied."
     ;; process is what `k' says -- the same letter that shuts a language
     ;; server down under `C-c i'.)
     (define-key map (kbd "C-c g r") #'heks-emacs-scheme-repl)
+    ;; A REPL that is already running somewhere else: Geiser connects to
+    ;; it by host and port, which is what `o' opens elsewhere.
+    (define-key map (kbd "C-c g o") #'geiser-connect)
     (define-key map (kbd "C-c g R") #'heks-emacs-scheme-repl-restart)
     (define-key map (kbd "C-c g s") #'heks-emacs-scheme-repl-switch-to-module)
     (define-key map (kbd "C-c g e") #'heks-emacs-scheme-eval-definition)

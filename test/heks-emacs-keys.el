@@ -35,7 +35,9 @@
 ;;   * every command whose name is claimed by this configuration but
 ;;     cannot be called, which is what a typo in a binding looks like;
 ;;   * every letter that neither the action alphabet nor the topic's own
-;;     letters describe, which is what an undocumented key looks like.
+;;     letters describe, which is what an undocumented key looks like;
+;;   * every key whose topic has no sentence of its own about it, and
+;;     every sentence about a key that is bound nowhere.
 ;;
 ;; Run it on this checkout:
 ;;
@@ -74,7 +76,8 @@
   "The scheme's own tables, as read from the source: (NAME . VALUE).")
 
 (defconst heks-keys--table-names
-  '(heks-emacs-key-topics heks-emacs-key-actions heks-emacs-key-letters)
+  '(heks-emacs-key-topics heks-emacs-key-actions heks-emacs-key-letters
+    heks-emacs-key-descriptions)
   "The tables the scheme is written in.")
 
 (defconst heks-keys--reference-file "docs/keybindings.org"
@@ -247,16 +250,18 @@ binding that is not there."
   "The documented topic letters, used when the configuration cannot be loaded.")
 
 ;; A key that means two things is not always a mistake.  Every entry here
-;; is a decision, with the reason it was made; the audit refuses an
-;; unlisted conflict so that a new one cannot slip in unnoticed.
+;; is a decision, with the reason it was made.  The audit refuses an
+;; unlisted conflict so that a new one cannot slip in unnoticed, and it
+;; refuses a listed one that no longer means two things, so that this
+;; stays a record of decisions rather than of history.
 (defconst heks-keys--deliberate
-  '(;; In a Java buffer the JDT language server can run and test the
+  '(;; In a Java buffer the JDT language server builds and tests the
     ;; program itself, which is more accurate than asking Maven to do it
-    ;; in a buffer that is not that project's build file.
-    ("C-c j r" . "Java buffers run the main class through eglot-java")
-    ("C-c j t" . "Java buffers run a test through eglot-java")
+    ;; from a buffer that is not that project's build file.  Everywhere
+    ;; else the two keys are the project's own build tool: the same idea,
+    ;; answered by whoever knows the project better.
     ("C-c j b" . "Java buffers build through eglot-java")
-    ("C-c j n" . "Java buffers create a file through eglot-java"))
+    ("C-c j t" . "Java buffers run a test through eglot-java"))
   "Two-letter keys that deliberately mean different things in different maps.")
 
 ;;
@@ -316,13 +321,16 @@ one."
 (defun heks-keys--meaning-of (topic key)
   "Return what KEY does under TOPIC, for the report and the reference.
 
-A key whose last stroke is not a letter -- the dashboard's `C-c SPC SPC',
-Org's `C-c C-#' -- is described by what its topic is for."
-  (let ((letter (heks-keys--letter-of key)))
-    (or (and letter (heks-keys--letter-meaning topic letter))
-        (cdr (assoc topic (or (heks-keys--table 'heks-emacs-key-topics)
-                              heks-keys--fallback-topics)
-                    #'equal)))))
+The key's own description comes first, then what its topic means by its
+letter, then what the letter means everywhere, and finally what the topic
+is for -- which is what a key whose last stroke is not a letter at all,
+the dashboard's `C-c SPC SPC', is left with."
+  (or (cdr (assoc key (heks-keys--table 'heks-emacs-key-descriptions) #'equal))
+      (let ((letter (heks-keys--letter-of key)))
+        (or (and letter (heks-keys--letter-meaning topic letter))
+            (cdr (assoc topic (or (heks-keys--table 'heks-emacs-key-topics)
+                                  heks-keys--fallback-topics)
+                        #'equal))))))
 
 (defun heks-keys--report ()
   "Print the key tree and the problems found in it."
@@ -369,7 +377,17 @@ Org's `C-c C-#' -- is described by what its topic is for."
               (setq heks-keys--failures (1+ heks-keys--failures))
               (message "  FAIL %-12s %s" key (string-join (mapcar #'symbol-name commands) " != "))))))
       (when (zerop conflicts)
-        (message "  none")))
+        (message "  none"))
+      ;; A decision recorded for a conflict that is no longer there is a
+      ;; note that has stopped being true, which is how a list of
+      ;; exceptions rots into a list nobody reads.
+      (dolist (entry heks-keys--deliberate)
+        (let ((entries (gethash (car entry) by-key)))
+          (unless (and entries
+                       (> (length (delete-dups (mapcar (lambda (e) (nth 2 e)) entries))) 1))
+            (setq heks-keys--failures (1+ heks-keys--failures))
+            (message "  FAIL %-12s is on the list of deliberate conflicts, and means one thing now"
+                     (car entry))))))
 
     ;; One key, both a command and a prefix: the prefix wins, silently.
     (message "\n== keys that are both a command and a prefix ==")
@@ -423,6 +441,45 @@ Org's `C-c C-#' -- is described by what its topic is for."
                   heks-keys--failures (1+ heks-keys--failures))
             (message "  FAIL %-12s `%s' means nothing under topic `%s' (%s)"
                      key letter topic (nth 3 entry)))))
+      (when (zerop found)
+        (message "  none"))))
+
+  ;; A key with no description of its own can only be described by its
+  ;; letters, which is what the reference read like before there was a
+  ;; table for this: "a menu, or turn the mode on and off" under a key
+  ;; that did not turn a mode on.  Every key under `C-c' is written down
+  ;; in its topic's own words, and this is what holds the reference to
+  ;; that rather than to the reader's patience.
+  (message "\n== keys with no description of their own ==")
+  (let ((found 0)
+        (descriptions (heks-keys--table 'heks-emacs-key-descriptions)))
+    (if (not descriptions)
+        (message "  none (the scheme's tables were not read, so this was not checked)")
+      (dolist (entry (reverse heks-keys--entries))
+        (let ((key (car entry)))
+          (when (and (heks-keys--top key)
+                     (not (assoc key descriptions #'equal)))
+            (setq found (1+ found)
+                  heks-keys--failures (1+ heks-keys--failures))
+            (message "  FAIL %-12s %s is left with its letter's meaning (%s)"
+                     key (nth 2 entry) (nth 3 entry)))))
+      (when (zerop found)
+        (message "  none"))))
+
+  ;; And the other way around: a description of a key nobody binds is a
+  ;; sentence about a key that does not exist, which is worse than none,
+  ;; because it reads like an answer.
+  (message "\n== descriptions of keys that are not bound ==")
+  (let ((found 0)
+        (descriptions (heks-keys--table 'heks-emacs-key-descriptions)))
+    (if (not descriptions)
+        (message "  none (the scheme's tables were not read, so this was not checked)")
+      (dolist (description descriptions)
+        (unless (assoc (car description) (reverse heks-keys--entries))
+          (setq found (1+ found)
+                heks-keys--failures (1+ heks-keys--failures))
+          (message "  FAIL %-12s is described as \"%s\" and bound nowhere"
+                   (car description) (cdr description))))
       (when (zerop found)
         (message "  none"))))
 
@@ -507,6 +564,14 @@ are rather than what they were when somebody last edited it."
            "~emacs-core.el~ and run =maak keys-update= -- =maak keys= fails while this"
            "file and the configuration disagree."
            ""
+           "Every key here says what it does in the topic it is in, in that topic's"
+           "own words: `C-c i f' is not \"format\" but \"the buffer, formatted by"
+           "whoever knows how\", because the same letter under another topic is a"
+           "different formatter.  The alphabet below is what the letters mean; the"
+           "keys, further down, are what each one actually does.  =maak keys= fails"
+           "when a key has no description of its own, so a new key cannot arrive"
+           "described only by a letter."
+           ""
            "* The alphabet"
            ""
            "** The action letters, the same under every topic"
@@ -523,14 +588,17 @@ are rather than what they were when somebody last edited it."
       (dolist (topic (sort (hash-table-keys by-topic) #'string<))
         (say (format "| ~%s~ | %s |" topic (description topic))))
       (say ""
-           "** The letters of a topic that names things"
+           "** The letters a topic gives its own meaning"
            ""
            "A few topics key something that is not an action -- a font size, the"
            "configuration being written, the journal entry for today -- and their"
-           "letters are the first letter of what they name."
+           "letters are the first letter of what they name.  A topic can also say"
+           "here that it means something of its own by an action letter: under"
+           "~C-c w~ it is ~i~ that initialises the Terraform state, where ~i~ inserts"
+           "in every other topic."
            ""
-           "| Topic | Letter | What it names |"
-           "|-------+--------+---------------|")
+           "| Topic | Letter | What it means here |"
+           "|-------+--------+--------------------|")
       (dolist (topic-entry (sort (copy-sequence letters)
                                  (lambda (a b) (string< (car a) (car b)))))
         (dolist (letter-entry (cdr topic-entry))
@@ -542,8 +610,8 @@ are rather than what they were when somebody last edited it."
         (say ""
              (format "** ~C-c %s~ %s" topic (description topic))
              ""
-             "| Key | Command | The letter means | In |"
-             "|-----+---------+------------------+----|")
+             "| Key | Command | What it does | In |"
+             "|-----+---------+--------------+----|")
         (dolist (entry (keys-of topic))
           (say (format "| ~%s~ | ~%s~ | %s | %s |"
                        (car entry)

@@ -70,6 +70,8 @@
          ("C-c i R" . eglot-reconnect)
          ("C-c i a" . eglot-code-actions)
          ("C-c i m" . eglot-menu)
+         ("C-c i E" . eglot-events-buffer)
+         ("C-c i s" . heks-emacs-yaml-insert-schema-modeline)
          ;; No `C-c i f' here: formatting is `heks-emacs-format-buffer',
          ;; which asks Eglot when a server manages the buffer and the
          ;; language's own formatter when it does not.
@@ -163,6 +165,24 @@
                                          :diagnostics (:disabled ["macro-error"])
                                          :procMacro (:enable t))
 
+                  ;; --- YAML: which schema a file is checked against ---
+                  ;; The language server reads `yaml.schemas' as an object
+                  ;; from a schema to the files it applies to, keyed by the
+                  ;; schema's own URL; `kubernetes' is the one name the
+                  ;; server resolves itself, and it is what makes a
+                  ;; manifest complete inside its `kind'.  A key here has
+                  ;; to be a symbol -- Emacs's JSON writer refuses a string
+                  ;; -- which is why no URL below contains a fragment.
+                  ;;
+                  ;; Two things are deliberately absent.  A Helm chart's
+                  ;; `values.yaml' has no schema anybody can write, because
+                  ;; its keys are the chart's own; it is checked against
+                  ;; the `values.schema.json' the chart ships, named in the
+                  ;; file itself.  And `schemaStore' already knows the
+                  ;; files that have a schema by name, Woodpecker pipelines
+                  ;; among them, so only what it cannot know is spelled out
+                  ;; here.  Both gaps are what `C-c i s' fills in for one
+                  ;; file at a time.
                   :yaml ( :format (:enable t)
                           :validate t
                           :hover t
@@ -170,9 +190,80 @@
                           :schemas (
                                     https://codeberg.org/jjba23/pop-test/raw/branch/trunk/resources/json-schema/pop-test.json ["golden-test.yaml" "golden-test.yml" "pop-test.yaml" "pop-test.yml"]
                                     https://raw.githubusercontent.com/Vandebron/gh-mpyl/refs/heads/main/src/mpyl/schema/project.schema.yml ["project.yml"]
-                                    https://json.schemastore.org/yamllint.json ["/*.yml"])
+                                    https://json.schemastore.org/yamllint.json ["/*.yml"]
+                                    kubernetes ["**/k8s/**/*.yaml" "**/manifests/**/*.yaml" "!**/k8s/**/values.yaml" "!**/k8s/**/kustomization.yaml"]
+                                    https://spec.openapis.org/oas/3.0/schema/2024-10-18 ["openapi.yaml" "openapi.yml" "**/openapi.yaml" "**/openapi.yml" "**/*-openapi.yaml" "**/*-openapi.yml"]
+                                    https://json.schemastore.org/github-workflow.json ["**/.github/workflows/*.yml" "**/.github/workflows/*.yaml"]
+                                    https://raw.githubusercontent.com/compose-spec/compose-spec/main/schema/compose-spec.json ["compose.yaml" "compose.yml" "docker-compose.yaml" "docker-compose.yml" "**/compose.yaml" "**/docker-compose.yml"]
+                                    https://gitlab.com/gitlab-org/gitlab/-/raw/master/app/assets/javascripts/editor/schema/ci.json ["**/.gitlab-ci.yml" "**/.gitlab-ci.yaml"]
+                                    https://json.schemastore.org/woodpecker.json ["**/.woodpecker/*.yml" "**/.woodpecker/*.yaml"])
                           :schemaStore (:enable t))
                   :nil (:formatting (:command ["nixfmt"]))))
+
+  ;; --- YAML: the schema a file names for itself ---
+  ;; What `yaml.schemas' above cannot cover is named by the file itself,
+  ;; in a comment the language server reads:
+  ;;
+  ;;   # yaml-language-server: $schema=./values.schema.json
+  ;;
+  ;; `C-c i s' writes that line, and works out which schema to write: the
+  ;; chart's own `values.schema.json' when the file sits beside one, and
+  ;; otherwise the published schema of the OpenAPI version the file
+  ;; declares, so that a 3.1 specification is not checked as a 3.0 one.
+  ;; (3.0 is what `yaml.schemas' associates by name, because it is what
+  ;; most specifications in the world are and a file can only be checked
+  ;; against one schema at a time.)
+  (defconst heks-emacs-yaml-version-schemas
+    '(("3.0" . "https://spec.openapis.org/oas/3.0/schema/2024-10-18")
+      ("3.1" . "https://spec.openapis.org/oas/3.1/schema/2026-08-03")
+      ("3.2" . "https://spec.openapis.org/oas/3.2/schema/2026-08-30"))
+    "The published schema of each OpenAPI version, by its `openapi' field.
+
+The date in a URL is how the OpenAPI Initiative identifies a schema
+revision, and the ones here are the current revisions of each version;
+`https://spec.openapis.org/oas/' is where they are listed.")
+
+  (defun heks-emacs-yaml--declared-version ()
+    "Return the OpenAPI version this buffer declares, like \"3.1\", or nil."
+    (save-excursion
+      (goto-char (point-min))
+      (when (re-search-forward
+             "^[ \t]*openapi:[ \t]*[\"']?\\([0-9]+\\.[0-9]+\\)" 4000 t)
+        (match-string 1))))
+
+  (defun heks-emacs-yaml-schema-for-file ()
+    "Return the schema this YAML file should name for itself, or nil.
+
+A `values.yaml' is validated by the `values.schema.json' that sits beside
+it, which is Helm's own convention and the only schema a chart's values
+can have.  An OpenAPI specification is validated by the schema of the
+version it declares."
+    (let ((directory (and buffer-file-name (file-name-directory buffer-file-name))))
+      (or (when (and directory
+                     (file-exists-p (expand-file-name "values.schema.json" directory)))
+            "./values.schema.json")
+          (cdr (assoc (heks-emacs-yaml--declared-version)
+                      heks-emacs-yaml-version-schemas)))))
+
+  (defun heks-emacs-yaml-insert-schema-modeline (schema)
+    "Insert the comment that tells the YAML language server which SCHEMA to use.
+
+Interactively SCHEMA is worked out from the file itself, with a prompt
+only when the file says nothing: a chart's `values.schema.json' beside a
+`values.yaml', or the published schema of a specification's version.  The
+line goes at the top of the file, and replaces one that is already
+there."
+    (interactive (list (or (heks-emacs-yaml-schema-for-file)
+                           (read-string "Schema URL or path: "))))
+    (unless (derived-mode-p 'yaml-mode 'yaml-ts-mode)
+      (user-error "This is a %s buffer, and the line is for a YAML one" major-mode))
+    (let ((line (format "# yaml-language-server: $schema=%s" schema)))
+      (save-excursion
+        (goto-char (point-min))
+        (if (re-search-forward "^# yaml-language-server: \\$schema=" nil t)
+            (progn (beginning-of-line) (kill-line) (insert line))
+          (insert line "\n")))
+      (message "The language server will check this file against %s" schema)))
 
   (add-hook 'eglot-managed-mode-hook
             (lambda ()

@@ -606,6 +606,110 @@ which is what reports a broken POM or a missing plugin."
          (heks-emacs-gradle-run "tasks"))
         (t (user-error "No Maven or Gradle project above %s" default-directory))))
 
+;; The goals a project is built with, under the name each tool gives the
+;; same idea: Maven has a `package' goal and Gradle an `assemble' task,
+;; and somebody who wants the artefact should not have to remember which
+;; of the two words their project answers to.  These are the ones a build
+;; is actually run with; everything else is still there in the Maven and
+;; Gradle menus, which complete against their full crib.
+(defconst heks-emacs-jvm-goals
+  '(("test"         "test"           "test"         "Run the tests")
+    ("package"      "package"        "assemble"     "Build the artefact")
+    ("verify"       "verify"         "check"        "Run every check the build defines")
+    ("clean"        "clean"          "clean"        "Delete the build output")
+    ("dependencies" "dependency:tree" "dependencies" "Show the dependency tree"))
+  "The goals a JVM project is built with, as (WHAT MAVEN GRADLE \"what it does\").
+
+WHAT is what the person wants, and the two names after it are what each
+build tool calls it.  `heks-emacs-jvm-run' reads this, so that `C-c j t'
+runs the tests of a Maven project and of a Gradle project alike.")
+
+(defvar heks-emacs-jvm-goal-history nil
+  "Goals that have been run from this Emacs by what they do.")
+
+(defun heks-emacs-jvm-goal-for (what tool)
+  "Return what TOOL calls the goal WHAT, or nil when neither knows it.
+
+TOOL is the symbol `maven' or `gradle'; WHAT is one of the names in
+`heks-emacs-jvm-goals'."
+  (let* ((entry (assoc what heks-emacs-jvm-goals #'equal))
+         (name (pcase tool
+                 ('maven (nth 1 entry))
+                 ('gradle (nth 2 entry)))))
+    (or name (user-error "No %s goal is defined for %s" tool what))))
+
+(defun heks-emacs-jvm--read-table ()
+  "Return `heks-emacs-jvm-goals' as the alist `completing-read' wants.
+
+The goal's own name is what is chosen, and what it does is the
+annotation beside it."
+  (mapcar (lambda (entry) (cons (nth 0 entry) (nth 3 entry)))
+          heks-emacs-jvm-goals))
+
+(defun heks-emacs-jvm--project ()
+  "Return the closest JVM project above `default-directory' as (TOOL . ROOT).
+
+A directory can hold both a `pom.xml' and a `build.gradle' -- a Maven
+project being migrated, most often -- and the one nearer to the file
+being edited is the one its author is working with."
+  (let ((maven (heks-emacs--locate-project-file "pom.xml"))
+        (gradle (heks-emacs--locate-project-file '("build.gradle" "build.gradle.kts"))))
+    (cond ((and maven (or (null gradle) (>= (length maven) (length gradle))))
+           (cons 'maven maven))
+          (gradle (cons 'gradle gradle))
+          (t nil))))
+
+(defun heks-emacs-jvm-run (what)
+  "Run the goal WHAT for the JVM project of the current buffer.
+
+WHAT is what the goal is for -- `test', `package', `verify', `clean' or
+`dependencies' -- and which build tool runs it is decided by the project
+itself, `pom.xml' or a Gradle build."
+  (interactive (list (heks-emacs--jvm-read "Goal" (heks-emacs-jvm--read-table)
+                                           'heks-emacs-jvm-goal-history "test")))
+  (let ((project (heks-emacs-jvm--project)))
+    (unless project
+      (user-error "No pom.xml or Gradle build found above %s" default-directory))
+    (pcase (car project)
+      ('maven (heks-emacs-maven-run (heks-emacs-jvm-goal-for what 'maven)))
+      ('gradle (heks-emacs-gradle-run (heks-emacs-jvm-goal-for what 'gradle))))))
+
+(defun heks-emacs-jvm-test ()
+  "Run the tests of the JVM project of this buffer."
+  (interactive)
+  (heks-emacs-jvm-run "test"))
+
+(defun heks-emacs-jvm-package ()
+  "Build the artefact of the JVM project of this buffer."
+  (interactive)
+  (heks-emacs-jvm-run "package"))
+
+(defun heks-emacs-jvm-verify ()
+  "Run every check the JVM project of this buffer defines."
+  (interactive)
+  (heks-emacs-jvm-run "verify"))
+
+(defun heks-emacs-jvm-clean ()
+  "Delete the build output of the JVM project of this buffer."
+  (interactive)
+  (heks-emacs-jvm-run "clean"))
+
+(defun heks-emacs-jvm-dependencies ()
+  "Show what the JVM project of this buffer depends on."
+  (interactive)
+  (heks-emacs-jvm-run "dependencies"))
+
+(defun heks-emacs-jvm-build ()
+  "Choose what to do to the JVM project of this buffer, by what it does.
+
+This is the one menu that works in a Maven project and a Gradle project
+alike: it offers what a build is for, and the project answers with its
+own goal."
+  (interactive)
+  (heks-emacs-jvm-run
+   (heks-emacs--jvm-read "Goal" (heks-emacs-jvm--read-table)
+                         'heks-emacs-jvm-goal-history "test")))
+
 ;;
 ;; ====== Formatting, wherever the buffer is ======
 ;;

@@ -9,6 +9,14 @@ were; editing it by hand changes nothing.  Edit the scheme in
 ~emacs-core.el~ and run =maak keys-update= -- =maak keys= fails while this
 file and the configuration disagree.
 
+Every key here says what it does in the topic it is in, in that topic's
+own words: `C-c i f' is not "format" but "the buffer, formatted by
+whoever knows how", because the same letter under another topic is a
+different formatter.  The alphabet below is what the letters mean; the
+keys, further down, are what each one actually does.  =maak keys= fails
+when a key has no description of its own, so a new key cannot arrive
+described only by a letter.
+
 * The alphabet
 
 ** The action letters, the same under every topic
@@ -47,6 +55,7 @@ file and the configuration disagree.
 | ~;~ | diary |
 | ~C-#~ | Org statistics cookies, kept off `C-c #' |
 | ~C-d~ | diagrams: Mermaid |
+| ~M~ | music: EMMS, with MPD as the player |
 | ~SPC~ | dashboard |
 | ~a~ | API and HTTP: OpenAPI specs and requests |
 | ~c~ | containers: Docker |
@@ -62,21 +71,24 @@ file and the configuration disagree.
 | ~n~ | notes: Org and roam |
 | ~o~ | mail: Gnus |
 | ~p~ | completion at point: cape |
-| ~r~ | render and preview |
+| ~r~ | render, preview and present |
 | ~s~ | snippets and recorded macros |
 | ~t~ | text tools |
 | ~u~ | utilities |
 | ~v~ | view: folding and comparisons |
-| ~w~ | workspace and project |
+| ~w~ | workspace and project: running it, and Terraform |
 
-** The letters of a topic that names things
+** The letters a topic gives its own meaning
 
 A few topics key something that is not an action -- a font size, the
 configuration being written, the journal entry for today -- and their
-letters are the first letter of what they name.
+letters are the first letter of what they name.  A topic can also say
+here that it means something of its own by an action letter: under
+~C-c w~ it is ~i~ that initialises the Terraform state, where ~i~ inserts
+in every other topic.
 
-| Topic | Letter | What it names |
-|-------+--------+---------------|
+| Topic | Letter | What it means here |
+|-------+--------+--------------------|
 | ~!~ | ~n~ | the next diagnostic |
 | ~!~ | ~N~ | the previous diagnostic |
 | ~!~ | ~b~ | the diagnostics of this buffer |
@@ -90,6 +102,18 @@ letters are the first letter of what they name.
 | ~C-d~ | ~r~ | the diagram in the region |
 | ~C-d~ | ~b~ | the diagrams in this buffer |
 | ~C-d~ | ~f~ | the diagrams in this file |
+| ~M~ | ~a~ | the music, paused or resumed |
+| ~M~ | ~b~ | the music browser |
+| ~M~ | ~c~ | the music daemon, connected to |
+| ~M~ | ~C~ | the playlist, cleared |
+| ~M~ | ~i~ | the track that is playing now |
+| ~M~ | ~l~ | the playlist |
+| ~M~ | ~m~ | the player |
+| ~M~ | ~n~ | the next track |
+| ~M~ | ~o~ | a stream, played from its URL |
+| ~M~ | ~p~ | the previous track |
+| ~M~ | ~r~ | the selected track, played |
+| ~M~ | ~u~ | the track cache, read from the daemon |
 | ~a~ | ~b~ | the request written as a block to paste |
 | ~c~ | ~d~ | Docker |
 | ~d~ | ~p~ | PostgreSQL |
@@ -114,9 +138,12 @@ letters are the first letter of what they name.
 | ~h~ | ~f~ | the function at point, as `C-h f' |
 | ~h~ | ~v~ | the variable at point, as `C-h v' |
 | ~h~ | ~k~ | the key at point, as `C-h k' |
+| ~h~ | ~F~ | the face at point |
 | ~i~ | ~e~ | Eglot itself, and what it is doing |
+| ~i~ | ~E~ | the server's log of messages |
 | ~i~ | ~r~ | rename the symbol at point |
 | ~i~ | ~R~ | restart the language server |
+| ~i~ | ~s~ | the schema line this file names |
 | ~i~ | ~h~ | the server's inlay hints, on and off |
 | ~j~ | ~m~ | Maven |
 | ~j~ | ~M~ | the Maven menu |
@@ -126,6 +153,9 @@ letters are the first letter of what they name.
 | ~j~ | ~N~ | a new project |
 | ~j~ | ~B~ | the project, built again |
 | ~j~ | ~R~ | the project's classpath, reloaded |
+| ~l~ | ~l~ | a library, opened by name |
+| ~l~ | ~L~ | a library, loaded from disk |
+| ~l~ | ~p~ | the parentheses of this buffer |
 | ~n~ | ~c~ | capture a note |
 | ~n~ | ~f~ | find a node |
 | ~n~ | ~g~ | the graph of the notes |
@@ -134,8 +164,12 @@ letters are the first letter of what they name.
 | ~o~ | ~m~ | Gnus itself |
 | ~o~ | ~g~ | a group, read once |
 | ~r~ | ~b~ | the browser |
+| ~r~ | ~d~ | the deck, in the browser |
+| ~r~ | ~D~ | the deck, written next to the file |
 | ~r~ | ~e~ | keep it as a file |
 | ~r~ | ~m~ | follow the buffer, re-rendering on save |
+| ~r~ | ~n~ | a slide boundary, inserted |
+| ~r~ | ~P~ | the buffer, presented |
 | ~r~ | ~r~ | render it again |
 | ~s~ | ~a~ | an alist accessor out of a string one |
 | ~s~ | ~c~ | the snippet at point, completed |
@@ -145,102 +179,125 @@ letters are the first letter of what they name.
 | ~t~ | ~a~ | the lines, sorted |
 | ~t~ | ~c~ | the fill column indicator |
 | ~t~ | ~o~ | Olivetti, writing in the middle of the window |
+| ~t~ | ~r~ | colour names, shown as colours |
 | ~t~ | ~w~ | the whitespace at the end of the lines |
-| ~u~ | ~u~ | a UUID |
+| ~u~ | ~c~ | the marked files' contents, copied |
+| ~u~ | ~u~ | a UUID, generated |
 | ~v~ | ~c~ | this fold |
 | ~v~ | ~C~ | every fold |
 | ~v~ | ~o~ | this fold, opened |
 | ~v~ | ~O~ | this fold and everything under it |
 | ~v~ | ~r~ | every fold, revealed |
 | ~v~ | ~t~ | the fold at point, toggled |
+| ~w~ | ~c~ | a repository, cloned |
 | ~w~ | ~d~ | the development server |
+| ~w~ | ~D~ | the infrastructure, destroyed |
 | ~w~ | ~g~ | a search of the project |
+| ~w~ | ~i~ | the providers and state, initialised |
 | ~w~ | ~s~ | a random order for the standup |
 
 * The keys, by topic
 
 ** ~C-c !~ diagnostics: Flymake
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
 | ~C-c ! N~ | ~flymake-goto-prev-error~ | the previous diagnostic | emacs-core.el |
 | ~C-c ! a~ | ~flymake-show-project-diagnostics~ | all the diagnostics of the project | emacs-core.el |
 | ~C-c ! b~ | ~flymake-show-buffer-diagnostics~ | the diagnostics of this buffer | emacs-core.el |
-| ~C-c ! m~ | ~flymake-mode~ | a menu, or turn the mode on and off | emacs-core.el |
+| ~C-c ! m~ | ~flymake-mode~ | the background checking, on and off | emacs-core.el |
 | ~C-c ! n~ | ~flymake-goto-next-error~ | the next diagnostic | emacs-core.el |
 
 ** ~C-c #~ system: this machine and the Guix system
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
 | ~C-c # f~ | ~heks-emacs-full-reconfigure~ | everything: his configuration and the system | emacs-core.el |
 | ~C-c # j~ | ~heks-emacs-joe-reconfigure~ | his own configuration | emacs-core.el |
 | ~C-c # s~ | ~heks-emacs-sys-reconfigure~ | the system | emacs-core.el |
-| ~C-c # u~ | ~heks-emacs-sys-update~ | update | emacs-core.el |
+| ~C-c # u~ | ~heks-emacs-sys-update~ | the packages of the system, updated | emacs-core.el |
 
 ** ~C-c ;~ diary
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
 | ~C-c ; g~ | ~dagboek-yesterday-entry~ | the entry for yesterday | misc.el |
 | ~C-c ; v~ | ~dagboek-today-entry~ | the entry for today | misc.el |
 
 ** ~C-c C-#~ Org statistics cookies, kept off `C-c #'
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
-| ~C-c C-#~ | ~org-update-statistics-cookies~ | Org statistics cookies, kept off `C-c #' | org.el (a mode's own map) |
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c C-#~ | ~org-update-statistics-cookies~ | the statistics cookies of this outline | org.el (a mode's own map) |
 
 ** ~C-c C-d~ diagrams: Mermaid
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
 | ~C-c C-d b~ | ~mermaid-compile-buffer~ | the diagrams in this buffer | plot.el (a mode's own map) |
 | ~C-c C-d c~ | ~mermaid-compile~ | the diagram at point | plot.el (a mode's own map) |
 | ~C-c C-d f~ | ~mermaid-compile-file~ | the diagrams in this file | plot.el (a mode's own map) |
-| ~C-c C-d h~ | ~mermaid-open-doc~ | explain: the documentation of what is at point | plot.el (a mode's own map) |
-| ~C-c C-d o~ | ~mermaid-open-browser~ | open | plot.el (a mode's own map) |
+| ~C-c C-d h~ | ~mermaid-open-doc~ | the Mermaid documentation | plot.el (a mode's own map) |
+| ~C-c C-d o~ | ~mermaid-open-browser~ | the rendered diagram in the browser | plot.el (a mode's own map) |
 | ~C-c C-d r~ | ~mermaid-compile-region~ | the diagram in the region | plot.el (a mode's own map) |
+
+** ~C-c M~ music: EMMS, with MPD as the player
+
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c M C~ | ~emms-player-mpd-clear~ | the playlist, cleared | music.el |
+| ~C-c M a~ | ~emms-pause~ | the music, paused or resumed | music.el |
+| ~C-c M b~ | ~emms-browser~ | the music browser | music.el |
+| ~C-c M c~ | ~emms-player-mpd-connect~ | the music daemon, connected to | music.el |
+| ~C-c M i~ | ~emms-player-mpd-show~ | the track that is playing now | music.el |
+| ~C-c M l~ | ~emms-playlist-mode-go~ | the playlist | music.el |
+| ~C-c M m~ | ~emms~ | the player | music.el |
+| ~C-c M n~ | ~emms-next~ | the next track | music.el |
+| ~C-c M o~ | ~emms-play-url~ | a stream, played from its URL | music.el |
+| ~C-c M p~ | ~emms-previous~ | the previous track | music.el |
+| ~C-c M r~ | ~emms-player-mpd-play~ | the selected track, played | music.el |
+| ~C-c M u~ | ~emms-cache-set-from-mpd-all~ | the track cache, read from the daemon | music.el |
 
 ** ~C-c SPC~ dashboard
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
-| ~C-c SPC SPC~ | ~welkomscherm~ | dashboard | dashboard.el |
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c SPC SPC~ | ~welkomscherm~ | the dashboard | dashboard.el |
 
 ** ~C-c a~ API and HTTP: OpenAPI specs and requests
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
 | ~C-c a b~ | ~heks-emacs-openapi-rest-block~ | the request written as a block to paste | openapi.el |
-| ~C-c a l~ | ~heks-emacs-openapi-check~ | lint, or list the problems | openapi.el |
-| ~C-c a r~ | ~heks-emacs-openapi-request~ | run, or open a REPL | openapi.el |
-| ~C-c a v~ | ~heks-emacs-openapi-view~ | view, or validate | openapi.el |
+| ~C-c a l~ | ~heks-emacs-openapi-check~ | the spec's problems, listed | openapi.el |
+| ~C-c a m~ | ~heks-emacs-openapi-mode~ | the spec, read as a spec | openapi.el |
+| ~C-c a r~ | ~heks-emacs-openapi-request~ | the operation, sent as a live request | openapi.el |
+| ~C-c a v~ | ~heks-emacs-openapi-view~ | the spec, rendered to read | openapi.el |
 
 ** ~C-c c~ containers: Docker
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
-| ~C-c c d~ | ~docker~ | Docker | dev.el |
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c c d~ | ~docker~ | the Docker transient | dev.el |
 
 ** ~C-c d~ databases: PostgreSQL and MongoDB
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
 | ~C-c d m~ | ~heks-emacs-mongosh~ | the MongoDB shell | emacs-core.el |
-| ~C-c d p~ | ~heks-emacs-sql-postgres~ | PostgreSQL | emacs-core.el |
+| ~C-c d p~ | ~heks-emacs-sql-postgres~ | a PostgreSQL prompt | emacs-core.el |
 
 ** ~C-c e~ environment: direnv
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
 | ~C-c e a~ | ~direnv-allow~ | allow this `.envrc' | dev.el |
 | ~C-c e d~ | ~direnv-mode~ | direnv, in every buffer | dev.el |
 
 ** ~C-c f~ fonts and text size
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
 | ~C-c f L~ | ~tekengrootte-set-scale-larger~ | larger | ui.el |
 | ~C-c f c~ | ~tekengrootte-set-scale-colossal~ | colossal | ui.el |
 | ~C-c f j~ | ~tekengrootte-set-scale-jumbo~ | jumbo | ui.el |
@@ -252,164 +309,189 @@ letters are the first letter of what they name.
 
 ** ~C-c g~ Guile and Guix
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
 | ~C-c g C~ | ~heks-emacs-scheme-callees~ | the callees of this definition | guile.el (a mode's own map) |
 | ~C-c g E~ | ~heks-emacs-scheme-eval-region-or-buffer~ | the region, or the whole buffer | guile.el (a mode's own map) |
 | ~C-c g L~ | ~heks-emacs-guix-lint-buffer~ | lint it with `guix lint' | guile.el (a mode's own map) |
-| ~C-c g R~ | ~heks-emacs-scheme-repl-restart~ | restart it | guile.el (a mode's own map) |
+| ~C-c g R~ | ~heks-emacs-scheme-repl-restart~ | the REPL, restarted | guile.el (a mode's own map) |
 | ~C-c g S~ | ~heks-emacs-guix-style-apply-rule~ | apply one of `guix style''s rules | guile.el (a mode's own map) |
 | ~C-c g b~ | ~heks-emacs-scheme-load-buffer~ | the whole buffer, sent to the REPL | guile.el (a mode's own map) |
-| ~C-c g c~ | ~heks-emacs-scheme-callers~ | show the callers of this definition | guile.el (a mode's own map) |
-| ~C-c g d~ | ~heks-emacs-scheme-debugger~ | debug, or the difference between two things | guile.el (a mode's own map) |
-| ~C-c g e~ | ~heks-emacs-scheme-eval-definition~ | evaluate | guile.el (a mode's own map) |
-| ~C-c g f~ | ~heks-emacs-scheme-format-buffer~ | format | guile.el (a mode's own map) |
-| ~C-c g g~ | ~heks-emacs-scheme-find-definition~ | go to: a definition, an implementation, a location | guile.el (a mode's own map) |
-| ~C-c g h~ | ~heks-emacs-scheme-documentation~ | explain: the documentation of what is at point | guile.el (a mode's own map) |
-| ~C-c g k~ | ~heks-emacs-scheme-interrupt~ | kill: stop a process or a server | guile.el (a mode's own map) |
-| ~C-c g m~ | ~heks-emacs-scheme-generic-methods~ | a menu, or turn the mode on and off | guile.el (a mode's own map) |
+| ~C-c g c~ | ~heks-emacs-scheme-callers~ | the callers of this definition | guile.el (a mode's own map) |
+| ~C-c g d~ | ~heks-emacs-scheme-debugger~ | the Guile debugger | guile.el (a mode's own map) |
+| ~C-c g e~ | ~heks-emacs-scheme-eval-definition~ | the definition at point | guile.el (a mode's own map) |
+| ~C-c g f~ | ~heks-emacs-scheme-format-buffer~ | the buffer, formatted with Guix style | guile.el (a mode's own map) |
+| ~C-c g g~ | ~heks-emacs-scheme-find-definition~ | the definition of the symbol at point | guile.el (a mode's own map) |
+| ~C-c g h~ | ~heks-emacs-scheme-documentation~ | the documentation of the symbol at point | guile.el (a mode's own map) |
+| ~C-c g k~ | ~heks-emacs-scheme-interrupt~ | the running Guile, interrupted | guile.el (a mode's own map) |
+| ~C-c g m~ | ~heks-emacs-scheme-generic-methods~ | the generic methods of this symbol | guile.el (a mode's own map) |
+| ~C-c g o~ | ~geiser-connect~ | a REPL that is already running | guile.el (a mode's own map) |
 | ~C-c g p~ | ~guix-package-location-on-mark~ | the package at the mark | guile.el (a mode's own map) |
-| ~C-c g r~ | ~heks-emacs-scheme-repl~ | run, or open a REPL | guile.el (a mode's own map) |
-| ~C-c g s~ | ~heks-emacs-scheme-repl-switch-to-module~ | send to a REPL, or switch | guile.el (a mode's own map) |
-| ~C-c g t~ | ~heks-emacs-scheme-test~ | test | guile.el (a mode's own map) |
-| ~C-c g x~ | ~heks-emacs-scheme-run-script~ | execute a script | guile.el (a mode's own map) |
+| ~C-c g r~ | ~heks-emacs-scheme-repl~ | a Geiser REPL for this project | guile.el (a mode's own map) |
+| ~C-c g s~ | ~heks-emacs-scheme-repl-switch-to-module~ | the REPL, in another module | guile.el (a mode's own map) |
+| ~C-c g t~ | ~heks-emacs-scheme-test~ | the tests of this file | guile.el (a mode's own map) |
+| ~C-c g x~ | ~heks-emacs-scheme-run-script~ | this file, run as a script | guile.el (a mode's own map) |
 
 ** ~C-c h~ help and documentation
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c h F~ | ~describe-face~ | the face at point | emacs-core.el |
 | ~C-c h f~ | ~helpful-callable~ | the function at point, as `C-h f' | help.el |
-| ~C-c h h~ | ~helpful-at-point~ | explain: the documentation of what is at point | help.el |
+| ~C-c h h~ | ~helpful-at-point~ | the documentation of what is at point | help.el |
 | ~C-c h k~ | ~helpful-key~ | the key at point, as `C-h k' | help.el |
 | ~C-c h v~ | ~helpful-variable~ | the variable at point, as `C-h v' | help.el |
 
 ** ~C-c i~ IDE: language server, formatting, diagnostics
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
-| ~C-c i 0~ | ~heks/eglot-disable~ | IDE: language server, formatting, diagnostics | eglot.el |
-| ~C-c i 1~ | ~heks/eglot-enable~ | IDE: language server, formatting, diagnostics | eglot.el |
-| ~C-c i R~ | ~eglot-reconnect~ | restart the language server | eglot.el |
-| ~C-c i a~ | ~eglot-code-actions~ | apply an action, or add something | eglot.el |
-| ~C-c i e~ | ~eglot~ | Eglot itself, and what it is doing | eglot.el |
-| ~C-c i f~ | ~heks-emacs-format-buffer~ | format | emacs-core.el |
-| ~C-c i g~ | ~eglot-find-implementation~ | go to: a definition, an implementation, a location | eglot.el |
-| ~C-c i h~ | ~eglot-inlay-hints-mode~ | the server's inlay hints, on and off | eglot.el |
-| ~C-c i k~ | ~eglot-shutdown-all~ | kill: stop a process or a server | eglot.el |
-| ~C-c i m~ | ~eglot-menu~ | a menu, or turn the mode on and off | eglot.el |
-| ~C-c i r~ | ~eglot-rename~ | rename the symbol at point | eglot.el |
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c i 0~ | ~heks/eglot-disable~ | the language server, off in this Emacs | eglot.el |
+| ~C-c i 1~ | ~heks/eglot-enable~ | the language server, on in this Emacs | eglot.el |
+| ~C-c i E~ | ~eglot-events-buffer~ | the server's log of messages | eglot.el |
+| ~C-c i R~ | ~eglot-reconnect~ | the language server, reconnected | eglot.el |
+| ~C-c i a~ | ~eglot-code-actions~ | the actions the server offers here | eglot.el |
+| ~C-c i e~ | ~eglot~ | the server, and what it is doing | eglot.el |
+| ~C-c i f~ | ~heks-emacs-format-buffer~ | the buffer, formatted by whoever knows how | emacs-core.el |
+| ~C-c i g~ | ~eglot-find-implementation~ | the implementation of the symbol at point | eglot.el |
+| ~C-c i h~ | ~eglot-inlay-hints-mode~ | the server's hints, inside the source | eglot.el |
+| ~C-c i k~ | ~eglot-shutdown-all~ | every language server, stopped | eglot.el |
+| ~C-c i m~ | ~eglot-menu~ | the Eglot menu | eglot.el |
+| ~C-c i r~ | ~eglot-rename~ | the symbol at point, renamed everywhere | eglot.el |
+| ~C-c i s~ | ~heks-emacs-yaml-insert-schema-modeline~ | the schema line, written into this file | eglot.el |
 
 ** ~C-c j~ JVM: Maven, Gradle, Spring, Java and Kotlin
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
 | ~C-c j B~ | ~eglot-java-project-build-refresh~ | the project, built again | eglot.el (a mode's own map) |
-| ~C-c j G~ | ~heks-emacs-gradle-menu~ | the Gradle menu | emacs-core.el |
-| ~C-c j M~ | ~heks-emacs-maven-menu~ | the Maven menu | emacs-core.el |
-| ~C-c j N~ | ~eglot-java-project-new~ | a new project | eglot.el (a mode's own map) |
-| ~C-c j R~ | ~heks-emacs-jvm-refresh-project~ | the project's classpath, reloaded | emacs-core.el |
-| ~C-c j b~ | ~eglot-java-project-build-task~ | build | eglot.el (a mode's own map) |
-| ~C-c j g~ | ~heks-emacs-gradle-run~ | Gradle | emacs-core.el |
-| ~C-c j m~ | ~heks-emacs-maven-run~ | Maven | emacs-core.el |
-| ~C-c j n~ | ~eglot-java-file-new~ | new, or next | eglot.el (a mode's own map) |
-| ~C-c j r~ | ~eglot-java-run-main~ | run, or open a REPL | eglot.el (a mode's own map) |
-| ~C-c j s~ | ~heks-emacs-spring-boot-run~ | Spring Boot | emacs-core.el |
-| ~C-c j t~ | ~eglot-java-run-test~ | test | eglot.el (a mode's own map) |
+| ~C-c j G~ | ~heks-emacs-gradle-menu~ | a Gradle task, chosen by what it does | emacs-core.el |
+| ~C-c j M~ | ~heks-emacs-maven-menu~ | a Maven goal, chosen by what it does | emacs-core.el |
+| ~C-c j N~ | ~eglot-java-project-new~ | a Java project, created | eglot.el (a mode's own map) |
+| ~C-c j R~ | ~heks-emacs-jvm-refresh-project~ | the project, re-read by its tooling | emacs-core.el |
+| ~C-c j b~ | ~eglot-java-project-build-task~ | a build task of this project | eglot.el (a mode's own map) |
+| ~C-c j b~ | ~heks-emacs-jvm-build~ | a build task of this project | emacs-core.el |
+| ~C-c j c~ | ~heks-emacs-jvm-clean~ | the build output, deleted | emacs-core.el |
+| ~C-c j d~ | ~heks-emacs-jvm-dependencies~ | the dependencies of this project | emacs-core.el |
+| ~C-c j g~ | ~heks-emacs-gradle-run~ | a Gradle task of this project | emacs-core.el |
+| ~C-c j m~ | ~heks-emacs-maven-run~ | a Maven goal of this project | emacs-core.el |
+| ~C-c j n~ | ~eglot-java-file-new~ | a Java file, created | eglot.el (a mode's own map) |
+| ~C-c j p~ | ~heks-emacs-jvm-package~ | the artefact of this project, built | emacs-core.el |
+| ~C-c j r~ | ~eglot-java-run-main~ | the main class, run | eglot.el (a mode's own map) |
+| ~C-c j s~ | ~heks-emacs-spring-boot-run~ | the Spring Boot application | emacs-core.el |
+| ~C-c j t~ | ~eglot-java-run-test~ | the tests, run this project's way | eglot.el (a mode's own map) |
+| ~C-c j t~ | ~heks-emacs-jvm-test~ | the tests, run this project's way | emacs-core.el |
+| ~C-c j v~ | ~heks-emacs-jvm-verify~ | every check this project defines | emacs-core.el |
 
 ** ~C-c l~ Emacs itself: evaluating and debugging Elisp
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
-| ~C-c l d~ | ~toggle-debug-on-error~ | debug, or the difference between two things | emacs-core.el |
-| ~C-c l e~ | ~eval-buffer~ | evaluate | emacs-core.el |
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c l L~ | ~load-library~ | a library, loaded from disk | emacs-core.el |
+| ~C-c l d~ | ~toggle-debug-on-error~ | the debugger, on and off for every error | emacs-core.el |
+| ~C-c l e~ | ~eval-buffer~ | this buffer, evaluated | emacs-core.el |
+| ~C-c l l~ | ~find-library~ | a library, opened by name | emacs-core.el |
+| ~C-c l p~ | ~check-parens~ | the parentheses of this buffer, checked | emacs-core.el |
 
 ** ~C-c m~ make-style tasks: maak
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
-| ~C-c m r~ | ~maak-run-task~ | run, or open a REPL | dev.el |
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c m r~ | ~maak-run-task~ | a maak task of this project | dev.el |
 
 ** ~C-c n~ notes: Org and roam
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
 | ~C-c n c~ | ~org-roam-capture~ | capture a note | org.el |
-| ~C-c n f~ | ~org-roam-node-find~ | find a node | org.el |
+| ~C-c n f~ | ~org-roam-node-find~ | a node, found by title | org.el |
 | ~C-c n g~ | ~org-roam-graph~ | the graph of the notes | org.el |
-| ~C-c n i~ | ~org-roam-node-insert~ | insert | org.el |
+| ~C-c n i~ | ~org-roam-node-insert~ | a link to another node, inserted | org.el |
 | ~C-c n j~ | ~org-roam-dailies-capture-today~ | the journal entry for today | org.el |
 | ~C-c n l~ | ~org-roam-buffer-toggle~ | the buffer that lists the links | org.el |
-| ~C-c n v~ | ~org-toggle-link-display~ | view, or validate | org.el |
+| ~C-c n v~ | ~org-toggle-link-display~ | links, shown as their text | org.el |
 
 ** ~C-c o~ mail: Gnus
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
 | ~C-c o g~ | ~gnus-group-read-ephemeral-group~ | a group, read once | mail.el |
 | ~C-c o m~ | ~gnus~ | Gnus itself | mail.el |
 
 ** ~C-c p~ completion at point: cape
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
-| ~C-c p~ | ~cape-prefix-map~ | completion at point: cape | completion.el |
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c p~ | ~cape-prefix-map~ | completion at point, and its letters | completion.el |
 
-** ~C-c r~ render and preview
+** ~C-c r~ render, preview and present
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
-| ~C-c r b~ | ~heks-emacs-preview-browser~ | the browser | render.el |
-| ~C-c r e~ | ~heks-emacs-preview-export~ | keep it as a file | render.el |
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c r D~ | ~heks-emacs-present-deck-export~ | the deck, kept as a file | present.el |
+| ~C-c r P~ | ~heks-emacs-present~ | this buffer, presented | present.el |
+| ~C-c r b~ | ~heks-emacs-preview-browser~ | this document, in the browser | render.el |
+| ~C-c r d~ | ~heks-emacs-present-deck~ | the deck, in the browser | present.el |
+| ~C-c r e~ | ~heks-emacs-preview-export~ | this document, kept as an HTML file | render.el |
 | ~C-c r m~ | ~heks-emacs-preview-toggle-follow~ | follow the buffer, re-rendering on save | render.el |
-| ~C-c r p~ | ~heks-emacs-preview~ | preview, or previous | render.el |
-| ~C-c r r~ | ~heks-emacs-preview-refresh~ | render it again | render.el |
+| ~C-c r n~ | ~heks-emacs-present-insert-slide~ | a slide boundary, inserted | present.el |
+| ~C-c r p~ | ~heks-emacs-preview~ | this buffer, rendered in Emacs | render.el |
+| ~C-c r r~ | ~heks-emacs-preview-refresh~ | the preview, rendered again | render.el |
 
 ** ~C-c s~ snippets and recorded macros
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
 | ~C-c s a~ | ~kbd-scheme-string-to-symbol-in-alist-access~ | an alist accessor out of a string one | guile.el (a mode's own map) |
 | ~C-c s c~ | ~tempel-complete~ | the snippet at point, completed | snippets.el |
-| ~C-c s h~ | ~kbd-scheme-hygguile-abstraction~ | a hygguile class set out of a list of classes | guile.el (a mode's own map) |
-| ~C-c s i~ | ~tempel-insert~ | insert | snippets.el |
+| ~C-c s h~ | ~kbd-scheme-hygguile-abstraction~ | a hygguile class set from classes | guile.el (a mode's own map) |
+| ~C-c s i~ | ~tempel-insert~ | a snippet, inserted by name | snippets.el |
 | ~C-c s p~ | ~kbd-scheme-make-parameter~ | a parameter out of a value | guile.el (a mode's own map) |
-| ~C-c s x~ | ~tempel-expand~ | the named snippet, expanded | snippets.el |
+| ~C-c s x~ | ~tempel-expand~ | the snippet name at point, expanded | snippets.el |
 
 ** ~C-c t~ text tools
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
-| ~C-c t $~ | ~jinx-mode~ | text tools | proofreading.el |
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c t $~ | ~jinx-mode~ | spell checking, on and off | proofreading.el |
 | ~C-c t a~ | ~sort-lines~ | the lines, sorted | emacs-core.el |
 | ~C-c t c~ | ~display-fill-column-indicator-mode~ | the fill column indicator | emacs-core.el |
-| ~C-c t o~ | ~olivetti-mode~ | Olivetti, writing in the middle of the window | ui.el |
+| ~C-c t o~ | ~olivetti-mode~ | writing in the middle of the window | ui.el |
+| ~C-c t r~ | ~rainbow-mode~ | colour names, shown as colours | emacs-core.el |
 | ~C-c t w~ | ~delete-trailing-whitespace~ | the whitespace at the end of the lines | emacs-core.el |
 
 ** ~C-c u~ utilities
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
-| ~C-c u u~ | ~heks-emacs-uuidgen~ | a UUID | emacs-core.el |
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c u c~ | ~heks/dired-copy-marked-files-content~ | the marked files' contents, copied | emacs-core.el |
+| ~C-c u u~ | ~heks-emacs-uuidgen~ | a UUID, generated | emacs-core.el |
 
 ** ~C-c v~ view: folding and comparisons
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
 | ~C-c v C~ | ~heks-emacs-fold-close-all~ | every fold | emacs-core.el |
 | ~C-c v O~ | ~heks-emacs-fold-open-recursive~ | this fold and everything under it | emacs-core.el |
 | ~C-c v c~ | ~heks-emacs-fold-close~ | this fold | emacs-core.el |
-| ~C-c v d~ | ~highlight-compare-buffers~ | debug, or the difference between two things | emacs-core.el |
+| ~C-c v d~ | ~highlight-compare-buffers~ | two buffers, compared | emacs-core.el |
 | ~C-c v o~ | ~heks-emacs-fold-open~ | this fold, opened | emacs-core.el |
 | ~C-c v r~ | ~heks-emacs-fold-open-all~ | every fold, revealed | emacs-core.el |
 | ~C-c v t~ | ~heks-emacs-fold-toggle~ | the fold at point, toggled | emacs-core.el |
 
-** ~C-c w~ workspace and project
+** ~C-c w~ workspace and project: running it, and Terraform
 
-| Key | Command | The letter means | In |
-|-----+---------+------------------+----|
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c w D~ | ~heks-emacs-terraform-destroy~ | the infrastructure, destroyed | dev.el |
+| ~C-c w a~ | ~heks-emacs-terraform-apply~ | the plan, applied | dev.el |
+| ~C-c w c~ | ~magit-clone~ | a repository, cloned | emacs-core.el |
 | ~C-c w d~ | ~heks-emacs-project-start-dev~ | the development server | emacs-core.el |
-| ~C-c w f~ | ~heks-emacs-project-fmt~ | format | emacs-core.el |
+| ~C-c w f~ | ~heks-emacs-project-fmt~ | the project, formatted | emacs-core.el |
 | ~C-c w g~ | ~deadgrep~ | a search of the project | search.el |
-| ~C-c w r~ | ~heks-emacs-project-start-repl-process~ | run, or open a REPL | emacs-core.el |
+| ~C-c w i~ | ~heks-emacs-terraform-init~ | the providers and state, initialised | dev.el |
+| ~C-c w p~ | ~heks-emacs-terraform-plan~ | the change, previewed | dev.el |
+| ~C-c w r~ | ~heks-emacs-project-start-repl-process~ | a REPL process for this project | emacs-core.el |
 | ~C-c w s~ | ~heks-emacs-print-random-standup-order~ | a random order for the standup | emacs-core.el |
-| ~C-c w t~ | ~heks-emacs-project-start-test~ | test | emacs-core.el |
+| ~C-c w t~ | ~heks-emacs-project-start-test~ | the project's tests | emacs-core.el |
+| ~C-c w v~ | ~heks-emacs-terraform-validate~ | the Terraform configuration, validated | dev.el |

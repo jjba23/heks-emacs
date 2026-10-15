@@ -55,19 +55,34 @@
 ;; `i' had come to mean, with a key for the implementation and a key for
 ;; an interrupt under it.
 ;;
-;; `test/heks-emacs-keys.el' reads these three tables, prints the whole
-;; key tree with the meaning of every key, writes `docs/keybindings.org'
-;; -- the reference to read -- and refuses a binding whose topic is not
+;; The tables below are the scheme: what each topic is for
+;; (`heks-emacs-key-topics'), what each action letter means everywhere
+;; (`heks-emacs-key-actions'), what a topic means by a letter of its own
+;; (`heks-emacs-key-letters'), and what each individual key does in its
+;; own words (`heks-emacs-key-descriptions').
+;;
+;; The last table exists because a letter can only say so much: `C-c i f'
+;; and `C-c j f' both format, but `C-c i f' is "the buffer, formatted by
+;; whoever knows how" and a key that said only "format" would leave the
+;; reader to guess which of the two formatters answers.  Every key under
+;; `C-c' has an entry, which is what the reference prints and what
+;; `which-key' shows while the key is being typed.
+;;
+;; `test/heks-emacs-keys.el' reads all four, prints the whole key tree
+;; with the meaning of every key, writes `docs/keybindings.org' -- the
+;; reference to read -- and refuses a binding whose topic is not
 ;; described here, that disagrees with another binding of the same key,
-;; whose command does not exist, or whose letters are in no table.
+;; whose command does not exist, whose letters are in no table, or that
+;; has no description of its own.
 
 (defconst heks-emacs-key-topics
   '(("!"     . "diagnostics: Flymake")
     ("#"     . "system: this machine and the Guix system")
     ("C-#"   . "Org statistics cookies, kept off `C-c #'")
     (";"     . "diary")
-    ("SPC"   . "dashboard")
     ("C-d"   . "diagrams: Mermaid")
+    ("M"     . "music: EMMS, with MPD as the player")
+    ("SPC"   . "dashboard")
     ("a"     . "API and HTTP: OpenAPI specs and requests")
     ("c"     . "containers: Docker")
     ("d"     . "databases: PostgreSQL and MongoDB")
@@ -82,13 +97,17 @@
     ("n"     . "notes: Org and roam")
     ("o"     . "mail: Gnus")
     ("p"     . "completion at point: cape")
-    ("r"     . "render and preview")
+    ("r"     . "render, preview and present")
     ("s"     . "snippets and recorded macros")
     ("t"     . "text tools")
     ("u"     . "utilities")
     ("v"     . "view: folding and comparisons")
-    ("w"     . "workspace and project"))
+    ("w"     . "workspace and project: running it, and Terraform"))
   "What each `C-c' topic letter is for.
+
+A capital letter is a topic of its own and not a variant of the small
+one: `C-c M' is music where `C-c m' is maak, the same way that `C-c C-d'
+is the diagrams where `C-c d' is the databases.
 
 Read by `test/heks-emacs-keys.el', which fails when a key uses a topic
 that is not described here.")
@@ -162,10 +181,13 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
          ("C" . "the callees of this definition"))
     ("h" ("f" . "the function at point, as `C-h f'")
          ("v" . "the variable at point, as `C-h v'")
-         ("k" . "the key at point, as `C-h k'"))
+         ("k" . "the key at point, as `C-h k'")
+         ("F" . "the face at point"))
     ("i" ("e" . "Eglot itself, and what it is doing")
+         ("E" . "the server's log of messages")
          ("r" . "rename the symbol at point")
          ("R" . "restart the language server")
+         ("s" . "the schema line this file names")
          ("h" . "the server's inlay hints, on and off"))
     ("j" ("m" . "Maven")
          ("M" . "the Maven menu")
@@ -175,6 +197,21 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
          ("N" . "a new project")
          ("B" . "the project, built again")
          ("R" . "the project's classpath, reloaded"))
+    ("l" ("l" . "a library, opened by name")
+         ("L" . "a library, loaded from disk")
+         ("p" . "the parentheses of this buffer"))
+    ("M" ("a" . "the music, paused or resumed")
+         ("b" . "the music browser")
+         ("c" . "the music daemon, connected to")
+         ("C" . "the playlist, cleared")
+         ("i" . "the track that is playing now")
+         ("l" . "the playlist")
+         ("m" . "the player")
+         ("n" . "the next track")
+         ("o" . "a stream, played from its URL")
+         ("p" . "the previous track")
+         ("r" . "the selected track, played")
+         ("u" . "the track cache, read from the daemon"))
     ("n" ("c" . "capture a note")
          ("f" . "find a node")
          ("g" . "the graph of the notes")
@@ -183,8 +220,12 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
     ("o" ("m" . "Gnus itself")
          ("g" . "a group, read once"))
     ("r" ("b" . "the browser")
+         ("d" . "the deck, in the browser")
+         ("D" . "the deck, written next to the file")
          ("e" . "keep it as a file")
          ("m" . "follow the buffer, re-rendering on save")
+         ("n" . "a slide boundary, inserted")
+         ("P" . "the buffer, presented")
          ("r" . "render it again"))
     ("s" ("a" . "an alist accessor out of a string one")
          ("c" . "the snippet at point, completed")
@@ -194,24 +235,267 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
     ("t" ("a" . "the lines, sorted")
          ("c" . "the fill column indicator")
          ("o" . "Olivetti, writing in the middle of the window")
+         ("r" . "colour names, shown as colours")
          ("w" . "the whitespace at the end of the lines"))
-    ("u" ("u" . "a UUID"))
+    ("u" ("c" . "the marked files' contents, copied")
+         ("u" . "a UUID, generated"))
     ("v" ("c" . "this fold")
          ("C" . "every fold")
          ("o" . "this fold, opened")
          ("O" . "this fold and everything under it")
          ("r" . "every fold, revealed")
          ("t" . "the fold at point, toggled"))
-    ("w" ("d" . "the development server")
+    ("w" ("c" . "a repository, cloned")
+         ("d" . "the development server")
+         ("D" . "the infrastructure, destroyed")
          ("g" . "a search of the project")
+         ("i" . "the providers and state, initialised")
          ("s" . "a random order for the standup")))
-  "What the letters of a topic that names things mean, topic by topic.
+  "What the letters of a topic mean, topic by topic.
 
 These are the topics whose keys do not perform one of the actions in
 `heks-emacs-key-actions': the letter is the first letter of what the key
-names.  Both tables are read by `test/heks-emacs-keys.el', which fails on
-a letter that is in neither of them, so a key always has a description
-to show in `docs/keybindings.org'.")
+names.  A topic can also say here that it means something of its own by
+an action letter -- `C-c w i' initialises Terraform where `i' inserts
+everywhere else -- and the four tables together are what every key under
+`C-c' is held to: an entry in `heks-emacs-key-descriptions' first, then
+this table, then the action alphabet.  Both tables are read by
+`test/heks-emacs-keys.el', which fails on a key that has no description
+of its own and prints, for every key, what this scheme calls it.")
+
+(defconst heks-emacs-key-descriptions
+  '(("C-c ! N" . "the previous diagnostic")
+    ("C-c ! a" . "all the diagnostics of the project")
+    ("C-c ! b" . "the diagnostics of this buffer")
+    ("C-c ! m" . "the background checking, on and off")
+    ("C-c ! n" . "the next diagnostic")
+    ("C-c # f" . "everything: his configuration and the system")
+    ("C-c # j" . "his own configuration")
+    ("C-c # s" . "the system")
+    ("C-c # u" . "the packages of the system, updated")
+    ("C-c ; g" . "the entry for yesterday")
+    ("C-c ; v" . "the entry for today")
+    ("C-c C-#" . "the statistics cookies of this outline")
+    ("C-c C-d b" . "the diagrams in this buffer")
+    ("C-c C-d c" . "the diagram at point")
+    ("C-c C-d f" . "the diagrams in this file")
+    ("C-c C-d h" . "the Mermaid documentation")
+    ("C-c C-d o" . "the rendered diagram in the browser")
+    ("C-c C-d r" . "the diagram in the region")
+    ("C-c M C" . "the playlist, cleared")
+    ("C-c M a" . "the music, paused or resumed")
+    ("C-c M b" . "the music browser")
+    ("C-c M c" . "the music daemon, connected to")
+    ("C-c M i" . "the track that is playing now")
+    ("C-c M l" . "the playlist")
+    ("C-c M m" . "the player")
+    ("C-c M n" . "the next track")
+    ("C-c M o" . "a stream, played from its URL")
+    ("C-c M p" . "the previous track")
+    ("C-c M r" . "the selected track, played")
+    ("C-c M u" . "the track cache, read from the daemon")
+    ("C-c SPC SPC" . "the dashboard")
+    ("C-c a b" . "the request written as a block to paste")
+    ("C-c a l" . "the spec's problems, listed")
+    ("C-c a m" . "the spec, read as a spec")
+    ("C-c a r" . "the operation, sent as a live request")
+    ("C-c a v" . "the spec, rendered to read")
+    ("C-c c d" . "the Docker transient")
+    ("C-c d m" . "the MongoDB shell")
+    ("C-c d p" . "a PostgreSQL prompt")
+    ("C-c e a" . "allow this `.envrc'")
+    ("C-c e d" . "direnv, in every buffer")
+    ("C-c f L" . "larger")
+    ("C-c f c" . "colossal")
+    ("C-c f j" . "jumbo")
+    ("C-c f l" . "large")
+    ("C-c f n" . "nano")
+    ("C-c f r" . "regular")
+    ("C-c f s" . "small")
+    ("C-c f t" . "tiny")
+    ("C-c g C" . "the callees of this definition")
+    ("C-c g E" . "the region, or the whole buffer")
+    ("C-c g L" . "lint it with `guix lint'")
+    ("C-c g R" . "the REPL, restarted")
+    ("C-c g S" . "apply one of `guix style''s rules")
+    ("C-c g b" . "the whole buffer, sent to the REPL")
+    ("C-c g c" . "the callers of this definition")
+    ("C-c g d" . "the Guile debugger")
+    ("C-c g e" . "the definition at point")
+    ("C-c g f" . "the buffer, formatted with Guix style")
+    ("C-c g g" . "the definition of the symbol at point")
+    ("C-c g h" . "the documentation of the symbol at point")
+    ("C-c g k" . "the running Guile, interrupted")
+    ("C-c g m" . "the generic methods of this symbol")
+    ("C-c g o" . "a REPL that is already running")
+    ("C-c g p" . "the package at the mark")
+    ("C-c g r" . "a Geiser REPL for this project")
+    ("C-c g s" . "the REPL, in another module")
+    ("C-c g t" . "the tests of this file")
+    ("C-c g x" . "this file, run as a script")
+    ("C-c h F" . "the face at point")
+    ("C-c h f" . "the function at point, as `C-h f'")
+    ("C-c h h" . "the documentation of what is at point")
+    ("C-c h k" . "the key at point, as `C-h k'")
+    ("C-c h v" . "the variable at point, as `C-h v'")
+    ("C-c i 0" . "the language server, off in this Emacs")
+    ("C-c i 1" . "the language server, on in this Emacs")
+    ("C-c i E" . "the server's log of messages")
+    ("C-c i R" . "the language server, reconnected")
+    ("C-c i a" . "the actions the server offers here")
+    ("C-c i e" . "the server, and what it is doing")
+    ("C-c i f" . "the buffer, formatted by whoever knows how")
+    ("C-c i g" . "the implementation of the symbol at point")
+    ("C-c i h" . "the server's hints, inside the source")
+    ("C-c i k" . "every language server, stopped")
+    ("C-c i m" . "the Eglot menu")
+    ("C-c i r" . "the symbol at point, renamed everywhere")
+    ("C-c i s" . "the schema line, written into this file")
+    ("C-c j B" . "the project, built again")
+    ("C-c j G" . "a Gradle task, chosen by what it does")
+    ("C-c j M" . "a Maven goal, chosen by what it does")
+    ("C-c j N" . "a Java project, created")
+    ("C-c j R" . "the project, re-read by its tooling")
+    ("C-c j b" . "a build task of this project")
+    ("C-c j c" . "the build output, deleted")
+    ("C-c j d" . "the dependencies of this project")
+    ("C-c j g" . "a Gradle task of this project")
+    ("C-c j m" . "a Maven goal of this project")
+    ("C-c j n" . "a Java file, created")
+    ("C-c j p" . "the artefact of this project, built")
+    ("C-c j r" . "the main class, run")
+    ("C-c j s" . "the Spring Boot application")
+    ("C-c j t" . "the tests, run this project's way")
+    ("C-c j v" . "every check this project defines")
+    ("C-c l L" . "a library, loaded from disk")
+    ("C-c l d" . "the debugger, on and off for every error")
+    ("C-c l e" . "this buffer, evaluated")
+    ("C-c l l" . "a library, opened by name")
+    ("C-c l p" . "the parentheses of this buffer, checked")
+    ("C-c m r" . "a maak task of this project")
+    ("C-c n c" . "capture a note")
+    ("C-c n f" . "a node, found by title")
+    ("C-c n g" . "the graph of the notes")
+    ("C-c n i" . "a link to another node, inserted")
+    ("C-c n j" . "the journal entry for today")
+    ("C-c n l" . "the buffer that lists the links")
+    ("C-c n v" . "links, shown as their text")
+    ("C-c o g" . "a group, read once")
+    ("C-c o m" . "Gnus itself")
+    ("C-c p" . "completion at point, and its letters")
+    ("C-c r D" . "the deck, kept as a file")
+    ("C-c r P" . "this buffer, presented")
+    ("C-c r b" . "this document, in the browser")
+    ("C-c r d" . "the deck, in the browser")
+    ("C-c r e" . "this document, kept as an HTML file")
+    ("C-c r m" . "follow the buffer, re-rendering on save")
+    ("C-c r n" . "a slide boundary, inserted")
+    ("C-c r p" . "this buffer, rendered in Emacs")
+    ("C-c r r" . "the preview, rendered again")
+    ("C-c s a" . "an alist accessor out of a string one")
+    ("C-c s c" . "the snippet at point, completed")
+    ("C-c s h" . "a hygguile class set from classes")
+    ("C-c s i" . "a snippet, inserted by name")
+    ("C-c s p" . "a parameter out of a value")
+    ("C-c s x" . "the snippet name at point, expanded")
+    ("C-c t $" . "spell checking, on and off")
+    ("C-c t a" . "the lines, sorted")
+    ("C-c t c" . "the fill column indicator")
+    ("C-c t o" . "writing in the middle of the window")
+    ("C-c t r" . "colour names, shown as colours")
+    ("C-c t w" . "the whitespace at the end of the lines")
+    ("C-c u c" . "the marked files' contents, copied")
+    ("C-c u u" . "a UUID, generated")
+    ("C-c v C" . "every fold")
+    ("C-c v O" . "this fold and everything under it")
+    ("C-c v c" . "this fold")
+    ("C-c v d" . "two buffers, compared")
+    ("C-c v o" . "this fold, opened")
+    ("C-c v r" . "every fold, revealed")
+    ("C-c v t" . "the fold at point, toggled")
+    ("C-c w D" . "the infrastructure, destroyed")
+    ("C-c w a" . "the plan, applied")
+    ("C-c w c" . "a repository, cloned")
+    ("C-c w d" . "the development server")
+    ("C-c w f" . "the project, formatted")
+    ("C-c w g" . "a search of the project")
+    ("C-c w i" . "the providers and state, initialised")
+    ("C-c w p" . "the change, previewed")
+    ("C-c w r" . "a REPL process for this project")
+    ("C-c w s" . "a random order for the standup")
+    ("C-c w t" . "the project's tests")
+    ("C-c w v" . "the Terraform configuration, validated"))
+  "What each key under `C-c' does, in the words of its own topic.
+
+A key here is described by this entry and by nothing else, so the
+reference says what the key does rather than trusting the reader to
+combine a topic with a letter: `C-c i f' formats, `C-c j f' is a
+formatter this configuration does not have, and only a sentence can tell
+them apart.  The letter tables above remain the scheme's dictionary --
+they are what makes the letters learnable -- and they are the fallback
+for a key an entry here has not been written for yet.
+
+Every key under `C-c' has an entry; `test/heks-emacs-keys.el' fails on a
+binding that does not, so a key added without one cannot quietly fall
+back to its letter's meaning.")
+
+(defconst heks-emacs-key-major-mode-descriptions
+  '((java-mode ("C-c j b" . "a JDT build task for this project")
+               ("C-c j n" . "a Java file, through the language server")
+               ("C-c j r" . "the main class, through the language server")
+               ("C-c j t" . "the test at point, through the language server"))
+    (java-ts-mode ("C-c j b" . "a JDT build task for this project")
+                  ("C-c j n" . "a Java file, through the language server")
+                  ("C-c j r" . "the main class, through the language server")
+                  ("C-c j t" . "the test at point, through the language server")))
+  "Keys that mean something else inside one major mode.
+
+Four keys are deliberately two things at once: in a Java buffer the
+language server can run and test the program itself, which is more
+accurate than asking Maven to do it.  `heks-emacs-key-descriptions' says
+what such a key does everywhere; this table says what it does in the
+buffer where the mode's own map answers first, and `which-key' shows the
+right one while the key is being typed.")
+
+(defun heks-emacs-key-description (key)
+  "Return what KEY does, in the words of the scheme.
+
+This is the one place the four tables are read in order, so that the
+reference, `which-key' and a person all get the same answer: the key's
+own description, then what its topic means by its letter, then what the
+letter means everywhere."
+  (let* ((topic (and (string-match "\\`C-c \\([^ ]+\\)" key) (match-string 1 key)))
+         (letter (and (string-match "\\`C-c [^ ]+ \\([a-zA-Z]\\)\\'" key)
+                      (match-string 1 key))))
+    (or (cdr (assoc key heks-emacs-key-descriptions #'equal))
+        (and topic letter
+             (cdr (assoc letter
+                         (cdr (assoc topic heks-emacs-key-letters #'equal)) #'equal)))
+        (and letter (cdr (assoc letter heks-emacs-key-actions #'equal)))
+        (and topic (cdr (assoc topic heks-emacs-key-topics #'equal))))))
+
+(defun heks-emacs-which-key-setup ()
+  "Teach `which-key' what the key scheme means.
+
+Every prefix in the scheme gets the name of its topic, and every key gets
+what it does, so that a key that is being typed is explained while it is
+being typed rather than only in a document.  The replacements are key
+strings, which is how `which-key' describes a binding it is about to
+show; a key that is not there is never displayed, so nothing needs to be
+declared first.
+
+The four keys that mean something else inside a Java buffer are declared
+for those modes instead, with `which-key's own mode-scoped table."
+  (which-key-add-key-based-replacements
+   "C-c" "this configuration: a letter for the topic, then one for the action")
+  (dolist (topic heks-emacs-key-topics)
+    (which-key-add-key-based-replacements (concat "C-c " (car topic)) (cdr topic)))
+  (dolist (entry heks-emacs-key-descriptions)
+    (which-key-add-key-based-replacements (car entry) (cdr entry)))
+  (dolist (mode-entry heks-emacs-key-major-mode-descriptions)
+    (dolist (entry (cdr mode-entry))
+      (which-key-add-major-mode-key-based-replacements
+       (car mode-entry) (car entry) (cdr entry)))))
 
 ;; Configure Flymake (built-in linter).
 ;;
@@ -234,10 +518,18 @@ to show in `docs/keybindings.org'.")
   :ensure nil
   :config
   (setq which-key-sort-order 'which-key-key-order-alpha
-        which-key-max-description-length 35)
+        ;; Long enough for the scheme's own sentences -- "the operation,
+        ;; sent as a live request" -- and short enough for one line.
+        which-key-max-description-length 45)
   ;; Fast enough to be useful, slow enough not to flash
   (setq-default which-key-idle-delay 0.4)
+  ;; `C-h' after a prefix asks for the menu at once, for when the 0.4s
+  ;; of waiting is one breath too long.
+  (setq which-key-show-early-on-C-h t
+        which-key-idle-secondary-delay 0.05)
   (which-key-setup-minibuffer)
+  ;; Every topic and every key, in the words the scheme gives them.
+  (heks-emacs-which-key-setup)
   (which-key-mode))
 
 ;; (use-package nyan-mode
@@ -393,9 +685,18 @@ to show in `docs/keybindings.org'.")
          ("C-c v r" . heks-emacs-fold-open-all)
          ("C-c v t" . heks-emacs-fold-toggle)
          ("C-c v d" . highlight-compare-buffers)
+         ;; Emacs itself: the libraries it is made of, and the parentheses
+         ;; that hold a file together.
          ("C-c l d" . toggle-debug-on-error)
          ("C-c l e" . eval-buffer)
+         ("C-c l l" . find-library)
+         ("C-c l L" . load-library)
+         ("C-c l p" . check-parens)
+         ;; Help: the four things one asks about whatever is at point.  `F'
+         ;; is the face, where `f' is the function.
+         ("C-c h F" . describe-face)
          ("C-c u u" . heks-emacs-uuidgen)
+         ("C-c u c" . heks/dired-copy-marked-files-content)
          ("C-c # j" . heks-emacs-joe-reconfigure)
          ("C-c # s" . heks-emacs-sys-reconfigure)
          ("C-c # u" . heks-emacs-sys-update)
@@ -407,10 +708,14 @@ to show in `docs/keybindings.org'.")
          ("C-c w t" . heks-emacs-project-start-test)
          ("C-c w d" . heks-emacs-project-start-dev)
          ("C-c w s" . heks-emacs-print-random-standup-order)
+         ;; A repository is cloned into a directory before anything else
+         ;; happens in it, so cloning lives with the project.
+         ("C-c w c" . magit-clone)
          ;; Text tools, in every buffer.
          ("C-c t a" . sort-lines)
          ("C-c t w" . delete-trailing-whitespace)
          ("C-c t c" . display-fill-column-indicator-mode)
+         ("C-c t r" . rainbow-mode)
          ;; Formatting: one key, and the language decides who formats.
          ("C-c i f" . heks-emacs-format-buffer)
          ;; JVM build tooling (Maven, Gradle, Spring Boot).  The capital
@@ -421,6 +726,15 @@ to show in `docs/keybindings.org'.")
          ("C-c j G" . heks-emacs-gradle-menu)
          ("C-c j s" . heks-emacs-spring-boot-run)
          ("C-c j R" . heks-emacs-jvm-refresh-project)
+         ;; The goals a project is actually built with, one key each,
+         ;; whatever the build tool is: `heks-emacs-jvm-run' knows that
+         ;; Maven calls it `package' and Gradle `assemble'.
+         ("C-c j t" . heks-emacs-jvm-test)
+         ("C-c j b" . heks-emacs-jvm-build)
+         ("C-c j p" . heks-emacs-jvm-package)
+         ("C-c j v" . heks-emacs-jvm-verify)
+         ("C-c j c" . heks-emacs-jvm-clean)
+         ("C-c j d" . heks-emacs-jvm-dependencies)
          ;; Databases (PostgreSQL, MongoDB)
          ("C-c d p" . heks-emacs-sql-postgres)
          ("C-c d m" . heks-emacs-mongosh))

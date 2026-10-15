@@ -60,6 +60,13 @@
   "Whether a preview re-renders itself when its source is saved."
   :type 'boolean)
 
+(defcustom heks-emacs-render-toc-headings 3
+  "How many headings a document needs before it gets a table of contents.
+
+A note with two sections is read from the top; a README with eight is
+navigated, and the first thing a reader wants is the list of them."
+  :type 'integer)
+
 ;;
 ;; ====== Turning text into HTML ======
 ;;
@@ -167,6 +174,153 @@ markup is found in what the author wrote."
                  (heks-emacs-render--inline-markup (cdr piece))))
              (heks-emacs-render--split-code-spans text)
              ""))
+
+;;
+;; ====== Colouring the code ======
+;;
+;; A README with a code block in it reads better when the code is coloured
+;; the way it is coloured in the buffer, and there is no reason to reach for
+;; a highlighter written outside Emacs: the mode that fontifies the code in
+;; a buffer fontifies it in a temporary one, and what it produces is a face
+;; on a stretch of text.  This turns those faces into class names -- one
+;; class per face, and a rule per class in the stylesheet -- so that the
+;; page is the colours of the theme that is current *now* rather than the
+;; theme that was current when the file was written.
+
+(defvar heks-emacs-render--faces nil
+  "The faces the rendering in progress has used.
+
+Collected while the body is rendered, then written into the stylesheet
+that wraps it, because a document knows which faces it used only after
+its body has been turned into HTML.")
+
+(defconst heks-emacs-render-language-modes
+  '(("bash" . sh-mode) ("sh" . sh-mode) ("shell" . sh-mode)
+    ("console" . sh-mode) ("zsh" . sh-mode)
+    ("elisp" . emacs-lisp-mode) ("el" . emacs-lisp-mode)
+    ("lisp" . emacs-lisp-mode) ("scheme" . scheme-mode)
+    ("guile" . scheme-mode) ("guix" . scheme-mode)
+    ("js" . js-mode) ("javascript" . js-mode) ("json" . js-mode)
+    ("ts" . typescript-ts-mode) ("typescript" . typescript-ts-mode)
+    ("yml" . yaml-mode) ("yaml" . yaml-mode)
+    ("golang" . go-mode) ("rs" . rust-mode) ("tf" . terraform-mode)
+    ("tfvars" . terraform-mode) ("hcl" . hcl-mode)
+    ("psql" . sql-mode) ("postgres" . sql-mode))
+  "The language names a code fence uses, and the mode that reads them.
+
+A fence says `bash' where the mode is `sh-mode' and `elisp' where it is
+`emacs-lisp-mode'; the names that are not simply the mode's are here.")
+
+(defun heks-emacs-render-language-mode (language)
+  "Return the major mode that reads LANGUAGE, or nil when none does.
+
+LANGUAGE is what a code fence says.  The name is tried as written, as
+`NAME-mode' and as `NAME-ts-mode', after this module's own table of the
+names that are not the mode's."
+  (let ((name (downcase (string-trim language))))
+    (when (and name (not (string-empty-p name)))
+      (or (cdr (assoc name heks-emacs-render-language-modes #'equal))
+          (seq-find (lambda (candidate) (and candidate (fboundp candidate)))
+                    (list (intern-soft (concat name "-mode"))
+                          (intern-soft (concat name "-ts-mode"))))))))
+
+(defun heks-emacs-render--face-of (value)
+  "Return the face that VALUE, a `face' text property, stands for.
+
+The property is often a list -- `(font-lock-keyword-face)' or an
+anonymous `(:inherit bold)' -- and the last symbol in it is the face
+that matters, because it is the one that was added last."
+  (let ((candidates (cond ((symbolp value) (list value))
+                          ((consp value) value))))
+    (car (last (seq-filter #'symbolp candidates)))))
+
+(defun heks-emacs-render--fontify (code mode)
+  "Return CODE as HTML spans, fontified in a temporary buffer with MODE.
+
+Mode hooks do not run -- a preview is not the place to start a language
+server -- and nil is returned when the mode did not fontify anything at
+all, which is what a mode for a language this Emacs cannot read looks
+like.  The faces used are remembered, so that the stylesheet written
+after the body can colour them."
+  (with-temp-buffer
+    (insert code)
+    (let ((delay-mode-hooks t)
+          (inhibit-message t)
+          (create-lockfiles nil))
+      (funcall mode)
+      (setq font-lock-mode t)
+      (ignore-errors (font-lock-ensure))
+      (when font-lock-mode
+        (let ((position (point-min))
+              (pieces nil))
+          (while (< position (point-max))
+            (let* ((next (next-single-property-change position 'face nil (point-max)))
+                   (face (heks-emacs-render--face-of (get-text-property position 'face)))
+                   (text (buffer-substring-no-properties position next)))
+              (when face
+                (push face heks-emacs-render--faces))
+              (push (if face
+                        (format "<span class=\"hl-%s\">%s</span>" face
+                                (heks-emacs-render--escape text))
+                      (heks-emacs-render--escape text))
+                    pieces)
+              (setq position next)))
+          (apply #'concat (nreverse pieces)))))))
+
+(defun heks-emacs-render-highlight (code language)
+  "Return CODE as HTML, coloured the way LANGUAGE's mode colours it.
+
+A language no mode answers for is escaped and left alone; the code is
+escaped either way, because a snippet is where a `<' is a `<'.  Each face
+gets a class -- `hl-font-lock-keyword-face' -- which the stylesheet
+turns into the face's colours, and the faces used are remembered so that
+the stylesheet can be written after the body is finished."
+  (let ((mode (heks-emacs-render-language-mode language)))
+    (or (and mode (ignore-errors (heks-emacs-render--fontify code mode)))
+        (heks-emacs-render--escape code))))
+
+(defun heks-emacs-render--face-attribute (face attribute fallback)
+  "Return FACE's ATTRIBUTE as a value, or FALLBACK when it has none.
+
+A face that says nothing about an attribute inherits it from what is
+around it, which is what the class then does too: no rule is written for
+a colour the face does not have, so a theme that leaves the font-lock
+faces to the default face's colour keeps them that way.
+
+The value is returned as the face states it, because an attribute is not
+always a colour: a weight is the symbol `bold', an underline may be a
+plist, and the caller has to recognise them to write a rule at all."
+  (let ((value (ignore-errors (face-attribute face attribute nil t))))
+    (cond ((eq value 'unspecified) fallback)
+          ((and (stringp value) (string-empty-p value)) fallback)
+          ((null value) fallback)
+          (t value))))
+
+(defun heks-emacs-render-highlight-css ()
+  "Return the rules that colour the faces the last rendering used.
+
+One rule per face, so that the class names in the body are what is
+coloured and the colours come from the theme being used now: bold stays
+bold, a keyword is the colour of a keyword, and a document written in a
+light theme is still readable in a dark one."
+  (mapconcat
+   (lambda (face)
+     (let ((foreground (heks-emacs-render--face-attribute face :foreground nil))
+           (background (heks-emacs-render--face-attribute face :background nil))
+           (weight (heks-emacs-render--face-attribute face :weight nil))
+           (slant (heks-emacs-render--face-attribute face :slant nil))
+           (underline (heks-emacs-render--face-attribute face :underline nil)))
+       (format ".hl-%s { %s%s%s%s%s }" face
+               (if foreground (format "color: %s; " foreground) "")
+               (if background (format "background: %s; " background) "")
+               (cond ((eq weight 'bold) "font-weight: 700; ")
+                     ((eq weight 'light) "font-weight: 300; ")
+                     (t ""))
+               (cond ((memq slant '(italic oblique)) "font-style: italic; ")
+                     (t ""))
+               (if underline "text-decoration: underline; " ""))))
+   (delete-dups (reverse heks-emacs-render--faces))
+   "\n"))
 
 (defun heks-emacs-render--indent-of (line)
   "Return the width of the indentation of LINE, counting a tab as four."
@@ -324,8 +478,9 @@ likely than the code."
                                 ""
                               (format " class=\"language-%s\""
                                       (heks-emacs-render--escape info t)))
-                            (heks-emacs-render--escape
-                             (mapconcat #'identity (nreverse body) "\n"))))))
+                            (heks-emacs-render-highlight
+                             (mapconcat #'identity (nreverse body) "\n")
+                             info)))))
 
            ;; A table, before the list branch: a row of cells also starts
            ;; with a dash-and-space when it is `| - |'.
@@ -446,18 +601,39 @@ likely than the code."
                           (round (/ (+ (* a (- 1 weight)) (* b weight)) 257.0)))
                         first second)))))
 
+(defun heks-emacs-render-palette ()
+  "Return the colours of the current theme, as a plist.
+
+Six colours are enough for everything this configuration writes, and they
+are worked out here so that a document and a presentation look like each
+other: `:background' and `:foreground' are the theme's own, `:surface' is
+a panel a step away from the background, `:border' the line between two
+of them, `:muted' text that is there but not the point, and `:accent' the
+colour of a link."
+  (let* ((background (heks-emacs-render--color :background "#ffffff"))
+         (foreground (heks-emacs-render--color :foreground "#000000")))
+    (list :background background
+          :foreground foreground
+          :surface (heks-emacs-render--mix background foreground 0.06)
+          :border (heks-emacs-render--mix background foreground 0.20)
+          :muted (heks-emacs-render--mix foreground background 0.45)
+          :accent (heks-emacs-render--color :link "#2a6fd6"))))
+
 (defun heks-emacs-render-stylesheet ()
   "Return the stylesheet a rendered document carries.
 
 It is built from the colours of the current theme, so a preview looks
 like the rest of Emacs, and embedded in the document rather than linked,
 so that neither the preview nor an exported file needs the network."
-  (let* ((background (heks-emacs-render--color :background "#ffffff"))
-         (foreground (heks-emacs-render--color :foreground "#000000"))
-         (surface (heks-emacs-render--mix background foreground 0.06))
-         (border (heks-emacs-render--mix background foreground 0.20))
-         (muted (heks-emacs-render--mix foreground background 0.45))         (accent (heks-emacs-render--color :link "#2a6fd6")))
-    (format "
+  (let* ((palette (heks-emacs-render-palette))
+         (background (plist-get palette :background))
+         (foreground (plist-get palette :foreground))
+         (surface (plist-get palette :surface))
+         (border (plist-get palette :border))
+         (muted (plist-get palette :muted))
+         (accent (plist-get palette :accent)))
+    (concat
+     (format "
 :root { color-scheme: light dark; }
 body { max-width: 60em; margin: 0 auto; padding: 2em 1.5em 6em;
        font-family: system-ui, sans-serif; font-size: 16px; line-height: 1.6;
@@ -507,14 +683,144 @@ img { max-width: 100%%; }
             ;; the headline above the title
             muted
             ;; the badge chip: a filled label
-            foreground background)))
+            foreground background)
+     ;; The colours of the code, one rule per face the rendering used.
+     (heks-emacs-render-highlight-css)
+     (format "
+nav.toc { background: %s; border: 1px solid %s; border-radius: 6px;
+          padding: 0.6em 1em; margin: 1.2em 0; break-inside: avoid; }
+nav.toc .headline { margin: 0 0 0.4em; }
+nav.toc ul { list-style: none; margin: 0; padding: 0; columns: 2; }
+nav.toc li { margin: 0.15em 0; break-inside: avoid; }
+nav.toc li.toc-depth-3 { margin-left: 1.2em; }
+nav.toc li.toc-depth-4 { margin-left: 2.4em; }
+
+@media print {
+  @page { margin: 1.5cm; }
+  body { max-width: none; padding: 0; }
+  pre.code { overflow: visible; white-space: pre-wrap; }
+  h1, h2, h3, h4, h5, h6 { break-after: avoid; }
+  table, tr, pre, blockquote, img { break-inside: avoid; }
+  a { color: inherit; text-decoration: underline; }
+}
+"
+             surface border))))
+
+;;
+;; ====== Headings, anchors and the contents list ======
+;;
+
+(defun heks-emacs-render--heading-text (html)
+  "Return the text of a heading's HTML, with its markup taken off."
+  (let ((text (replace-regexp-in-string "<[^>]+>" "" html)))
+    (setq text (replace-regexp-in-string "&[a-zA-Z]+;\|&#[0-9]+;" " " text))
+    (string-trim (replace-regexp-in-string "[ \t]+" " " text))))
+
+(defun heks-emacs-render-anchor (text)
+  "Return an HTML id for TEXT, which is what a link points at.
+
+An id may not contain a space, so the spaces become dashes and the
+characters HTML would rather not see inside one are dropped."
+  (let ((slug (downcase text)))
+    (setq slug (replace-regexp-in-string "[^a-z0-9 _-]+" "" slug))
+    (setq slug (replace-regexp-in-string "[ _]+" "-" slug))
+    (setq slug (string-trim slug "-"))
+    (if (string-empty-p slug) "section" slug)))
+
+(defun heks-emacs-render--unique-anchor (text taken)
+  "Return an id for TEXT that TAKEN, a hash table, does not hold yet."
+  (let ((base (heks-emacs-render-anchor text))
+        (id nil)
+        (count 2))
+    (setq id base)
+    (while (gethash id taken)
+      (setq id (format "%s-%d" base count)
+            count (1+ count)))
+    (puthash id t taken)
+    id))
+
+(defun heks-emacs-render--headings (html)
+  "Give every heading in HTML an id, and return (HTML . ENTRIES).
+
+An id is what makes a heading linkable and what a contents list points
+at, and it is made here rather than by every renderer: a Markdown
+heading and an OpenAPI operation end up in the same kind of page.  A
+heading that already has an id keeps it, and that id is the one the
+contents list points at: the OpenAPI renderer names its operations after
+the method and the path, and a slug made from their text would be a link
+to nowhere."
+  (let ((taken (make-hash-table :test #'equal))
+        (entries nil)
+        (out nil)
+        (position 0)
+        (at 0))
+    (while (string-match "<h\\([1-6]\\)\\([^>]*\\)>\\(.*?\\)</h\\1>" html position)
+      (let* (;; The outer match is read out before the id below is looked
+             ;; for in the attributes, because that search is a match of its
+             ;; own and would otherwise leave the outer one behind.
+             (beg (match-beginning 0))
+             (end (match-end 0))
+             (whole (match-string 0 html))
+             (level (string-to-number (match-string 1 html)))
+             (attributes (match-string 2 html))
+             (inner (match-string 3 html))
+             (text (heks-emacs-render--heading-text inner))
+             (written (and (string-match "\\bid=\"\\([^\" ]+\\)\"" attributes)
+                           (match-string 1 attributes)))
+             (id (if written
+                     (progn (puthash written t taken) written)
+                   (heks-emacs-render--unique-anchor text taken))))
+        (push (substring html at beg) out)
+        (push (if written
+                  whole
+                (format "<h%d id=\"%s\"%s>%s</h%d>" level id attributes inner level))
+              out)
+        (push (list level id text) entries)
+        (setq at end
+              position end)))
+    (push (substring html at) out)
+    (cons (apply #'concat (nreverse out)) (nreverse entries))))
+
+(defun heks-emacs-render-toc-entries (entries)
+  "Return the headings a contents list should show, from ENTRIES.
+
+The title of a document is not a section of it: an h1 that stands alone
+above deeper headings heads the page, and the contents start under it.
+Only one level below the shallowest heading is listed, because a
+contents list longer than what it lists is worse than none.
+
+ENTRIES is what `heks-emacs-render--headings' collected, as
+\(LEVEL ID TEXT) in the order the headings appear."
+  (let* ((rest (if (and (cdr entries) (= 1 (car (car entries))))
+                   (cdr entries)
+                 entries))
+         (shallowest (and rest (apply #'min (mapcar #'car rest))))
+         (limit (and shallowest (min 4 (1+ shallowest)))))
+    (seq-filter (lambda (entry) (<= (car entry) limit)) rest)))
+
+(defun heks-emacs-render-toc (entries)
+  "Return a list of contents for ENTRIES, or nil when they are too few."
+  (let ((listed (heks-emacs-render-toc-entries entries)))
+    (when (and listed (>= (length listed) heks-emacs-render-toc-headings))
+      (concat "<nav class=\"toc\" aria-label=\"Contents\">\n"
+              "<p class=\"headline\">Contents</p>\n<ul>\n"
+              (mapconcat (lambda (entry)
+                           (format "<li class=\"toc-depth-%d\"><a href=\"#%s\">%s</a></li>"
+                                   (car entry) (nth 1 entry)
+                                   (heks-emacs-render--escape (nth 2 entry))))
+                         listed "\n")
+              "\n</ul>\n</nav>\n"))))
 
 (defun heks-emacs-html-document (title body &optional headline)
   "Return a complete HTML document.
 
 TITLE becomes the title of the document and HEADLINE, when given, the
-small line printed above it."
-  (format "<!DOCTYPE html>
+small line printed above it.  The headings of BODY are given ids, so that
+a link to one of them works, and a list of contents is put between the
+headline and the body when the body has enough sections to want one."
+  (let* ((anchored (heks-emacs-render--headings body))
+         (contents (heks-emacs-render-toc (cdr anchored))))
+    (format "<!DOCTYPE html>
 <html lang=\"en\">
 <head>
 <meta charset=\"utf-8\">
@@ -524,16 +830,19 @@ small line printed above it."
 </head>
 <body>
 %s
-%s
+%s%s
 </body>
 </html>
 "
-          (heks-emacs-render--escape title)
-          (heks-emacs-render-stylesheet)
-          (if headline (format "<p class=\"headline\">%s</p>\n"
-                               (heks-emacs-render--escape headline))
-            "")
-          body))
+            (heks-emacs-render--escape title)
+            ;; The stylesheet is built after the body has been rendered,
+            ;; because it colours the faces the body turned out to use.
+            (heks-emacs-render-stylesheet)
+            (if headline (format "<p class=\"headline\">%s</p>\n"
+                                 (heks-emacs-render--escape headline))
+              "")
+            (or contents "")
+            (car anchored))))
 
 ;;
 ;; ====== Which renderer a buffer gets ======
@@ -584,7 +893,11 @@ what makes `C-c r p' work in a Markdown file, an OpenAPI specification, an
 Org note and a plain text file alike."
   (with-current-buffer (or buffer (current-buffer))
     (let ((heks-emacs-render--base-directory
-           (and buffer-file-name (file-name-directory buffer-file-name))))
+           (and buffer-file-name (file-name-directory buffer-file-name)))
+          ;; Whatever this rendering uses will be in its stylesheet, so
+          ;; what the last one used is forgotten here rather than blurred
+          ;; into it.
+          (heks-emacs-render--faces nil))
       (cond
        ((heks-emacs-render-markdown-p)
         (heks-emacs-markdown-to-html (buffer-string)))
