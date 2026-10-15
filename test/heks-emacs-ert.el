@@ -66,8 +66,8 @@
   "Load the module NAME from the source tree and return its feature."
   (load (expand-file-name (format "modules/%s.el" name) heks-ert--source) nil t))
 
-(dolist (module '("render" "present" "heks-emacs" "emacs-core" "dev" "openapi"
-                 "shell" "guile"))
+(dolist (module '("markdown" "render" "import" "present" "heks-emacs" "emacs-core"
+                 "dev" "openapi" "shell" "guile"))
   (heks-ert--module module))
 
 ;; `htmlize' is what Org colours the code in a note with, and the
@@ -1244,6 +1244,276 @@ mentions has no places."
     (should-not (heks-emacs-scheme--repl-callers "greet"))
     (should-not (heks-emacs-scheme--repl-names "greet"))
     (should-not (heks-emacs-scheme-repl-connected-p))))
+
+;;
+;; ====== Importing a Markdown document ======
+;;
+
+(defconst heks-ert-import-document
+  (concat "---\n"
+          "title: A note\n"
+          "tags:\n"
+          "  - emacs\n"
+          "  - org mode\n"
+          "aliases: [Things, stuff]\n"
+          "author: Josep\n"
+          "permalink: /notes/a\n"
+          "---\n"
+          "\n"
+          "# A note\n"
+          "\n"
+          "Some *emphasis*, some **strong**, some `code` and a [link](docs/a.md).\n"
+          "\n"
+          "## Why\n"
+          "\n"
+          "- first\n"
+          "  - nested\n"
+          "\n"
+          "```scheme\n"
+          "(display \"* not a headline\")\n"
+          "```\n"
+          "\n"
+          "| Name | Count |\n"
+          "|:-----|------:|\n"
+          "| a | 1 |\n"
+          "\n"
+          "A foot[^1].\n"
+          "\n"
+          "[^1]: The note.\n")
+  "A document with the parts of Markdown an import has to have an answer for.")
+
+(ert-deftest heks-emacs-import/the-heading-a-document-names-itself-with-is-its-title ()
+  "The `# ...' a document opens with names the note, and is not repeated under it."
+  (let ((metadata (heks-emacs-markdown-metadata "# Heks\n\ntext\n")))
+    (should (equal (plist-get metadata :title) "Heks"))
+    (should (equal (string-trim (plist-get metadata :body)) "text"))))
+
+(ert-deftest heks-emacs-import/a-title-can-be-left-as-a-heading ()
+  "With the setting off, every heading stays a heading."
+  (let ((heks-emacs-import-title-from-heading nil))
+    (should (equal (heks-emacs-markdown-to-org "# Heks\n\ntext\n")
+                   "* Heks\n\ntext\n"))))
+
+(ert-deftest heks-emacs-import/front-matter-is-what-the-note-says-about-itself ()
+  "Title, tags, aliases and the fields this does not name are all kept."
+  (let ((org (heks-emacs-markdown-to-org heks-ert-import-document
+                                        '(("ID" . "an-id")
+                                          ("ROAM_ALIASES" . "Things, stuff")))))
+    (should (string-match-p "^#\\+title: A note$" org))
+    (should (string-match-p "^#\\+filetags: :emacs:org_mode:$" org))
+    (should (string-match-p "^#\\+author: Josep$" org))
+    ;; A field this module knows nothing about is a keyword of its own name
+    ;; rather than something dropped on the floor.
+    (should (string-match-p "^#\\+permalink: /notes/a$" org))
+    (should (string-match-p "^ *:ID: *an-id$" org))
+    (should (string-match-p "^ *:ROAM_ALIASES: *Things, stuff$" org))
+    ;; The drawer comes first, then the keywords, then the body: a drawer
+    ;; Org reads as the file's properties is the first thing in the file
+    ;; (`org-entry-get' finds the id there, and finds nothing when the
+    ;; keywords come first), and the keywords belong to the note rather
+    ;; than to the first section under it.
+    (should (< (string-match ":PROPERTIES:" org) (string-match "#\\+title:" org)))
+    (should (< (string-match ":END:" org) (string-match "^\\* Why$" org)))))
+
+(ert-deftest heks-emacs-import/the-hierarchy-of-a-document-is-the-hierarchy-of-a-note ()
+  "The headings left under the title are shifted up to be its sections."
+  (let ((org (heks-emacs-markdown-to-org "# Title\n\n## One\n\n### Two\n\n#### Three\n")))
+    (should (string-match-p "^\\* One$" org))
+    (should (string-match-p "^\\*\\* Two$" org))
+    (should (string-match-p "^\\*\\*\\* Three$" org))))
+
+(ert-deftest heks-emacs-import/nothing-is-shifted-when-there-is-no-title ()
+  "A document that names itself nowhere keeps its own depth."
+  (let ((org (heks-emacs-markdown-to-org "## One\n\ntext\n")))
+    (should (string-match-p "^\\* One$" org))))
+
+(ert-deftest heks-emacs-import/a-block-that-says-it-is-not-a-heading-is-not-shifted ()
+  "A line of a code block is a line of a code block, whatever it starts with."
+  (let ((org (heks-emacs-markdown-to-org
+              (concat "# Title\n\n```sh\n* not a headline\n** neither\n```\n"
+                      "\n## Section\n"))))
+    (should (string-match-p "^\\* not a headline$" org))
+    (should (string-match-p "^\\*\\* neither$" org))
+    (should (string-match-p "^\\* Section$" org))))
+
+(ert-deftest heks-emacs-import/emphasis-links-and-images-become-org-markup ()
+  "What Markdown says with markers, Org says with its own."
+  (let ((org (heks-emacs-markdown-to-org
+              (concat "*emphasis*, **strong**, `code`, ~~gone~~, a [link](a.md)\n"
+                      "an ![image](b.png), <https://example.com/x> and a foot[^2].\n"
+                      "\n[^2]: a note\n"))))
+    (should (string-match-p
+             "^/emphasis/, \\*strong\\*, =code=, \\+gone\\+, a \\[\\[a.md\\]\\[link\\]\\]$"
+             org))
+    (should (string-match-p
+             "^an \\[\\[b.png\\]\\[image\\]\\], \\[\\[https://example.com/x\\]\\] and a foot\\[fn:2\\]\\.$"
+             org))
+    (should (string-match-p "^\\[fn:2\\] a note$" org))))
+
+(ert-deftest heks-emacs-import/a-link-in-a-document-becomes-the-file-it-names ()
+  "A relative link is resolved against the document's own directory."
+  (let ((heks-emacs-markdown-base-directory "/home/someone/docs/"))
+    (should (string-match-p "\\[\\[/home/someone/docs/img/a.png\\]\\[d\\]\\]"
+                            (heks-emacs-markdown-to-org "![d](img/a.png)\n")))
+    (should (string-match-p "\\[\\[https://example.com/x\\]\\[a\\]\\]"
+                            (heks-emacs-markdown-to-org "[a](https://example.com/x)\n")))))
+
+(ert-deftest heks-emacs-import/a-table-becomes-a-table-org-can-align ()
+  "The columns keep the alignment their delimiter row gave them, and the
+header row stays a header row."
+  (let ((org (heks-emacs-markdown-to-org
+              "| Name | Count |\n|:-----|------:|\n| a | 1 |\n")))
+    ;; The delimiter row is what tells Org where the header ends, so it is
+    ;; written as well as the alignment row rather than only as one, and a
+    ;; row is padded to the column it is in, so that the rule under the
+    ;; header is the width of what it rules.
+    (should (equal org (concat "| Name | Count |\n"
+                               "| <l>  | <r>   |\n"
+                               "|------+-------|\n"
+                               "| a    | 1     |\n")))))
+
+(ert-deftest heks-emacs-import/a-checked-box-is-the-box-org-reads ()
+  "Markdown checks a box with `[x]' and Org reads `[X]': the box is written
+as the one Org reads, so that what was done stays done."
+  (let ((org (heks-emacs-markdown-to-org
+              "- [ ] one\n- [x] two\n- [X] three\n- [ ]done without a space\n")))
+    (should (equal org (concat "- [ ] one\n"
+                               "- [X] two\n"
+                               "- [X] three\n"
+                               ;; Not a box Org reads either, so it is left
+                               ;; as the text a document made of it.
+                               "- [ ]done without a space\n")))))
+
+(ert-deftest heks-emacs-import/a-bullet-is-never-written-as-a-headline ()
+  "Markdown's `*' bullet is Org's `-', which is what a headline is not."
+  (should (equal (heks-emacs-markdown-to-org "* one\n* two\n")
+                 "- one\n- two\n")))
+
+(ert-deftest heks-emacs-import/the-blank-lines-a-document-has-separate-its-blocks ()
+  "In Org a blank line decides what a block ends, so the import keeps them."
+  (let ((org (heks-emacs-markdown-to-org "text\n\nmore text\n")))
+    (should (equal org "text\n\nmore text\n"))))
+
+(ert-deftest heks-emacs-import/an-identifier-is-a-uuid ()
+  "A note is named the way `org-id' and `org-roam' name one."
+  (let ((id (heks-emacs-import--id)))
+    (should (string-match-p
+             "\\`[0-9a-f]\\{8\\}-[0-9a-f]\\{4\\}-4[0-9a-f]\\{3\\}-[89ab][0-9a-f]\\{3\\}-[0-9a-f]\\{12\\}\\'"
+             id))
+    (should-not (equal id (heks-emacs-import--id)))))
+
+(ert-deftest heks-emacs-import/a-file-is-imported-next-to-the-source ()
+  "The Org is written beside the Markdown, and the Markdown is left alone."
+  (let ((root (heks-ert--temp-directory)))
+    (unwind-protect
+        (let ((source (expand-file-name "README.md" root)))
+          (write-region heks-ert-import-document nil source nil 'silent)
+          (should (equal (heks-emacs-import-markdown-file source)
+                         (expand-file-name "README.org" root)))
+          (should (file-exists-p (expand-file-name "README.org" root)))
+          (should (equal (with-temp-buffer (insert-file-contents source) (buffer-string))
+                         heks-ert-import-document))
+          ;; The same document again writes the same file, silently.
+          (should (equal (heks-emacs-import-markdown-file source)
+                         (expand-file-name "README.org" root))))
+      (delete-directory root t))))
+
+(ert-deftest heks-emacs-import/a-note-somebody-wrote-is-not-written-over-unasked ()
+  "A file that is already there and differs is kept unless the reader says otherwise."
+  (let ((root (heks-ert--temp-directory)))
+    (unwind-protect
+        (let ((source (expand-file-name "README.md" root))
+              (target (expand-file-name "README.org" root)))
+          (write-region "# Heks\n" nil source nil 'silent)
+          (write-region "my own note\n" nil target nil 'silent)
+          (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) nil)))
+            (should-not (heks-emacs-import-markdown-file source)))
+          (should (equal (with-temp-buffer (insert-file-contents target) (buffer-string))
+                         "my own note\n"))
+          (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+            (should (heks-emacs-import-markdown-file source)))
+          (should (string-match-p "^#\\+title: Heks$"
+                                  (with-temp-buffer (insert-file-contents target)
+                                                    (buffer-string)))))
+      (delete-directory root t))))
+
+(ert-deftest heks-emacs-import/a-note-imported-into-the-notes-is-a-node ()
+  "It carries an identifier and its aliases, and a second import keeps them."
+  (let ((root (heks-ert--temp-directory))
+        (notes (make-temp-file "heks-ert-notes-" t)))
+    (unwind-protect
+        (let ((source (expand-file-name "note.md" root)))
+          (write-region heks-ert-import-document nil source nil 'silent)
+          (cl-letf (((symbol-function 'heks-emacs-notes-roam-directory)
+                     (lambda () (file-name-as-directory notes))))
+            (let* ((target (heks-emacs-import-markdown-file source t))
+                   (text (with-temp-buffer (insert-file-contents target) (buffer-string)))
+                   (id (and (string-match ":ID: *\\([^ \t\n]+\\)" text)
+                            (match-string 1 text))))
+              (should (equal target (expand-file-name "note.org" notes)))
+              (should (string-match-p "^ *:ROAM_ALIASES: *Things, stuff$" text))
+              (should id)
+              ;; Importing it again updates the note rather than making a
+              ;; second node, which is what keeping the identifier does.
+              (heks-emacs-import-markdown-file source t)
+              (let ((again (with-temp-buffer (insert-file-contents target)
+                                             (buffer-string))))
+                (should (string-match ":ID: *\\([^ \t\n]+\\)" again))
+                (should (equal id (match-string 1 again)))))))
+      (delete-directory root t)
+      (delete-directory notes t))))
+
+(ert-deftest heks-emacs-import/the-project-import-asks-once-and-imports-the-markdown ()
+  "Every Markdown file the project has is imported, and nothing else is."
+  (let ((root (heks-ert--temp-directory))
+        (asked 0))
+    (unwind-protect
+        (let ((one (expand-file-name "README.md" root))
+              (two (expand-file-name "guide.markdown" root))
+              (other (expand-file-name "notes.org" root)))
+          (write-region "# One\n" nil one nil 'silent)
+          (write-region "# Two\n" nil two nil 'silent)
+          (write-region "* not markdown\n" nil other nil 'silent)
+          (cl-letf (((symbol-function 'project-current) (lambda (&optional _) 'a-project))
+                    ((symbol-function 'project-files) (lambda (&optional _) (list one two other)))
+                    ((symbol-function 'yes-or-no-p) (lambda (&rest _) (setq asked (1+ asked)) t)))
+            (heks-emacs-import-markdown-project))
+          (should (file-exists-p (expand-file-name "README.org" root)))
+          (should (file-exists-p (expand-file-name "guide.org" root)))
+          (should (= asked 0)))
+      (delete-directory root t))))
+
+(ert-deftest heks-emacs-import/a-document-is-what-its-name-says-it-is ()
+  "The names a Markdown document is written with, and the ones it is not."
+  (should (heks-emacs-import-markdown-p "README.md"))
+  (should (heks-emacs-import-markdown-p "guide.markdown"))
+  (should (heks-emacs-import-markdown-p "NOTES.MD"))
+  (should-not (heks-emacs-import-markdown-p "notes.org"))
+  (should-not (heks-emacs-import-markdown-p "notes.md.org")))
+
+(ert-deftest heks-emacs-scheme/an-evaluation-brings-up-the-repl-it-needs ()
+  "Evaluating with no REPL starts the project's one; with one, it does not."
+  (let ((started 0)
+        (evaluated 0))
+    (cl-letf (((symbol-function 'heks-emacs-scheme-repl-connected-p)
+               (lambda () (>= started 1)))
+              ((symbol-function 'heks-emacs-scheme-repl--start)
+               (lambda () (setq started (1+ started))))
+              ((symbol-function 'geiser-eval-definition)
+               (lambda (_) (setq evaluated (1+ evaluated)))))
+      (heks-emacs-scheme-repl-needed (lambda () (geiser-eval-definition nil)))
+      (should (= started 1))
+      (should (= evaluated 1))
+      (heks-emacs-scheme-repl-needed (lambda () (geiser-eval-definition nil)))
+      (should (= started 1))
+      (should (= evaluated 2)))))
+
+(ert-deftest heks-emacs-scheme/a-repl-that-will-not-come-up-is-said-so ()
+  "A machine where the program is missing is told that rather than left waiting."
+  (cl-letf (((symbol-function 'heks-emacs-scheme-repl-connected-p) (lambda () nil))
+            ((symbol-function 'heks-emacs-scheme-repl--start) (lambda () nil))
+            ((symbol-function 'accept-process-output) (lambda (&rest _) nil)))
+    (should-error (heks-emacs-scheme-repl-needed (lambda () nil)) :type 'user-error)))
 
 ;;
 ;; ====== Dired ======

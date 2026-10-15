@@ -139,10 +139,12 @@
                            go
                            guile
                            help
+                           import
                            libs
                            macros
                            mail
                            maps
+                           markdown
                            misc
                            music
                            openapi

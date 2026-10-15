@@ -245,6 +245,58 @@ configuration."
                         (flymake-diagnostic-type (car diags)) :warning)))
 
 ;;;
+;;; The compilation buffer
+;;;
+
+;; What a tool writes is coloured, and what colours it is `fancy-compilation',
+;; which does its work by advising `compilation-filter' and `compilation-start'
+;; rather than by a mode a buffer turns on.  That is why the mode has to be on
+;; before the first compilation rather than when it is first wanted: a
+;; compilation buffer shows the escapes a tool wrote until something reads
+;; them, and by the time one notices, the output is already in the buffer.
+;; The colours are looked for where `ansi-color' puts them, which is an
+;; overlay rather than a text property (see `ansi-color-apply-face-function').
+(heks-verify--section "a compilation buffer colours what a tool colours")
+(heks-verify--check "the mode that colours it is on"
+                    (and fancy-compilation-mode t))
+(heks-verify--check "and it was on before any compilation started"
+                    (and (advice-member-p 'fancy-compilation--compilation-filter
+                                          'compilation-filter)
+                         t))
+(heks-verify--check "a tool is told it is talking to a terminal"
+                    (and (advice-member-p 'fancy-compilation--compile 'compile) t))
+(let* ((default-directory (file-name-as-directory (make-temp-file "heks-verify-compile-" t)))
+       ;; What a tool colours, written the way a tool writes it.
+       (buffer (compile
+                (concat "printf 'plain \\033[32mgreen\\033[0m and "
+                        "\\033[1;31mred\\033[0m\\n'")))
+       (buffer (if (consp buffer) (car buffer) buffer)))
+  (unwind-protect
+      (with-current-buffer buffer
+        (let ((tries 0))
+          (while (and (< tries 200) (get-buffer-process buffer))
+            (accept-process-output nil 0.1)
+            (setq tries (1+ tries))))
+        (accept-process-output nil 0.2)
+        (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+          (heks-verify--check "the output arrived, with the escapes read"
+                              (and (string-match-p "plain green and red" text) t))
+          (heks-verify--check "and no escape character is left in the buffer"
+                              (and (not (string-match-p "\033" text)) t)))
+        (heks-verify--check
+         "a coloured word is coloured, and stays so as more output arrives"
+         (and (goto-char (point-min))
+              (search-forward "green" nil t)
+              (seq-some (lambda (overlay)
+                          (let ((face (overlay-get overlay 'face)))
+                            (and (consp face)
+                                 (memq (car face) '(ansi-color-green :foreground
+                                                    ansi-color-bright-green))
+                                 t)))
+                        (overlays-at (match-beginning 0))))))
+    (kill-buffer buffer)))
+
+;;;
 ;;; Guile
 ;;;
 
@@ -1262,6 +1314,110 @@ paths:
       (setq window-min-height min-height)
       (set-window-configuration configuration)
       (which-key--hide-popup))))
+
+;;;
+;;; Importing a Markdown document
+;;;
+;;; Making an Org note of a Markdown document is a string in and a string
+;;; out, and `test/heks-emacs-ert.el' holds it to that.  What an installed
+;;; configuration can be asked, and a string cannot, is whether what it
+;;; writes is *Org*: the note is handed to Org's own parser, and what Org
+;;; makes of it is what is checked.  A conversion that wrote a table Org
+;;; reads as a paragraph, or a heading at a level that is not a level,
+;;; would pass every check on the text and be a note nobody can use.
+
+(heks-verify--section "a Markdown document becomes the Org note Org reads")
+
+(let* ((fixture (expand-file-name "import-note.md" heks-verify--fixtures))
+       (text (with-temp-buffer (insert-file-contents fixture) (buffer-string)))
+       (org (heks-emacs-markdown-to-org text '(("ID" . "a-heks-verify-id")))))
+  (with-temp-buffer
+    (insert org)
+    (org-mode)
+    (let* ((tree (org-element-parse-buffer))
+           (headlines (org-element-map tree 'headline
+                        (lambda (h) (org-element-property :level h))))
+           (keys (org-element-map tree 'keyword
+                   (lambda (k) (cons (upcase (org-element-property :key k))
+                                     (org-element-property :value k)))))
+           (languages (org-element-map tree 'src-block
+                        (lambda (b) (org-element-property :language b))))
+           (checks (org-element-map tree 'item
+                     (lambda (i) (org-element-property :checkbox i))))
+           (labels (org-element-map tree 'footnote-definition
+                     (lambda (f) (org-element-property :label f))))
+           (rows (org-element-map tree 'table-row
+                   (lambda (r) (org-element-property :type r))))
+           (types (org-element-map tree 'export-block
+                    (lambda (b) (downcase (or (org-element-property :type b) ""))))))
+      (heks-verify--check "the title is a title, not a heading"
+                          (cdr (assoc "TITLE" keys))
+                          "A note about importing notes")
+      (heks-verify--check "the tags become the file's tags"
+                          (mapcar #'downcase org-file-tags)
+                          '("emacs" "org_mode"))
+      (heks-verify--check "a field of the front matter Org does not know is a keyword"
+                          (cdr (assoc "PERMALINK" keys))
+                          "/notes/importing")
+      (heks-verify--check "the sections are first-level headlines"
+                          headlines '(1))
+      (heks-verify--check "the code fence is a source block of that language"
+                          languages '("scheme"))
+      (heks-verify--check "and a fence with no language is an example block"
+                          (and (org-element-map tree 'example-block #'identity) t))
+      (heks-verify--check "the task list items are the checkboxes Org knows"
+                          (delq nil checks) '(off on))
+      (heks-verify--check "the footnote reference found its definition"
+                          labels '("why"))
+      ;; A header row, the alignment row the delimiter row becomes (which
+      ;; is a row Org keeps out of the export), the rule that closes the
+      ;; header, and then the rows the document had.
+      (heks-verify--check "the Markdown table is a header, an alignment row, a rule and two rows"
+                          rows '(standard standard rule standard standard))
+      (heks-verify--check "the quote block is a quote block"
+                          (and (org-element-map tree 'quote-block #'identity) t))
+      (heks-verify--check "the raw block is passed through as HTML"
+                          types '("html"))
+      (heks-verify--check "the two spaces at the end of a line are one line break"
+                          (length (org-element-map tree 'line-break #'identity))
+                          1)
+      (heks-verify--check "the identifier is a property Org reads back"
+                          (org-entry-get (point-min) "ID")
+                          "a-heks-verify-id"))))
+
+(heks-verify--section "an import writes the file it says it does")
+
+(let ((root (make-temp-file "heks-verify-import-" t)))
+  (unwind-protect
+      (let ((source (expand-file-name "README.md" root))
+            ;; Nothing here is a note of the reader's own: org-roam is
+            ;; asked to index a file of the notes directory only, and there
+            ;; is none in this check.
+            (org-roam-directory nil))
+        (write-region "# Heks\n\nA **project** with a `maak` task.\n" nil source nil 'silent)
+        (heks-verify--check "the Org is written beside the Markdown"
+                            (heks-emacs-import-markdown-file source)
+                            (expand-file-name "README.org" root))
+        (heks-verify--check "and the Markdown is left exactly as it was"
+                            (with-temp-buffer (insert-file-contents source)
+                                              (buffer-string))
+                            "# Heks\n\nA **project** with a `maak` task.\n")
+        (heks-verify--check "the note says what the document said"
+                            (with-temp-buffer
+                              (insert-file-contents (expand-file-name "README.org" root))
+                              (buffer-string))
+                            "#+title: Heks\n\nA *project* with a =maak= task.\n")
+        (let ((notes (expand-file-name "notes/" root)))
+          (make-directory notes t)
+          (cl-letf (((symbol-function 'heks-emacs-notes-roam-directory)
+                     (lambda () notes)))
+            (let* ((note (heks-emacs-import-markdown-file source t))
+                   (text (with-temp-buffer (insert-file-contents note) (buffer-string))))
+              (heks-verify--check "a note is written into the notes directory"
+                                  note (expand-file-name "README.org" notes))
+              (heks-verify--check "carries an identifier"
+                                  (and (string-match-p "^ *:ID: *[^ \t\n]+$" text) t))))))
+    (delete-directory root t)))
 
 ;;;
 ;;; The verdict

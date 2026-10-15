@@ -123,13 +123,27 @@
   :ensure (:host github :repo "vspinu/sesman" :branch "master")
   :demand t)
 
-;; Enhances the compilation buffer with fancy features, improving the
-;; readability and usability of compilation output.
+;; Enhances the compilation buffer with what a terminal gives for free: the
+;; ANSI escapes a tool writes become colours instead of `[0m' noise in the
+;; middle of a line, the output scrolls as it arrives, and the faces of the
+;; buffer come from the theme rather than the package's own palette
+;; (`fancy-compilation-override-colors' off).
+;;
+;; It is loaded up front rather than on the first call of
+;; `fancy-compilation-mode', which is what `:commands' asked for and why
+;; none of this was happening: what the package does, it does by advising
+;; `compile' and `compilation-filter' and by a hook of its own, so a mode
+;; that is only loaded when it is called has to be called before the first
+;; compilation -- a thing nobody remembers to do, since the escape codes
+;; only appear once it is too late.  It is the same trap as the one
+;; `flymake-collection' below describes, and answered the same way: load it
+;; now, and turn it on in `:config'.
 (use-package fancy-compilation
   :ensure t
-  :commands (fancy-compilation-mode)
+  :demand t
   :config
-  (setq fancy-compilation-override-colors nil))
+  (setq fancy-compilation-override-colors nil)
+  (fancy-compilation-mode))
 
 ;; Provides visual diff highlighting in the margin,
 ;; showing changes relative to version control.
@@ -152,13 +166,6 @@
                         :background 'unspecified)
     (set-face-attribute 'diff-hl-delete nil
                         :background 'unspecified)))
-
-(with-eval-after-load 'compile
-  ;; `compile' can be loaded before Elpaca has activated `fancy-compilation'
-  ;; (an early `require', such as Flymake's, does that), so load it here
-  ;; instead of assuming that it is already there.
-  (when (require 'fancy-compilation nil t)
-    (fancy-compilation-mode)))
 
 ;; Provides a library for making HTTP requests from Emacs Lisp.
 (use-package request

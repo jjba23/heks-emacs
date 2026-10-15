@@ -45,6 +45,12 @@
 ;; fail whenever a palette changed and would say nothing about rendering.
 ;; The wrapper is checked by `maak verify' on an installed configuration.
 ;;
+;; A Markdown document is read twice in this configuration and this file
+;; pins both readings: the page `render.el' makes of it, and the note
+;; `import.el' makes.  The second is compared the same way, line by line,
+;; because it is also output a person reads -- and one a change to the
+;; reading would change— without a page to open and look at.
+;;
 ;; The OpenAPI page is rendered twice, once from a JSON fixture and once
 ;; from a YAML one.  They are the same specification, so they have one
 ;; golden file between them: the two languages have to read to the same
@@ -84,9 +90,15 @@
 
 (add-to-list 'load-path (expand-file-name "src/modules" heks-golden--root))
 
+;; `markdown.el' is the reading of a document, and the renderers are what is
+;; made of it.
+(load "markdown" nil t)
+
 ;; The renderers themselves.  `openapi.el' asks `render.el' for the
 ;; document it wraps its page in, so it is loaded second.
 (load "render" nil t)
+;; And the other reading of the same document: the one that makes a note.
+(load "import" nil t)
 
 ;; YAML is read by a package -- whichever one the configuration installs --
 ;; so it is looked for where Elpaca leaves it.  A machine without it can
@@ -144,6 +156,44 @@ is a diff one can read, not a full one."
   "Return the path of the golden file called PAGE."
   (expand-file-name page heks-golden--pages))
 
+(defconst heks-golden--import-base-directory "/home/someone/docs/"
+  "The directory the imported fixture's relative links are resolved against.
+
+A fixed one, and nobody's: a golden file is read on machines that are not
+this one, and a note that named the directory this checkout happens to be
+in would differ on every other one.  A link in the note is checked for
+what it becomes rather than for what it points at.")
+
+(defconst heks-golden--import-id "9e2c5b1a-4d3f-4a7e-8b60-3f2c7d5e9a41"
+  "The identifier the imported fixture is given.
+
+Fixed rather than made, because one made of a time and a random number is
+new on every run, and a golden file that changes on every run compares
+against nothing.")
+
+(defun heks-golden--import (fixture)
+  "Return the Org the Markdown of FIXTURE becomes, as an import makes it.
+
+The note is made the way `heks-emacs-import-markdown-file' makes one --
+the front matter, the identifier and the aliases it asks for, then the
+body -- rather than by converting the text alone: the property drawer is
+part of the note a person gets, and it is the part most easily written in
+a place Org does not read, which is what a golden file is for noticing."
+  (let ((file (expand-file-name fixture heks-golden--fixtures))
+        ;; A name no file has, so that the identifier written is the fixed
+        ;; one rather than one read back out of a note already there.
+        (target (make-temp-name (expand-file-name "heks-golden-import-"
+                                                  temporary-file-directory))))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (let* ((text (buffer-string))
+             (metadata (heks-emacs-markdown-metadata text))
+             (heks-emacs-markdown-base-directory heks-golden--import-base-directory))
+        (cl-letf (((symbol-function 'heks-emacs-import--id)
+                   (lambda () heks-golden--import-id)))
+          (heks-emacs-markdown-to-org
+           text (heks-emacs-import--properties metadata target t)))))))
+
 (defun heks-golden--render (fixture)
   "Return the HTML body FIXTURE renders to, through the real dispatcher.
 
@@ -161,10 +211,13 @@ anything this file says."
         (yaml-mode))
       (heks-emacs-render-body))))
 
-(defun heks-golden--check (fixture page)
-  "Check that FIXTURE still renders as PAGE, and return the rendering."
+(defun heks-golden--check (fixture page &optional org)
+  "Check that FIXTURE still renders as PAGE, and return the rendering.
+
+ORG says that what is compared is the note the import makes of the
+document rather than the page the preview makes of it."
   (let ((label (format "%s -> %s" fixture page)))
-    (let ((actual (heks-golden--render fixture))
+    (let ((actual (if org (heks-golden--import fixture) (heks-golden--render fixture)))
           (file (heks-golden--golden-file page)))
       (if (getenv "HEKS_GOLDEN_UPDATE")
           (progn
@@ -202,6 +255,9 @@ anything this file says."
 
 (message "\n  a Markdown document")
 (heks-golden--check "render-note.md" "render-note.html")
+
+(message "\n  the same document, imported as an Org note")
+(heks-golden--check "import-note.md" "import-note.org" :org)
 
 (message "\n  an OpenAPI specification, in the two languages it is written in")
 (heks-golden--check "render-petstore.json" "render-petstore.html")

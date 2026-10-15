@@ -148,6 +148,7 @@ in every other topic.
 | ~n~ | ~g~ | the graph of the notes |
 | ~n~ | ~j~ | the journal entry for today |
 | ~n~ | ~l~ | the buffer that lists the links |
+| ~n~ | ~m~ | a Markdown file, imported as an Org note |
 | ~o~ | ~m~ | Gnus itself |
 | ~o~ | ~g~ | a group, read once |
 | ~r~ | ~b~ | the browser |
@@ -379,6 +380,7 @@ in every other topic.
 | ~C-c n i~ | ~org-roam-node-insert~ | a link to another node, inserted | org.el |
 | ~C-c n j~ | ~org-roam-dailies-capture-today~ | the journal entry for today | org.el |
 | ~C-c n l~ | ~org-roam-buffer-toggle~ | the buffer that lists the links | org.el |
+| ~C-c n m~ | ~heks-emacs-import-markdown~ | the Markdown file of this buffer, imported as an Org note | import.el |
 | ~C-c n v~ | ~org-toggle-link-display~ | links, shown as their text | org.el |
 
 ** ~C-c o~ mail: Gnus

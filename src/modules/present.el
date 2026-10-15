@@ -340,7 +340,7 @@ being told so."
                       " (a line of three or more dashes starts one)"
                     "")))
     (with-current-buffer source
-      (let ((heks-emacs-render--base-directory
+      (let ((heks-emacs-markdown-base-directory
              (and buffer-file-name (file-name-directory buffer-file-name))))
         (heks-emacs-present-deck-document
          (heks-emacs-render-title source)

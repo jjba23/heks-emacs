@@ -32,7 +32,12 @@
 ;;   `C-c g r'   a Guix REPL (`guix repl') in a buffer that defines
 ;;               packages, a plain `guile' one elsewhere, one REPL per
 ;;               project, with the project root on Guile's load path so that
-;;               `(use-modules (my project))' just works.
+;;               `(use-modules (my project))' just works.  It is that REPL
+;;               that evaluating or loading asks for: with none running,
+;;               `C-c g e', `C-c g E' and `C-c g b' start the project's one
+;;               rather than stopping to say there is none.  `C-c g r' is
+;;               for wanting to *be* at the prompt; the commands that need a
+;;               REPL no longer ask to be preceded by it.
 ;;   `C-c g e'   evaluate the definition at point, `C-c g E' the region or
 ;;               the buffer, `C-c g b' load the file, `C-c g k' interrupt a
 ;;               runaway evaluation, `C-c g x' run the file as a script.
@@ -510,6 +515,18 @@ a Guix REPL."
                                    (bound-and-true-p geiser-guile-init-file))))
     (funcall function)))
 
+(defun heks-emacs-scheme-repl--start ()
+  "Start this buffer's REPL, or switch to the one already running.
+
+The program is picked per buffer -- a Guix REPL in a Guix buffer, a plain
+`guile' one elsewhere (see `heks-emacs-scheme--with-repl-program') -- and
+Geiser makes the part that matters: one REPL per project, and it is
+already running."
+  (heks-emacs-scheme--with-repl-program
+   (lambda ()
+     (geiser-mode 1)
+     (geiser-repl-switch))))
+
 (defun heks-emacs-scheme-repl ()
   "Start or switch to the REPL of the current project.
 
@@ -520,10 +537,37 @@ a Guix one; see `heks-emacs-scheme-guix-repl-p'."
   (interactive)
   (unless (derived-mode-p 'scheme-mode)
     (user-error "Open a Scheme buffer first"))
-  (heks-emacs-scheme--with-repl-program
-   (lambda ()
-     (geiser-mode 1)
-     (geiser-repl-switch))))
+  (heks-emacs-scheme-repl--start))
+
+(defun heks-emacs-scheme-repl-needed (function)
+  "Call FUNCTION with this buffer's REPL running, and return what it returns.
+
+What is asked of a REPL is not always *the* REPL: a definition is
+evaluated in it, a file is loaded into it, and a command that does one of
+those two is a way of asking for one.  So the REPL of the project is
+started here when none is running, rather than the evaluation stopping to
+say that it cannot be done without one -- the same REPL `C-c g r' opens,
+started by the wanting rather than by the choosing.
+
+Geiser reads this buffer's program while it starts the process, and a
+REPL that is slow to come up is waited for, bounded, so that a machine
+where the program is missing is told that rather than left waiting.
+
+Starting a REPL shows it, and `save-current-buffer' is what keeps that
+showing from moving the point of the command that asked for it: what is
+evaluated is the definition at point in *this* buffer, and a REPL that
+made it the current one would have `C-c g e' evaluate the prompt."
+  (unless (heks-emacs-scheme-repl-connected-p)
+    (save-current-buffer
+      (heks-emacs-scheme-repl--start)
+      (let ((tries 0))
+        (while (and (not (heks-emacs-scheme-repl-connected-p)) (< tries 100))
+          (accept-process-output nil 0.05)
+          (setq tries (1+ tries))))
+      (unless (heks-emacs-scheme-repl-connected-p)
+        (user-error "No REPL for %s could be started; see `C-c g r'"
+                    heks-emacs-scheme-guile-program))))
+  (funcall function))
 
 (defun heks-emacs-scheme-repl-restart ()
   "Restart the REPL of the current project.
@@ -553,23 +597,30 @@ at the prompt."
 (defun heks-emacs-scheme-eval-definition (&optional and-go)
   "Evaluate the definition at point in the REPL.
 
-AND-GO switches to the REPL afterwards, as with `geiser-eval-definition'."
+AND-GO switches to the REPL afterwards, as with `geiser-eval-definition'.
+A project that is not running a REPL gets one: see
+`heks-emacs-scheme-repl-needed'."
   (interactive "P")
-  (geiser-eval-definition and-go))
+  (heks-emacs-scheme-repl-needed
+   (lambda () (geiser-eval-definition and-go))))
 
 (defun heks-emacs-scheme-eval-region-or-buffer ()
-  "Evaluate the active region, or the whole buffer, in the REPL."
+  "Evaluate the active region, or the whole buffer, in the REPL.
+
+The REPL is started if there is none, as `C-c g e' starts it."
   (interactive)
-  (if (use-region-p)
-      (geiser-eval-region (region-beginning) (region-end))
-    (geiser-eval-buffer)))
+  (heks-emacs-scheme-repl-needed
+   (lambda ()
+     (if (use-region-p)
+         (geiser-eval-region (region-beginning) (region-end))
+       (geiser-eval-buffer)))))
 
 (defun heks-emacs-scheme-load-buffer ()
-  "Load the current file into the REPL."
+  "Load the current file into the REPL, starting one if there is none."
   (interactive)
   (let ((file (or buffer-file-name (user-error "The buffer is not visiting a file"))))
     (save-buffer)
-    (geiser-load-file file)))
+    (heks-emacs-scheme-repl-needed (lambda () (geiser-load-file file)))))
 
 (defun heks-emacs-scheme-interrupt ()
   "Interrupt the evaluation running at the REPL."

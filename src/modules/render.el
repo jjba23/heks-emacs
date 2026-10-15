@@ -34,7 +34,9 @@
 ;;     re-renders on save, which is what makes it worth leaving open next to
 ;;     the file being edited.
 ;;
-;; Markdown is rendered here; OpenAPI is rendered by `modules/openapi.el',
+;; Markdown is read by `modules/markdown.el' -- what a table is, how deep a
+;; list is nested -- and turned into HTML here; the same reading is what
+;; `modules/import.el' turns into Org.  OpenAPI is rendered by `modules/openapi.el',
 ;; which asks this module for the document it wraps its rendering in; Org is
 ;; exported by Org's own exporter, which is asked for the body of the note and
 ;; nothing around it, so a note has the shape a Markdown file has: this
@@ -50,6 +52,18 @@
 ;; both want; EWW is loaded when a preview is actually shown, because it
 ;; drags in the URL library and the DOM parser with it.
 (require 'browse-url)
+
+;; The reading of a Markdown document -- what a table is, how deep a list is
+;; nested, what a code span keeps out of the rest of a line -- is
+;; `markdown.el''s, and it is read from there rather than here so that the
+;; file previewed and the file imported cannot disagree about the same
+;; lines.  Work is the only thing missing from it: what is made of the
+;; reading is this module's business.
+(declare-function heks-emacs-markdown-resolve-path "markdown" (url))
+(declare-function heks-emacs-markdown-split-code-spans "markdown" (text))
+(declare-function heks-emacs-markdown-indent-of "markdown" (line))
+(declare-function heks-emacs-markdown-cells "markdown" (line))
+(declare-function heks-emacs-markdown-table-p "markdown" (line next))
 
 (defgroup heks-emacs-preview nil
   "Rendering and previewing the buffer being edited."
@@ -86,37 +100,16 @@ inside an attribute value."
       (setq escaped (replace-regexp-in-string "\"" "&quot;" escaped t t)))
     escaped))
 
-(defvar heks-emacs-render--base-directory nil
-  "The directory a document's relative links are resolved against.
-
-Bound while rendering, so that `![a diagram](images/a.png)' in a file finds
-the image that sits next to it rather than one next to the preview, which
-lives in a temporary directory.")
-
 (defun heks-emacs-render--resolve (url)
-  "Return URL, made absolute against `heks-emacs-render--base-directory'."
-  (cond ((or (string-empty-p url)
-             (string-match-p "\\`\\([a-zA-Z][a-zA-Z0-9+.-]*:\\|#\\|/\\)" url))
-         url)
-        (heks-emacs-render--base-directory
-         (browse-url-file-url
-          (expand-file-name url heks-emacs-render--base-directory)))
-        (t url)))
+  "Return URL, made absolute against `heks-emacs-markdown-base-directory'.
 
-(defun heks-emacs-render--split-code-spans (text)
-  "Split TEXT at its `code spans', returning (IS-CODE . TEXT) pieces.
-
-Code is found first because inside a code span an asterisk is an asterisk:
-`a *b*' is code, not emphasis."
-  (let ((start 0) (pieces nil) (length (length text)))
-    (while (string-match "`\\([^`]+\\)`" text start)
-      (when (> (match-beginning 0) start)
-        (push (cons nil (substring text start (match-beginning 0))) pieces))
-      (push (cons t (match-string 1 text)) pieces)
-      (setq start (match-end 0)))
-    (when (< start length)
-      (push (cons nil (substring text start)) pieces))
-    (nreverse pieces)))
+Whether a link is one to a file next to the document rather than an
+address somewhere else is `markdown.el''s reading of it, the same reading
+an import makes; this only turns the answer into the URL a browser and
+EWW both want."
+  (if-let* ((file (heks-emacs-markdown-resolve-path url)))
+      (browse-url-file-url file)
+    url))
 
 (defun heks-emacs-render--inline-markup (text)
   "Turn the emphasis, links and images of TEXT into HTML.
@@ -175,7 +168,7 @@ markup is found in what the author wrote."
                    (format "<code>%s</code>"
                            (heks-emacs-render--escape (cdr piece)))
                  (heks-emacs-render--inline-markup (cdr piece))))
-             (heks-emacs-render--split-code-spans text)
+             (heks-emacs-markdown-split-code-spans text)
              ""))
 
 ;;
@@ -325,54 +318,24 @@ light theme is still readable in a dark one."
    (delete-dups (reverse heks-emacs-render--faces))
    "\n"))
 
-(defun heks-emacs-render--indent-of (line)
-  "Return the width of the indentation of LINE, counting a tab as four."
-  (let ((width 0)
-        (index 0))
-    (while (and (< index (length line))
-                (memq (aref line index) '(?\s ?\t)))
-      (setq width (+ width (if (eq (aref line index) ?\t) 4 1)))
-      (setq index (1+ index)))
-    width))
-
-(defun heks-emacs-render--cells (line)
-  "Return the cells of a table row LINE."
-  (let ((trimmed (string-trim line)))
-    (setq trimmed (string-remove-prefix "|" trimmed))
-    (setq trimmed (string-remove-suffix "|" trimmed))
-    (mapcar #'string-trim (split-string trimmed "|"))))
-
-(defun heks-emacs-render--table? (line next)
-  "Return whether LINE starts a table, given the NEXT line.
-
-A table is a row of cells followed by a delimiter row: `| a | b |' then
-`|---|:--:|'."
-  (and line next
-       (string-match-p "|" line)
-       ;; A pipe in the delimiter row too: a paragraph with a rule
-       ;; under it (`text' then `---') is a setext heading, not a
-       ;; one-column table.
-       (string-match-p "|" next)
-       (string-match-p "\\`[ \t]*|?[ \t]*:?-\\{2,\\}" next)))
-
 (defun heks-emacs-render--table (lines index)
   "Render the table that starts at INDEX in LINES.
 
 Return a cons of the HTML and the index just past the table."
-  (let ((header (heks-emacs-render--cells (nth index lines)))
+  (let ((header (heks-emacs-markdown-cells (nth index lines)))
         (aligns (mapcar (lambda (cell)
                           (cond ((and (string-prefix-p ":" cell)
                                       (string-suffix-p ":" cell)) "center")
                                 ((string-suffix-p ":" cell) "right")
                                 (t "left")))
-                        (heks-emacs-render--cells (nth (1+ index) lines))))
+                        (heks-emacs-markdown-cells (nth (1+ index) lines))))
         (rows nil)
         (i (+ index 2))
         (n (length lines)))
     (while (and (< i n)
                 (string-match-p "|" (nth i lines))
                 (not (string-match-p "\\`[ \t]*\\'" (nth i lines))))
-      (push (heks-emacs-render--cells (nth i lines)) rows)
+      (push (heks-emacs-markdown-cells (nth i lines)) rows)
       (setq i (1+ i)))
     ;; The alignment of a column comes from its position in the delimiter
     ;; row, not from the cell's text: a row of `| a | a |' has two columns
@@ -487,7 +450,7 @@ likely than the code."
 
            ;; A table, before the list branch: a row of cells also starts
            ;; with a dash-and-space when it is `| - |'.
-           ((heks-emacs-render--table? line (nth (1+ i) lines))
+           ((heks-emacs-markdown-table-p line (nth (1+ i) lines))
             (close-paragraph)
             (close-lists -1)
             (let ((rendered (heks-emacs-render--table lines i)))
@@ -535,7 +498,7 @@ likely than the code."
 
            ;; A list item, nested by its indentation.
            ((string-match "\\`\\([-*+]\\|[0-9]+[.)]\\)[ \t]+\\(.*\\)\\'" trimmed)
-            (let* ((indent (heks-emacs-render--indent-of line))
+            (let* ((indent (heks-emacs-markdown-indent-of line))
                    (ordered (string-match-p "\\`[0-9]" (match-string 1 trimmed)))
                    (item (match-string 2 trimmed)))
               (close-paragraph)
@@ -921,7 +884,7 @@ This is the single place that decides how a buffer is previewed, which is
 what makes `C-c r p' work in a Markdown file, an OpenAPI specification, an
 Org note and a plain text file alike."
   (with-current-buffer (or buffer (current-buffer))
-    (let ((heks-emacs-render--base-directory
+    (let ((heks-emacs-markdown-base-directory
            (and buffer-file-name (file-name-directory buffer-file-name)))
           ;; Whatever this rendering uses will be in its stylesheet, so
           ;; what the last one used is forgotten here rather than blurred

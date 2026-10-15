@@ -61,6 +61,9 @@
   "The checkout holding the configuration's source.")
 
 (add-to-list 'load-path (expand-file-name "src/modules" heks-render--dir))
+;; `markdown.el' is the reading of a document; `render.el' is what is made
+;; of it, and is loaded second for that reason.
+(load "markdown" nil t)
 (load "render" nil t)
 
 (message "== the Markdown renderer ==")
@@ -139,7 +142,7 @@
 (heks-render--check "escaping a quote" (heks-emacs-render--escape "a\"b" t) "a&quot;b")
 ;; A relative link in a document resolves against the document's own
 ;; directory, not against the preview, which lives in a temporary one.
-(let ((heks-emacs-render--base-directory "/home/someone/docs/"))
+(let ((heks-emacs-markdown-base-directory "/home/someone/docs/"))
   (heks-render--matches "a relative image resolves against the document"
                         (heks-emacs-markdown-to-html "![d](img/a.png)")
                         "src=\"file:///home/someone/docs/img/a.png\"")

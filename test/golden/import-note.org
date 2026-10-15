@@ -1,0 +1,63 @@
+:PROPERTIES:
+:ID:       9e2c5b1a-4d3f-4a7e-8b60-3f2c7d5e9a41
+:ROAM_ALIASES: Importing, The one-way door
+:END:
+
+#+title: A note about importing notes
+#+author: Josep
+#+filetags: :emacs:org_mode:
+#+permalink: /notes/importing
+
+A document other tools read is Markdown; a note one /works/ in is Org.
+This one is written to be read either way: it has a *title* in its front
+matter, /emphasis/ and some =code= in its prose, and a [[/home/someone/docs/guide.md][link]]
+next to a picture [[/home/someone/docs/images/import.png][diagram]].
+
+* What it keeps
+
+- the headings, as the outline they are
+- the lists, at the depth they are written at
+  - nesting included
+- [ ] the task lists, as checkboxes
+- [X] and the ones that are done
+
+1. ordered lists keep their numbers
+2. and their order
+
+#+begin_quote
+A quote is quoted, and /styled/ as one.
+#+end_quote
+
+A fenced block is a source block, and what is in it is not markup:
+
+#+begin_src scheme
+(define (greet name)
+  ;; * this is not a headline
+  (string-append "hello, " name))
+#+end_src
+
+A fence with no language is an example block:
+
+#+begin_example
+$ make check
+#+end_example
+
+| What      | Where         |
+| <l>       | <r>           |
+|-----------+---------------|
+| the title | =#+title:=    |
+| the tags  | =#+filetags:= |
+
+The lines of a paragraph stay the lines they were, and a hard break\\
+ends one line while the paragraph goes on.[fn:why]
+
+[fn:why] Because Org reads them back as one paragraph, so nothing is lost.
+
+-----
+
+A raw block is passed through, since a badge is HTML an import does not
+improve on:
+
+#+begin_export html
+<details><summary>A badge</summary>and its detail</details>
+#+end_export
