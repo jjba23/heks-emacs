@@ -9,6 +9,10 @@ This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic 
 
 *[Unreleased]*
 
+-------
+
+** v1.8.1 (2026-10-15)
+
 *** Added
 
 - Added Maven, Gradle and Spring Boot build commands (~heks-emacs-maven-run~, ~heks-emacs-gradle-run~, ~heks-emacs-spring-boot-run~, bound to ~C-c j m~, ~C-c j g~ and ~C-c j s~). Each one walks up from the current buffer to the closest project and prefers the ~mvnw~ / ~gradlew~ wrapper over a system-wide installation.
