@@ -742,6 +742,140 @@ answers is the one that formats."
   (should (equal (heks-emacs-key-description "C-c C-d z")
                  "diagrams: Mermaid")))
 
+;;
+;; ====== The tree-sitter grammars ======
+;;
+
+(ert-deftest heks-emacs-treesit/the-grammars-are-built-by-a-batch-emacs ()
+  "The grammars are built by a child Emacs that is handed what it needs.
+
+The child is a batch Emacs and nothing else -- no configuration to load, no
+packages to install first -- so the directory, the recipes this
+configuration names itself and the directories a grammar may already be in
+are given to it as Lisp it is told before the script is loaded."
+  (let* ((command (heks-emacs-treesit--batch-command))
+         (form (read (nth 4 command))))
+    (should (equal (nth 1 command) "-Q"))
+    (should (equal (nth 2 command) "--batch"))
+    (should (equal (nth 3 command) "--eval"))
+    (should (equal (nth 5 command) "-l"))
+    (should (equal (nth 6 command) heks-emacs-treesit-script))
+    (should (eq (car form) 'setq))
+    (should (equal (nth 1 form) 'heks-emacs-treesit-grammar-directory))
+    (should (equal (nth 2 form) heks-emacs-treesit-grammar-directory))
+    (should (equal (nth 3 form) 'heks-emacs-treesit-own-recipes))
+    (should (equal (nth 5 form) 'treesit-extra-load-path))))
+
+(ert-deftest heks-emacs-treesit/the-grammars-are-installed-where-told-to ()
+  "The directory is the one this configuration installs and looks in."
+  (should (equal (file-name-nondirectory
+                  (directory-file-name heks-emacs-treesit-grammar-directory))
+                 "tree-sitter"))
+  (should (string-prefix-p (file-name-as-directory (expand-file-name "~/.emacs.d"))
+                           (file-name-as-directory
+                            heks-emacs-treesit-grammar-directory))))
+
+(ert-deftest heks-emacs-treesit/the-script-builds-the-grammars-emacs-knows ()
+  "The script asks for the grammar of every mode Emacs ships, and for ours.
+
+It is loaded here with the installing stubbed out -- nothing in a test has a
+network -- and with every grammar reported as missing, so what it would
+build is what is checked: Emacs's own recipes come from its own mode files,
+which is why the languages Emacs has modes for are in the answer at all."
+  (let ((asked nil)
+        (heks-emacs-treesit-grammar-directory "/tmp/heks-ert-grammars")
+        (heks-emacs-treesit-own-recipes '((heks-ert-own "https://example.com/own"))))
+    (cl-letf (((symbol-function 'treesit-language-available-p)
+               (lambda (&rest _) nil))
+              ((symbol-function 'treesit-install-language-grammar)
+               (lambda (language &optional directory)
+                 (push (cons language directory) asked))))
+      (load (expand-file-name "treesit-grammars" heks-ert--source) nil t))
+    (dolist (language '(java python typescript tsx c-sharp go heks-ert-own))
+      (should (assq language asked)))
+    ;; Every language of every tree-sitter mode this Emacs ships, and the
+    ;; three languages it ships no mode for, are asked for together.
+    (should (> (length asked) 25))
+    (dolist (entry asked)
+      (should (equal (cdr entry) "/tmp/heks-ert-grammars")))))
+
+(ert-deftest heks-emacs-treesit/a-grammar-that-is-here-is-not-built-again ()
+  "What is installed is not cloned and compiled a second time."
+  (let ((asked nil)
+        (heks-emacs-treesit-grammar-directory "/tmp/heks-ert-grammars"))
+    (cl-letf (((symbol-function 'treesit-language-available-p)
+               (lambda (language &rest _) (eq language 'java)))
+              ((symbol-function 'treesit-install-language-grammar)
+               (lambda (language &optional _directory) (push language asked))))
+      (load (expand-file-name "treesit-grammars" heks-ert--source) nil t))
+    (should-not (memq 'java asked))
+    (should (memq 'python asked))))
+
+(ert-deftest heks-emacs-treesit/a-grammar-that-fails-once-is-built-on-the-second-try ()
+  "A clone that timed out, or a checkout that was busy, is not a verdict.
+
+What is reported is a grammar that would not build twice, so a language
+that fails and then works is built, in the same run, and said to have
+taken a second attempt rather than reported as one this machine cannot
+build."
+  (let ((attempts 0)
+        (built nil)
+        (heks-emacs-treesit-grammar-directory "/tmp/heks-ert-grammars"))
+    (cl-letf (((symbol-function 'treesit-language-available-p)
+               (lambda (&rest _) built))
+              ((symbol-function 'treesit-install-language-grammar)
+               ;; The first attempt fails the way a network does, and the
+               ;; one after it builds.
+               (lambda (&rest _)
+                 (setq attempts (1+ attempts))
+                 (if (= attempts 1)
+                     (error "the clone timed out")
+                   (setq built t)))))
+      (load (expand-file-name "treesit-grammars" heks-ert--source) nil t))
+    ;; The grammar that failed was tried again, and the one that arrived
+    ;; was not built a third time: the rest of the languages were already
+    ;; here, because the retry made the library loadable.
+    (should (equal attempts heks-emacs-treesit-attempts))))
+
+(ert-deftest heks-emacs-treesit/a-build-that-produces-nothing-is-not-a-grammar ()
+  "A build that returns for a library that cannot be loaded is a failure.
+
+Emacs warns rather than errors when the library it built cannot be found or
+loaded, so counting the return of the build as success would report a
+grammar as built that no mode can use -- and would leave it unbuilt for
+ever, since the next run would find it missing and try again from scratch."
+  (let ((asked nil)
+        (heks-emacs-treesit-grammar-directory "/tmp/heks-ert-grammars"))
+    (cl-letf (((symbol-function 'treesit-language-available-p)
+               (lambda (&rest _) nil))
+              ((symbol-function 'treesit-install-language-grammar)
+               (lambda (language &optional _directory) (push language asked))))
+      (load (expand-file-name "treesit-grammars" heks-ert--source) nil t))
+    ;; Every language was missing and none arrived, so each was tried twice
+    ;; -- and no language more than that, whatever it said about itself.
+    (should (> (length asked) 25))
+    (dolist (language (delete-dups (copy-sequence asked)))
+      (should (equal (seq-count (lambda (one) (eq one language)) asked)
+                     heks-emacs-treesit-attempts)))))
+
+(ert-deftest heks-emacs-treesit/a-grammar-that-will-not-build-does-not-stop-the-others ()
+  "One language failing is a line of output, not the end of the run."
+  (let ((asked nil)
+        (heks-emacs-treesit-grammar-directory "/tmp/heks-ert-grammars"))
+    (cl-letf (((symbol-function 'treesit-language-available-p)
+               (lambda (&rest _) nil))
+              ((symbol-function 'treesit-install-language-grammar)
+               (lambda (language &optional _directory)
+                 (push language asked)
+                 (when (eq language 'java) (error "no compiler here")))))
+      (load (expand-file-name "treesit-grammars" heks-ert--source) nil t))
+    ;; java was given both of its attempts before anything was said about
+    ;; it, and the languages after it were built all the same.
+    (should (equal (seq-count (lambda (language) (eq language 'java)) asked)
+                   heks-emacs-treesit-attempts))
+    (should (memq 'python asked))
+    (should (memq 'cpp asked))))
+
 (ert-deftest heks-emacs-which-key/the-scheme-is-what-which-key-shows ()
   (skip-unless (and (featurep 'which-key) (fboundp 'heks-emacs-which-key-setup)))
   (let ((before (length which-key-replacement-alist)))

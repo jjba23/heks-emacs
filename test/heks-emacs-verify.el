@@ -158,6 +158,39 @@ configuration."
      (or (not (boundp 'org-roam-directory))
          (stringp org-roam-directory)))))
 
+(heks-verify--section "the tree-sitter grammars are built before they are needed")
+
+;; A grammar Emacs fetches while a file is being opened is a wait on the
+;; first file of every language; a language no recipe is known for is a
+;; question instead.  Both are answered before anything is opened, by a
+;; batch Emacs that builds every grammar this Emacs can be asked for -- so
+;; what is checked here is that it is set up to: the directory it installs
+;; into is the one this configuration looks in first, a grammar Emacs
+;; fetches for itself is fetched without asking, the script is where the
+;; child is told to load it, and the child is what runs at startup.
+(heks-verify--check
+ "the grammars go into this configuration's own directory, looked in first"
+ (progn
+   ;; treesit is loaded lazily, and both what this configuration adds to the
+   ;; search path and what a package adds to it arrive when it is: loading it
+   ;; here is the state a session is in the moment it is needed.
+   (require 'treesit)
+   (equal (car treesit-extra-load-path) heks-emacs-treesit-grammar-directory)))
+(heks-verify--check
+ "a grammar Emacs fetches for itself is fetched without asking"
+ (eq treesit-auto-install-grammar 'always))
+(heks-verify--check
+ "the script that builds them is next to the installed configuration"
+ (and (file-exists-p heks-emacs-treesit-script)
+      (string-suffix-p "treesit-grammars.el" heks-emacs-treesit-script)))
+(heks-verify--check
+ "what the child is handed reads as Lisp"
+ (eq (car (read (nth 4 (heks-emacs-treesit--batch-command)))) 'setq))
+(heks-verify--check
+ "and building them is what this configuration does at startup"
+ (and (memq 'heks-emacs-treesit-install-grammars-in-background emacs-startup-hook)
+      heks-emacs-treesit-install-grammars))
+
 (heks-verify--section "reading what a tool says")
 (heks-verify--check
  "a warning is parsed into its parts"

@@ -56,7 +56,7 @@ If you don't want to use Maak, you can just look at ~maak.scm~ to look at instal
 # optionally first
 # rm -rf ~/.emacs.d && mkdir -p ~/.emacs.d
 
-cp -rfv src/init.el src/early-init.el src/batch-indent.el src/modules src/snippets ~/.emacs.d/
+cp -rfv src/init.el src/early-init.el src/batch-indent.el src/treesit-grammars.el src/modules src/snippets ~/.emacs.d/
 #+end_src
 
 Note: Since heks-emacs is a compilation of several packages and libraries, it's very likely you may need to restart Emacs a couple times before everything works in harmony, as packages get installed and loaded and dependency trees resolved. Elpaca is extremely reliable so don't be afraid to restart and try a few things.
@@ -185,6 +185,8 @@ Early Emacs startup configuration. Handles settings that need to be applied befo
 *** =emacs-core.el=
 Establishes the baseline behavior of Emacs. Configures core editing behavior, UTF-8, minibuffer behavior, state persistence, Tree-sitter, window management, Dired defaults, diagnostics, keybindings, prettification, and other global defaults.
 
+Tree-sitter is set up so that no grammar is ever fetched while a file is being opened: every grammar this Emacs can be asked for is built once, into ~~/.emacs.d/tree-sitter~, by ~treesit-grammars.el~ in a batch Emacs of its own, started in the background at startup. ~M-x heks-emacs-treesit-install-grammars~ does the same work in front of you, and what the child says -- a grammar whose repository moved, or one whose compiler is missing -- is in the ~*heks-emacs tree-sitter grammars*~ buffer.
+
 *** =heks-emacs.el=
 Contains the main HEKS-EMACS-specific utilities and project automation commands. Provides helpers for rebuilding the system/user configuration, project REPLs, formatting, development and test tasks, Guix integration, UUID generation, JSON buffers, Dired utilities, and other workflow commands.
 
@@ -280,6 +282,9 @@ Provides an interactive helper for writing ISO/IMG images directly to USB device
 
 *** =batch-indent.el=
 Provides batch indentation helpers for files, including commands to indent a file and indent-and-save it.
+
+*** =treesit-grammars.el=
+Builds every tree-sitter grammar this Emacs can be asked for, into ~~/.emacs.d/tree-sitter~, so that no grammar is fetched while a file is being opened. It is a batch script: the configuration starts it in a background Emacs of its own at startup, handing it the directory to install into, the recipes of the languages Emacs ships no mode for, and the directories a grammar may already be in. It can be run by hand as ~emacs -Q --batch -l ~/.emacs.d/treesit-grammars.el~, and a grammar whose repository moved or whose compiler is missing is a line in the script's output rather than the end of the ones after it. Each grammar is tried twice before it is given up on, so a clone that timed out is not a verdict: only a grammar that would not build twice is reported, and one that worked on the second attempt says so.
 
 ** Search & Navigation
 

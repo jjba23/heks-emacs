@@ -754,14 +754,6 @@ for those modes instead, with `which-key's own mode-scoped table."
   (prefer-coding-system 'utf-8)
   (setq default-process-coding-system '(utf-8-unix . utf-8-unix))
 
-  ;; these might require a manual `M-x treesit-install-language-grammar'
-  (add-to-list 'treesit-language-source-alist
-               '(kotlin . ("https://github.com/fwcd/tree-sitter-kotlin")))
-  (add-to-list 'treesit-language-source-alist
-               '(scala . ("https://github.com/tree-sitter/tree-sitter-scala")))
-  (add-to-list 'treesit-language-source-alist
-               '(nix . ("https://github.com/nix-community/tree-sitter-nix")))
-
   (setq-default cursor-type 'bar)             ; Modern pipe cursor instead of standard block
   (global-hl-line-mode +1)                    ; Highlight current line
 
@@ -836,10 +828,6 @@ for those modes instead, with `which-key's own mode-scoped table."
   (setopt safe-local-variable-directories
           ;; Whitelist specific Guix directory to prevent constant local-variable security
           (list (string-replace "$HOME" (getenv "HOME") "$HOME/fork/guix/")))
-
-  ;; Load TreeSitter AST syntax lexer and highlighting
-  ;; used to be needed pre-Emacs 31
-  ;; (setopt treesit-extra-load-path (list "~/.emacs.d/tree-sitter-grammars"))
 
   ;; --- Window Management ---
   ;; Enable Shift+Arrow keys for easy directional window switching
@@ -1029,6 +1017,148 @@ for those modes instead, with `which-key's own mode-scoped table."
   (add-hook 'after-change-major-mode-hook #'my-set-custom-modeline)
 
   )
+
+
+;;
+;; ====== Tree-sitter grammars ======
+;;
+
+;; A tree-sitter mode is only as good as the grammar library built for the
+;; language it parses, and Emacs fetches a missing one while a file is being
+;; opened: with `treesit-auto-install-grammar' at `always' it does that
+;; without asking, but the session then waits for `git' and a C compiler on
+;; the first file of every language, and a language no recipe is known for is
+;; a question instead.  So every grammar this Emacs can be asked for is built
+;; once, by `treesit-grammars.el' in a batch Emacs of its own, in the
+;; background -- after which the file-opening path has nothing left to fetch.
+;; `M-x heks-emacs-treesit-install-grammars' runs the same script in front of
+;; you, for when one wants to wait and watch it.
+
+(defcustom heks-emacs-treesit-grammar-directory
+  (expand-file-name "tree-sitter" user-emacs-directory)
+  "The directory tree-sitter grammar libraries are installed into.
+
+It is the first entry of `treesit-extra-load-path', which makes it the
+directory Emacs looks in first and -- a missing grammar being fetched into
+the first entry that can be written to -- the one a grammar Emacs fetches
+for itself is written to."
+  :type 'directory)
+
+(defcustom heks-emacs-treesit-install-grammars t
+  "Whether the missing grammars are built at startup, in the background.
+
+The script builds only what has no library here, so a machine whose
+grammars are all installed spends a second in that batch Emacs and no more.
+Turn it off where there is no network, or where compiling a grammar is not
+wanted: nothing is lost but the wait, because Emacs still fetches a grammar
+it needs while a file is opened -- it just does it then, in front of the
+person who opened the file."
+  :type 'boolean)
+
+(defconst heks-emacs-treesit-own-recipes
+  '((kotlin "https://github.com/fwcd/tree-sitter-kotlin")
+    (scala "https://github.com/tree-sitter/tree-sitter-scala")
+    (nix "https://github.com/nix-community/tree-sitter-nix"))
+  "The recipes of the grammars Emacs itself ships no tree-sitter mode for.
+
+The recipes of the languages Emacs does have modes for are the ones its own
+mode files add to `treesit-language-source-alist' as they load, so there is
+no list of those to keep here: a grammar whose recipe comes from Emacs is a
+grammar whose recipe is right, and stays right as Emacs changes.")
+
+(defconst heks-emacs-treesit-grammars-buffer-name
+  "*heks-emacs tree-sitter grammars*"
+  "Where the batch Emacs that builds grammars writes what it says.")
+
+(defconst heks-emacs-treesit-script
+  (expand-file-name "treesit-grammars.el" user-emacs-directory)
+  "The script a batch Emacs runs to build the grammars.
+
+It sits next to the installed configuration, the way `batch-indent.el'
+does, because what it is loaded by is an Emacs with no configuration of its
+own.")
+
+(defun heks-emacs-treesit--batch-command ()
+  "Return the command line of the batch Emacs that builds the grammars.
+
+The script is handed the directory to install into, the recipes this
+configuration names itself and the directories a grammar may already be
+built in, as Lisp it is told before it is loaded: what it needs is given to
+it rather than looked for, which is what keeps the child a batch Emacs and
+nothing else -- no Elpaca, no modules, no packages to install first."
+  (list (car command-line-args) "-Q" "--batch"
+        "--eval" (format "(setq heks-emacs-treesit-grammar-directory %S \
+heks-emacs-treesit-own-recipes '%S \
+treesit-extra-load-path '%S)"
+                         heks-emacs-treesit-grammar-directory
+                         heks-emacs-treesit-own-recipes
+                         (bound-and-true-p treesit-extra-load-path))
+        "-l" heks-emacs-treesit-script))
+
+(defun heks-emacs-treesit--grammars-built (process event)
+  "Report what became of PROCESS, the batch Emacs that builds grammars."
+  (when (memq (process-status process) '(exit signal))
+    (message "heks-emacs: %s (see %s)"
+             (string-trim event) heks-emacs-treesit-grammars-buffer-name)))
+
+(defun heks-emacs-treesit-install-grammars ()
+  "Build every tree-sitter grammar that has no library here, and wait.
+
+This is the work the background build does at startup, in front of you:
+cloning and compiling a grammar takes a few seconds, and there are as many
+of them as this Emacs has languages."
+  (interactive)
+  (let ((command (heks-emacs-treesit--batch-command))
+        (buffer (get-buffer-create heks-emacs-treesit-grammars-buffer-name)))
+    (message "heks-emacs: building tree-sitter grammars (see %s)"
+             heks-emacs-treesit-grammars-buffer-name)
+    (apply #'call-process (car command) nil buffer t (cdr command))
+    (message "heks-emacs: tree-sitter grammars built (see %s)"
+             heks-emacs-treesit-grammars-buffer-name)))
+
+(defun heks-emacs-treesit-install-grammars-in-background (&rest _)
+  "Build the missing tree-sitter grammars in a batch Emacs of its own.
+
+Nothing here waits for the work: the child is named after what it is doing,
+keeps what it says in `heks-emacs-treesit-grammars-buffer-name', and its end
+is reported in the echo area.  This is what runs at startup, after the rest
+of the configuration, because it is the one thing here that finishes long
+after the configuration does."
+  (when heks-emacs-treesit-install-grammars
+    (make-process
+     :name "heks-emacs tree-sitter grammars"
+     :buffer (get-buffer-create heks-emacs-treesit-grammars-buffer-name)
+     :command (heks-emacs-treesit--batch-command)
+     :sentinel #'heks-emacs-treesit--grammars-built)))
+
+(add-hook 'emacs-startup-hook #'heks-emacs-treesit-install-grammars-in-background)
+
+(defun heks-emacs-treesit--own-directory-first (&rest _)
+  "Put this configuration's grammar directory first, whoever added another.
+
+A grammar Emacs fetches for itself is written to the first entry of
+`treesit-extra-load-path' that can be written to, and `no-littering' pushes
+a grammar directory of its own onto that list when treesit loads.  Which of
+the two comes first is settled here -- after a library load, which is after
+the handlers that do the pushing -- rather than left to the order in which
+two configurations happened to be loaded."
+  (when (boundp 'treesit-extra-load-path)
+    (let ((wanted (cons heks-emacs-treesit-grammar-directory
+                        (remove heks-emacs-treesit-grammar-directory
+                                treesit-extra-load-path))))
+      (unless (equal treesit-extra-load-path wanted)
+        (setq treesit-extra-load-path wanted)))))
+
+(add-hook 'after-load-functions #'heks-emacs-treesit--own-directory-first)
+
+(with-eval-after-load 'treesit
+  ;; The recipes of the languages Emacs has no tree-sitter mode for go into
+  ;; the alist here, so that fetching one of those by hand -- or by whatever
+  ;; reads the alist next -- knows where to get it.
+  (heks-emacs-treesit--own-directory-first)
+  (dolist (recipe heks-emacs-treesit-own-recipes)
+    (setf (alist-get (car recipe) treesit-language-source-alist nil nil #'eq)
+          (cdr recipe))))
 
 
 (use-package project
