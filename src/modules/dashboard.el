@@ -23,7 +23,7 @@
 
 (setq joe-welkomscherm/bookmarks-list
       `((("heks-emacs" . "~/Hacking/heks-emacs")
-         ("niri" . "~/Hacking/heks-linux/src/heks-linux/niri.scm"))
+         ("maak" . "~/Hacking/maak"))
         (("notes" . "~/Hacking/private-notes/")
          ("veritas" . "~/Hacking/veritas/")
          ("iter-vitae" . "~/Hacking/iter-vitae/")
@@ -41,8 +41,7 @@
         ))
 
 (setq joe-welkomscherm/work-list
-      '((("VDB" . "~/Work/Vandebron/")
-         ("mobile" . "~/Work/mobile")
+      '((("Work" . "~/Work/")
          ("onboarding" . "~/Work/onboarding/"))
         ))
 
@@ -60,9 +59,11 @@
   :bind (("C-c SPC SPC" . welkomscherm)
          )
   :init
-  (setopt welkomscherm/bookmarks-list joe-welkomscherm/bookmarks-list)
-  (setopt welkomscherm/work-list joe-welkomscherm/work-list)
-  (setopt welkomscherm/actions-list joe-welkomscherm/actions-list)
+  (setopt welkomscherm/bookmarks-list joe-welkomscherm/bookmarks-list
+          welkomscherm/work-list joe-welkomscherm/work-list
+          welkomscherm/actions-list joe-welkomscherm/actions-list
+          welkomscherm/show-system-details t
+          welkomscherm/show-recent-files t)
   :config
   (setq initial-buffer-choice
         (lambda ()
