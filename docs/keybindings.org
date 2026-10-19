@@ -196,6 +196,7 @@ in every other topic.
 | ~w~ | ~s~ | a random order for the standup |
 | ~x~ | ~t~ | the chat window, shown or hidden |
 | ~x~ | ~m~ | the model, chosen |
+| ~x~ | ~p~ | the provider, chosen |
 
 * The keys, by topic
 
@@ -533,5 +534,6 @@ in every other topic.
 | ~C-c x k~ | ~eca-chat-stop-prompt~ | the running prompt, stopped | ai.el |
 | ~C-c x m~ | ~eca-chat-select-model~ | the model, chosen | ai.el |
 | ~C-c x n~ | ~eca-chat-new~ | a new chat | ai.el |
+| ~C-c x p~ | ~heks-emacs-ai-use-provider~ | the provider, chosen | ai.el |
 | ~C-c x s~ | ~eca-chat-select~ | a chat, switched to by name | ai.el |
 | ~C-c x t~ | ~eca-chat-toggle-window~ | the chat window, shown or hidden | ai.el |

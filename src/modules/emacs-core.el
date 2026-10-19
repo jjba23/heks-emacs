@@ -252,7 +252,8 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
          ("i" . "the providers and state, initialised")
          ("s" . "a random order for the standup"))
     ("x" ("t" . "the chat window, shown or hidden")
-         ("m" . "the model, chosen")))
+         ("m" . "the model, chosen")
+         ("p" . "the provider, chosen")))
   "What the letters of a topic mean, topic by topic.
 
 These are the topics whose keys do not perform one of the actions in
@@ -434,6 +435,7 @@ of its own and prints, for every key, what this scheme calls it.")
     ("C-c x k" . "the running prompt, stopped")
     ("C-c x m" . "the model, chosen")
     ("C-c x n" . "a new chat")
+    ("C-c x p" . "the provider, chosen")
     ("C-c x s" . "a chat, switched to by name")
     ("C-c x t" . "the chat window, shown or hidden"))
   "What each key under `C-c' does, in the words of its own topic.

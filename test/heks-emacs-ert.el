@@ -67,7 +67,7 @@
   (load (expand-file-name (format "modules/%s.el" name) heks-ert--source) nil t))
 
 (dolist (module '("markdown" "render" "import" "present" "heks-emacs" "emacs-core"
-                 "dev" "openapi" "shell" "guile"))
+                 "dev" "openapi" "shell" "guile" "ai"))
   (heks-ert--module module))
 
 ;; `htmlize' is what Org colours the code in a note with, and the
@@ -1823,6 +1823,94 @@ failing test rather than a menu that disappears again."
                          (1- (car (which-key--minibuffer-max-dimensions))))))
       (setq window-min-height min-height)
       (set-window-configuration configuration))))
+
+;;
+;; ====== Which AI account this session is for ======
+;;
+
+(defun heks-ert--call-with-environment (variables function)
+  "Call FUNCTION with the environment VARIABLES set, an alist of name to value.
+
+A value of nil unsets the variable, and every one of them is put back the
+way it was afterwards: a test that sets a key cannot leak it into the ones
+that follow, and the suite does not depend on what the shell it runs in
+exports."
+  (let ((saved (mapcar (lambda (pair) (cons (car pair) (getenv (car pair))))
+                       variables)))
+    (unwind-protect
+        (progn
+          (dolist (pair variables) (setenv (car pair) (cdr pair)))
+          (funcall function))
+      (dolist (pair saved) (setenv (car pair) (cdr pair))))))
+
+(ert-deftest heks-emacs-ai/the-key-in-the-environment-is-the-personal-account ()
+  "Exporting the DeepSeek key is what makes an Emacs the personal one."
+  (heks-ert--call-with-environment
+   '(("HEKS_AI_PROVIDER" . nil) ("DEEPSEEK_API_KEY" . "sk-test"))
+   (lambda ()
+     (let ((heks-emacs-ai-provider 'auto))
+       (should (eq (heks-emacs-ai-provider) 'deepseek))))))
+
+(ert-deftest heks-emacs-ai/copilot-is-what-is-left-without-a-key ()
+  (heks-ert--call-with-environment
+   '(("HEKS_AI_PROVIDER" . nil) ("DEEPSEEK_API_KEY" . nil))
+   (lambda ()
+     (let ((heks-emacs-ai-provider 'auto))
+       (should (eq (heks-emacs-ai-provider) 'copilot))))))
+
+(ert-deftest heks-emacs-ai/the-environment-can-name-one-outright ()
+  "A machine that must be told does not have to export a key to say so."
+  (heks-ert--call-with-environment
+   '(("HEKS_AI_PROVIDER" . "copilot") ("DEEPSEEK_API_KEY" . "sk-test"))
+   (lambda ()
+     (let ((heks-emacs-ai-provider 'auto))
+       (should (eq (heks-emacs-ai-provider) 'copilot))))))
+
+(ert-deftest heks-emacs-ai/a-name-it-does-not-know-is-not-obeyed ()
+  "A typo should send a prompt nowhere, not to the wrong account."
+  (heks-ert--call-with-environment
+   '(("HEKS_AI_PROVIDER" . "copilot-work") ("DEEPSEEK_API_KEY" . nil))
+   (lambda ()
+     (let ((heks-emacs-ai-provider 'auto))
+       (should (eq (heks-emacs-ai-provider) 'copilot))))))
+
+(ert-deftest heks-emacs-ai/the-setting-does-not-need-the-environment ()
+  (heks-ert--call-with-environment
+   '(("HEKS_AI_PROVIDER" . nil) ("DEEPSEEK_API_KEY" . nil))
+   (lambda ()
+     (let ((heks-emacs-ai-provider 'deepseek))
+       (should (eq (heks-emacs-ai-provider) 'deepseek))))))
+
+(ert-deftest heks-emacs-ai/eca-names-the-account-its-own-way ()
+  "ECA's model id is qualified with the provider it logs in with."
+  (let ((heks-emacs-ai-copilot-model 'some-copilot-model)
+        (heks-emacs-ai-deepseek-model 'some-deepseek-model))
+    (should (equal (heks-emacs-ai-eca-model 'copilot)
+                   "github-copilot/some-copilot-model"))
+    (should (equal (heks-emacs-ai-eca-model 'deepseek)
+                   "deepseek/some-deepseek-model"))))
+
+(defvar gptel-backend nil
+  "The variable GPTel owns, declared so a test can bind it without GPTel.")
+
+(defvar gptel-model nil
+  "The variable GPTel owns, declared so a test can bind it without GPTel.")
+
+(defvar eca-chat-custom-model nil
+  "The variable ECA owns, declared so a test can bind it without ECA.")
+
+(ert-deftest heks-emacs-ai/switching-points-both-tools-at-the-same-account ()
+  "Choosing a provider is one choice, not one per tool."
+  (let ((heks-emacs-ai-deepseek-model 'some-deepseek-model)
+        (gptel-backend nil)
+        (gptel-model nil)
+        (eca-chat-custom-model nil))
+    (cl-letf (((symbol-function 'heks-emacs-ai-gptel-backend)
+               (lambda (provider) (list 'backend provider))))
+      (heks-emacs-ai-use-provider 'deepseek))
+    (should (equal gptel-backend '(backend deepseek)))
+    (should (eq gptel-model 'some-deepseek-model))
+    (should (equal eca-chat-custom-model "deepseek/some-deepseek-model"))))
 
 ;;
 ;; Run.
