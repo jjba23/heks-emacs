@@ -24,11 +24,10 @@
 ;; personal DeepSeek key -- and which one a session starts with is not
 ;; written into this checkout, because the same checkout is used on both
 ;; machines.  `auto' reads `HEKS_AI_PROVIDER' and, when that names
-;; nothing, takes the presence of `DEEPSEEK_API_KEY' as the answer: the
-;; variable ECA already reads for its own DeepSeek provider is the one
-;; that says which account this Emacs is for.  Copilot is what is left,
-;; and it needs no key here at all -- GPTel and ECA keep its login
-;; themselves.
+;; nothing, takes the presence of a DeepSeek key -- in the environment, or
+;; in the encrypted file `heks-emacs-ai-deepseek-key-file' -- as the
+;; answer.  Copilot is what is left, and it needs no key here at all --
+;; GPTel and ECA keep its login themselves.
 ;;
 ;; `C-c x p' moves the session to the other account without a restart,
 ;; and `heks-emacs-ai-provider' or `HEKS_AI_PROVIDER' names one outright
@@ -44,10 +43,10 @@
   "Which AI account a session of this Emacs should use.
 
 `auto' obeys `HEKS_AI_PROVIDER' when it names `copilot' or `deepseek',
-then chooses DeepSeek when `DEEPSEEK_API_KEY' is exported and GitHub
-Copilot otherwise.  Naming one here does not depend on the environment at
-all, which is what a machine that keeps its key somewhere other than the
-environment needs."
+then chooses DeepSeek when its key is where `heks-emacs-ai-deepseek-api-key'
+looks for it -- `DEEPSEEK_API_KEY' or `heks-emacs-ai-deepseek-key-file' --
+and GitHub Copilot otherwise.  Naming one here does not depend on either,
+which is what a machine whose key lives somewhere else needs."
   :type '(choice (const :tag "From the environment" auto)
                  (const :tag "GitHub Copilot" copilot)
                  (const :tag "DeepSeek" deepseek))
@@ -65,6 +64,20 @@ environment needs."
 configuration starts from because it is the cheaper of the two the
 account offers.  `deepseek-v4-pro' is the stronger, dearer one."
   :type 'symbol
+  :group 'heks-emacs)
+
+(defcustom heks-emacs-ai-deepseek-key-file "~/.config/heks/deepseek.key.gpg"
+  "A file the DeepSeek API key may be kept in.
+
+A file whose name ends in `.gpg' or `.asc' is decrypted with GPG when a
+request is made; any other file is read as it is, which is convenient but
+not what this configuration recommends for a key that is meant to
+outlive the machine.  Only the file's existence is looked at when `auto'
+decides which account this Emacs is for, never its contents: decrypting
+it at startup would ask for a passphrase before the reader asked for
+anything.  `nil', or a file that is not there, means there is no key
+file."
+  :type '(choice (const :tag "No key file" nil) file)
   :group 'heks-emacs)
 
 ;;;
@@ -94,28 +107,85 @@ typo should send a prompt nowhere, not to the wrong account."
   "Return the DeepSeek API key as the environment holds it, or nil.
 
 Only the environment is read here, because this is what `auto' asks at
-startup: an encrypted auth source would turn choosing between two
-accounts into a question about a passphrase.  The key a request needs may
-also come from the auth source -- see `heks-emacs-ai-deepseek-api-key'."
+startup: an encrypted key file or auth source would turn choosing between
+two accounts into a question about a passphrase.  See
+`heks-emacs-ai-deepseek-api-key' for where a request looks for the key."
   (heks-emacs-ai--non-empty (getenv "DEEPSEEK_API_KEY")))
+
+(defun heks-emacs-ai--deepseek-key-file-name ()
+  "Return the expanded name of `heks-emacs-ai-deepseek-key-file', or nil."
+  (when-let* ((name (heks-emacs-ai--non-empty heks-emacs-ai-deepseek-key-file)))
+    (expand-file-name name)))
+
+(defun heks-emacs-ai--deepseek-key-file-p ()
+  "Return non-nil when a DeepSeek key file this Emacs can read is configured.
+
+Only its existence and whether it can be read are checked, never its
+contents: `auto' asks this at startup, and decrypting the file there would
+ask for a passphrase before the reader asked for anything."
+  (when-let* ((file (heks-emacs-ai--deepseek-key-file-name)))
+    (file-readable-p file)))
+
+(defun heks-emacs-ai--gpg-decrypt (file)
+  "Return what GPG decrypts FILE into, or nil when it cannot.
+
+Standard error is discarded rather than mixed into the answer, and a
+missing `gpg' is an answer too -- nil -- because the caller has other
+places to look and a message that names them all."
+  (condition-case nil
+      (with-temp-buffer
+        (when (eq 0 (call-process "gpg" nil (list t nil) nil
+                                  "--batch" "--quiet" "--decrypt" file))
+          (heks-emacs-ai--non-empty (buffer-string))))
+    (file-missing nil)))
+
+(defun heks-emacs-ai--deepseek-key-file-key ()
+  "Return the key `heks-emacs-ai-deepseek-key-file' holds, or nil.
+
+An encrypted file is decrypted with GPG; a plain one is read as it is, so
+a machine that already keeps a 0600 file can point this at it without
+renaming anything.  A file that is not there, or a `gpg' that is not
+installed, is nil rather than an error: the request has other places to
+look, and `heks-emacs-ai-deepseek-api-key' says what they are when none
+of them answers."
+  (let ((file (heks-emacs-ai--deepseek-key-file-name)))
+    (when (and file (file-readable-p file))
+      (if (string-match-p "\\.\\(gpg\\|asc\\)\\'" file)
+          (heks-emacs-ai--gpg-decrypt file)
+        (condition-case nil
+            (with-temp-buffer
+              (insert-file-contents file)
+              (heks-emacs-ai--non-empty (buffer-string)))
+          (file-error nil))))))
 
 (defun heks-emacs-ai-provider ()
   "Return the provider this session should use: `copilot' or `deepseek'."
   (pcase heks-emacs-ai-provider
     ('auto (or (heks-emacs-ai--provider-from-environment)
-               (if (heks-emacs-ai--deepseek-key) 'deepseek 'copilot)))
+               (if (or (heks-emacs-ai--deepseek-key)
+                       (heks-emacs-ai--deepseek-key-file-p))
+                   'deepseek
+                 'copilot)))
     ((or 'copilot 'deepseek) heks-emacs-ai-provider)
     (_ (user-error "`heks-emacs-ai-provider' is %S, not `auto', `copilot' or `deepseek'"
                    heks-emacs-ai-provider))))
 
 (defun heks-emacs-ai-deepseek-api-key ()
-  "Return the DeepSeek API key, from the environment or the auth source.
+  "Return the DeepSeek API key, from wherever this machine keeps it.
 
-The environment is what `auto' looks at, but a machine that keeps the key
-in `~/.authinfo' -- `machine api.deepseek.com login apikey password ...'
--- is served from there, when a request is made rather than at startup."
+The environment comes first, then `heks-emacs-ai-deepseek-key-file', then
+the auth source -- `machine api.deepseek.com login apikey password ...'
+in `~/.authinfo.gpg'.  All three are read when a request is made rather
+than at startup, and finding none of them is an error that names all
+three: a request that left without a key would only come back as a 401."
   (or (heks-emacs-ai--deepseek-key)
-      (gptel-api-key-from-auth-source "api.deepseek.com")))
+      (heks-emacs-ai--deepseek-key-file-key)
+      (when (fboundp 'gptel-api-key-from-auth-source)
+        (condition-case nil
+            (gptel-api-key-from-auth-source "api.deepseek.com")
+          (user-error nil)))
+      (user-error "No DeepSeek API key: set DEEPSEEK_API_KEY, write one to %s, or add a `machine api.deepseek.com' entry to ~/.authinfo.gpg"
+                  (or (heks-emacs-ai--deepseek-key-file-name) "a key file"))))
 
 (defun heks-emacs-ai-model (provider)
   "Return the model symbol PROVIDER should use."

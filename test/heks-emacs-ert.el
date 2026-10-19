@@ -1855,7 +1855,8 @@ exports."
   (heks-ert--call-with-environment
    '(("HEKS_AI_PROVIDER" . nil) ("DEEPSEEK_API_KEY" . nil))
    (lambda ()
-     (let ((heks-emacs-ai-provider 'auto))
+     (let ((heks-emacs-ai-provider 'auto)
+           (heks-emacs-ai-deepseek-key-file nil))
        (should (eq (heks-emacs-ai-provider) 'copilot))))))
 
 (ert-deftest heks-emacs-ai/the-environment-can-name-one-outright ()
@@ -1871,7 +1872,8 @@ exports."
   (heks-ert--call-with-environment
    '(("HEKS_AI_PROVIDER" . "copilot-work") ("DEEPSEEK_API_KEY" . nil))
    (lambda ()
-     (let ((heks-emacs-ai-provider 'auto))
+     (let ((heks-emacs-ai-provider 'auto)
+           (heks-emacs-ai-deepseek-key-file nil))
        (should (eq (heks-emacs-ai-provider) 'copilot))))))
 
 (ert-deftest heks-emacs-ai/the-setting-does-not-need-the-environment ()
@@ -1880,6 +1882,51 @@ exports."
    (lambda ()
      (let ((heks-emacs-ai-provider 'deepseek))
        (should (eq (heks-emacs-ai-provider) 'deepseek))))))
+
+(ert-deftest heks-emacs-ai/the-key-file-is-read-when-the-environment-has-none ()
+  "A machine with no exported key can still keep one, and this is how it is read."
+  (let ((file (make-temp-file "heks-ai-key-")))
+    (unwind-protect
+        (progn
+          (write-region "sk-from-file\n" nil file nil 'silent)
+          (heks-ert--call-with-environment
+           '(("DEEPSEEK_API_KEY" . nil))
+           (lambda ()
+             (let ((heks-emacs-ai-deepseek-key-file file))
+               (should (equal (heks-emacs-ai-deepseek-api-key) "sk-from-file"))))))
+      (delete-file file))))
+
+(ert-deftest heks-emacs-ai/the-key-file-is-what-makes-it-the-personal-machine ()
+  "The file's existence is the sign at startup; it is not decrypted there."
+  (let ((file (make-temp-file "heks-ai-key-")))
+    (unwind-protect
+        (heks-ert--call-with-environment
+         '(("HEKS_AI_PROVIDER" . nil) ("DEEPSEEK_API_KEY" . nil))
+         (lambda ()
+           (let ((heks-emacs-ai-provider 'auto)
+                 (heks-emacs-ai-deepseek-key-file file))
+             (should (eq (heks-emacs-ai-provider) 'deepseek)))))
+      (delete-file file))))
+
+(ert-deftest heks-emacs-ai/an-encrypted-key-file-is-decrypted-with-gpg ()
+  "A `.gpg' file is GPG's to read, and only its stdout is the key."
+  (let ((file (make-temp-file "heks-ai-key-" nil ".gpg"))
+        (invocation nil))
+    (unwind-protect
+        (let ((heks-emacs-ai-deepseek-key-file file))
+          (cl-letf (((symbol-function 'call-process)
+                     (lambda (program _infile destination _display &rest args)
+                       (setq invocation (cons program args))
+                       (with-current-buffer (if (and (consp destination)
+                                                    (eq (car destination) t))
+                                                (current-buffer)
+                                              (error "GPG's output was not captured"))
+                         (insert "sk-from-gpg\n"))
+                       0)))
+            (should (equal (heks-emacs-ai--deepseek-key-file-key) "sk-from-gpg"))
+            (should (equal invocation
+                           (list "gpg" "--batch" "--quiet" "--decrypt" file)))))
+      (delete-file file))))
 
 (ert-deftest heks-emacs-ai/eca-names-the-account-its-own-way ()
   "ECA's model id is qualified with the provider it logs in with."
