@@ -33,7 +33,21 @@ If you like my work, please support me by [[https://bmc.link/jjbigorra][buying m
 
 [[https://jointhefreeworld.org/static-assets/heks/screen-2026-07-15-23-32-24.png]]
 
-[[https://jointhefreeworld.org/static-assets/heks/screen-2025-12-27-00-46-50.png]]
+
+-----------------
+
+
+| Measure                                | Value |
+|----------------------------------------+-------|
+| Packages                               |   125 |
+| Functions                              |   404 |
+| Interactive commands                   |   100 |
+| Customization variables                |    40 |
+| Unit tests                             |   117 |
+| Themes                                 |    32 |
+| Snippets                               |   311 |
+| Commits                                |   256 |
+| Contributors                           |     2 |
 
 --------
 
@@ -88,21 +102,6 @@ Feel free to ~setopt~ these:
         heks-emacs-clone-dir "~/Hacking/heks-emacs"
         heks-emacs-notes-roam-dir "~/Hacking/private-notes")
 #+end_src
-
------------------
-
-
-| Measure                                | Value |
-|----------------------------------------+-------|
-| Packages                               |   125 |
-| Functions                              |   404 |
-| Interactive commands                   |   100 |
-| Customization variables                |    40 |
-| Unit tests                             |   117 |
-| Themes                                 |    32 |
-| Snippets                               |   311 |
-| Commits                                |   256 |
-| Contributors                           |     2 |
 
 -----------------
 
