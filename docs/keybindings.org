@@ -54,8 +54,13 @@ described only by a letter.
 | ~#~ | system: this machine and the Guix system |
 | ~;~ | diary |
 | ~C-#~ | Org statistics cookies, kept off `C-c #' |
+| ~C-c~ | JSON log view: clearing the filter |
 | ~C-d~ | diagrams: Mermaid |
+| ~C-f~ | JSON log view: filtering, kept off `C-c f' (font sizes) |
+| ~C-g~ | JSON log view: filtering by raw text, kept off `C-c g' (Guile and Guix) |
+| ~C-t~ | JSON log view: the menu of its own commands |
 | ~SPC~ | dashboard |
+| ~U~ | Kubernetes: kubed, from a menu |
 | ~a~ | API and HTTP: OpenAPI specs and requests |
 | ~c~ | containers: Docker |
 | ~d~ | databases: PostgreSQL and MongoDB |
@@ -73,9 +78,10 @@ described only by a letter.
 | ~r~ | render, preview and present |
 | ~s~ | snippets and recorded macros |
 | ~t~ | text tools |
-| ~u~ | utilities |
+| ~u~ | Kubernetes: kubed, by its own mnemonic letters |
 | ~v~ | view: folding and comparisons |
 | ~w~ | workspace and project: running it, and Terraform |
+| ~x~ | eca: the AI coding assistant |
 
 ** The letters a topic gives its own meaning
 
@@ -139,6 +145,7 @@ in every other topic.
 | ~j~ | ~s~ | Spring Boot |
 | ~j~ | ~N~ | a new project |
 | ~j~ | ~B~ | the project, built again |
+| ~j~ | ~D~ | the dependencies of this project |
 | ~j~ | ~R~ | the project's classpath, reloaded |
 | ~l~ | ~l~ | a library, opened by name |
 | ~l~ | ~L~ | a library, loaded from disk |
@@ -169,8 +176,7 @@ in every other topic.
 | ~t~ | ~o~ | Olivetti, writing in the middle of the window |
 | ~t~ | ~r~ | colour names, shown as colours |
 | ~t~ | ~w~ | the whitespace at the end of the lines |
-| ~u~ | ~c~ | the marked files' contents, copied |
-| ~u~ | ~u~ | a UUID, generated |
+| ~t~ | ~y~ | the marked files' contents, copied |
 | ~v~ | ~c~ | this fold |
 | ~v~ | ~C~ | every fold |
 | ~v~ | ~o~ | this fold, opened |
@@ -183,6 +189,8 @@ in every other topic.
 | ~w~ | ~g~ | a search of the project |
 | ~w~ | ~i~ | the providers and state, initialised |
 | ~w~ | ~s~ | a random order for the standup |
+| ~x~ | ~t~ | the chat window, shown or hidden |
+| ~x~ | ~m~ | the model, chosen |
 
 * The keys, by topic
 
@@ -218,6 +226,12 @@ in every other topic.
 |-----+---------+--------------+----|
 | ~C-c C-#~ | ~org-update-statistics-cookies~ | the statistics cookies of this outline | org.el (a mode's own map) |
 
+** ~C-c C-c~ JSON log view: clearing the filter
+
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c C-c~ | ~json-log-view-clear-filter~ | the filter on this buffer's log lines, cleared | dev.el (a mode's own map) |
+
 ** ~C-c C-d~ diagrams: Mermaid
 
 | Key | Command | What it does | In |
@@ -229,11 +243,35 @@ in every other topic.
 | ~C-c C-d o~ | ~mermaid-open-browser~ | the rendered diagram in the browser | plot.el (a mode's own map) |
 | ~C-c C-d r~ | ~mermaid-compile-region~ | the diagram in the region | plot.el (a mode's own map) |
 
+** ~C-c C-f~ JSON log view: filtering, kept off `C-c f' (font sizes)
+
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c C-f~ | ~json-log-view-filter~ | the log lines in this buffer, filtered by a JSON field | dev.el (a mode's own map) |
+
+** ~C-c C-g~ JSON log view: filtering by raw text, kept off `C-c g' (Guile and Guix)
+
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c C-g~ | ~json-log-view-grep-filter~ | the log lines in this buffer, filtered by a regexp on their raw text | dev.el (a mode's own map) |
+
+** ~C-c C-t~ JSON log view: the menu of its own commands
+
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c C-t~ | ~json-log-view-transient~ | the log view commands in this buffer, from a menu | dev.el (a mode's own map) |
+
 ** ~C-c SPC~ dashboard
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
 | ~C-c SPC SPC~ | ~welkomscherm~ | the dashboard | dashboard.el |
+
+** ~C-c U~ Kubernetes: kubed, from a menu
+
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c U~ | ~kubed-transient~ | kubed's commands, from a menu | dev.el |
 
 ** ~C-c a~ API and HTTP: OpenAPI specs and requests
 
@@ -336,6 +374,7 @@ in every other topic.
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
 | ~C-c j B~ | ~eglot-java-project-build-refresh~ | the project, built again | eglot.el (a mode's own map) |
+| ~C-c j D~ | ~heks-emacs-jvm-dependencies~ | the dependencies of this project | emacs-core.el |
 | ~C-c j G~ | ~heks-emacs-gradle-menu~ | a Gradle task, chosen by what it does | emacs-core.el |
 | ~C-c j M~ | ~heks-emacs-maven-menu~ | a Maven goal, chosen by what it does | emacs-core.el |
 | ~C-c j N~ | ~eglot-java-project-new~ | a Java project, created | eglot.el (a mode's own map) |
@@ -343,7 +382,7 @@ in every other topic.
 | ~C-c j b~ | ~eglot-java-project-build-task~ | a build task of this project | eglot.el (a mode's own map) |
 | ~C-c j b~ | ~heks-emacs-jvm-build~ | a build task of this project | emacs-core.el |
 | ~C-c j c~ | ~heks-emacs-jvm-clean~ | the build output, deleted | emacs-core.el |
-| ~C-c j d~ | ~heks-emacs-jvm-dependencies~ | the dependencies of this project | emacs-core.el |
+| ~C-c j d~ | ~heks-emacs-jvm-debug~ | debugged, suspended until `dape' attaches | dev.el |
 | ~C-c j g~ | ~heks-emacs-gradle-run~ | a Gradle task of this project | emacs-core.el |
 | ~C-c j m~ | ~heks-emacs-maven-run~ | a Maven goal of this project | emacs-core.el |
 | ~C-c j n~ | ~eglot-java-file-new~ | a Java file, created | eglot.el (a mode's own map) |
@@ -428,16 +467,17 @@ in every other topic.
 | ~C-c t $~ | ~jinx-mode~ | spell checking, on and off | proofreading.el |
 | ~C-c t a~ | ~sort-lines~ | the lines, sorted | emacs-core.el |
 | ~C-c t c~ | ~display-fill-column-indicator-mode~ | the fill column indicator | emacs-core.el |
+| ~C-c t i~ | ~heks-emacs-uuidgen~ | a UUID, generated | emacs-core.el |
 | ~C-c t o~ | ~olivetti-mode~ | writing in the middle of the window | ui.el |
 | ~C-c t r~ | ~rainbow-mode~ | colour names, shown as colours | emacs-core.el |
 | ~C-c t w~ | ~delete-trailing-whitespace~ | the whitespace at the end of the lines | emacs-core.el |
+| ~C-c t y~ | ~heks/dired-copy-marked-files-content~ | the marked files' contents, copied | emacs-core.el |
 
-** ~C-c u~ utilities
+** ~C-c u~ Kubernetes: kubed, by its own mnemonic letters
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c u c~ | ~heks/dired-copy-marked-files-content~ | the marked files' contents, copied | emacs-core.el |
-| ~C-c u u~ | ~heks-emacs-uuidgen~ | a UUID, generated | emacs-core.el |
+| ~C-c u~ | ~kubed-prefix-map~ | kubed's own commands, by mnemonic letter | dev.el |
 
 ** ~C-c v~ view: folding and comparisons
 
@@ -467,3 +507,14 @@ in every other topic.
 | ~C-c w s~ | ~heks-emacs-print-random-standup-order~ | a random order for the standup | emacs-core.el |
 | ~C-c w t~ | ~heks-emacs-project-start-test~ | the project's tests | emacs-core.el |
 | ~C-c w v~ | ~heks-emacs-terraform-validate~ | the Terraform configuration, validated | dev.el |
+
+** ~C-c x~ eca: the AI coding assistant
+
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c x a~ | ~eca-chat-add-context-to-user-prompt~ | the context, added to the prompt | ai.el |
+| ~C-c x k~ | ~eca-chat-stop-prompt~ | the running prompt, stopped | ai.el |
+| ~C-c x m~ | ~eca-chat-select-model~ | the model, chosen | ai.el |
+| ~C-c x n~ | ~eca-chat-new~ | a new chat | ai.el |
+| ~C-c x s~ | ~eca-chat-select~ | a chat, switched to by name | ai.el |
+| ~C-c x t~ | ~eca-chat-toggle-window~ | the chat window, shown or hidden | ai.el |

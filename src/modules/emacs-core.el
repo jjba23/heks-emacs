@@ -99,9 +99,15 @@
     ("r"     . "render, preview and present")
     ("s"     . "snippets and recorded macros")
     ("t"     . "text tools")
-    ("u"     . "utilities")
+    ("u"     . "Kubernetes: kubed, by its own mnemonic letters")
+    ("U"     . "Kubernetes: kubed, from a menu")
     ("v"     . "view: folding and comparisons")
-    ("w"     . "workspace and project: running it, and Terraform"))
+    ("w"     . "workspace and project: running it, and Terraform")
+    ("x"     . "eca: the AI coding assistant")
+    ("C-f"   . "JSON log view: filtering, kept off `C-c f' (font sizes)")
+    ("C-g"   . "JSON log view: filtering by raw text, kept off `C-c g' (Guile and Guix)")
+    ("C-c"   . "JSON log view: clearing the filter")
+    ("C-t"   . "JSON log view: the menu of its own commands"))
   "What each `C-c' topic letter is for.
 
 A capital letter is a topic of its own and not a variant of the small
@@ -194,6 +200,7 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
          ("s" . "Spring Boot")
          ("N" . "a new project")
          ("B" . "the project, built again")
+         ("D" . "the dependencies of this project")
          ("R" . "the project's classpath, reloaded"))
     ("l" ("l" . "a library, opened by name")
          ("L" . "a library, loaded from disk")
@@ -225,9 +232,8 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
          ("c" . "the fill column indicator")
          ("o" . "Olivetti, writing in the middle of the window")
          ("r" . "colour names, shown as colours")
-         ("w" . "the whitespace at the end of the lines"))
-    ("u" ("c" . "the marked files' contents, copied")
-         ("u" . "a UUID, generated"))
+         ("w" . "the whitespace at the end of the lines")
+         ("y" . "the marked files' contents, copied"))
     ("v" ("c" . "this fold")
          ("C" . "every fold")
          ("o" . "this fold, opened")
@@ -239,7 +245,9 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
          ("D" . "the infrastructure, destroyed")
          ("g" . "a search of the project")
          ("i" . "the providers and state, initialised")
-         ("s" . "a random order for the standup")))
+         ("s" . "a random order for the standup"))
+    ("x" ("t" . "the chat window, shown or hidden")
+         ("m" . "the model, chosen")))
   "What the letters of a topic mean, topic by topic.
 
 These are the topics whose keys do not perform one of the actions in
@@ -335,7 +343,8 @@ of its own and prints, for every key, what this scheme calls it.")
     ("C-c j R" . "the project, re-read by its tooling")
     ("C-c j b" . "a build task of this project")
     ("C-c j c" . "the build output, deleted")
-    ("C-c j d" . "the dependencies of this project")
+    ("C-c j D" . "the dependencies of this project")
+    ("C-c j d" . "debugged, suspended until `dape' attaches")
     ("C-c j g" . "a Gradle task of this project")
     ("C-c j m" . "a Maven goal of this project")
     ("C-c j n" . "a Java file, created")
@@ -382,8 +391,14 @@ of its own and prints, for every key, what this scheme calls it.")
     ("C-c t o" . "writing in the middle of the window")
     ("C-c t r" . "colour names, shown as colours")
     ("C-c t w" . "the whitespace at the end of the lines")
-    ("C-c u c" . "the marked files' contents, copied")
-    ("C-c u u" . "a UUID, generated")
+    ("C-c t y" . "the marked files' contents, copied")
+    ("C-c t i" . "a UUID, generated")
+    ("C-c u" . "kubed's own commands, by mnemonic letter")
+    ("C-c U" . "kubed's commands, from a menu")
+    ("C-c C-f" . "the log lines in this buffer, filtered by a JSON field")
+    ("C-c C-g" . "the log lines in this buffer, filtered by a regexp on their raw text")
+    ("C-c C-c" . "the filter on this buffer's log lines, cleared")
+    ("C-c C-t" . "the log view commands in this buffer, from a menu")
     ("C-c v C" . "every fold")
     ("C-c v O" . "this fold and everything under it")
     ("C-c v c" . "this fold")
@@ -402,7 +417,13 @@ of its own and prints, for every key, what this scheme calls it.")
     ("C-c w r" . "a REPL process for this project")
     ("C-c w s" . "a random order for the standup")
     ("C-c w t" . "the project's tests")
-    ("C-c w v" . "the Terraform configuration, validated"))
+    ("C-c w v" . "the Terraform configuration, validated")
+    ("C-c x a" . "the context, added to the prompt")
+    ("C-c x k" . "the running prompt, stopped")
+    ("C-c x m" . "the model, chosen")
+    ("C-c x n" . "a new chat")
+    ("C-c x s" . "a chat, switched to by name")
+    ("C-c x t" . "the chat window, shown or hidden"))
   "What each key under `C-c' does, in the words of its own topic.
 
 A key here is described by this entry and by nothing else, so the
@@ -856,8 +877,6 @@ in the window."
          ;; Help: the four things one asks about whatever is at point.  `F'
          ;; is the face, where `f' is the function.
          ("C-c h F" . describe-face)
-         ("C-c u u" . heks-emacs-uuidgen)
-         ("C-c u c" . heks/dired-copy-marked-files-content)
          ("C-c # j" . heks-emacs-joe-reconfigure)
          ("C-c # s" . heks-emacs-sys-reconfigure)
          ("C-c # u" . heks-emacs-sys-update)
@@ -877,6 +896,13 @@ in the window."
          ("C-c t w" . delete-trailing-whitespace)
          ("C-c t c" . display-fill-column-indicator-mode)
          ("C-c t r" . rainbow-mode)
+         ;; These two used to live under `C-c u', back when `u' meant
+         ;; "utilities"; `dev.el' now binds the whole of `C-c u' straight
+         ;; to `kubed-prefix-map', so `u' means kubed and these moved here
+         ;; instead, as the generic action letters they already were:
+         ;; `i' inserts, same as everywhere else.
+         ("C-c t i" . heks-emacs-uuidgen)
+         ("C-c t y" . heks/dired-copy-marked-files-content)
          ;; Formatting: one key, and the language decides who formats.
          ("C-c i f" . heks-emacs-format-buffer)
          ;; JVM build tooling (Maven, Gradle, Spring Boot).  The capital
@@ -895,7 +921,7 @@ in the window."
          ("C-c j p" . heks-emacs-jvm-package)
          ("C-c j v" . heks-emacs-jvm-verify)
          ("C-c j c" . heks-emacs-jvm-clean)
-         ("C-c j d" . heks-emacs-jvm-dependencies)
+         ("C-c j D" . heks-emacs-jvm-dependencies)
          ;; Databases (PostgreSQL, MongoDB)
          ("C-c d p" . heks-emacs-sql-postgres)
          ("C-c d m" . heks-emacs-mongosh))

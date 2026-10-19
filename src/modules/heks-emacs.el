@@ -725,6 +725,101 @@ own goal."
                          'heks-emacs-jvm-goal-history "test")))
 
 ;;
+;; ====== Debugging a JVM project (Maven, Gradle, Spring Boot) ======
+;;
+
+;; `dape' speaks the Debug Adapter Protocol, not JDWP (the protocol the
+;; JVM itself exposes), so debugging Java or Kotlin needs something that
+;; translates one into the other.  That something is Eclipse `java-debug',
+;; the adapter VS Code's Java extension and `lsp-java' both run -- a
+;; single jar, `com.microsoft.java.debug.plugin-*.jar', not fetched by
+;; this configuration because it has no good source to fetch it from that
+;; is not itself a whole editor's extension.  Get it from a
+;; `java-debug-adapter' Mason package, an existing `lsp-java' cache, or
+;; https://github.com/microsoft/java-debug/releases, and either set
+;; `heks-emacs-java-debug-jar' or let it be found at one of the paths
+;; below.
+(defcustom heks-emacs-java-debug-jar
+  (car (seq-filter
+        #'identity
+        (list (let ((env (getenv "HEKS_JAVA_DEBUG_JAR")))
+                (and env (file-exists-p env) env))
+              (car (file-expand-wildcards
+                    "~/.local/share/nvim/mason/packages/java-debug-adapter/extension/server/com.microsoft.java.debug.plugin-*.jar"))
+              (car (file-expand-wildcards
+                    "~/.cache/lsp-java/*/com.microsoft.java.debug.plugin-*.jar"))
+              (car (file-expand-wildcards
+                    "~/.emacs.d/.cache/lsp/java-debug/com.microsoft.java.debug.plugin-*.jar")))))
+  "Path to the `java-debug' adapter jar.
+
+`heks-emacs-jvm-debug' runs it as `dape''s DAP server.  Nil when none of
+the usual places holds it, in which case `heks-emacs-jvm-debug' explains
+where to get one."
+  :type '(choice (file :tag "Path to the jar") (const :tag "not found" nil))
+  :group 'heks-emacs)
+
+(defcustom heks-emacs-java-debug-port 5005
+  "The JDWP port a JVM run by `heks-emacs-jvm-debug' listens on.
+
+`heks-emacs-jvm-debug' starts the project suspended on this port and
+attaches `dape' to it through `heks-emacs-java-debug-jar'."
+  :type 'integer
+  :group 'heks-emacs)
+
+(defun heks-emacs--jvm-debug-agent (port)
+  "Return the JVM argument that suspends a JVM for a debugger on PORT.
+
+`suspend=y' is what makes this reliable rather than a race: the JVM does
+not run a line of the program until something attaches on PORT, so a
+breakpoint in, say, a Spring `@PostConstruct' is never too late to set."
+  (format "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:%d" port))
+
+(defun heks-emacs-jvm-debug ()
+  "Debug the JVM project of this buffer with `dape'.
+
+Starts the project the way `heks-emacs-spring-boot-run' and
+`heks-emacs-jvm-run' do, except suspended on
+`heks-emacs-java-debug-port' until a debugger attaches, and then attaches
+`dape' to it through the `java-debug' adapter
+(`heks-emacs-java-debug-jar').  Works for Java and for Kotlin alike,
+because the debugger is attached to the running JVM rather than reading
+either language's source directly."
+  (interactive)
+  (unless heks-emacs-java-debug-jar
+    (user-error "No `java-debug' adapter found; see `heks-emacs-java-debug-jar'"))
+  (require 'dape)
+  (let* ((project (heks-emacs-jvm--project))
+         (root (cdr project))
+         (agent (heks-emacs--jvm-debug-agent heks-emacs-java-debug-port)))
+    (unless project
+      (user-error "No pom.xml or Gradle build found above %s" default-directory))
+    (pcase (car project)
+      ('maven
+       (heks-emacs--jvm-build root
+                              (heks-emacs--jvm-build-program root "mvnw" "mvn")
+                              "spring-boot:run"
+                              (shell-quote-argument (format "-Dspring-boot.run.jvmArguments=%s" agent))))
+      ('gradle
+       (heks-emacs--jvm-build root
+                              (heks-emacs--jvm-build-program root "gradlew" "gradle")
+                              "bootRun"
+                              (format "-Dorg.gradle.jvmargs=%s" (shell-quote-argument agent)))))
+    (message "Waiting for %s to listen on %d before attaching `dape'..."
+             (car project) heks-emacs-java-debug-port)
+    (run-at-time
+     2 nil
+     (lambda ()
+       (dape (list :name "java-attach"
+                   :command "java"
+                   :command-args (list "-jar" heks-emacs-java-debug-jar)
+                   :port heks-emacs-java-debug-port
+                   :request "attach"
+                   :hostName "localhost"
+                   :cwd root
+                   :sourcePaths (list (expand-file-name "src/main/java" root)
+                                      (expand-file-name "src/main/kotlin" root))))))))
+
+;;
 ;; ====== Formatting, wherever the buffer is ======
 ;;
 

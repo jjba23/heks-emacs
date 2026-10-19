@@ -122,8 +122,14 @@
   ;; archive; the community `kotlin-language-server' is the fallback for
   ;; setups that do not have it.  Resolving this at connect time means the
   ;; right server is used whichever one is installed.
-  (defun heks/eglot-kotlin-server ()
-    "Return the command of the best available Kotlin language server."
+  (defun heks/eglot-kotlin-server (&rest _)
+    "Return the command of the best available Kotlin language server.
+
+Eglot calls the function stored in `eglot-server-programs' with the
+INTERACTIVE flag and any further contact arguments (see the docstring of
+`eglot-server-programs'), not with no arguments at all; the `&rest _'
+here is what absorbs them, since this particular resolution does not
+depend on either of them."
     (cond ((executable-find "intellij-server") '("intellij-server" "--stdio"))
           ((executable-find "kotlin-lsp") '("kotlin-lsp" "--stdio"))
           ((executable-find "kotlin-language-server") '("kotlin-language-server"))

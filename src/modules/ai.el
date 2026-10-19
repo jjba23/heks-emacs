@@ -26,14 +26,20 @@
   :after (f)
   :config
   (setq
-   gptel-model 'gemini-pro
-   gptel-backend (gptel-make-gemini "Gemini"
-                   :key (lambda() (f-read-text "~/.secrets/gemini"))
-                   :stream t)))
+   gptel-backend (gptel-make-gh-copilot "Copilot")
+   gptel-model 'claude-sonnet-5.5))
 
 ;; Provides an interactive AI coding assistant within Emacs.
 (use-package eca
-  :ensure t)
+  :ensure t
+  :custom
+  (eca-chat-default-model "github-copilot/claude-sonnet-5.5")
+  :bind (("C-c x t" . eca-chat-toggle-window)
+         ("C-c x n" . eca-chat-new)
+         ("C-c x s" . eca-chat-select)
+         ("C-c x a" . eca-chat-add-context-to-user-prompt)
+         ("C-c x k" . eca-chat-stop-prompt)
+         ("C-c x m" . eca-chat-select-model)))
 
 (provide 'heks-emacs/ai)
 
