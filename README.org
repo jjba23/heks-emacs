@@ -148,6 +148,7 @@ maak keys-update  # write docs/keybindings.org from the keys that are there
 maak test         # the configuration's own test suite
 maak golden       # compare the renderers with the pages they produced last time
 maak golden-update  # write those pages again, deliberately
+maak stats        # the line, definition and decision counts
 maak check        # lint, keys, render, test, golden, verify
 #+end_src
 
@@ -399,14 +400,14 @@ mkdir -p ~/.config/heks && chmod 700 ~/.config/heks
 umask 077
 read -rsp 'DeepSeek API key: ' dsk; echo
 printf '%s\n' "$dsk" | gpg --batch --yes --trust-model always \
-  -e -r you@example.com -o ~/.config/heks/deepseek.key.gpg
+  -e -r jjbigorra@gmail.com -o ~/.config/heks/deepseek.key.gpg
 unset dsk
 chmod 600 ~/.config/heks/deepseek.key.gpg
 #+end_src
 
 ~read -rsp~ keeps the key out of the shell's history, ~umask 077~ and the final ~chmod~ keep it out of other users' reach, and ~--trust-model always~ is what lets ~gpg --batch~ use a key with no ownertrust set -- the usual state of one's own key on a fresh machine.  ~-r~ takes any selector GPG knows, so a mail address from the key works as well as the key id ~gpg --list-secret-keys~ prints.
 
-Check that it decrypts, without printing it:
+Check that it decrypts, without printing it (mine for example gives 36):
 
 #+begin_src sh
 gpg --batch -q -d ~/.config/heks/deepseek.key.gpg | wc -c
@@ -420,17 +421,84 @@ ECA does not read that file through this configuration -- it is not an Emacs pac
 {
   "providers": {
     "deepseek": {
-      "key": "${cmd:gpg --batch -q -d $HOME/.config/heks/deepseek.key.gpg}"
+      "api": "openai-chat",
+      "url": "https://api.deepseek.com",
+      "key": "${cmd:gpg --batch -q -d $HOME/.config/heks/deepseek.key.gpg}",
+      "models": {
+        "deepseek-flash": {},
+        "deepseek-v4-pro": {}
+      }
     }
   }
 }
 #+end_src
 
-The ~deepseek~ provider is built into ECA, so only its key is being supplied, and ~${cmd:...}~ is run through a shell, so ~$HOME~ is expanded.  Logging in with ~/login deepseek~ instead writes the key into that JSON file as plain text, which is the thing this section is trying to avoid.
+DeepSeek has a provider in ECA, but not one of the endpoints it ships by default: =api= names the protocol it speaks, =url= the endpoint, and =models= the model names this configuration asks for.  Without =url= ECA stops a chat with "API url not found", and without =models= it has no =deepseek/deepseek-flash= to offer.  ~${cmd:...}~ is run through a shell, so ~$HOME~ is expanded.  Logging in with ~/login deepseek~ instead writes the key into that JSON file as plain text, which is the thing this section is trying to avoid.
 
 An auth-source entry in =~/.authinfo.gpg= -- =machine api.deepseek.com login apikey password ...= -- is the third place, and the natural one if a machine already keeps a netrc there.  ECA cannot read that format, so the key file above is what serves both tools.
 
 A key file that exists is also what ~auto~ takes as the sign that this machine is the personal one, so no environment variable is needed for that either.  On a machine without one, ~auto~ chooses Copilot; ~HEKS_AI_PROVIDER~ or ~heks-emacs-ai-provider~ overrides the choice either way.
+
+-------
+
+* The code, in numbers
+
+These were read from the checkout on 2026-10-19 rather than remembered, and are a snapshot: the configuration only grows.  ~maak stats~ recomputes the line and decision counts.  A line is a physical line; a comment is a line whose first non-space character is a semicolon, so documentation strings count as code.  The configuration is everything under =src/= -- the modules, =init.el=, =early-init.el=, =batch-indent.el= and the tree-sitter script -- and the tests are the six files under =test/=.
+
+** What is in it
+
+- 36 modules, each owning one concern -- Eglot, Git, debugging, containers, Gnus, IRC, Org notes, rendering, OpenAPI, AI, and the rest of the catalogue above;
+- 125 packages, installed through 138 ~use-package~ declarations;
+- 174 keys under ~C-c~, every one of them described in [[file:docs/keybindings.org][the keybindings reference]];
+- 40 customization variables, which is how the same checkout becomes a different Emacs on a different machine;
+- 404 functions, 100 of them interactive commands, and 43 hooks;
+- 311 Tempel snippets across 17 files;
+- a background builder for every tree-sitter grammar this Emacs can be asked for, including recipes for Kotlin, Scala and Nix;
+- 32 colour palettes, restyled rather than merely loaded;
+- 117 ERT tests, plus the parse, key, render, golden-page and installed-configuration checks that ~maak check~ runs.
+
+** How much code
+
+| Measure                                | Value |
+|----------------------------------------+-------|
+| Configuration files                    |    40 |
+| Configuration lines                    | 12394 |
+| -- blank                               |  1653 |
+| -- comments                            |  2268 |
+| -- code and documentation strings      |  8473 |
+| Test files                             |     6 |
+| Test lines                             |  4682 |
+| -- blank                               |   442 |
+| -- comments                            |   714 |
+| -- code and documentation strings      |  3526 |
+| Elisp lines, configuration and tests   | 17076 |
+| Snippet files                          |    17 |
+| Snippet lines                          |   899 |
+| Modules                                |    36 |
+| Packages                               |   125 |
+| Functions                              |   404 |
+| Interactive commands                   |   100 |
+| Customization variables                |    40 |
+| Keys under ~C-c~                       |   174 |
+| ERT tests                              |   117 |
+| Themes                                 |    32 |
+| Snippets                               |   311 |
+| Commits                                |   256 |
+| Contributors                           |     2 |
+
+The three largest modules are =guile.el= (1,644 lines), =heks-emacs.el= (1,466) and =emacs-core.el= (1,412): together a little over a third of the configuration, and the place where the Guix/Geiser integration, the dashboards and helpers, and the key scheme live.
+
+** How complex
+
+Complexity is counted, not felt.  A decision point is one ~if~, ~when~ or ~unless~, one clause of a ~cond~, ~pcase~ or ~case~, one loop, and one ~condition-case~ or ~catch~; short-circuit ~and~ and ~or~ operators are counted separately, and there are 366 of them.  The figures come from reading the forms rather than grepping the text, so a branch named in a comment or a string is not counted.  The configuration has 582 decision points, about 6.9 per hundred lines of code.  Across the 380 definitions at the top level of the modules, the median is 1 and the mean 1.5, the ninetieth percentile is 4, and only three definitions reach ten:
+
+| Definition                    | Decisions | Lines |
+|-------------------------------+-----------+-------|
+| ~heks-emacs-markdown-to-html~ |        25 |   175 |
+| ~heks-emacs-import--blocks~   |        22 |   173 |
+| ~heks-emacs-set-base-faces~   |        12 |   121 |
+
+Two of the three are the Markdown reader and the renderer, which are where this configuration parses text rather than configures a package; the third sets faces from the active theme.  Nothing else in the tree is close: the fourth definition has eight decision points.
 
 -------
 

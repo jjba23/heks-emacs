@@ -120,6 +120,16 @@ Run this when the change is the one that was wanted, then read the diff it
 leaves in `test/golden/' before committing it."
   (syscall "HEKS_GOLDEN_UPDATE=1 emacs -Q --batch -l test/heks-emacs-golden.el"))
 
+(define (stats)
+  "Print the configuration's line and decision counts.
+
+A report rather than a check: how many lines the modules, the other
+configuration files, the tests and the snippets have, how many of those
+lines are blank or comments, and how many decision points the top-level
+definitions of the modules contain.  This is what refreshes the numbers
+in the README."
+  (syscall "emacs -Q --batch -l test/heks-emacs-stats.el"))
+
 (define (check)
   "Everything: parse the source, then check the installed configuration."
   (lint)
