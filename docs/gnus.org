@@ -1,0 +1,116 @@
+#+title: Mail with Gnus
+#+author: Josep Bigorra
+#+options: toc:2
+
+This is what ~mail.el~ actually turns on, and the handful of Gnus
+commands worth knowing to drive it.  It is not a Gnus tutorial; the
+[[https://www.gnu.org/software/emacs/manual/html_node/gnus/Don_0027t-Panic.html][Gnus manual]] is one, if you need more than this.
+
+* Setup
+
+Gnus itself is not configured by this file: account, server and group
+setup is personal (which mail provider, which groups, how they are
+organised) and belongs in your own ~~/.gnus.el~, loaded the first time
+~M-x gnus~ runs.  ~mail.el~ only sets the behaviour that is the same
+whichever account you read.
+
+For Gmail over IMAP, create an "application password" in your Google
+account settings (a different password than your usual one, used only
+for IMAP/SMTP), then put it in ~~/.authinfo.gpg~ (encrypted; Emacs
+handles that transparently because of the ~.gpg~ extension, see
+[[http://emacswiki.org/emacs/EasyPG][EasyPG]]):
+
+#+begin_src conf
+machine imap.gmail.com login you@gmail.com password your-app-password port imaps
+machine smtp.gmail.com login you@gmail.com password your-app-password port 587
+#+end_src
+
+And a minimal ~~/.gnus.el~:
+
+#+begin_src elisp
+(setq user-mail-address "you@gmail.com"
+      user-full-name "Your Name")
+
+(setq gnus-select-method
+      '(nnimap "gmail"
+               (nnimap-address "imap.gmail.com")
+               (nnimap-server-port "imaps")
+               (nnimap-stream ssl)))
+
+(setq smtpmail-smtp-server "smtp.gmail.com"
+      smtpmail-smtp-service 587)
+#+end_src
+
+~libxml2~ needs to be installed to read HTML mail.
+
+* What this config turns on
+
+~gnus-use-cache~, ~gnus-asynchronous~ and ~gnus-use-header-prefetch~ are
+on: articles and headers are fetched ahead of when they are asked for and
+kept on disk, so a group opens instantly on a second visit and a ticked
+article (see "Reading offline" below) stays readable without a
+connection.
+
+Threads sort by their most recent article
+(~gnus-thread-sort-functions~), so an old thread with a new reply moves
+to the top of the Summary buffer instead of staying buried at its
+original date.
+
+The Summary buffer's line format and thread tree are custom
+(~gnus-summary-line-format~, ~gnus-sum-thread-tree-*~): a line reads as
+~│date│  sender  │ subject~, and a threaded reply is drawn
+hanging off its parent with ~├─►~ or ~╰─►~ for the last reply in a
+branch, rather than Gnus' default ASCII tree.
+
+~smtpmail-send-it~ is the function that sends mail
+(~send-mail-function~), with ~smtpmail-debug-info~ and
+~smtpmail-debug-verb~ on, so a failed send has something to read in
+~*trace of SMTP session to ...*~ instead of just failing silently.
+
+* Keys this config adds
+
+Everywhere in Emacs, not just inside Gnus (see ~docs/keybindings.org~,
+topic ~o~, for the full table):
+
+| Key | Does |
+|-----+------|
+| ~C-c o m~ | ~M-x gnus~: start or switch to Gnus |
+| ~C-c o g~ | ~gnus-group-read-ephemeral-group~: read one group by name, without subscribing to it |
+
+* The essentials, inside Gnus
+
+Three buffers: *Group* lists your folders ("groups"); *Summary* lists
+the messages of one group; *Article* shows one message.
+
+** Group buffer
+| Key | Does |
+|-----+------|
+| ~RET~ / ~SPC~ | enter the group, into its Summary |
+| ~C-u RET~ | enter it showing *every* message, not just unread ones |
+| ~g~ | check for new mail |
+| ~G G~ | search mail on the server (IMAP ~SEARCH~, or Gmail's own syntax with ~nnir-imap-default-search-key~ set to ~"gmail"~) |
+| ~u~ | subscribe/unsubscribe the group at point |
+| ~q~ | quit Gnus |
+
+** Summary buffer
+| Key | Does |
+|-----+------|
+| ~n~ / ~p~ | next / previous unread article |
+| ~!~ | tick an article: flag it, and with ~gnus-use-cache~ on, cache it so it reads offline too |
+| ~/ /~ | limit the buffer to messages matching a subject (locally, nothing is fetched or deleted) |
+| ~/ a~ | limit by author |
+| ~/ w~ | undo the last limit |
+| ~r~ / ~R~ | reply, without / with the original quoted |
+| ~S w~ / ~S W~ | reply to all, without / with the original quoted |
+| ~m~ | compose a new message |
+| ~S f~ | forward the article at point |
+| ~d~ | mark as deleted |
+| ~q~ | back to the Group buffer |
+
+** Article buffer
+| Key | Does |
+|-----+------|
+| ~o~ (over an attachment) | save it |
+| ~RET~ (over an attachment) | open it, with whatever ~mailcap-mime-data~ (or ~~/.mailcap~) says to open it with |
+| ~C-c C-a~ | attach a file, while composing |
+| ~C-c C-c~ | send and exit, while composing |

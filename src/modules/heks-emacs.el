@@ -728,17 +728,20 @@ own goal."
 ;; ====== Debugging a JVM project (Maven, Gradle, Spring Boot) ======
 ;;
 
+(require 'url)
+(require 'json)
+
 ;; `dape' speaks the Debug Adapter Protocol, not JDWP (the protocol the
 ;; JVM itself exposes), so debugging Java or Kotlin needs something that
 ;; translates one into the other.  That something is Eclipse `java-debug',
 ;; the adapter VS Code's Java extension and `lsp-java' both run -- a
-;; single jar, `com.microsoft.java.debug.plugin-*.jar', not fetched by
-;; this configuration because it has no good source to fetch it from that
-;; is not itself a whole editor's extension.  Get it from a
-;; `java-debug-adapter' Mason package, an existing `lsp-java' cache, or
-;; https://github.com/microsoft/java-debug/releases, and either set
-;; `heks-emacs-java-debug-jar' or let it be found at one of the paths
-;; below.
+;; single jar, `com.microsoft.java.debug.plugin-*.jar'.  `heks-emacs-jvm-debug'
+;; looks for it in the usual places below and, failing that, tries to
+;; fetch the latest one itself (`heks-emacs-java-debug-ensure-jar') into
+;; `heks-emacs-java-debug-cache-dir' -- a best-effort convenience, built
+;; from nothing but `url' and `json' (already part of Emacs), that never
+;; stands in the way of pointing `heks-emacs-java-debug-jar' or
+;; `HEKS_JAVA_DEBUG_JAR' at one by hand instead.
 (defcustom heks-emacs-java-debug-jar
   (car (seq-filter
         #'identity
@@ -753,9 +756,18 @@ own goal."
   "Path to the `java-debug' adapter jar.
 
 `heks-emacs-jvm-debug' runs it as `dape''s DAP server.  Nil when none of
-the usual places holds it, in which case `heks-emacs-jvm-debug' explains
-where to get one."
+the usual places holds it, in which case `heks-emacs-jvm-debug' tries
+`heks-emacs-java-debug-ensure-jar' before giving up."
   :type '(choice (file :tag "Path to the jar") (const :tag "not found" nil))
+  :group 'heks-emacs)
+
+(defcustom heks-emacs-java-debug-cache-dir
+  (expand-file-name "java-debug/" user-emacs-directory)
+  "Where `heks-emacs-java-debug-ensure-jar' caches a jar it fetched itself.
+
+Only looked at, and only written to, when `heks-emacs-java-debug-jar' is
+nil and none of its own auto-detected paths holds one either."
+  :type 'directory
   :group 'heks-emacs)
 
 (defcustom heks-emacs-java-debug-port 5005
@@ -765,6 +777,62 @@ where to get one."
 attaches `dape' to it through `heks-emacs-java-debug-jar'."
   :type 'integer
   :group 'heks-emacs)
+
+(defun heks-emacs--java-debug-cached-jar ()
+  "Return a `java-debug' jar already sitting in the cache dir, or nil."
+  (car (file-expand-wildcards
+        (expand-file-name "com.microsoft.java.debug.plugin-*.jar"
+                           heks-emacs-java-debug-cache-dir))))
+
+(defun heks-emacs--java-debug-latest-asset-url ()
+  "Return the download URL of the latest `java-debug' adapter jar, or nil.
+
+Asks GitHub's release API for the project's latest release and picks out
+the one asset shaped like the adapter jar.  Returns nil, rather than
+signalling, on anything unexpected -- no network, a changed API, no
+matching asset -- because fetching the jar is a convenience and never
+the only way to get one (see `heks-emacs-java-debug-jar')."
+  (condition-case nil
+      (with-temp-buffer
+        (url-insert-file-contents
+         "https://api.github.com/repos/microsoft/java-debug/releases/latest")
+        (let* ((json (json-parse-buffer :object-type 'alist :array-type 'list))
+               (assets (alist-get 'assets json)))
+          (cl-loop for asset in assets
+                   for name = (alist-get 'name asset)
+                   when (and name
+                             (string-match-p
+                              "\\`com\\.microsoft\\.java\\.debug\\.plugin-.*\\.jar\\'"
+                              name))
+                   return (alist-get 'browser_download_url asset))))
+    (error nil)))
+
+(defun heks-emacs-java-debug-ensure-jar (&optional force)
+  "Return a `java-debug' adapter jar, fetching one if none is known yet.
+
+Prefers `heks-emacs-java-debug-jar' and whatever it auto-detected, then a
+jar already cached from a previous fetch, and only then downloads the
+latest one into `heks-emacs-java-debug-cache-dir' -- quietly, and never
+signalling an error itself, so that `heks-emacs-jvm-debug' stays the one
+place that reports not having a debugger to run.  With FORCE (or a
+prefix argument), fetches a new one even over a cached jar."
+  (interactive "P")
+  (or (and (not force) heks-emacs-java-debug-jar)
+      (and (not force) (heks-emacs--java-debug-cached-jar))
+      (let ((url (heks-emacs--java-debug-latest-asset-url)))
+        (when url
+          (make-directory heks-emacs-java-debug-cache-dir t)
+          (let ((target (expand-file-name (file-name-nondirectory url)
+                                           heks-emacs-java-debug-cache-dir)))
+            (condition-case err
+                (progn
+                  (url-copy-file url target t)
+                  (message "Fetched the `java-debug' adapter into %s" target)
+                  (setq heks-emacs-java-debug-jar target))
+              (error
+               (message "Could not fetch the `java-debug' adapter: %s"
+                        (error-message-string err))
+               nil)))))))
 
 (defun heks-emacs--jvm-debug-agent (port)
   "Return the JVM argument that suspends a JVM for a debugger on PORT.
@@ -780,13 +848,16 @@ breakpoint in, say, a Spring `@PostConstruct' is never too late to set."
 Starts the project the way `heks-emacs-spring-boot-run' and
 `heks-emacs-jvm-run' do, except suspended on
 `heks-emacs-java-debug-port' until a debugger attaches, and then attaches
-`dape' to it through the `java-debug' adapter
-(`heks-emacs-java-debug-jar').  Works for Java and for Kotlin alike,
-because the debugger is attached to the running JVM rather than reading
-either language's source directly."
+`dape' to it through the `java-debug' adapter, fetched by
+`heks-emacs-java-debug-ensure-jar' when nothing else already provides
+one.  Works for Java and for Kotlin alike, because the debugger is
+attached to the running JVM rather than reading either language's source
+directly."
   (interactive)
-  (unless heks-emacs-java-debug-jar
-    (user-error "No `java-debug' adapter found; see `heks-emacs-java-debug-jar'"))
+  (unless (heks-emacs-java-debug-ensure-jar)
+    (user-error "No `java-debug' adapter found, and none could be fetched; \
+set `heks-emacs-java-debug-jar' or `HEKS_JAVA_DEBUG_JAR', or get one \
+yourself and run `M-x heks-emacs-java-debug-ensure-jar'"))
   (require 'dape)
   (let* ((project (heks-emacs-jvm--project))
          (root (cdr project))

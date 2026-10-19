@@ -1,7 +1,7 @@
 #+title: heks-emacs
 #+author: Josep Bigorra
 #+email: jjbigorra@gmail.com
-#+options: toc:2
+#+options: toc:1
 
 [[https://jointhefreeworld.org/ggg/dist/gnu-emacs.svg]] [[https://jointhefreeworld.org/ggg/dist/maak.svg]]  [[https://jointhefreeworld.org/ggg/dist/license-gpl3+.svg]]    [[https://jointhefreeworld.org/ggg/dist/license-fdl13+.svg]]
 
@@ -25,7 +25,7 @@ I recommend you browse the source code of Heks Emacs and take inspiration from i
 
 To see the changelog and news about this project, check [[file:NEWS.org][the NEWS file]]
 
-Also, for some tips on e-mail from Emacs with Gnus in this config, see [[file:docs/mail-with-gnus.org][Mail with GNUS]]
+Also, for how mail with Gnus is set up in this config, see [[file:docs/gnus.org][Mail with Gnus]]
 
 If you like my work, please support me by [[https://bmc.link/jjbigorra][buying me a cup of coffee ☕]] so I can continue with a lot of motivation.
 

@@ -336,7 +336,18 @@ that module saying anything about it."
 (use-package dape
   :ensure t
   :init (setq dape-buffer-window-arrangement 'right)
-  :bind (("C-c j d" . heks-emacs-jvm-debug)))
+  ;; `C-c j d' starts and attaches a JVM project's debugger
+  ;; (`heks-emacs-jvm-debug'); `C-c b' is `dape''s own commands once
+  ;; attached -- to any debuggee, JVM or otherwise, which is why it is its
+  ;; own topic rather than folded into `j'.
+  :bind (("C-c j d" . heks-emacs-jvm-debug)
+         ("C-c b b" . dape-breakpoint-toggle)
+         ("C-c b c" . dape-continue)
+         ("C-c b n" . dape-next)
+         ("C-c b i" . dape-step-in)
+         ("C-c b o" . dape-step-out)
+         ("C-c b r" . dape-repl)
+         ("C-c b k" . dape-kill)))
 
 (use-package graphql-mode
   :ensure t

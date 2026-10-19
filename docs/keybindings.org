@@ -62,6 +62,7 @@ described only by a letter.
 | ~SPC~ | dashboard |
 | ~U~ | Kubernetes: kubed, from a menu |
 | ~a~ | API and HTTP: OpenAPI specs and requests |
+| ~b~ | breakpoints and the debugger: dape |
 | ~c~ | containers: Docker |
 | ~d~ | databases: PostgreSQL and MongoDB |
 | ~e~ | environment: direnv |
@@ -108,6 +109,10 @@ in every other topic.
 | ~C-d~ | ~b~ | the diagrams in this buffer |
 | ~C-d~ | ~f~ | the diagrams in this file |
 | ~a~ | ~b~ | the request written as a block to paste |
+| ~b~ | ~b~ | a breakpoint at point, toggled |
+| ~b~ | ~c~ | the program, continued to the next breakpoint |
+| ~b~ | ~i~ | into the call at point, stepped |
+| ~b~ | ~o~ | out of the current function, stepped |
 | ~c~ | ~d~ | Docker |
 | ~d~ | ~p~ | PostgreSQL |
 | ~d~ | ~m~ | the MongoDB shell |
@@ -282,6 +287,18 @@ in every other topic.
 | ~C-c a m~ | ~heks-emacs-openapi-mode~ | the spec, read as a spec | openapi.el |
 | ~C-c a r~ | ~heks-emacs-openapi-request~ | the operation, sent as a live request | openapi.el |
 | ~C-c a v~ | ~heks-emacs-openapi-view~ | the spec, rendered to read | openapi.el |
+
+** ~C-c b~ breakpoints and the debugger: dape
+
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c b b~ | ~dape-breakpoint-toggle~ | a breakpoint at point, toggled | dev.el |
+| ~C-c b c~ | ~dape-continue~ | the program, continued to the next breakpoint | dev.el |
+| ~C-c b i~ | ~dape-step-in~ | into the call at point, stepped | dev.el |
+| ~C-c b k~ | ~dape-kill~ | the debug session, killed | dev.el |
+| ~C-c b n~ | ~dape-next~ | the next line, stepped over | dev.el |
+| ~C-c b o~ | ~dape-step-out~ | out of the current function, stepped | dev.el |
+| ~C-c b r~ | ~dape-repl~ | a REPL into the debuggee | dev.el |
 
 ** ~C-c c~ containers: Docker
 
