@@ -271,12 +271,181 @@ configured later, from the `with-eval-after-load' calls below."
     (heks-emacs--set-face 'markdown-inline-code-face :font heks-emacs-font-mono :height 0.9)
     (heks-emacs--set-face 'markdown-blockquote-face :font heks-emacs-font-serif :slant 'italic)))
 
+;;
+;; ====== ECA faces ======
+;;
+;; The chat ECA opens is prose that quotes code, so its faces are split by
+;; what they print rather than by which file of the package defines them.
+;; What names something -- the title of a chat, the label of a tool call, a
+;; status, a task, a question, an action -- is read, so it takes the
+;; sans-serif family; what a reader copies out of the buffer -- a command, a
+;; path, a key, a tool call's arguments, the columns of a table -- stays
+;; monospace, which is also the family such a chip needs to line up with the
+;; code around it.  The body of a message is not in either list: it is
+;; `default', and the code in it is the monospace faces configured above.
+;;
+
+(defconst heks-emacs-eca-sans-faces
+  '(;; The chat and its chrome: the title, the welcome, the tabs and the
+    ;; options in the header line.
+    eca-chat-title-face
+    eca-chat-welcome-face
+    eca-chat-resume-link-face
+    eca-chat-load-more-face
+    eca-chat-option-value-face
+    eca-chat-trust-on-face
+    eca-chat-trust-off-face
+    eca-chat-usage-string-face
+    eca-chat-approval-modeline-face
+    eca-chat-command-description-face
+    eca-chat-elapsed-time-face
+    eca-chat-time-face
+    eca-tab-inactive-face
+    eca-chat-tab-active-face
+    eca-chat-tab-inactive-active-face
+    ;; A message, and the labels that say what the chat is doing with it.
+    eca-chat-user-messages-face
+    eca-chat-rollback-face
+    eca-chat-system-messages-face
+    eca-chat-reason-label-face
+    eca-chat-hook-label-face
+    eca-chat-subagent-steps-info-face
+    eca-chat-file-change-label-face
+    eca-chat-diff-view-face
+    eca-chat-flag-face
+    eca-chat-prompt-prefix-face
+    eca-chat-prompt-stop-face
+    eca-chat-queued-prompt-face
+    eca-chat-steer-prompt-face
+    ;; A tool call: the request for approval and the three answers to it.
+    eca-chat-tool-call-approval-content-face
+    eca-chat-tool-call-accept-face
+    eca-chat-tool-call-accept-and-remember-face
+    eca-chat-tool-call-reject-face
+    ;; The task area.
+    eca-chat-task-prefix-face
+    eca-chat-task-label-face
+    eca-chat-task-label-in-progress-face
+    eca-chat-task-in-progress-face
+    eca-chat-task-progress-face
+    eca-chat-task-done-face
+    ;; A question the chat asks, and the answers it offers.
+    eca-chat-question-face
+    eca-chat-question-option-face
+    eca-chat-question-description-face
+    ;; The context bar, whose segments are read as one sentence.
+    eca-chat-context-system-prompt-face
+    eca-chat-context-tool-definitions-face
+    eca-chat-context-conversation-face
+    eca-chat-context-rules-face
+    eca-chat-context-skills-face
+    eca-chat-context-agents-face
+    eca-chat-context-tool-calls-face
+    eca-chat-context-free-face
+    eca-chat-context-compaction-marker-face
+    ;; The buffers that sit beside a chat: settings, providers, jobs, MCP
+    ;; servers, workspaces, quota, and the inline and rewrite headers.
+    eca-settings-heading
+    eca-providers-authenticated-face
+    eca-providers-local-face
+    eca-providers-unauthenticated-face
+    eca-providers-model-face
+    eca-providers-auth-info-face
+    eca-providers-section-face
+    eca-providers-button-face
+    eca-providers-button-logout-face
+    eca-jobs-status-running-face
+    eca-jobs-status-completed-face
+    eca-jobs-status-failed-face
+    eca-jobs-status-killed-face
+    eca-jobs-chat-separator-face
+    eca-jobs-button-output-face
+    eca-jobs-button-kill-face
+    eca-mcp-details-requires-auth-face
+    eca-mcp-details-button-face
+    eca-mcp-details-button-stop-face
+    eca-mcp-details-button-logout-face
+    eca-mcp-details-button-disable-face
+    eca-mcp-details-button-enable-face
+    eca-workspaces-tree-chat-idle-face
+    eca-workspaces-tree-chat-loading-face
+    eca-workspaces-tree-chat-details-face
+    eca-quota-warning-face
+    eca-quota-critical-face
+    eca-chat-inline-in-progress-face
+    eca-chat-inline-ready-face
+    eca-table-action-bar-face
+    eca-rewrite-in-progress-prefix-face
+    eca-rewrite-ready-prefix-face
+    eca-rewrite-model-face)
+  "The ECA faces whose text is read rather than copied.
+
+`heks-emacs-set-eca-faces' gives them `heks-emacs-font-sans', so that a
+chat reads as prose and not as the code it is talking about.")
+
+(defconst heks-emacs-eca-mono-faces
+  '(;; Something a reader copies out of the buffer, and the identifiers and
+    ;; the tables that only line up in a family of one width.
+    eca-chat-file-path-face
+    eca-chat-mcp-tool-call-label-face
+    eca-chat-subagent-tool-call-label-face
+    eca-chat--tool-call-table-key-face
+    eca-chat--tool-call-argument-key-face
+    eca-chat--tool-call-argument-value-face
+    eca-chat-tool-call-keybinding-face
+    eca-chat-option-key-face
+    eca-chat-inline-key-face
+    eca-chat-shell-command-face
+    eca-chat-shell-command-remembered-face
+    eca-chat-shell-command-not-remembered-face
+    eca-chat-shell-command-breakdown-prefix-face
+    eca-chat-shell-command-always-asks-face
+    eca-chat-context-unlinked-face
+    eca-chat-context-file-face
+    eca-chat-context-repo-map-face
+    eca-chat-context-mcp-resource-face
+    eca-chat-context-cursor-face
+    eca-chat-context-cursor-unsaved-face
+    eca-chat-context-buffer-face
+    eca-table-header-face
+    eca-table-separator-face
+    eca-table-pipe-face
+    eca-table-row-even-face
+    eca-table-action-key-face
+    eca-mcp-details-tool-face
+    eca-mcp-details-tool-disabled-face
+    eca-mcp-details-command-value-face
+    eca-rewrite-overlay-face
+    eca-rewrite-overlay-hover-face
+    eca-completion-overlay-face)
+  "The ECA faces that print something a reader takes out of the buffer.
+
+`heks-emacs-set-eca-faces' gives them `heks-emacs-font-mono', which is the
+family `default' already has.  Saying it here is what keeps them monospace
+should the buffer they are drawn in ever stop being so.")
+
+(defun heks-emacs-set-eca-faces ()
+  "Give each ECA face the family of what it prints.
+
+The faces of `heks-emacs-eca-sans-faces' are the ones whose text is a
+sentence, a label or a status, and take `heks-emacs-font-sans'; the ones of
+`heks-emacs-eca-mono-faces' print something a reader copies, and take
+`heks-emacs-font-mono'.  A face of the package this Emacs does not have yet
+is skipped, so calling this before ECA is loaded costs nothing -- which is
+why `heks-emacs-set-base-faces' can call it on every theme change and the
+`with-eval-after-load' below repeats it once the package is there."
+  (interactive)
+  (dolist (face heks-emacs-eca-sans-faces)
+    (heks-emacs--set-face face :font heks-emacs-font-sans))
+  (dolist (face heks-emacs-eca-mono-faces)
+    (heks-emacs--set-face face :font heks-emacs-font-mono)))
+
 (defun heks-emacs-set-base-faces ()
   "Adjust the base Emacs faces to my preferences.
 
 Only the base size (`default', `fixed-pitch') follows
 `tekengrootte-scale'; every other face is a plain multiple of it, so
-prose, Org and Markdown keep their proportions at any scale."
+prose, Org, Markdown and ECA keep their proportions at any scale."
   (interactive)
   (set-face-attribute 'default nil
                       :height (heks-emacs-font-height 1.0)
@@ -306,6 +475,8 @@ prose, Org and Markdown keep their proportions at any scale."
   (heks-emacs-set-org-faces)
 
   (heks-emacs-set-markdown-faces)
+
+  (heks-emacs-set-eca-faces)
 
   (ignore-errors
     (set-face-attribute 'keycast-key nil
@@ -464,6 +635,11 @@ reflected in the UI."
 
 (with-eval-after-load 'markdown-mode
   (heks-emacs-set-markdown-faces))
+
+;; ECA's faces are made when the package is loaded, which is after this
+;; module has run, so they are given their family once they exist.
+(with-eval-after-load 'eca
+  (heks-emacs-set-eca-faces))
 
 (use-package nerd-icons
   :ensure t

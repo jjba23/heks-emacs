@@ -67,7 +67,7 @@
   (load (expand-file-name (format "modules/%s.el" name) heks-ert--source) nil t))
 
 (dolist (module '("markdown" "render" "import" "present" "heks-emacs" "emacs-core"
-                 "dev" "openapi" "shell" "guile" "ai"))
+                 "dev" "openapi" "shell" "guile" "ui" "ai"))
   (heks-ert--module module))
 
 ;; `htmlize' is what Org colours the code in a note with, and the
@@ -1823,6 +1823,42 @@ failing test rather than a menu that disappears again."
                          (1- (car (which-key--minibuffer-max-dimensions))))))
       (setq window-min-height min-height)
       (set-window-configuration configuration))))
+
+;;
+;; ====== The family a face is given ======
+;;
+
+(ert-deftest heks-emacs-ui/an-eca-face-gets-the-family-of-what-it-prints ()
+  "A chat is read, and what a reader copies out of it is not."
+  (let ((given nil))
+    (cl-letf (((symbol-function 'heks-emacs--set-face)
+               (lambda (face &rest attributes)
+                 (push (cons face attributes) given))))
+      (heks-emacs-set-eca-faces))
+    (should (equal (length given)
+                   (+ (length heks-emacs-eca-sans-faces)
+                      (length heks-emacs-eca-mono-faces))))
+    (should (equal (cdr (assq 'eca-chat-title-face given))
+                   (list :font heks-emacs-font-sans)))
+    (should (equal (cdr (assq 'eca-chat-tool-call-accept-face given))
+                   (list :font heks-emacs-font-sans)))
+    (should (equal (cdr (assq 'eca-chat-file-path-face given))
+                   (list :font heks-emacs-font-mono)))
+    (should (equal (cdr (assq 'eca-chat-shell-command-face given))
+                   (list :font heks-emacs-font-mono)))))
+
+(ert-deftest heks-emacs-ui/no-eca-face-is-in-both-lists ()
+  "A face in both lists would be given whichever family came last."
+  (should-not (cl-intersection heks-emacs-eca-sans-faces
+                               heks-emacs-eca-mono-faces))
+  (should (cl-every #'symbolp (append heks-emacs-eca-sans-faces
+                                      heks-emacs-eca-mono-faces))))
+
+(ert-deftest heks-emacs-ui/a-face-that-is-not-there-yet-is-skipped ()
+  "ECA defines its faces when it is loaded, which is after this module runs."
+  (should-not (facep 'heks-emacs-no-such-face))
+  (heks-emacs--set-face 'heks-emacs-no-such-face :font heks-emacs-font-sans)
+  (should-not (facep 'heks-emacs-no-such-face)))
 
 ;;
 ;; ====== Which AI account this session is for ======

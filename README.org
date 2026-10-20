@@ -215,7 +215,7 @@ It also owns the JVM build commands (Maven, Gradle and Spring Boot, which find t
 *** =ui.el=
 Controls the interactive Emacs UI. Configures the completion interface, scrolling, icons, ligatures, context actions, visual feedback, modeline-related helpers, and general presentation behavior.
 
-It also sizes the base, Org, Markdown and prose faces as multiples of the base font size so ~tekengrootte~ scales stay proportional, and it guarantees that the separators between windows remain clearly visible: their color is derived from the active theme, applied to ~window-divider~, its first/last pixels and ~vertical-border~, refreshed on every theme or scale change, and corrected where ~spacious-padding~ deliberately hides them.
+It also sizes the base, Org, Markdown and prose faces as multiples of the base font size so ~tekengrootte~ scales stay proportional, gives ECA's own faces a family by what they print (sans-serif for what names something in a chat, monospace for what a reader copies out of it), and it guarantees that the separators between windows remain clearly visible: their color is derived from the active theme, applied to ~window-divider~, its first/last pixels and ~vertical-border~, refreshed on every theme or scale change, and corrected where ~spacious-padding~ deliberately hides them.
 
 *** =theme.el=
 Provides the theme system and look-and-feel configuration. Supports a selection of themes including EF/Modus, Everforest, Gruvbox, Dracula, Catppuccin, Rose Pine, Kaolin, Doom, and Kanagawa, selected through the HEKS-EMACS theme configuration.

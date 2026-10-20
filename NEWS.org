@@ -9,6 +9,10 @@ This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic 
 
 *[Unreleased]*
 
+*** Changed
+
+- ECA's own faces are given a family now, by what they print, which is the one thing about the chat that was left in the font `default` happens to be.  The faces that name something -- the title of a chat, the label of a tool call, the three answers to one, a task, a question, the tabs, the header-line options, the settings, providers, jobs, MCP and workspaces buffers beside it -- take the sans-serif family, so a chat reads as prose; the ones that print something a reader copies out of the buffer -- a shell command, a file path, a context chip, a tool call's arguments, a keybinding, the columns of a table -- take the monospace one, which is also the family a table needs to line up.  The body of a message is neither: it is `default', and the code in it is the monospace faces Markdown already had here.  The two lists are `heks-emacs-eca-sans-faces' and `heks-emacs-eca-mono-faces' -- named rather than inferred from a face's colour, since what a face prints is not something Emacs records -- and `heks-emacs-set-eca-faces' applies them, from `heks-emacs-set-base-faces' on every theme or scale change and once more when the package is loaded, because ECA defines its faces after this module runs.  A face the installed ECA does not have is skipped rather than an error, so the lists may name a face of a version that is not installed yet.
+
 -------
 
 ** v1.8.3 (2026-10-15)
