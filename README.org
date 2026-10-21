@@ -39,15 +39,13 @@ If you like my work, please support me by [[https://bmc.link/jjbigorra][buying m
 
 | Measure                                | Value |
 |----------------------------------------+-------|
-| Packages                               |   125 |
-| Functions                              |   404 |
-| Interactive commands                   |   100 |
-| Customization variables                |    40 |
-| Unit tests                             |   117 |
-| Themes                                 |    32 |
-| Snippets                               |   311 |
-| Commits                                |   256 |
-| Contributors                           |     2 |
+| Packages                               |   >120 |
+| Functions                              |   >400 |
+| Interactive commands                   |   >100 |
+| Customization variables                |    >40 |
+| Unit tests                             |   >100 |
+| Themes                                 |    >32 |
+| Snippets                               |   >300 |
 
 --------
 
