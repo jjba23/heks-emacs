@@ -375,6 +375,24 @@ configured later, from the `with-eval-after-load' calls below."
     eca-chat-inline-in-progress-face
     eca-chat-inline-ready-face
     eca-table-action-bar-face
+    eca-chat-inline-anchor-face
+    eca-chat-inline-answer-face
+    eca-chat-mcp-tool-call-label-face
+    eca-chat-subagent-tool-call-label-face
+    eca-chat-tool-call-keybinding-face
+    eca-chat-option-key-face
+    eca-chat-shell-command-breakdown-prefix-face
+    eca-chat-context-unlinked-face
+    eca-chat-context-file-face
+    eca-chat-context-repo-map-face
+    eca-chat-context-mcp-resource-face
+    eca-chat-context-cursor-face
+    eca-chat-context-cursor-unsaved-face
+    eca-chat-context-buffer-face
+    eca-mcp-details-tool-face
+    eca-mcp-details-tool-disabled-face
+    eca-doom-workspace-tab-attention-face
+    eca-doom-workspace-tab-running-face
     eca-rewrite-in-progress-prefix-face
     eca-rewrite-ready-prefix-face
     eca-rewrite-model-face)
@@ -387,33 +405,19 @@ chat reads as prose and not as the code it is talking about.")
   '(;; Something a reader copies out of the buffer, and the identifiers and
     ;; the tables that only line up in a family of one width.
     eca-chat-file-path-face
-    eca-chat-mcp-tool-call-label-face
-    eca-chat-subagent-tool-call-label-face
     eca-chat--tool-call-table-key-face
     eca-chat--tool-call-argument-key-face
     eca-chat--tool-call-argument-value-face
-    eca-chat-tool-call-keybinding-face
-    eca-chat-option-key-face
     eca-chat-inline-key-face
     eca-chat-shell-command-face
     eca-chat-shell-command-remembered-face
     eca-chat-shell-command-not-remembered-face
-    eca-chat-shell-command-breakdown-prefix-face
     eca-chat-shell-command-always-asks-face
-    eca-chat-context-unlinked-face
-    eca-chat-context-file-face
-    eca-chat-context-repo-map-face
-    eca-chat-context-mcp-resource-face
-    eca-chat-context-cursor-face
-    eca-chat-context-cursor-unsaved-face
-    eca-chat-context-buffer-face
     eca-table-header-face
     eca-table-separator-face
     eca-table-pipe-face
     eca-table-row-even-face
     eca-table-action-key-face
-    eca-mcp-details-tool-face
-    eca-mcp-details-tool-disabled-face
     eca-mcp-details-command-value-face
     eca-rewrite-overlay-face
     eca-rewrite-overlay-hover-face

@@ -161,6 +161,7 @@ in every other topic.
 | ~n~ | ~j~ | the journal entry for today |
 | ~n~ | ~l~ | the buffer that lists the links |
 | ~n~ | ~m~ | a Markdown file, imported as an Org note |
+| ~n~ | ~M~ | a region of Markdown, converted to Org |
 | ~o~ | ~m~ | Gnus itself |
 | ~o~ | ~g~ | a group, read once |
 | ~r~ | ~b~ | the browser |
@@ -431,6 +432,7 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
+| ~C-c n M~ | ~heks-emacs-markdown-region-to-org~ | the region of Markdown, converted to Org | import.el |
 | ~C-c n c~ | ~org-roam-capture~ | capture a note | org.el |
 | ~C-c n f~ | ~org-roam-node-find~ | a node, found by title | org.el |
 | ~C-c n g~ | ~org-roam-graph~ | the graph of the notes | org.el |

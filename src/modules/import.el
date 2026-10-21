@@ -59,6 +59,12 @@
 ;;               `heks-emacs-import-into-roam' swaps which of the two the
 ;;               prefix asks for.
 ;;
+;;   `C-c n M'   the region, Markdown converted to Org in place; with a
+;;               prefix argument (or in a buffer that cannot be written
+;;               to) the Org goes on the kill ring instead.  It is a piece
+;;               rather than a note, so a heading keeps its level and no
+;;               title or property drawer is made of it.
+;;
 ;;   `M-x heks-emacs-import-markdown-file' imports a file named at the
 ;;   prompt, and `M-x heks-emacs-import-markdown-project' imports every
 ;;   Markdown file the current project has -- its own file list, so what a
@@ -790,6 +796,56 @@ further down is a drawer of text that `org-entry-get' will not find."
                         "\n\n"))
             "\n")))
 
+(defun heks-emacs-markdown-fragment-to-org (text)
+  "Return the Org that TEXT, a piece of a Markdown document, becomes.
+
+Unlike `heks-emacs-markdown-to-org' this is not a note: there is no front
+matter to read, no title to take out of a heading and no property drawer,
+and the headings keep the level they have -- a `## Install' is a `**
+Install' whatever else the piece holds, because a piece does not know
+what it is a part of and the buffer it is going back into does.  What it
+shares with the note is every rule about how a line is said in Org.
+
+The result has no newline at the end; the caller knows whether the text
+it replaces had one."
+  (string-trim-right (heks-emacs-import--blocks text)))
+
+(defun heks-emacs-markdown-region-to-org (beg end &optional copy)
+  "Convert the Markdown between BEG and END to Org, in place.
+
+The region is replaced by what it says in Org (see
+`heks-emacs-markdown-fragment-to-org').  With a prefix argument COPY, or
+in a buffer that cannot be written to -- a chat, a help buffer -- the Org
+is put on the kill ring instead and the buffer is left as it is, which is
+the way to take Markdown from somewhere one cannot edit into a note.
+
+A relative link is written as the file it names, resolved against the
+directory of the buffer's file (or `default-directory' when it has none),
+the way an imported document's is."
+  (interactive "r\nP")
+  (let* ((text (buffer-substring-no-properties beg end))
+         (heks-emacs-markdown-base-directory
+          (file-name-as-directory
+           (if buffer-file-name
+               (file-name-directory buffer-file-name)
+             default-directory)))
+         (org (concat (heks-emacs-markdown-fragment-to-org text)
+                      ;; A region that ended a line ends a line after it
+                      ;; is converted, so that what follows it does not
+                      ;; move up.
+                      (if (string-suffix-p "\n" text) "\n" ""))))
+    (cond
+     ((or copy buffer-read-only)
+      (kill-new org)
+      (message "Org copied to the kill ring"))
+     (t
+      (save-excursion
+        (goto-char beg)
+        (delete-region beg end)
+        (insert org))
+      (deactivate-mark)))
+    org))
+
 ;;;
 ;;; Writing it where it belongs
 ;;;
@@ -1012,7 +1068,8 @@ reported.  One question is asked before a batch, rather than one per file."
 
 (use-package emacs
   :ensure nil
-  :bind (("C-c n m" . heks-emacs-import-markdown)))
+  :bind (("C-c n m" . heks-emacs-import-markdown)
+         ("C-c n M" . heks-emacs-markdown-region-to-org)))
 
 (provide 'heks-emacs/import)
 

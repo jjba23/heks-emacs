@@ -217,7 +217,8 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
          ("l" . "the buffer that lists the links")
          ;; `m' is the Markdown a note is made from rather than a menu:
          ;; an import is not a mode to turn on and off.
-         ("m" . "a Markdown file, imported as an Org note"))
+         ("m" . "a Markdown file, imported as an Org note")
+         ("M" . "a region of Markdown, converted to Org"))
     ("o" ("m" . "Gnus itself")
          ("g" . "a group, read once"))
     ("r" ("b" . "the browser")
@@ -378,6 +379,7 @@ of its own and prints, for every key, what this scheme calls it.")
     ("C-c n i" . "a link to another node, inserted")
     ("C-c n j" . "the journal entry for today")
     ("C-c n l" . "the buffer that lists the links")
+    ("C-c n M" . "the region of Markdown, converted to Org")
     ("C-c n m" . "the Markdown file of this buffer, imported as an Org note")
     ("C-c n v" . "links, shown as their text")
     ("C-c o g" . "a group, read once")

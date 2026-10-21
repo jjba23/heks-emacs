@@ -1394,6 +1394,64 @@ as the one Org reads, so that what was done stays done."
   (let ((org (heks-emacs-markdown-to-org "text\n\nmore text\n")))
     (should (equal org "text\n\nmore text\n"))))
 
+(ert-deftest heks-emacs-import/a-fragment-keeps-its-headings-where-they-are ()
+  "A piece of a document is not a note: no title is made of it, no heading moves."
+  (should (equal (heks-emacs-markdown-fragment-to-org "# One\n\n## Two\n\ntext\n")
+                 "* One\n\n** Two\n\ntext")))
+
+(ert-deftest heks-emacs-import/a-fragment-says-things-the-way-a-note-does ()
+  "Emphasis, code, links, lists and fences are spelled as they are in a note."
+  (let ((org (heks-emacs-markdown-fragment-to-org
+              (concat "Some **bold** and `code` and [a](https://example.com/x).\n"
+                      "\n"
+                      "* one\n"
+                      "* two\n"
+                      "\n"
+                      "```elisp\n(+ 1 2)\n```\n"))))
+    (should (string-match-p "\\*bold\\*" org))
+    (should (string-match-p "~code~\\|=code=" org))
+    (should (string-match-p "\\[\\[https://example.com/x\\]\\[a\\]\\]" org))
+    (should (string-match-p "^- one\n- two$" org))
+    (should (string-match-p "#\\+begin_src elisp" org))
+    (should-not (string-match-p "^#\\+title" org))
+    (should-not (string-match-p ":PROPERTIES:" org))))
+
+(ert-deftest heks-emacs-import/the-region-is-replaced-by-what-it-says-in-org ()
+  "Only the region changes, and a region that ended a line still ends one."
+  (with-temp-buffer
+    (insert "before\n## Two\n\n* one\n* two\nafter\n")
+    (let ((beg (save-excursion (goto-char (point-min)) (forward-line 1) (point)))
+          (end (save-excursion (goto-char (point-max)) (forward-line -1) (point))))
+      (heks-emacs-markdown-region-to-org beg end)
+      (should (equal (buffer-string)
+                     "before\n** Two\n\n- one\n- two\nafter\n")))))
+
+(ert-deftest heks-emacs-import/a-region-without-a-final-newline-gets-none ()
+  "What the region did not end with it is not given."
+  (with-temp-buffer
+    (insert "see **this**")
+    (heks-emacs-markdown-region-to-org (point-min) (point-max))
+    (should (equal (buffer-string) "see *this*"))))
+
+(ert-deftest heks-emacs-import/a-prefix-argument-copies-and-leaves-the-buffer-alone ()
+  "With a prefix, the Org goes on the kill ring and the Markdown stays."
+  (with-temp-buffer
+    (insert "## Two\n")
+    (let ((kill-ring nil))
+      (heks-emacs-markdown-region-to-org (point-min) (point-max) t)
+      (should (equal (buffer-string) "## Two\n"))
+      (should (equal (car kill-ring) "** Two\n")))))
+
+(ert-deftest heks-emacs-import/a-buffer-that-cannot-be-written-to-is-copied-from ()
+  "A read-only buffer -- a chat, a help buffer -- is the place Markdown comes from."
+  (with-temp-buffer
+    (insert "## Two\n")
+    (setq buffer-read-only t)
+    (let ((kill-ring nil))
+      (heks-emacs-markdown-region-to-org (point-min) (point-max))
+      (should (equal (buffer-string) "## Two\n"))
+      (should (equal (car kill-ring) "** Two\n")))))
+
 (ert-deftest heks-emacs-import/an-identifier-is-a-uuid ()
   "A note is named the way `org-id' and `org-roam' name one."
   (let ((id (heks-emacs-import--id)))

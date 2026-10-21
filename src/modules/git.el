@@ -21,7 +21,19 @@
 
 ;;; Code:
 
-(use-package magit :ensure t :after (transient compat))
+(use-package magit
+  :ensure t
+  :after (transient compat)
+  :custom
+  ;; Show word-level changes in the selected hunk.
+  (magit-diff-refine-hunk t)
+  ;; Open the status buffer in the current window.
+  (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1)
+  ;; Don't ask before saving buffers in the repo.
+  (magit-save-repository-buffers 'dontask)
+  :config
+  ;; Sign off every commit by default; `-s' in the commit menu still toggles it.
+  (setf (alist-get 'magit-commit transient-values) '("--signoff")))
 
 (use-package git-riddance
   :ensure (:host codeberg :repo "jjba23/git-riddance.el" :branch "trunk"))
