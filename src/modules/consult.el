@@ -57,7 +57,11 @@
          ("M-s u" . consult-focus-lines)
          ("M-s e" . consult-isearch-history))
   :hook ((completion-list-mode . consult-preview-at-point-mode))
-  :init (setq register-preview-delay 0.5 register-preview-function #'consult-register-format xref-show-xrefs-function #'consult-xref xref-show-definitions-function #'consult-xref)
+  :init
+  ;; `consult-xref' lives in its own file; without a generated autoloads
+  ;; file for the build it would be void until something requires it.
+  (autoload 'consult-xref "consult-xref" nil nil)
+  (setq register-preview-delay 0.5 register-preview-function #'consult-register-format xref-show-xrefs-function #'consult-xref xref-show-definitions-function #'consult-xref)
   (advice-add #'register-preview
               :override #'consult-register-window)
   :config (consult-customize consult-theme
