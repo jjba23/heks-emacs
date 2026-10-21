@@ -681,7 +681,14 @@ Skips `<?xml ?>', `<!-- -->', `<!DOCTYPE>' and empty `<tag/>' elements."
                 hs-block-start-mdata-select 0
                 hs-block-end-regexp "</[^>]+>"
                 hs-c-start-regexp "<!--"
-                hs-forward-sexp-function (lambda (_arg) (nxml-forward-element))))
+                hs-forward-sexp-function
+                (lambda (_arg)
+                  (let ((end (condition-case nil
+                                 (nxml-scan-element-forward (point))
+                               (error nil))))
+                    (if end
+                        (goto-char end)
+                      (signal 'scan-error (list "No end tag" (point) (point)))))))))
   (defun heks-emacs-hs-yaml-setup ()
     "Fold YAML mappings and sequences by indentation with Hideshow."
     (setq-local hs-block-start-regexp "^[ \t]*[^ \t\n#][^\n]*:[ \t]*\\(?:#.*\\)?$"
@@ -701,7 +708,13 @@ buffers get Hideshow's.  Where outline buttons would duplicate Hideshow's
 indicators, the buttons are turned off.  Org and Markdown are left alone."
     (unless (minibufferp)
       (cond
-       ((bound-and-true-p treesit-fold-mode)
+       ((or (bound-and-true-p treesit-fold-mode)
+            ;; Tree-sitter buffers the :hook above did not reach (a mode
+            ;; switched on through a remap, say) get the mode here.
+            (and (string-suffix-p "-ts-mode" (symbol-name major-mode))
+                 (treesit-parser-list)
+                 (progn (treesit-fold-mode 1)
+                        (bound-and-true-p treesit-fold-mode))))
         (when (bound-and-true-p hs-minor-mode)
           (hs-minor-mode -1))
         (unless (bound-and-true-p treesit-fold-indicators-mode)
