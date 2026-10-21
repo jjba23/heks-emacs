@@ -87,6 +87,26 @@
   :ensure t
   :hook ((prog-mode . smartparens-mode))
   :config
+  ;; The stock YAML rules signal an error on a plain sequence item such as
+  ;; `- plain', which breaks folding for the whole buffer.  These fold any
+  ;; mapping pair or sequence item that spans several lines, from the end of
+  ;; its first line.
+  (defun heks-emacs-yaml-fold-range (node offset)
+    "Fold range of NODE from the end of its first line, if it spans lines."
+    (let ((beg (save-excursion
+                 (goto-char (treesit-node-start node))
+                 (line-end-position)))
+          (end (treesit-node-end node)))
+      (when (> end beg)
+        (treesit-fold--cons-add (cons beg end) offset))))
+  (with-eval-after-load 'treesit-fold
+    (let ((rules `((comment
+                    . (lambda (node offset)
+                        (treesit-fold-range-line-comment node offset "#")))
+                   (block_sequence_item . heks-emacs-yaml-fold-range)
+                   (block_mapping_pair . heks-emacs-yaml-fold-range))))
+      (dolist (mode '(yaml-ts-mode yaml-mode))
+        (setf (alist-get mode treesit-fold-range-alist) rules))))
   (require 'smartparens-config))
 
 ;; Integrates direnv with Emacs, allowing automatic loading and unloading
@@ -163,11 +183,16 @@
 (use-package diff-hl
   :ensure t
   :config
-  (global-diff-hl-mode)
+  ;; Enabling the mode runs `git diff' in every open buffer, including the
+  ;; init file being loaded right now, whose directory can be a symlink into
+  ;; another repository; a git failure there must not abort the setup.
+  (with-demoted-errors "diff-hl: %S"
+    (global-diff-hl-mode))
   (setopt diff-hl-margin-symbols-alist
           '((insert . "+") (delete . "-") (change . "~")
             (unknown . "?") (ignored . "i")))
-  (diff-hl-margin-mode)
+  (with-demoted-errors "diff-hl: %S"
+    (diff-hl-margin-mode))
   (ignore-errors
     (add-hook 'magit-post-refresh-hook 'diff-hl-magit-post-refresh)
     (add-hook 'dired-mode-hook
@@ -627,9 +652,10 @@ originally printed -- the right tool for apps that do not log JSON."
   ;; Fringe indicators for every foldable node in the Tree-sitter modes.
   (add-hook 'treesit-fold-mode-hook #'treesit-fold-indicators-mode)
   (set-face-attribute 'treesit-fold-replacement-face nil
-                      :foreground (face-attribute 'default :foreground)
+                      :inherit 'shadow
+                      :foreground 'unspecified
                       :box nil
-                      :weight 'bold))
+                      :weight 'normal))
 
 (use-package kirigami
   :ensure t
@@ -740,6 +766,7 @@ indicators, the buttons are turned off.  Org and Markdown are left alone."
     "Make the fold indicator faces of all engines quiet."
     (dolist (face '(hs-indicator-hide hs-indicator-show
                     treesit-fold-indicators-face
+                    treesit-fold-fringe-face
                     treesit-fold-indicators-fringe-face))
       (when (facep face)
         (set-face-attribute face nil :inherit 'shadow :weight 'normal
