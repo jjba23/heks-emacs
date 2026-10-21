@@ -68,6 +68,13 @@
 ;; basic support for YAML files.
 (use-package yaml-mode :ensure t :mode "\\.\\(e?ya?\\|ra\\)ml\\'")
 
+;; Hideshow cannot fold indentation-based YAML, Tree-sitter can: when the
+;; grammar is there `yaml-mode' buffers become `yaml-ts-mode' ones, which
+;; `treesit-fold' (below) folds, with fringe indicators.
+(when (and (fboundp 'treesit-language-available-p)
+           (treesit-language-available-p 'yaml))
+  (add-to-list 'major-mode-remap-alist '(yaml-mode . yaml-ts-mode)))
+
 ;; Enables smart handling of parentheses and other delimiters in programming modes,
 ;; assisting with balanced expressions.
 (use-package smartparens
@@ -640,31 +647,58 @@ originally printed -- the right tool for apps that do not log JSON."
   ;; `C-c v' keys fold it either way.
   (setq hs-show-indicators t
         hs-indicator-type 'fringe
-        ;; Outline headings (Markdown, Text, Diff and the like) get a
-        ;; clickable fold button before them; it only draws, so it never
-        ;; modifies the buffer.  Org has its own folding and is left alone.
-        outline-minor-mode-use-buttons t)
+        ;; Outline buttons are switched on per buffer below, only where
+        ;; Hideshow does not already draw an indicator.
+        outline-minor-mode-use-buttons nil)
   (with-eval-after-load 'hideshow
-    ;; nxml has no entry of its own; an element is folded from its start tag
-    ;; to the matching end tag.
-    (unless (assq 'nxml-mode hs-special-modes-alist)
-      (add-to-list 'hs-special-modes-alist
-                   '(nxml-mode "<[^/>]*[^/]>" "</[^/>]*[^/]>" "<!--"
-                               nxml-forward-element nil))))
+    ;; An XML element is folded from its start tag to its end tag.  The
+    ;; start regexp skips `<?xml ?>', `<!-- -->', `<!DOCTYPE>' and empty
+    ;; `<tag/>' elements, and `sgml-skip-tag-forward' finds the end tag.
+    (setq hs-special-modes-alist
+          (cons '(nxml-mode "<[A-Za-z_][^>]*[^/>]>\\|<[A-Za-z_]>"
+                            "</[^>]+>" "<!--"
+                            sgml-skip-tag-forward nil)
+                (assq-delete-all 'nxml-mode hs-special-modes-alist))))
   (defun heks-emacs-fold-indicators-setup ()
-    "Give the buffer fold indicators, from Tree-sitter or from Hideshow.
+    "Give the buffer exactly one set of fold indicators.
 
 Runs after every mode hook (see `after-change-major-mode-hook'), by which
-time `treesit-fold-mode' is either on or will not be.  Buffers of other
-kinds, and ones kirigami would fold with Outline (Org, Markdown), are left
-alone."
-    (when (and (not (minibufferp))
-               (not (bound-and-true-p treesit-fold-mode))
-               (not (bound-and-true-p hs-minor-mode))
-               (derived-mode-p 'prog-mode 'conf-mode 'nxml-mode 'yaml-mode
-                               'json-mode 'toml-mode))
-      (hs-minor-mode 1)))
+time `treesit-fold-mode' is either on or will not be.  Tree-sitter buffers
+get only its indicators; the other programming, configuration and XML
+buffers get Hideshow's.  Where outline buttons would duplicate Hideshow's
+indicators, the buttons are turned off.  Org and Markdown are left alone."
+    (unless (minibufferp)
+      (cond
+       ((bound-and-true-p treesit-fold-mode)
+        (when (bound-and-true-p hs-minor-mode)
+          (hs-minor-mode -1))
+        (unless (bound-and-true-p treesit-fold-indicators-mode)
+          (treesit-fold-indicators-mode 1)))
+       ((derived-mode-p 'prog-mode 'conf-mode 'nxml-mode 'toml-mode)
+        (unless (bound-and-true-p hs-minor-mode)
+          (hs-minor-mode 1)))
+       ((and (bound-and-true-p outline-minor-mode)
+             (not (derived-mode-p 'org-mode)))
+        ;; Outline-only buffers (Markdown, Diff) get clickable buttons.
+        (outline-minor-mode -1)
+        (setq-local outline-minor-mode-use-buttons t)
+        (outline-minor-mode 1)))))
   (add-hook 'after-change-major-mode-hook #'heks-emacs-fold-indicators-setup)
+  ;; Subtle indicators: the `shadow' colour, no bold, for every engine.
+  (defun heks-emacs-fold-indicator-faces ()
+    "Make the fold indicator faces of all engines quiet."
+    (dolist (face '(hs-indicator-hide hs-indicator-show
+                    treesit-fold-indicators-face
+                    treesit-fold-indicators-fringe-face))
+      (when (facep face)
+        (set-face-attribute face nil :inherit 'shadow :weight 'normal
+                            :foreground 'unspecified :background 'unspecified
+                            :box nil))))
+  (with-eval-after-load 'hideshow (heks-emacs-fold-indicator-faces))
+  (with-eval-after-load 'treesit-fold-indicators
+    (heks-emacs-fold-indicator-faces))
+  (add-hook 'enable-theme-functions
+            (lambda (&rest _) (heks-emacs-fold-indicator-faces)))
   :config
   ;; kirigami answers with the first engine in its list whose mode is on,
   ;; and `outline-minor-mode' is on in almost every buffer here.  In the
