@@ -176,7 +176,7 @@ length of PATH (sans directory slashes) down to MAX-LEN."
 ;; There is nothing to write here for that, only something to say to it,
 ;; and one thing to keep out of its way: the library whose other backends
 ;; this configuration uses registers a shellcheck of its own and switches
-;; Emacs's off, so `dev.el' turns that one off instead and Emacs's runs.
+;; Emacs's off, so `dev-flymake.el' turns that one off instead and Emacs's runs.
 
 (with-eval-after-load 'sh-script
   ;; The sources a script names are followed too (`-x'): without it every
@@ -323,7 +323,7 @@ been still for a moment, and when it is saved."
 ;; Nothing here has to be done about the language server, which is what the
 ;; mode above would otherwise have to say something about: Eglot replaces
 ;; `flymake-diagnostic-functions' with its own backend alone while it manages
-;; a buffer, and `heks-emacs-flymake-keep-backends' (see `dev.el') puts back
+;; a buffer, and `heks-emacs-flymake-keep-backends' (see `dev-flymake.el') puts back
 ;; what the buffer had -- whatever language it is -- so these two checkers
 ;; outlive the server without this module knowing a server exists.
 (provide 'heks-emacs/shell)

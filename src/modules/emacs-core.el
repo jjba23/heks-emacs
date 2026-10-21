@@ -923,7 +923,7 @@ in the window."
          ("C-c t c" . display-fill-column-indicator-mode)
          ("C-c t r" . rainbow-mode)
          ;; These two used to live under `C-c u', back when `u' meant
-         ;; "utilities"; `dev.el' now binds the whole of `C-c u' straight
+         ;; "utilities"; `dev-kubernetes.el' now binds the whole of `C-c u' straight
          ;; to `kubed-prefix-map', so `u' means kubed and these moved here
          ;; instead, as the generic action letters they already were:
          ;; `i' inserts, same as everywhere else.

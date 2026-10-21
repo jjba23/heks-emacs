@@ -237,7 +237,7 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c C-c~ | ~json-log-view-clear-filter~ | the filter on this buffer's log lines, cleared | dev.el (a mode's own map) |
+| ~C-c C-c~ | ~json-log-view-clear-filter~ | the filter on this buffer's log lines, cleared | dev-kubernetes.el (a mode's own map) |
 
 ** ~C-c C-d~ diagrams: Mermaid
 
@@ -254,19 +254,19 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c C-f~ | ~json-log-view-filter~ | the log lines in this buffer, filtered by a JSON field | dev.el (a mode's own map) |
+| ~C-c C-f~ | ~json-log-view-filter~ | the log lines in this buffer, filtered by a JSON field | dev-kubernetes.el (a mode's own map) |
 
 ** ~C-c C-g~ JSON log view: filtering by raw text, kept off `C-c g' (Guile and Guix)
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c C-g~ | ~json-log-view-grep-filter~ | the log lines in this buffer, filtered by a regexp on their raw text | dev.el (a mode's own map) |
+| ~C-c C-g~ | ~json-log-view-grep-filter~ | the log lines in this buffer, filtered by a regexp on their raw text | dev-kubernetes.el (a mode's own map) |
 
 ** ~C-c C-t~ JSON log view: the menu of its own commands
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c C-t~ | ~json-log-view-transient~ | the log view commands in this buffer, from a menu | dev.el (a mode's own map) |
+| ~C-c C-t~ | ~json-log-view-transient~ | the log view commands in this buffer, from a menu | dev-kubernetes.el (a mode's own map) |
 
 ** ~C-c SPC~ dashboard
 
@@ -278,7 +278,7 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c U~ | ~kubed-transient~ | kubed's commands, from a menu | dev.el |
+| ~C-c U~ | ~kubed-transient~ | kubed's commands, from a menu | dev-kubernetes.el |
 
 ** ~C-c a~ API and HTTP: OpenAPI specs and requests
 
@@ -294,19 +294,19 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c b b~ | ~dape-breakpoint-toggle~ | a breakpoint at point, toggled | dev.el |
-| ~C-c b c~ | ~dape-continue~ | the program, continued to the next breakpoint | dev.el |
-| ~C-c b i~ | ~dape-step-in~ | into the call at point, stepped | dev.el |
-| ~C-c b k~ | ~dape-kill~ | the debug session, killed | dev.el |
-| ~C-c b n~ | ~dape-next~ | the next line, stepped over | dev.el |
-| ~C-c b o~ | ~dape-step-out~ | out of the current function, stepped | dev.el |
-| ~C-c b r~ | ~dape-repl~ | a REPL into the debuggee | dev.el |
+| ~C-c b b~ | ~dape-breakpoint-toggle~ | a breakpoint at point, toggled | dev-formats.el |
+| ~C-c b c~ | ~dape-continue~ | the program, continued to the next breakpoint | dev-formats.el |
+| ~C-c b i~ | ~dape-step-in~ | into the call at point, stepped | dev-formats.el |
+| ~C-c b k~ | ~dape-kill~ | the debug session, killed | dev-formats.el |
+| ~C-c b n~ | ~dape-next~ | the next line, stepped over | dev-formats.el |
+| ~C-c b o~ | ~dape-step-out~ | out of the current function, stepped | dev-formats.el |
+| ~C-c b r~ | ~dape-repl~ | a REPL into the debuggee | dev-formats.el |
 
 ** ~C-c c~ containers: Docker
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c c d~ | ~docker~ | the Docker transient | dev.el |
+| ~C-c c d~ | ~docker~ | the Docker transient | dev-tools.el |
 
 ** ~C-c d~ databases: PostgreSQL and MongoDB
 
@@ -319,8 +319,8 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c e a~ | ~direnv-allow~ | allow this `.envrc' | dev.el |
-| ~C-c e d~ | ~direnv-mode~ | direnv, in every buffer | dev.el |
+| ~C-c e a~ | ~direnv-allow~ | allow this `.envrc' | dev-tools.el |
+| ~C-c e d~ | ~direnv-mode~ | direnv, in every buffer | dev-tools.el |
 
 ** ~C-c f~ fonts and text size
 
@@ -398,10 +398,11 @@ in every other topic.
 | ~C-c j M~ | ~heks-emacs-maven-menu~ | a Maven goal, chosen by what it does | emacs-core.el |
 | ~C-c j N~ | ~eglot-java-project-new~ | a Java project, created | eglot.el (a mode's own map) |
 | ~C-c j R~ | ~heks-emacs-jvm-refresh-project~ | the project, re-read by its tooling | emacs-core.el |
+| ~C-c j T~ | ~heks-emacs-maven-dependency-tree~ | the dependency tree of this Maven project | emacs-core.el |
 | ~C-c j b~ | ~eglot-java-project-build-task~ | a build task of this project | eglot.el (a mode's own map) |
 | ~C-c j b~ | ~heks-emacs-jvm-build~ | a build task of this project | emacs-core.el |
 | ~C-c j c~ | ~heks-emacs-jvm-clean~ | the build output, deleted | emacs-core.el |
-| ~C-c j d~ | ~heks-emacs-jvm-debug~ | debugged, suspended until `dape' attaches | dev.el |
+| ~C-c j d~ | ~heks-emacs-jvm-debug~ | debugged, suspended until `dape' attaches | dev-formats.el |
 | ~C-c j g~ | ~heks-emacs-gradle-run~ | a Gradle task of this project | emacs-core.el |
 | ~C-c j m~ | ~heks-emacs-maven-run~ | a Maven goal of this project | emacs-core.el |
 | ~C-c j n~ | ~eglot-java-file-new~ | a Java file, created | eglot.el (a mode's own map) |
@@ -426,7 +427,7 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c m r~ | ~maak-run-task~ | a maak task of this project | dev.el |
+| ~C-c m r~ | ~maak-run-task~ | a maak task of this project | dev-project.el |
 
 ** ~C-c n~ notes: Org and roam
 
@@ -497,7 +498,7 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c u~ | ~kubed-prefix-map~ | kubed's own commands, by mnemonic letter | dev.el |
+| ~C-c u~ | ~kubed-prefix-map~ | kubed's own commands, by mnemonic letter | dev-kubernetes.el |
 
 ** ~C-c v~ view: folding and comparisons
 
@@ -515,18 +516,18 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c w D~ | ~heks-emacs-terraform-destroy~ | the infrastructure, destroyed | dev.el |
-| ~C-c w a~ | ~heks-emacs-terraform-apply~ | the plan, applied | dev.el |
+| ~C-c w D~ | ~heks-emacs-terraform-destroy~ | the infrastructure, destroyed | dev-project.el |
+| ~C-c w a~ | ~heks-emacs-terraform-apply~ | the plan, applied | dev-project.el |
 | ~C-c w c~ | ~magit-clone~ | a repository, cloned | emacs-core.el |
 | ~C-c w d~ | ~heks-emacs-project-start-dev~ | the development server | emacs-core.el |
 | ~C-c w f~ | ~heks-emacs-project-fmt~ | the project, formatted | emacs-core.el |
 | ~C-c w g~ | ~deadgrep~ | a search of the project | search.el |
-| ~C-c w i~ | ~heks-emacs-terraform-init~ | the providers and state, initialised | dev.el |
-| ~C-c w p~ | ~heks-emacs-terraform-plan~ | the change, previewed | dev.el |
+| ~C-c w i~ | ~heks-emacs-terraform-init~ | the providers and state, initialised | dev-project.el |
+| ~C-c w p~ | ~heks-emacs-terraform-plan~ | the change, previewed | dev-project.el |
 | ~C-c w r~ | ~heks-emacs-project-start-repl-process~ | a REPL process for this project | emacs-core.el |
 | ~C-c w s~ | ~heks-emacs-print-random-standup-order~ | a random order for the standup | emacs-core.el |
 | ~C-c w t~ | ~heks-emacs-project-start-test~ | the project's tests | emacs-core.el |
-| ~C-c w v~ | ~heks-emacs-terraform-validate~ | the Terraform configuration, validated | dev.el |
+| ~C-c w v~ | ~heks-emacs-terraform-validate~ | the Terraform configuration, validated | dev-project.el |
 
 ** ~C-c x~ eca: the AI coding assistant
 

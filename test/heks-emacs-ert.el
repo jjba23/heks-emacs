@@ -67,7 +67,7 @@
   (load (expand-file-name (format "modules/%s.el" name) heks-ert--source) nil t))
 
 (dolist (module '("markdown" "render" "import" "present" "heks-emacs" "emacs-core"
-                 "dev" "openapi" "shell" "guile" "ui" "ai"))
+                 "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "openapi" "shell" "guile" "ui" "ai"))
   (heks-ert--module module))
 
 ;; `htmlize' is what Org colours the code in a note with, and the
@@ -718,7 +718,7 @@ what is checked, rather than a note on every `source' line."
 ;; ====== A language server and the checkers of a buffer ======
 ;;
 ;; Eglot replaces `flymake-diagnostic-functions' with a list of its own
-;; backend alone while it manages a buffer; one function of `dev.el' puts
+;; backend alone while it manages a buffer; one function of `dev-flymake.el' puts
 ;; back what the buffer had.  The swap below is made with the macro Eglot's
 ;; own mode is written with, so what is read is Eglot's behaviour rather
 ;; than a list this file made up: if Eglot stops keeping the old value where
@@ -850,7 +850,7 @@ should still answer."
 What the REPL says is the answer when it has one; where it has none -- or
 where what it says is a module rather than a definition in a file -- the
 files are asked, and where the files have nothing the search the rest of
-the configuration gives a buffer is asked last (see `dev.el').  Each of
+the configuration gives a buffer is asked last (see `dev-flymake.el').  Each of
 the four is stubbed, so what is checked is the order they are asked in
 rather than what they answer with."
   (let ((asked '()))

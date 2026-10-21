@@ -988,7 +988,7 @@ definitions of one name are, with the file being read first."
 this is one of those.  It is put at the front of the hook, so that what
 answers `M-.' in a Scheme buffer is this backend and not whichever one was
 added to the hook last -- `dumb-jump' is the one the rest of the
-configuration adds (see `dev.el') -- and the other backends are not thrown
+configuration adds (see `dev-flymake.el') -- and the other backends are not thrown
 away: the methods below ask `dumb-jump' themselves when the REPL and the
 files have nothing to say."
   (when (derived-mode-p 'scheme-mode 'geiser-repl-mode) 'heks-emacs-scheme))

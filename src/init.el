@@ -128,7 +128,13 @@
                            completion
                            consult
                            dashboard
-                           dev
+                           dev-langs
+                           dev-tools
+                           dev-flymake
+                           dev-formats
+                           dev-kubernetes
+                           dev-folding
+                           dev-project
                            dd
                            dired
                            editor

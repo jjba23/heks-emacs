@@ -769,7 +769,7 @@ the first of the two either way."
 ;; nothing: Eglot makes its own backend the only Flymake one for as long as
 ;; it manages a buffer -- it saves `flymake-diagnostic-functions' and
 ;; replaces it -- so what the buffer already had is put back by one function,
-;; for every language, in `dev.el'.  The swap below is the one Eglot makes,
+;; for every language, in `dev-flymake.el'.  The swap below is the one Eglot makes,
 ;; made with the macro its own mode is written with, so what is being read is
 ;; Eglot's behaviour and not a list this file made up.
 (heks-verify--section "a language server does not take the checkers away")

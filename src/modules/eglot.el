@@ -399,7 +399,7 @@ there."
   ;; replaces `flymake-diagnostic-functions' with a list of its own backend
   ;; alone while it manages a buffer, and what the buffer had is put back for
   ;; every language at once by `heks-emacs-flymake-keep-backends' (see
-  ;; `dev.el') -- Python's flake8 among them, registered by `python-base-mode'
+  ;; `dev-flymake.el') -- Python's flake8 among them, registered by `python-base-mode'
   ;; itself, and the command it runs set in that module with it.  A server is
   ;; then language intelligence and never the reason a buffer stops being
   ;; checked.

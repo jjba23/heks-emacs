@@ -44,9 +44,11 @@
         corfu-preselect-first nil
         corfu-popupinfo-delay '(0.8 . 0.8))
   :config
+  (require 'corfu-history nil t)
+  (require 'corfu-popupinfo nil t)
   (global-corfu-mode)
-  (corfu-history-mode)
-  (corfu-popupinfo-mode 1))
+  (when (fboundp 'corfu-history-mode) (corfu-history-mode))
+  (when (fboundp 'corfu-popupinfo-mode) (corfu-popupinfo-mode 1)))
 
 (use-package orderless
   :ensure t
