@@ -85,6 +85,13 @@
     map)
   "The keymap of a fold indicator: a click toggles the heading.")
 
+;; A click in the fringe is looked up in the buffer's keymaps, not in the
+;; `keymap' property of the string that draws the marker, so the binding
+;; has to be in Org's own map as well.
+(with-eval-after-load 'org
+  (define-key org-mode-map [left-fringe mouse-1]
+              #'heks-emacs-org-fold-indicator-click))
+
 (defvar-local heks-emacs-org-fold-indicator-timer nil
   "The idle timer that will redraw this buffer's fold indicators.")
 
@@ -119,12 +126,14 @@
                                (org-end-of-subtree t t)
                                (> (point) (1+ eol)))))
               (when (or folded has-body)
-                (let ((overlay (make-overlay bol bol nil t))
+                ;; Not empty, and not `evaporate': an empty overlay with
+                ;; that property is deleted the moment it is made, which
+                ;; left the buffer with no indicators at all.
+                (let ((overlay (make-overlay bol (1+ bol) nil t))
                       (bitmap (if folded
                                   'heks-emacs-fold-closed
                                 'heks-emacs-fold-open)))
                   (overlay-put overlay 'heks-emacs-fold-indicator t)
-                  (overlay-put overlay 'evaporate t)
                   (overlay-put
                    overlay 'before-string
                    (propertize " " 'display `(left-fringe ,bitmap shadow)

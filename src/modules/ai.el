@@ -283,6 +283,23 @@ next chat starts on the one chosen here."
   :config
   (heks-emacs-ai-use-provider))
 
+(defun heks-emacs-ai-eca-start ()
+  "Start the ECA server for the current workspace, without showing a chat.
+A failure (offline, no release to fetch) is reported and never raised,
+because a configuration that cannot start ECA is still a configuration."
+  (unless noninteractive
+    (condition-case err
+        (save-window-excursion
+          (save-current-buffer
+            (require 'eca)
+            (eca)))
+      (error (message "ECA not started: %s" (error-message-string err))))))
+
+;; Idle, so that starting the server does not delay the first frame.
+(unless noninteractive
+  (add-hook 'emacs-startup-hook
+            (lambda () (run-with-idle-timer 1 nil #'heks-emacs-ai-eca-start))))
+
 (provide 'heks-emacs/ai)
 
 ;;; ai.el ends here
