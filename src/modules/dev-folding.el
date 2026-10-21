@@ -85,6 +85,70 @@
                       :box nil
                       :weight 'normal))
 
+;;
+;; ====== How quiet the fold indicators are ======
+;;
+;; Every engine draws its markers in a face that inherits `shadow', which
+;; most themes make as bright as a comment.  That is too bright for what
+;; Tree-sitter folding draws: a block's guide is not one marker on the line
+;; the block starts on but a marker on every line of it, so the grey of
+;; `shadow' becomes a rule running down the fringe beside the code.  The
+;; colour is the theme's own `shadow' moved part of the way toward the
+;; theme's background, so no theme needs an entry here and a light one is
+;; faded the other way.
+
+(defcustom heks-emacs-fold-indicator-fade 55
+  "How far the fold indicators are faded toward the background, in percent.
+0 leaves them as bright as `shadow', which is what they inherited before
+this existed, and 100 makes them the colour of the background.  What is
+worth the setting is the guide of a Tree-sitter block, drawn on every one
+of its lines: at 55 the markers are still findable and the guides are a
+hint rather than a rule drawn through the code."
+  :type 'integer
+  :group 'heks-emacs)
+
+(defun heks-emacs-fold-indicator-color ()
+  "Return the colour the fold indicators are drawn in, or nil for `shadow'.
+
+It is the theme's `shadow' foreground blended
+`heks-emacs-fold-indicator-fade' of the way toward the theme's background,
+which is the one colour in the theme that is meant to be quiet.  A theme
+that names no `shadow', and the frameless Emacs of a daemon before its
+first frame, leave nil: the markers are then `shadow', as they were."
+  (when (and (> heks-emacs-fold-indicator-fade 0)
+             (fboundp 'heks-emacs--blend-colors))
+    (let ((shadow (ignore-errors (face-attribute 'shadow :foreground nil t)))
+          (background (ignore-errors (face-attribute 'default :background nil t))))
+      (when (and (stringp shadow) (stringp background)
+                 (not (string-prefix-p "unspecified" shadow))
+                 (not (string-prefix-p "unspecified" background)))
+        (heks-emacs--blend-colors shadow background
+                                  (/ (float heks-emacs-fold-indicator-fade)
+                                     100))))))
+
+;; Subtle indicators: the faded `shadow' colour, no bold, for every engine.
+(defun heks-emacs-fold-indicator-faces ()
+  "Make the fold indicator faces of all engines quiet.
+
+A face of a library that is not loaded yet is skipped, so this may run
+before `treesit-fold' does; `heks-emacs-set-base-faces' calls it again on
+every theme and scale change, and `with-eval-after-load' below once the
+libraries are there."
+  (let ((color (heks-emacs-fold-indicator-color)))
+    (dolist (face '(hs-indicator-hide hs-indicator-show
+                    treesit-fold-indicators-face
+                    treesit-fold-fringe-face
+                    treesit-fold-indicators-fringe-face))
+      (when (facep face)
+        (set-face-attribute face nil :inherit 'shadow :weight 'normal
+                            :foreground (or color 'unspecified)
+                            :background 'unspecified
+                            :box nil)))))
+
+(with-eval-after-load 'hideshow (heks-emacs-fold-indicator-faces))
+(with-eval-after-load 'treesit-fold-indicators
+  (heks-emacs-fold-indicator-faces))
+
 (use-package kirigami
   :ensure t
   ;; No keys either: `C-c v c/o/r/t' dispatch to whichever folding engine
@@ -189,22 +253,6 @@ indicators, the buttons are turned off.  Org and Markdown are left alone."
         (setq-local outline-minor-mode-use-buttons t)
         (outline-minor-mode 1)))))
   (add-hook 'after-change-major-mode-hook #'heks-emacs-fold-indicators-setup)
-  ;; Subtle indicators: the `shadow' colour, no bold, for every engine.
-  (defun heks-emacs-fold-indicator-faces ()
-    "Make the fold indicator faces of all engines quiet."
-    (dolist (face '(hs-indicator-hide hs-indicator-show
-                    treesit-fold-indicators-face
-                    treesit-fold-fringe-face
-                    treesit-fold-indicators-fringe-face))
-      (when (facep face)
-        (set-face-attribute face nil :inherit 'shadow :weight 'normal
-                            :foreground 'unspecified :background 'unspecified
-                            :box nil))))
-  (with-eval-after-load 'hideshow (heks-emacs-fold-indicator-faces))
-  (with-eval-after-load 'treesit-fold-indicators
-    (heks-emacs-fold-indicator-faces))
-  (add-hook 'enable-theme-functions
-            (lambda (&rest _) (heks-emacs-fold-indicator-faces)))
   :config
   ;; kirigami answers with the first engine in its list whose mode is on,
   ;; and `outline-minor-mode' is on in almost every buffer here.  In the

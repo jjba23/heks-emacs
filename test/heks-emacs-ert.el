@@ -2054,6 +2054,213 @@ exports."
     (should (equal eca-chat-custom-model "deepseek/some-deepseek-model"))))
 
 ;;
+;; ====== Preparing ECA before it is asked for ======
+;;
+
+(ert-deftest heks-emacs-ai/a-prepared-chat-is-made-without-a-window ()
+  "The chat is still created; what it is not given is a window."
+  (let ((displayed nil)
+        (opened nil))
+    (cl-letf (((symbol-function 'eca-chat--display-buffer)
+               (lambda (buffer) (push buffer displayed))))
+      (let ((heks-emacs-ai--eca-quiet t))
+        (heks-emacs-ai--eca-open-without-window
+         (lambda (session)
+           (setq opened session)
+           (eca-chat--display-buffer (current-buffer)))
+         'the-session))
+      (should (eq opened 'the-session))
+      (should-not displayed))))
+
+(ert-deftest heks-emacs-ai/the-chat-the-reader-asks-for-shows-itself ()
+  "The preparation spends the quietness, so the next chat opens normally."
+  (let ((displayed nil))
+    (cl-letf (((symbol-function 'eca-chat--display-buffer)
+               (lambda (buffer) (push buffer displayed))))
+      (let ((heks-emacs-ai--eca-quiet t))
+        (heks-emacs-ai--eca-open-without-window (lambda (_session) nil) 'the-session))
+      (heks-emacs-ai--eca-open-without-window
+       (lambda (_session) (eca-chat--display-buffer (current-buffer)))
+       'the-session)
+      (should displayed))))
+
+(ert-deftest heks-emacs-ai/a-chat-that-is-asked-for-is-not-quiet ()
+  "The quietness is for the start, and asking is what ends it."
+  (let ((heks-emacs-ai--eca-quiet t)
+        (heks-emacs-ai--eca-quiet-timer nil))
+    (heks-emacs-ai--eca-quiet-off)
+    (should-not heks-emacs-ai--eca-quiet)))
+
+(ert-deftest heks-emacs-ai/giving-up-cancels-the-timer ()
+  "A timer that would clear the flag twice is one timer too many."
+  (let ((timer (run-with-timer 60 nil #'ignore))
+        (heks-emacs-ai--eca-quiet t))
+    (let ((heks-emacs-ai--eca-quiet-timer timer))
+      (heks-emacs-ai--eca-quiet-off)
+      (should-not (memq timer timer-list))
+      (should-not heks-emacs-ai--eca-quiet-timer))))
+
+(ert-deftest heks-emacs-ai/nothing-is-said-while-preparing ()
+  "A start nobody asked for is not a message in the echo area."
+  (let ((said nil)
+        (heks-emacs-ai--eca-quiet t))
+    (heks-emacs-ai--eca-say-nothing (lambda (&rest args) (setq said args)) "ECA")
+    (should-not said))
+  (let ((said nil))
+    (heks-emacs-ai--eca-say-nothing (lambda (&rest args) (setq said args)) "ECA")
+    (should (equal said '("ECA")))))
+
+(ert-deftest heks-emacs-ai/there-is-nothing-to-prepare-outside-a-project ()
+  "A session rooted where there is no project would claim every project under it."
+  (let ((starts 0)
+        (heks-emacs-ai-eca-prepare t)
+        (heks-emacs-ai--eca-prepared nil))
+    (cl-letf (((symbol-function 'heks-emacs-ai--project-root)
+               (lambda (&optional _directory) nil))
+              ((symbol-function 'heks-emacs-ai--eca-start-for-project)
+               (lambda (_root) (cl-incf starts))))
+      (heks-emacs-ai-eca-prepare))
+    (should (= starts 0))
+    ;; Nothing was prepared, so the file that does name a project can be.
+    (should-not heks-emacs-ai--eca-prepared)))
+
+(ert-deftest heks-emacs-ai/eca-is-prepared-once ()
+  "One server is prepared at startup, not one per buffer that follows."
+  (let ((roots nil)
+        (heks-emacs-ai-eca-prepare t)
+        (heks-emacs-ai--eca-prepared nil))
+    (cl-letf (((symbol-function 'heks-emacs-ai--project-root)
+               (lambda (&optional _directory) "/tmp/heks-project/"))
+              ((symbol-function 'heks-emacs-ai--eca-start-for-project)
+               (lambda (root) (push root roots))))
+      (heks-emacs-ai-eca-prepare)
+      (heks-emacs-ai-eca-prepare))
+    (should (equal roots '("/tmp/heks-project/")))
+    (should heks-emacs-ai--eca-prepared)))
+
+(ert-deftest heks-emacs-ai/a-start-that-is-not-asked-for-is-not-started ()
+  "The setting is what decides, not a hook that was left in place."
+  (let ((starts 0)
+        (heks-emacs-ai-eca-prepare nil)
+        (heks-emacs-ai--eca-prepared nil))
+    (cl-letf (((symbol-function 'heks-emacs-ai--project-root)
+               (lambda (&optional _directory) "/tmp/heks-project/"))
+              ((symbol-function 'heks-emacs-ai--eca-start-for-project)
+               (lambda (_root) (cl-incf starts))))
+      (heks-emacs-ai-eca-prepare))
+    (should (= starts 0))))
+
+(ert-deftest heks-emacs-ai/a-start-that-fails-is-reported-and-is-not-quiet ()
+  "A failure is said once, and the chat the reader asks for is theirs."
+  (let ((messages nil)
+        (real-require (symbol-function 'require))
+        (heks-emacs-ai--eca-quiet nil))
+    (cl-letf (((symbol-function 'require)
+               (lambda (feature &optional filename noerror)
+                 (if (eq feature 'eca) t
+                   (funcall real-require feature filename noerror))))
+              ((symbol-function 'eca-session-for-root) (lambda (_root) nil))
+              ((symbol-function 'eca) (lambda (&optional _arg) (error "no network")))
+              ((symbol-function 'run-with-timer) (lambda (&rest _) nil))
+              ((symbol-function 'message)
+               (lambda (format &rest args) (push (apply #'format format args) messages))))
+      (heks-emacs-ai--eca-start-for-project "/tmp/heks-project/"))
+    (should-not heks-emacs-ai--eca-quiet)
+    (should (seq-some (lambda (one) (string-match-p "no network" one)) messages))))
+
+(ert-deftest heks-emacs-ai/a-session-that-is-already-there-is-not-started-again ()
+  "Preparing what is prepared would open a second server."
+  (let ((started 0)
+        (real-require (symbol-function 'require))
+        (heks-emacs-ai--eca-quiet nil))
+    (cl-letf (((symbol-function 'require)
+               (lambda (feature &optional filename noerror)
+                 (if (eq feature 'eca) t
+                   (funcall real-require feature filename noerror))))
+              ((symbol-function 'eca-session-for-root) (lambda (_root) 'a-session))
+              ((symbol-function 'eca) (lambda (&optional _arg) (cl-incf started)))
+              ((symbol-function 'run-with-timer) (lambda (&rest _) nil)))
+      (heks-emacs-ai--eca-start-for-project "/tmp/heks-project/"))
+    (should (= started 0))))
+
+(ert-deftest heks-emacs-ai/the-watch-for-a-project-removes-itself ()
+  "Watching for a project stops once there is one to prepare.
+The project is handed to the timer: by the time the timer runs, the
+buffer that said which project it is is not the current one any more."
+  (let ((timers nil)
+        (heks-emacs-ai-eca-prepare t)
+        (heks-emacs-ai-eca-prepare-delay 1))
+    (cl-letf (((symbol-function 'heks-emacs-ai--project-root)
+               (lambda (&optional _directory) "/tmp/heks-project/"))
+              ((symbol-function 'run-with-idle-timer)
+               (lambda (seconds _repeat function &rest args)
+                 (push (cons seconds (cons function args)) timers))))
+      (add-hook 'find-file-hook #'heks-emacs-ai--eca-prepare-when-visiting)
+      (heks-emacs-ai--eca-prepare-when-visiting))
+    (should-not (memq 'heks-emacs-ai--eca-prepare-when-visiting find-file-hook))
+    (should (equal timers '((1 heks-emacs-ai-eca-prepare "/tmp/heks-project/"))))))
+
+(ert-deftest heks-emacs-ai/the-daemon-waits-for-the-first-project-file ()
+  "There is no project at startup, so the first one visited is the one prepared."
+  (let ((heks-emacs-ai-eca-prepare t))
+    (cl-letf (((symbol-function 'heks-emacs-ai--project-root)
+               (lambda (&optional _directory) nil)))
+      (unwind-protect
+          (progn
+            (heks-emacs-ai--eca-prepare-soon)
+            (should (memq 'heks-emacs-ai--eca-prepare-when-visiting find-file-hook)))
+        (remove-hook 'find-file-hook #'heks-emacs-ai--eca-prepare-when-visiting)))))
+
+(ert-deftest heks-emacs-ai/starting-inside-a-project-needs-no-file-visited ()
+  "`emacs .' knows its project before anything is opened."
+  (let ((timers nil)
+        (heks-emacs-ai-eca-prepare t))
+    (cl-letf (((symbol-function 'heks-emacs-ai--project-root)
+               (lambda (&optional _directory) "/tmp/heks-project/"))
+              ((symbol-function 'run-with-idle-timer)
+               (lambda (seconds _repeat function &rest args)
+                 (push (cons seconds (cons function args)) timers))))
+      (heks-emacs-ai--eca-prepare-soon))
+    (should (equal timers '((1 heks-emacs-ai-eca-prepare "/tmp/heks-project/"))))
+    (should-not (memq 'heks-emacs-ai--eca-prepare-when-visiting find-file-hook))))
+
+;;
+;; ====== The fold indicators are quiet ======
+;;
+
+(ert-deftest heks-emacs-dev-folding/an-indicator-is-faded-toward-the-background ()
+  "The marker colour is `shadow' moved part of the way to the background."
+  (cl-letf (((symbol-function 'face-attribute)
+             (lambda (face attribute &optional _frame _inherit)
+               (pcase (cons face attribute)
+                 ('(shadow . :foreground) "#989898")
+                 ('(default . :background) "#000000")
+                 (_ (error "The colour of %S %S was asked for" face attribute))))))
+    (let ((heks-emacs-fold-indicator-fade 50))
+      (should (equal (heks-emacs-fold-indicator-color) "#4c4c4c4c4c4c")))))
+
+(ert-deftest heks-emacs-dev-folding/no-fade-leaves-the-markers-alone ()
+  (let ((heks-emacs-fold-indicator-fade 0))
+    (should-not (heks-emacs-fold-indicator-color))))
+
+(ert-deftest heks-emacs-dev-folding/every-engine-gets-the-quiet-colour ()
+  "Hideshow and Tree-sitter draw the same element and get the same face."
+  (let ((given nil))
+    (cl-letf (((symbol-function 'heks-emacs-fold-indicator-color)
+               (lambda () "#4c4c4c4c4c4c"))
+              ((symbol-function 'facep) (lambda (_face) t))
+              ((symbol-function 'set-face-attribute)
+               (lambda (face _frame &rest attributes)
+                 (push (cons face attributes) given))))
+      (heks-emacs-fold-indicator-faces))
+    (should (= (length given) 5))
+    (should (cl-every (lambda (one)
+                        (equal (plist-get (cdr one) :foreground) "#4c4c4c4c4c4c"))
+                      given))
+    (should (cl-every (lambda (one) (eq (plist-get (cdr one) :inherit) 'shadow))
+                      given))))
+
+;;
 ;; Run.
 ;;
 

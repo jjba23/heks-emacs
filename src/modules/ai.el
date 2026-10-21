@@ -32,8 +32,17 @@
 ;; `C-c x p' moves the session to the other account without a restart,
 ;; and `heks-emacs-ai-provider' or `HEKS_AI_PROVIDER' names one outright
 ;; on a machine whose environment cannot say so.
+;;
+;; ECA's server is started in the background, once, for the project the
+;; reader is in -- quietly, without a window and without a message -- so
+;; that the first chat opens at once rather than seconds after the key.
+;; What is prepared is a project and not a directory: see "Preparing ECA
+;; before it is asked for" below for why the daemon cannot prepare
+;; anything at startup, and what `heks-emacs-ai-eca-prepare' turns off.
 
 ;;; Code:
+
+(require 'cl-lib)
 
 ;;;
 ;;; Customization
@@ -283,22 +292,185 @@ next chat starts on the one chosen here."
   :config
   (heks-emacs-ai-use-provider))
 
-(defun heks-emacs-ai-eca-start ()
-  "Start the ECA server for the current workspace, without showing a chat.
-A failure (offline, no release to fetch) is reported and never raised,
-because a configuration that cannot start ECA is still a configuration."
-  (unless noninteractive
-    (condition-case err
-        (save-window-excursion
-          (save-current-buffer
-            (require 'eca)
-            (eca)))
-      (error (message "ECA not started: %s" (error-message-string err))))))
+;;;
+;;; Preparing ECA before it is asked for
+;;;
+;; A chat that has to start the server first is one that opens seconds
+;; after the key was pressed, so the server is started in the background,
+;; once, for the project the reader is in.  What it may not be is a start
+;; that shows something: `eca' always ends by opening a chat window, and
+;; not at the moment it returns -- the window is opened from the callback
+;; that answers the server's `initialize' request, which is why wrapping
+;; the call in `save-window-excursion' (as this file used to) closed
+;; nothing at all.
+;;
+;; So the preparation says what it is, for as long as it lasts: a flag the
+;; two advices below read.  The chat buffer is still made -- `C-c x t'
+;; with no chat to toggle would show whatever buffer happened to be
+;; current -- but it is given no window, and the progress ECA reports is
+;; not printed, because a start nobody asked for should not talk.  The
+;; first chat that is opened spends the flag, and a timer clears it in
+;; case the server never answers, so a chat the reader does ask for can
+;; never be the quiet one.
+;;
+;; There is no project to prepare at startup either: Emacs here is a
+;; daemon the compositor starts, in a directory that is nobody's project,
+;; and a session rooted there would claim every project under it -- which
+;; is what the previous version did, since `eca-session' answers with the
+;; session whose workspace folder is an ancestor, and one rooted at $HOME
+;; is an ancestor of all of them.  The preparation therefore waits for the
+;; first file of a project to be visited, and that file is the earliest
+;; moment Emacs knows which project the reader is in.  An Emacs started
+;; with `emacs .' knows already, and is prepared at its first idle moment.
 
-;; Idle, so that starting the server does not delay the first frame.
+(defcustom heks-emacs-ai-eca-prepare t
+  "Whether to start ECA's server in the background, before a chat is asked for.
+The server is prepared once per Emacs, for the project of the first file
+visited in one, without a window and without a message.  The chats opened
+later are the ones that show themselves, and they open at once because
+the server is already there."
+  :type 'boolean
+  :group 'heks-emacs)
+
+(defcustom heks-emacs-ai-eca-prepare-delay 1
+  "How many seconds of idleness to wait before preparing ECA.
+Long enough that starting a server does not hold up the first frame or
+the first file, short enough that the first chat asked for is one the
+server is already up for."
+  :type 'number
+  :group 'heks-emacs)
+
+(defconst heks-emacs-ai--eca-quiet-patience 120
+  "How long a background start may keep the next chat quiet, in seconds.
+The flag exists for the one chat `eca' opens once its server answers.
+A server that never answers -- no network, a binary that will not run --
+would otherwise leave it set, and the next chat the reader asked for
+would be the one that opened without a window.")
+
+(defvar heks-emacs-ai--eca-prepared nil
+  "Non-nil once ECA has been prepared, or asked to be, in this Emacs.")
+
+(defvar heks-emacs-ai--eca-quiet nil
+  "Non-nil while the background ECA start is still preparing.
+`heks-emacs-ai--eca-say-nothing' and
+`heks-emacs-ai--eca-open-without-window' read it; the first chat that is
+opened clears it.")
+
+(defvar heks-emacs-ai--eca-quiet-timer nil
+  "The timer that gives up waiting for the prepared session, if any.")
+
+(defun heks-emacs-ai--eca-quiet-off ()
+  "Stop keeping ECA's next chat quiet."
+  (setq heks-emacs-ai--eca-quiet nil)
+  (when (timerp heks-emacs-ai--eca-quiet-timer)
+    (cancel-timer heks-emacs-ai--eca-quiet-timer))
+  (setq heks-emacs-ai--eca-quiet-timer nil))
+
+(defun heks-emacs-ai--eca-say-nothing (orig &rest args)
+  "Say nothing instead of what ORIG would say with ARGS, while preparing."
+  (unless heks-emacs-ai--eca-quiet
+    (apply orig args)))
+
+(defun heks-emacs-ai--eca-open-without-window (orig session)
+  "Open SESSION's chat with ORIG, but without a window while preparing it.
+
+The chat buffer is still created and registered, which is what makes the
+first `C-c x t' a chat rather than the current buffer shown in a side
+window; what is skipped is `eca-chat--display-buffer', the one call that
+decides where the chat goes.  This is the open the quiet flag was kept
+for, so the flag is spent here: every later one is the reader's."
+  (if (not heks-emacs-ai--eca-quiet)
+      (funcall orig session)
+    (heks-emacs-ai--eca-quiet-off)
+    (cl-letf (((symbol-function 'eca-chat--display-buffer) #'ignore))
+      (funcall orig session))))
+
+(with-eval-after-load 'eca
+  (advice-add 'eca-info :around #'heks-emacs-ai--eca-say-nothing)
+  (advice-add 'eca-chat-open :around #'heks-emacs-ai--eca-open-without-window)
+  ;; A chat that is asked for is the reader's, even when it lands in the
+  ;; middle of the start nobody asked for: the same `eca-chat-open' opens
+  ;; both, so the asking is what has to end the quietness.
+  (advice-add 'eca-chat-new :before #'heks-emacs-ai--eca-quiet-off))
+
+(defun heks-emacs-ai--project-root (&optional directory)
+  "Return the root of the project DIRECTORY is in, or nil when it is in none.
+
+DIRECTORY defaults to `default-directory'.  A directory on another
+machine is nobody's project here, and a project without a root -- a
+project backend that answers something else -- is nil as well."
+  (let ((default-directory (file-name-as-directory
+                            (expand-file-name (or directory default-directory)))))
+    (when (and (file-directory-p default-directory)
+               (not (file-remote-p default-directory))
+               (fboundp 'project-current))
+      (ignore-errors
+        (when-let* ((project (project-current nil default-directory))
+                    (root (if (fboundp 'project-root)
+                              (project-root project)
+                            (car (with-no-warnings (project-roots project))))))
+          (file-name-as-directory (expand-file-name root)))))))
+
+(defun heks-emacs-ai--eca-start-for-project (root)
+  "Start ECA's server for the project at ROOT, without showing a chat.
+
+A failure -- no network, no release to fetch, an ECA that is not
+installed at all -- is reported once and never raised, because an Emacs
+that cannot reach ECA is still an Emacs."
+  (setq heks-emacs-ai--eca-quiet t
+        heks-emacs-ai--eca-quiet-timer
+        (run-with-timer heks-emacs-ai--eca-quiet-patience nil
+                        #'heks-emacs-ai--eca-quiet-off))
+  (condition-case err
+      (let ((default-directory root))
+        (require 'eca)
+        ;; A session that is already there is one that is already prepared.
+        (unless (and (fboundp 'eca-session-for-root)
+                     (eca-session-for-root root))
+          (eca)))
+    (error (heks-emacs-ai--eca-quiet-off)
+           (message "ECA was not prepared: %s" (error-message-string err)))))
+
+(defun heks-emacs-ai-eca-prepare (&optional root)
+  "Prepare ECA for ROOT -- the project at point by default -- once, quietly.
+Nothing is prepared outside a project, and nothing is prepared twice:
+the second project of a session starts its own server when a chat is
+asked for, as it always did.  ROOT is asked for by the callers below
+rather than found here, because this runs from an idle timer, where the
+current buffer is whichever one happens to be current and not the one
+that said which project to prepare."
+  (when heks-emacs-ai-eca-prepare
+    (let ((root (or root (heks-emacs-ai--project-root))))
+      (when (and root (not heks-emacs-ai--eca-prepared))
+        (setq heks-emacs-ai--eca-prepared t)
+        (heks-emacs-ai--eca-start-for-project root)))))
+
+(defun heks-emacs-ai--eca-prepare-when-visiting ()
+  "Prepare ECA for the project of the file just visited, and watch no more."
+  (if (not heks-emacs-ai-eca-prepare)
+      (remove-hook 'find-file-hook #'heks-emacs-ai--eca-prepare-when-visiting)
+    (when-let* ((root (heks-emacs-ai--project-root)))
+      (remove-hook 'find-file-hook #'heks-emacs-ai--eca-prepare-when-visiting)
+      (run-with-idle-timer heks-emacs-ai-eca-prepare-delay nil
+                           #'heks-emacs-ai-eca-prepare root))))
+
+(defun heks-emacs-ai--eca-prepare-soon ()
+  "Arrange to prepare ECA for the project this Emacs is in, in the background.
+
+Emacs started inside a project -- `emacs .' -- has one already, and is
+prepared at the first idle moment.  The daemon the compositor starts has
+none: its `default-directory' is nobody's project, and a session rooted
+there would take every project under it for its workspace.  It watches
+for the first file of a project instead, and prepares that one."
+  (when heks-emacs-ai-eca-prepare
+    (if-let* ((root (heks-emacs-ai--project-root)))
+        (run-with-idle-timer heks-emacs-ai-eca-prepare-delay nil
+                             #'heks-emacs-ai-eca-prepare root)
+      (add-hook 'find-file-hook #'heks-emacs-ai--eca-prepare-when-visiting))))
+
+;; Idle, so that starting a server does not delay the first frame.
 (unless noninteractive
-  (add-hook 'emacs-startup-hook
-            (lambda () (run-with-idle-timer 1 nil #'heks-emacs-ai-eca-start))))
+  (add-hook 'emacs-startup-hook #'heks-emacs-ai--eca-prepare-soon))
 
 (provide 'heks-emacs/ai)
 

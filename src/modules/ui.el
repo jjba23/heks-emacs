@@ -478,6 +478,10 @@ prose, Org, Markdown and ECA keep their proportions at any scale."
 
   (heks-emacs-set-org-faces)
 
+  ;; The fold indicators are the theme's own grey blended toward its
+  ;; background, so a new theme has to blend it again.
+  (heks-emacs-fold-indicator-faces)
+
   (heks-emacs-set-markdown-faces)
 
   (heks-emacs-set-eca-faces)
