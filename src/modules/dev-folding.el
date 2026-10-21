@@ -97,13 +97,16 @@
 ;; theme's background, so no theme needs an entry here and a light one is
 ;; faded the other way.
 
-(defcustom heks-emacs-fold-indicator-fade 55
+(defcustom heks-emacs-fold-indicator-fade 50
   "How far the fold indicators are faded toward the background, in percent.
 0 leaves them as bright as `shadow', which is what they inherited before
 this existed, and 100 makes them the colour of the background.  What is
 worth the setting is the guide of a Tree-sitter block, drawn on every one
-of its lines: at 55 the markers are still findable and the guides are a
-hint rather than a rule drawn through the code."
+of its lines: at 50 the markers are still findable and the guides are a
+hint rather than a rule drawn through the code.  It was 55 until the
+guide stopped being a dotted line (see below): a guide drawn solid reads
+lighter than one drawn in dashes, so it is given back five points of the
+colour that drawing it properly took away."
   :type 'integer
   :group 'heks-emacs)
 
@@ -126,6 +129,14 @@ first frame, leave nil: the markers are then `shadow', as they were."
                                   (/ (float heks-emacs-fold-indicator-fade)
                                      100))))))
 
+(defun heks-emacs-fold-indicator-redraw ()
+  "Draw the Tree-sitter fold indicators again, with this theme's bitmaps."
+  (when (fboundp 'treesit-fold-indicators--render-buffer)
+    (dolist (buffer (buffer-list))
+      (with-current-buffer buffer
+        (when (bound-and-true-p treesit-fold-indicators-mode)
+          (ignore-errors (treesit-fold-indicators--render-buffer)))))))
+
 ;; Subtle indicators: the faded `shadow' colour, no bold, for every engine.
 (defun heks-emacs-fold-indicator-faces ()
   "Make the fold indicator faces of all engines quiet.
@@ -143,10 +154,156 @@ libraries are there."
         (set-face-attribute face nil :inherit 'shadow :weight 'normal
                             :foreground (or color 'unspecified)
                             :background 'unspecified
-                            :box nil)))))
+                            :box nil))))
+  ;; The markers are cut to the height of a line, and a new text scale
+  ;; makes a new one: they are drawn again as well as recoloured.
+  (heks-emacs-fold-indicator-redraw))
+
+;;
+;; ====== Where the guides are unbroken ======
+;;
+;; `treesit-fold-indicators' draws a block's guide with a bitmap 23 rows
+;; tall, centred in the line it is drawn beside.  A line of this
+;; configuration is 29 pixels -- the font's 23 and the six of
+;; `line-spacing' -- so every row of a guide was a 23 pixel dash with
+;; three pixels of nothing above it and three below, and a block read as a
+;; dotted line rather than as a bracket.  The bitmaps below are what the
+;; package is given instead, through the string it builds for each line of
+;; a block: the guide is a single row, which `define-fringe-bitmap'
+;; repeats for as long as the line it is drawn beside, so no spacing can
+;; put a gap in it, and the marker and the end of a block are cut to the
+;; height of a line, so the guide runs into them rather than stopping
+;; short of them.
+;;
+;; Drawing them in the left margin instead is what would put them in text,
+;; and the `pointer' property of text is what turns the mouse into a hand
+;; over a link.  It buys none: Emacs answers every position in a margin
+;; with the nontext cursor before it looks at the string there -- see
+;; `note_mouse_highlight' in `xdisp.c' -- so a hand over a fold indicator
+;; is a change to Emacs itself and not to this file.  The indicators stay
+;; in the fringe, and what was wrong with them there is what this fixes.
+
+(defconst heks-emacs-fold-indicator-line-row #b00011000
+  "One row of a block's guide: two pixels, in the columns it always had.")
+
+(defconst heks-emacs-fold-indicator-box-open
+  [#b1111111 #b1000001 #b1000001 #b1011101 #b1000001 #b1000001 #b1111111]
+  "The marker of a block that is open: a box with a minus in it.")
+
+(defconst heks-emacs-fold-indicator-box-closed
+  [#b1111111 #b1000001 #b1001001 #b1011101 #b1001001 #b1000001 #b1111111]
+  "The marker of a block that is folded away: a box with a plus in it.")
+
+(defconst heks-emacs-fold-indicator-elbow #b00011111
+  "The guide of a block turning right, toward the text it brackets.")
+
+(define-fringe-bitmap 'heks-emacs-fold-indicator-guide
+  (vector heks-emacs-fold-indicator-line-row) nil nil '(top t))
+
+(defun heks-emacs-fold-indicator-line-spacing ()
+  "Return the pixels `line-spacing' adds below a line of this buffer."
+  (let ((spacing (if (boundp 'line-spacing) line-spacing 0))
+        (height (window-font-height)))
+    (cond ((integerp spacing) spacing)
+          ((floatp spacing) (round (* spacing height)))
+          ((and (consp spacing)
+                (integerp (car spacing))
+                (integerp (cdr spacing)))
+           (+ (car spacing) (cdr spacing)))
+          (t 0))))
+
+(defun heks-emacs-fold-indicator-line-height (&optional window)
+  "Return the height in pixels of a line of WINDOW, its spacing included."
+  (+ (window-font-height window) (heks-emacs-fold-indicator-line-spacing)))
+
+(defun heks-emacs-fold-indicator-fringe-rows (kind height)
+  "Return the HEIGHT rows of the fringe bitmap that draws KIND.
+KIND is `open' for the line a block starts on while it is open,
+`closed' for that line while it is folded away, or `end' for the line
+it ends on.  The box of a marker is centred, and the guide of an open
+block runs from the box to the bottom of the bitmap, where the guide of
+the line below picks it up."
+  (let ((rows (make-vector height 0)))
+    (if (eq kind 'end)
+        (let ((middle (/ height 2)))
+          (dotimes (index height)
+            (aset rows index (cond ((< index middle)
+                                    heks-emacs-fold-indicator-line-row)
+                                   ((< index (+ middle 2))
+                                    heks-emacs-fold-indicator-elbow)
+                                   (t 0)))))
+      (let* ((box (if (eq kind 'closed)
+                      heks-emacs-fold-indicator-box-closed
+                    heks-emacs-fold-indicator-box-open))
+             (box-height (length box))
+             (box-top (max 0 (/ (- height box-height) 2))))
+        (dotimes (index box-height)
+          (when (< (+ box-top index) height)
+            (aset rows (+ box-top index) (aref box index))))
+        (when (eq kind 'open)
+          (let ((index (min height (+ box-top box-height))))
+            (while (< index height)
+              (aset rows index heks-emacs-fold-indicator-line-row)
+              (setq index (1+ index)))))))
+    rows))
+
+(defun heks-emacs-fold-indicator-fringe-bitmap (kind &optional window)
+  "Return the fringe bitmap that draws KIND beside a line of WINDOW.
+`guide' is the repeating bitmap above; `open', `closed' and `end' are cut
+to the height of a line and defined once per height, since a marker that
+stops short of the line below it is the dotting this is here to undo."
+  (if (eq kind 'guide)
+      'heks-emacs-fold-indicator-guide
+    (let* ((height (max 9 (heks-emacs-fold-indicator-line-height window)))
+           (name (intern (format "heks-emacs-fold-indicator-%s-%d"
+                                 kind height))))
+      (unless (get name 'fringe)
+        (define-fringe-bitmap name
+          (heks-emacs-fold-indicator-fringe-rows kind height)
+          nil nil 'top))
+      name)))
+
+(defun heks-emacs-fold-indicator-fringe ()
+  "Return the fringe the fold indicators are drawn in."
+  (if (bound-and-true-p treesit-fold-indicators-fringe)
+      treesit-fold-indicators-fringe
+    'left-fringe))
+
+(defun heks-emacs-fold-indicator-tree-sitter (folded overlay bitmap)
+  "Return the string that draws one line of a Tree-sitter fold.
+Replaces `treesit-fold-indicators--get-string', whose answer is what the
+package puts in front of the line: FOLDED is the state of the block,
+OVERLAY the indicator, and BITMAP the drawing the package chose, which
+says whether the line is the one the block starts on, one of its middle
+lines or the one it ends on."
+  (let ((kind (pcase bitmap
+                ('treesit-fold-indicators-fr-plus 'closed)
+                ('treesit-fold-indicators-fr-minus-tail 'open)
+                ('treesit-fold-indicators-fr-center 'guide)
+                ('treesit-fold-indicators-fr-end-left 'end)
+                ('treesit-fold-indicators-fr-end-right 'end))))
+    ;; A folded block shows the line it starts on and nothing else, which
+    ;; is what the package's own bitmaps did.
+    (when (and kind (or (not folded) (eq kind 'closed)))
+      (let ((window (or (overlay-get overlay 'window) (selected-window)))
+            (face (or (and (functionp
+                            (bound-and-true-p
+                             treesit-fold-indicators-face-function))
+                           (funcall treesit-fold-indicators-face-function
+                                    (overlay-start overlay)))
+                      'treesit-fold-fringe-face)))
+        (propertize "." 'display
+                    (list (heks-emacs-fold-indicator-fringe)
+                          (heks-emacs-fold-indicator-fringe-bitmap kind window)
+                          face))))))
 
 (with-eval-after-load 'hideshow (heks-emacs-fold-indicator-faces))
 (with-eval-after-load 'treesit-fold-indicators
+  ;; The guide of a block is drawn by this function, one line at a time:
+  ;; it is what decides which bitmap goes in front of which line, so the
+  ;; guide is one row repeated instead of the package's 23 row dashes.
+  (advice-add 'treesit-fold-indicators--get-string
+              :override #'heks-emacs-fold-indicator-tree-sitter)
   (heks-emacs-fold-indicator-faces))
 
 (use-package kirigami

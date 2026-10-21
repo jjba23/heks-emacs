@@ -2261,6 +2261,101 @@ buffer that said which project it is is not the current one any more."
                       given))))
 
 ;;
+;; ====== The guides of a fold are unbroken ======
+;;
+
+(ert-deftest heks-emacs-dev-folding/the-guide-is-given-back-five-points ()
+  "The indicators are five points less faded now that the guide is solid."
+  (should (= heks-emacs-fold-indicator-fade 50)))
+
+(ert-deftest heks-emacs-dev-folding/a-line-is-as-tall-as-its-font-and-spacing ()
+  "A line here is the font's 23 pixels and the six `line-spacing' adds."
+  (with-temp-buffer
+    (setq-local line-spacing 6)
+    (cl-letf (((symbol-function 'window-font-height)
+               (lambda (&optional _window) 23)))
+      (should (= (heks-emacs-fold-indicator-line-height) 29)))))
+
+(ert-deftest heks-emacs-dev-folding/the-marker-of-an-open-block-ends-in-its-guide ()
+  "The guide of an open block runs from its marker to the line below it."
+  (let ((rows (heks-emacs-fold-indicator-fringe-rows 'open 29)))
+    (should (= (length rows) 29))
+    ;; Nothing above the box: this is the line the block starts on.
+    (should (equal (seq-take rows 11) (make-vector 11 0)))
+    ;; The box is centred in the line...
+    (should (equal (append (seq-subseq rows 11 18) nil)
+                   (append heks-emacs-fold-indicator-box-open nil)))
+    ;; ...and the guide runs from it to the last row, where the guide of
+    ;; the next line picks it up.
+    (should (equal (seq-drop rows 18)
+                   (make-vector 11 heks-emacs-fold-indicator-line-row)))))
+
+(ert-deftest heks-emacs-dev-folding/a-folded-block-shows-only-its-marker ()
+  "A folded block has no guide to draw, so its line is just the marker."
+  (let ((rows (heks-emacs-fold-indicator-fringe-rows 'closed 29)))
+    (should (equal (append (seq-subseq rows 11 18) nil)
+                   (append heks-emacs-fold-indicator-box-closed nil)))
+    (should (equal (seq-subseq rows 0 11) (make-vector 11 0)))
+    (should (equal (seq-subseq rows 18 29) (make-vector 11 0)))))
+
+(ert-deftest heks-emacs-dev-folding/the-guide-of-a-block-ends-where-the-block-does ()
+  "The last line of a block turns the guide toward the text and stops."
+  (let ((rows (heks-emacs-fold-indicator-fringe-rows 'end 29)))
+    (should (= (aref rows 0) heks-emacs-fold-indicator-line-row))
+    (should (= (aref rows 13) heks-emacs-fold-indicator-line-row))
+    (should (= (aref rows 14) heks-emacs-fold-indicator-elbow))
+    (should (= (aref rows 15) heks-emacs-fold-indicator-elbow))
+    (should (seq-every-p #'zerop (seq-drop rows 16)))))
+
+(ert-deftest heks-emacs-dev-folding/a-marker-is-cut-to-the-height-of-a-line ()
+  "A marker is a bitmap of the height of a line, made once per height."
+  (with-temp-buffer
+    (setq-local line-spacing 6)
+    (cl-letf (((symbol-function 'window-font-height)
+               (lambda (&optional _window) 23)))
+      (should (eq (heks-emacs-fold-indicator-fringe-bitmap 'open)
+                  'heks-emacs-fold-indicator-open-29))
+      (should (eq (heks-emacs-fold-indicator-fringe-bitmap 'open)
+                  'heks-emacs-fold-indicator-open-29)))))
+
+(ert-deftest heks-emacs-dev-folding/the-guide-is-one-row-repeated ()
+  "A guide is a single row, which `define-fringe-bitmap' repeats, so no
+line height can leave a gap in it."
+  (should (eq (heks-emacs-fold-indicator-fringe-bitmap 'guide)
+              'heks-emacs-fold-indicator-guide))
+  (should (integerp (get 'heks-emacs-fold-indicator-guide 'fringe))))
+
+(ert-deftest heks-emacs-dev-folding/every-line-of-a-block-is-drawn-by-its-own-bitmap ()
+  "The head of a block, its middle and its end are drawn differently."
+  (with-temp-buffer
+    (insert "x")
+    (let ((overlay (make-overlay 1 2))
+          (drawn nil))
+      (cl-letf (((symbol-function 'heks-emacs-fold-indicator-fringe-bitmap)
+                 (lambda (kind &optional _window) (push kind drawn) kind))
+                ((symbol-function 'heks-emacs-fold-indicator-fringe)
+                 (lambda () 'left-fringe)))
+        (dolist (case '((treesit-fold-indicators-fr-plus . closed)
+                        (treesit-fold-indicators-fr-minus-tail . open)
+                        (treesit-fold-indicators-fr-center . guide)
+                        (treesit-fold-indicators-fr-end-left . end)))
+          (let* ((string (heks-emacs-fold-indicator-tree-sitter
+                          nil overlay (car case)))
+                 (display (get-text-property 0 'display string)))
+            (should (eq (car drawn) (cdr case)))
+            (should (equal (nth 0 display) 'left-fringe))
+            (should (eq (nth 1 display) (cdr case)))
+            (should (eq (nth 2 display) 'treesit-fold-fringe-face))))
+        ;; A folded block shows the line it starts on and nothing else.
+        (should-not (heks-emacs-fold-indicator-tree-sitter
+                     t overlay 'treesit-fold-indicators-fr-center))
+        (should (heks-emacs-fold-indicator-tree-sitter
+                 t overlay 'treesit-fold-indicators-fr-plus))
+        ;; A drawing that is not the package's own is left alone.
+        (should-not (heks-emacs-fold-indicator-tree-sitter
+                     nil overlay 'some-other-drawing))))))
+
+;;
 ;; Run.
 ;;
 
