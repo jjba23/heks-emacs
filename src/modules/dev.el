@@ -651,14 +651,40 @@ originally printed -- the right tool for apps that do not log JSON."
         ;; Hideshow does not already draw an indicator.
         outline-minor-mode-use-buttons nil)
   (with-eval-after-load 'hideshow
-    ;; An XML element is folded from its start tag to its end tag.  The
-    ;; start regexp skips `<?xml ?>', `<!-- -->', `<!DOCTYPE>' and empty
-    ;; `<tag/>' elements, and `sgml-skip-tag-forward' finds the end tag.
-    (setq hs-special-modes-alist
-          (cons '(nxml-mode "<[A-Za-z_][^>]*[^/>]>\\|<[A-Za-z_]>"
-                            "</[^>]+>" "<!--"
-                            sgml-skip-tag-forward nil)
-                (assq-delete-all 'nxml-mode hs-special-modes-alist))))
+    ;; XML and YAML are set up per buffer by `heks-emacs-hs-xml-setup' and
+    ;; `heks-emacs-hs-yaml-setup' (hooks below).
+    nil)
+  (defun heks-emacs-hs-indent-forward (_arg)
+    "Move to the end of the indented block that starts on this line.
+For Hideshow in indentation-structured buffers such as YAML."
+    (let ((indent (current-indentation)))
+      (end-of-line)
+      (let ((end (point)))
+        (forward-line 1)
+        (while (and (not (eobp))
+                    (or (looking-at-p "[ \t]*\\(?:#.*\\)?$")
+                        (> (current-indentation) indent)))
+          (unless (looking-at-p "[ \t]*$")
+            (setq end (line-end-position)))
+          (forward-line 1))
+        (goto-char end))))
+  (defun heks-emacs-hs-xml-setup ()
+    "Fold XML elements, from start tag to end tag, with Hideshow.
+Skips `<?xml ?>', `<!-- -->', `<!DOCTYPE>' and empty `<tag/>' elements."
+    (setq-local hs-block-start-regexp "<[A-Za-z_][^>]*[^/>]>\\|<[A-Za-z_]>"
+                hs-block-start-mdata-select 0
+                hs-block-end-regexp "</[^>]+>"
+                hs-c-start-regexp "<!--"
+                hs-forward-sexp-function (lambda (_arg) (nxml-forward-element))))
+  (defun heks-emacs-hs-yaml-setup ()
+    "Fold YAML mappings and sequences by indentation with Hideshow."
+    (setq-local hs-block-start-regexp "^[ \t]*[^ \t\n#][^\n]*:[ \t]*\\(?:#.*\\)?$"
+                hs-block-start-mdata-select 0
+                hs-block-end-regexp nil
+                hs-c-start-regexp "#"
+                hs-forward-sexp-function #'heks-emacs-hs-indent-forward))
+  (add-hook 'nxml-mode-hook #'heks-emacs-hs-xml-setup)
+  (add-hook 'yaml-mode-hook #'heks-emacs-hs-yaml-setup)
   (defun heks-emacs-fold-indicators-setup ()
     "Give the buffer exactly one set of fold indicators.
 
@@ -674,7 +700,13 @@ indicators, the buttons are turned off.  Org and Markdown are left alone."
           (hs-minor-mode -1))
         (unless (bound-and-true-p treesit-fold-indicators-mode)
           (treesit-fold-indicators-mode 1)))
-       ((derived-mode-p 'prog-mode 'conf-mode 'nxml-mode 'toml-mode)
+       ((derived-mode-p 'prog-mode 'conf-mode 'nxml-mode 'toml-mode
+                        'yaml-mode)
+        (when (bound-and-true-p outline-minor-mode)
+          ;; Outline buttons next to Hideshow's indicators would double up.
+          (outline-minor-mode -1)
+          (setq-local outline-minor-mode-use-buttons nil)
+          (outline-minor-mode 1))
         (unless (bound-and-true-p hs-minor-mode)
           (hs-minor-mode 1)))
        ((and (bound-and-true-p outline-minor-mode)

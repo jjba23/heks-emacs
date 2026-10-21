@@ -961,35 +961,83 @@ interface.  Buffers with none of those say so rather than pretending."
     (user-error "%s: the kirigami package is not installed" what))
   (call-interactively command))
 
+;; Org folds with its own text properties, which kirigami's outline
+;; handlers do not reliably undo, so Org buffers are folded by Org's own
+;; (outline-compatible) commands and everything else goes through kirigami.
+
+(defun heks-emacs-fold--org-p ()
+  "Non-nil when the current buffer is an Org buffer."
+  (derived-mode-p 'org-mode))
+
+(defun heks-emacs-fold--org-heading ()
+  "Move to the heading that owns point, or signal when there is none."
+  (unless (ignore-errors (org-back-to-heading t))
+    (user-error "No heading to fold here")))
+
+(defun heks-emacs-fold--org-folded-p ()
+  "Non-nil when the entry under the heading at point is folded."
+  (save-excursion
+    (heks-emacs-fold--org-heading)
+    (org-fold-folded-p (line-end-position))))
+
+(defun heks-emacs-fold--org-open ()
+  "Unfold the heading at point and show its children."
+  (save-excursion
+    (heks-emacs-fold--org-heading)
+    (outline-show-entry)
+    (outline-show-children)))
+
+(defun heks-emacs-fold--org-close ()
+  "Fold the subtree of the heading at point."
+  (heks-emacs-fold--org-heading)
+  (outline-hide-subtree))
+
 (defun heks-emacs-fold-toggle ()
   "Fold or unfold the block at point, whatever folds the buffer."
   (interactive)
-  (heks-emacs-fold--call "Toggling a fold" #'kirigami-toggle-fold))
+  (if (heks-emacs-fold--org-p)
+      (if (heks-emacs-fold--org-folded-p)
+          (heks-emacs-fold--org-open)
+        (heks-emacs-fold--org-close))
+    (heks-emacs-fold--call "Toggling a fold" #'kirigami-toggle-fold)))
 
 (defun heks-emacs-fold-open ()
   "Unfold the block at point, whatever folds the buffer."
   (interactive)
-  (heks-emacs-fold--call "Opening a fold" #'kirigami-open-fold))
+  (if (heks-emacs-fold--org-p)
+      (heks-emacs-fold--org-open)
+    (heks-emacs-fold--call "Opening a fold" #'kirigami-open-fold)))
 
 (defun heks-emacs-fold-open-recursive ()
   "Unfold the block at point and everything inside it."
   (interactive)
-  (heks-emacs-fold--call "Opening a fold recursively" #'kirigami-open-fold-rec))
+  (if (heks-emacs-fold--org-p)
+      (save-excursion
+        (heks-emacs-fold--org-heading)
+        (outline-show-subtree))
+    (heks-emacs-fold--call "Opening a fold recursively"
+                           #'kirigami-open-fold-rec)))
 
 (defun heks-emacs-fold-close ()
   "Fold the block at point, whatever folds the buffer."
   (interactive)
-  (heks-emacs-fold--call "Closing a fold" #'kirigami-close-fold))
+  (if (heks-emacs-fold--org-p)
+      (heks-emacs-fold--org-close)
+    (heks-emacs-fold--call "Closing a fold" #'kirigami-close-fold)))
 
 (defun heks-emacs-fold-open-all ()
   "Unfold the whole buffer, whatever folds it."
   (interactive)
-  (heks-emacs-fold--call "Opening every fold" #'kirigami-open-folds))
+  (if (heks-emacs-fold--org-p)
+      (outline-show-all)
+    (heks-emacs-fold--call "Opening every fold" #'kirigami-open-folds)))
 
 (defun heks-emacs-fold-close-all ()
   "Fold everything foldable in the buffer, whatever folds it."
   (interactive)
-  (heks-emacs-fold--call "Closing every fold" #'kirigami-close-folds))
+  (if (heks-emacs-fold--org-p)
+      (org-overview)
+    (heks-emacs-fold--call "Closing every fold" #'kirigami-close-folds)))
 
 ;;
 ;; ====== External tools as Flymake backends ======
