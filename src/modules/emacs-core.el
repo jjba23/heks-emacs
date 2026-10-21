@@ -355,6 +355,7 @@ of its own and prints, for every key, what this scheme calls it.")
     ("C-c j M" . "a Maven goal, chosen by what it does")
     ("C-c j N" . "a Java project, created")
     ("C-c j R" . "the project, re-read by its tooling")
+    ("C-c j T" . "the dependency tree of this Maven project")
     ("C-c j b" . "a build task of this project")
     ("C-c j c" . "the build output, deleted")
     ("C-c j D" . "the dependencies of this project")
@@ -711,7 +712,16 @@ in the window."
   ;; two functions below choose between the two places each time the menu
   ;; is about to be shown.
   (which-key-setup-side-window-bottom)
+  ;; which-key sizes its window in lines, and ignores the global
+  ;; `line-spacing'; with spacing the window is too short in pixels and the
+  ;; last rows are clipped.  Its own buffer gets none.
+  (add-hook 'which-key-init-buffer-hook
+            (lambda () (setq-local line-spacing 0)))
   (setq which-key-side-window-max-height 0.4
+        ;; Fit the window to the buffer in pixels, not to a count of
+        ;; default-font lines: the menu's lines are taller than that, and
+        ;; the lower rows were being cut off.
+        which-key-allow-imprecise-window-fit nil
         which-key-show-remaining-keys t
         which-key-preserve-window-configuration t)
   ;; Which of the two places the menu goes in is decided per popup, in
@@ -925,6 +935,7 @@ in the window."
          ;; letters open the menus, which name the goals by what they do.
          ("C-c j m" . heks-emacs-maven-run)
          ("C-c j M" . heks-emacs-maven-menu)
+         ("C-c j T" . heks-emacs-maven-dependency-tree)
          ("C-c j g" . heks-emacs-gradle-run)
          ("C-c j G" . heks-emacs-gradle-menu)
          ("C-c j s" . heks-emacs-spring-boot-run)

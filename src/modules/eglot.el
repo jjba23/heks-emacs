@@ -232,7 +232,27 @@ depend on either of them."
                   ;; reformat a script on save in a style the formatter that
                   ;; is configured here would then report as drift.
                   :bashIde (:shellcheckPath ""
-                            :shfmt (:path ""))))
+                            :shfmt (:path ""))
+
+                  ;; --- XML: which schema a file is checked against ---
+                  ;; lemminx reads `xml.fileAssociations' as a list of
+                  ;; (pattern, systemId) pairs.  A pom that names its own
+                  ;; schema in `xsi:schemaLocation' keeps that one; these are
+                  ;; for the ones that do not, so every `pom.xml' gets
+                  ;; completion, hover and validation from the Maven XSD.
+                  :xml (:fileAssociations
+                        [(:pattern "**/pom.xml"
+                          :systemId "https://maven.apache.org/xsd/maven-4.0.0.xsd")
+                         (:pattern "**/settings.xml"
+                          :systemId "https://maven.apache.org/xsd/settings-1.2.0.xsd")
+                         (:pattern "**/toolchains.xml"
+                          :systemId "https://maven.apache.org/xsd/toolchains-1.1.0.xsd")]
+                        :validation (:enabled t :noGrammar "hint")
+                        :downloadExternalResources (:enabled t))))
+
+  ;; `lemminx' (brew install lemminx) is the XML language server; nxml can
+  ;; read a RELAX NG schema but not an XSD, which is what Maven publishes.
+  (add-to-list 'eglot-server-programs '((nxml-mode xml-mode) . ("lemminx")))
 
   ;; --- YAML: the schema a file names for itself ---
   ;; What `yaml.schemas' above cannot cover is named by the file itself,

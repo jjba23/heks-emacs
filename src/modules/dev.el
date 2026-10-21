@@ -312,13 +312,23 @@ that module saying anything about it."
 ;; are detected through `magic-mode-alist'), so what is left is Maven's own
 ;; four-space indentation, applied buffer-locally.
 (defun heks-emacs-pom-xml-setup ()
-  "Apply Maven conventions when visiting a `pom.xml' file."
+  "Apply Maven conventions when visiting a `pom.xml' file.
+
+Besides the indentation this folds elements with Hideshow, shows a
+fringe indicator for each foldable element, and starts the XML language
+server (`lemminx') when it is installed, which is what checks the file
+against the Maven schema."
   (when (and buffer-file-name
              (string= "pom.xml" (file-name-nondirectory buffer-file-name)))
     (setq-local nxml-child-indent 4)
     (setq-local nxml-attribute-indent 4)
     (setq-local tab-width 4)
-    (setq-local indent-tabs-mode nil)))
+    (setq-local indent-tabs-mode nil)
+    (require 'hideshow)
+    (setq-local hs-show-indicators t)
+    (hs-minor-mode 1)
+    (when (executable-find "lemminx")
+      (eglot-ensure))))
 
 (add-to-list 'auto-mode-alist '("pom\\.xml\\'" . nxml-mode))
 (add-hook 'nxml-mode-hook #'heks-emacs-pom-xml-setup)
@@ -601,6 +611,8 @@ originally printed -- the right tool for apps that do not log JSON."
           ) . treesit-fold-mode)
 
   :config
+  ;; Fringe indicators for every foldable node in the Tree-sitter modes.
+  (add-hook 'treesit-fold-mode-hook #'treesit-fold-indicators-mode)
   (set-face-attribute 'treesit-fold-replacement-face nil
                       :foreground (face-attribute 'default :foreground)
                       :box nil
@@ -618,6 +630,41 @@ originally printed -- the right tool for apps that do not log JSON."
              kirigami-close-folds
              kirigami-toggle-fold
              kirigami-mode)
+  :init
+  ;; --- Fold indicators in the fringe, whichever engine folds the buffer ---
+  ;; kirigami only dispatches; it draws nothing.  The indicators come from
+  ;; the engine itself: `treesit-fold-indicators-mode' in every Tree-sitter
+  ;; buffer (see above), and Hideshow's own (`hs-show-indicators') in every
+  ;; other programming, configuration and XML buffer.  The two are never on
+  ;; together, so a buffer has one marker per foldable block, and kirigami's
+  ;; `C-c v' keys fold it either way.
+  (setq hs-show-indicators t
+        hs-indicator-type 'fringe
+        ;; Outline headings (Markdown, Text, Diff and the like) get a
+        ;; clickable fold button before them; it only draws, so it never
+        ;; modifies the buffer.  Org has its own folding and is left alone.
+        outline-minor-mode-use-buttons t)
+  (with-eval-after-load 'hideshow
+    ;; nxml has no entry of its own; an element is folded from its start tag
+    ;; to the matching end tag.
+    (unless (assq 'nxml-mode hs-special-modes-alist)
+      (add-to-list 'hs-special-modes-alist
+                   '(nxml-mode "<[^/>]*[^/]>" "</[^/>]*[^/]>" "<!--"
+                               nxml-forward-element nil))))
+  (defun heks-emacs-fold-indicators-setup ()
+    "Give the buffer fold indicators, from Tree-sitter or from Hideshow.
+
+Runs after every mode hook (see `after-change-major-mode-hook'), by which
+time `treesit-fold-mode' is either on or will not be.  Buffers of other
+kinds, and ones kirigami would fold with Outline (Org, Markdown), are left
+alone."
+    (when (and (not (minibufferp))
+               (not (bound-and-true-p treesit-fold-mode))
+               (not (bound-and-true-p hs-minor-mode))
+               (derived-mode-p 'prog-mode 'conf-mode 'nxml-mode 'yaml-mode
+                               'json-mode 'toml-mode))
+      (hs-minor-mode 1)))
+  (add-hook 'after-change-major-mode-hook #'heks-emacs-fold-indicators-setup)
   :config
   ;; kirigami answers with the first engine in its list whose mode is on,
   ;; and `outline-minor-mode' is on in almost every buffer here.  In the

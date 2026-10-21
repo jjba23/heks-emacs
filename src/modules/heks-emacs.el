@@ -553,6 +553,11 @@ window instead of opening another one."
                            (heks-emacs--jvm-build-program root "mvnw" "mvn")
                            goal)))
 
+(defun heks-emacs-maven-dependency-tree ()
+  "Show the dependency tree of the closest Maven project."
+  (interactive)
+  (heks-emacs-maven-run "dependency:tree"))
+
 (defun heks-emacs-maven-menu ()
   "Choose a Maven goal by what it does instead of by its name."
   (interactive)

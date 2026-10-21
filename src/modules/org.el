@@ -58,7 +58,101 @@
     ;; Only the prose faces are re-applied here: calling the full
     ;; `heks-emacs-set-base-faces' would reset the global text scale
     ;; (C-= / C--) every time an Org buffer is opened.
-    (ignore-errors (heks-emacs-set-org-faces))))
+    (ignore-errors (heks-emacs-set-org-faces))
+    (heks-emacs-org-fold-indicators-mode 1)))
+
+;; Fold indicators for Org, with nothing but Emacs and Org themselves.
+;;
+;; Org folds with its own invisible text, so neither `treesit-fold' nor
+;; Hideshow nor Outline's buttons can draw a marker for it.  This puts one
+;; in the left fringe of every heading that has something under it: a
+;; triangle pointing down for an open heading and one pointing right for a
+;; folded one, and a click on it toggles the heading like `TAB' does.
+;; Folding itself is unchanged -- `TAB', `S-TAB' and kirigami's `C-c v' keys
+;; work as before -- and whatever folds a heading, the marker follows: it is
+;; redrawn once Emacs is idle after a command, rather than from the hooks of
+;; one folding command.
+
+(define-fringe-bitmap 'heks-emacs-fold-open
+  [#b00000000 #b01111110 #b00111100 #b00011000 #b00000000] nil nil 'center)
+(define-fringe-bitmap 'heks-emacs-fold-closed
+  [#b01100000 #b01111000 #b01111110 #b01111000 #b01100000] nil nil 'center)
+
+(defvar heks-emacs-org-fold-indicator-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map [left-fringe mouse-1] #'heks-emacs-org-fold-indicator-click)
+    (define-key map [right-fringe mouse-1] #'heks-emacs-org-fold-indicator-click)
+    map)
+  "The keymap of a fold indicator: a click toggles the heading.")
+
+(defvar-local heks-emacs-org-fold-indicator-timer nil
+  "The idle timer that will redraw this buffer's fold indicators.")
+
+(defun heks-emacs-org-fold-indicator-click (event)
+  "Toggle the fold of the heading whose indicator EVENT clicked."
+  (interactive "e")
+  (let* ((posn (event-start event))
+         (window (posn-window posn))
+         (pos (posn-point posn)))
+    (when (and (windowp window) (number-or-marker-p pos))
+      (select-window window)
+      (goto-char pos)
+      (when (org-at-heading-p)
+        (org-cycle)))))
+
+(defun heks-emacs-org-fold-indicators-refresh (buffer)
+  "Redraw the fold indicators of Org BUFFER."
+  (when (buffer-live-p buffer)
+    (with-current-buffer buffer
+      (setq heks-emacs-org-fold-indicator-timer nil)
+      (remove-overlays (point-min) (point-max) 'heks-emacs-fold-indicator t)
+      (save-excursion
+        (save-restriction
+          (widen)
+          (goto-char (point-min))
+          (while (re-search-forward org-outline-regexp-bol nil t)
+            (let* ((bol (line-beginning-position))
+                   (eol (line-end-position))
+                   (folded (org-fold-folded-p eol))
+                   (has-body (save-excursion
+                               (goto-char bol)
+                               (org-end-of-subtree t t)
+                               (> (point) (1+ eol)))))
+              (when (or folded has-body)
+                (let ((overlay (make-overlay bol bol nil t))
+                      (bitmap (if folded
+                                  'heks-emacs-fold-closed
+                                'heks-emacs-fold-open)))
+                  (overlay-put overlay 'heks-emacs-fold-indicator t)
+                  (overlay-put overlay 'evaporate t)
+                  (overlay-put
+                   overlay 'before-string
+                   (propertize " " 'display `(left-fringe ,bitmap shadow)
+                               'keymap heks-emacs-org-fold-indicator-map)))))
+            (forward-line 1)))))))
+
+(defun heks-emacs-org-fold-indicators-schedule ()
+  "Redraw the fold indicators once Emacs is idle."
+  (unless heks-emacs-org-fold-indicator-timer
+    (setq heks-emacs-org-fold-indicator-timer
+          (run-with-idle-timer 0.2 nil
+                               #'heks-emacs-org-fold-indicators-refresh
+                               (current-buffer)))))
+
+(define-minor-mode heks-emacs-org-fold-indicators-mode
+  "Show a fringe marker on each Org heading that can be folded."
+  :lighter nil
+  (if heks-emacs-org-fold-indicators-mode
+      (progn
+        (add-hook 'post-command-hook
+                  #'heks-emacs-org-fold-indicators-schedule nil t)
+        (heks-emacs-org-fold-indicators-schedule))
+    (remove-hook 'post-command-hook
+                 #'heks-emacs-org-fold-indicators-schedule t)
+    (when (timerp heks-emacs-org-fold-indicator-timer)
+      (cancel-timer heks-emacs-org-fold-indicator-timer))
+    (setq heks-emacs-org-fold-indicator-timer nil)
+    (remove-overlays (point-min) (point-max) 'heks-emacs-fold-indicator t)))
 
 (use-package org-roam-ui
   :ensure t
