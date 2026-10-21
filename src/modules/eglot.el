@@ -202,15 +202,14 @@ depend on either of them."
                           :completion t
                           :schemas (
                                     https://codeberg.org/jjba23/pop-test/raw/branch/trunk/resources/json-schema/pop-test.json ["golden-test.yaml" "golden-test.yml" "pop-test.yaml" "pop-test.yml"]
-                                    https://raw.githubusercontent.com/Vandebron/gh-mpyl/refs/heads/main/src/mpyl/schema/project.schema.yml ["project.yml"]
-                                    https://json.schemastore.org/yamllint.json ["/*.yml"]
+                                    https://json.schemastore.org/yamllint.json [".yamllint" ".yamllint.yml" ".yamllint.yaml"]
                                     kubernetes ["**/k8s/**/*.yaml" "**/manifests/**/*.yaml" "!**/k8s/**/values.yaml" "!**/k8s/**/kustomization.yaml"]
-                                    https://spec.openapis.org/oas/3.0/schema/2024-10-18 ["openapi.yaml" "openapi.yml" "**/openapi.yaml" "**/openapi.yml" "**/*-openapi.yaml" "**/*-openapi.yml"]
+                                    https://spec.openapis.org/oas/3.2/schema/2026-08-30 ["openapi.yaml" "openapi.yml" "**/openapi.yaml" "**/openapi.yml" "**/*-openapi.yaml" "**/*-openapi.yml"]
                                     https://json.schemastore.org/github-workflow.json ["**/.github/workflows/*.yml" "**/.github/workflows/*.yaml"]
                                     https://raw.githubusercontent.com/compose-spec/compose-spec/main/schema/compose-spec.json ["compose.yaml" "compose.yml" "docker-compose.yaml" "docker-compose.yml" "**/compose.yaml" "**/docker-compose.yml"]
                                     https://gitlab.com/gitlab-org/gitlab/-/raw/master/app/assets/javascripts/editor/schema/ci.json ["**/.gitlab-ci.yml" "**/.gitlab-ci.yaml"]
                                     https://json.schemastore.org/woodpecker.json ["**/.woodpecker/*.yml" "**/.woodpecker/*.yaml"])
-                          :schemaStore (:enable t))
+                          :schemaStore (:enable :json-false))
                   :nil (:formatting (:command ["nixfmt"]))
 
                   ;; --- Shell: what the server is for ---
@@ -263,10 +262,10 @@ depend on either of them."
   ;; `C-c i s' writes that line, and works out which schema to write: the
   ;; chart's own `values.schema.json' when the file sits beside one, and
   ;; otherwise the published schema of the OpenAPI version the file
-  ;; declares, so that a 3.1 specification is not checked as a 3.0 one.
-  ;; (3.0 is what `yaml.schemas' associates by name, because it is what
-  ;; most specifications in the world are and a file can only be checked
-  ;; against one schema at a time.)
+  ;; declares, so that a 3.0 or 3.1 specification is not checked as a 3.2
+  ;; one.  (3.2 is what `yaml.schemas' associates by name, because it is
+  ;; the most modern version; a file can only be checked against one
+  ;; schema at a time, so older files need this modeline.)
   (defconst heks-emacs-yaml-version-schemas
     '(("3.0" . "https://spec.openapis.org/oas/3.0/schema/2024-10-18")
       ("3.1" . "https://spec.openapis.org/oas/3.1/schema/2026-08-03")
