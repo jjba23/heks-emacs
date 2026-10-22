@@ -52,6 +52,15 @@ ends one line while the paragraph goes on.[^why]
 
 [^why]: Because Org reads them back as one paragraph, so nothing is lost.
 
+A [reference link][ref] points at a definition written elsewhere in the
+file, and a quote can say what kind of quote it is:
+
+> [!NOTE]
+> A callout is imported as the sentence it carries, and not as the marker
+> that introduced it.
+
+[ref]: https://example.com/imported "Imported"
+
 ---
 
 A raw block is passed through, since a badge is HTML an import does not

@@ -32,8 +32,12 @@
               ("C-c #" . nil)
               ("C-c C-#" . org-update-statistics-cookies))
   ;; Toggling how links read is a view action on a note, so it lives
-  ;; under the notes topic with roam.
-  :bind (("C-c n v" . org-toggle-link-display))
+  ;; under the notes topic with roam; the agenda is the other half of a
+  ;; system of notes -- the dates and the TODOs of every one of them in a
+  ;; single list -- and it is `A' rather than `a' because a note is what
+  ;; `C-c n' opens and the agenda is what it opens all of them in.
+  :bind (("C-c n v" . org-toggle-link-display)
+         ("C-c n A" . org-agenda))
   :custom
   (org-todo-keywords '((sequence "TODO" "WIP" "REVIEWING" "|" "DONE")))
   (org-log-done 'time)
@@ -190,6 +194,7 @@
          ("C-c n g" . org-roam-graph)
          ("C-c n i" . org-roam-node-insert)
          ("C-c n c" . org-roam-capture)
+         ("C-c n d" . org-roam-dailies-goto-today)
          ("C-c n j" . org-roam-dailies-capture-today))
   :init
   ;; Where the notes are is this user's own business -- no default can know

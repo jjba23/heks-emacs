@@ -85,6 +85,10 @@
 (declare-function heks-emacs-markdown-split-code-spans "markdown" (text))
 (declare-function heks-emacs-markdown-indent-of "markdown" (line))
 (declare-function heks-emacs-markdown-cells "markdown" (line))
+(declare-function heks-emacs-markdown-link-definitions "markdown" (lines))
+(declare-function heks-emacs-markdown-normalize-label "markdown" (label))
+(declare-function heks-emacs-markdown-alert "markdown" (line))
+(declare-function heks-emacs-markdown-alert-remainder "markdown" (line))
 (declare-function heks-emacs-markdown-table-p "markdown" (line next))
 (declare-function heks-emacs-render-markdown-p "render" (&optional buffer))
 ;; The notes directory is this user's own, and `modules/heks-emacs.el' is
@@ -310,6 +314,20 @@ written with the `=', which is the one that reads as code."
         ((not (string-match-p "~" text)) (format "~%s~" text))
         (t (format "=%s=" text))))
 
+(defvar heks-emacs-import--links nil
+  "The link definitions of the document being imported.
+
+A Markdown document can write a link as `[text][label]' and give the
+address once, in a `[label]: url' line anywhere in the file.  That line is
+a definition and not a paragraph, and the reference is a link: both are
+read from `markdown.el', so that the note an import writes and the page a
+preview shows point at the same place.")
+
+(defun heks-emacs-import-definition (label)
+  "Return the link definition LABEL names, as (URL . TITLE), or nil."
+  (cdr (assoc (heks-emacs-markdown-normalize-label label)
+              heks-emacs-import--links)))
+
 (defun heks-emacs-import--url (url)
   "Return URL, a link in a document, as the Org link it is written as.
 
@@ -324,18 +342,24 @@ own, and a relative link would then point at nothing."
 
 Org shows the target itself for a link with no text of its own, so a
 Markdown `[https://example.com](https://example.com)' is one link rather
-than a link whose label repeats it."
-  (let ((target (heks-emacs-import--url url)))
-    (if (or (string-blank-p text) (equal (string-trim text) target))
-        (format "[[%s]]" target)
-      (format "[[%s][%s]]" target (heks-emacs-import--inline text)))))
+than a link whose label repeats it.
+
+The match data is put back as it was found: this runs inside the
+replacement function of a `replace-regexp-in-string', which reads the
+match data again once that function has returned."
+  (save-match-data
+    (let ((target (heks-emacs-import--url url)))
+      (if (or (string-blank-p text) (equal (string-trim text) target))
+          (format "[[%s]]" target)
+        (format "[[%s][%s]]" target (heks-emacs-import--inline text))))))
 
 (defun heks-emacs-import--image (url alt)
   "Return URL, an image, as the Org link an image is, labelled with ALT."
-  (let ((target (heks-emacs-import--url url)))
-    (if (string-blank-p alt)
-        (format "[[%s]]" target)
-      (format "[[%s][%s]]" target (heks-emacs-import--plain alt)))))
+  (save-match-data
+    (let ((target (heks-emacs-import--url url)))
+      (if (string-blank-p alt)
+          (format "[[%s]]" target)
+        (format "[[%s][%s]]" target (heks-emacs-import--plain alt))))))
 
 (defun heks-emacs-import--inline-markup (text)
   "Turn the emphasis, links and images of TEXT into Org markup.
@@ -345,6 +369,32 @@ it does have is the emphasis markers this writes -- which is why a bold
 pair is held as `heks-emacs-import--bold-marker' until the pass that reads
 a single pair of asterisks is behind it."
   (let ((result text))
+    ;; A reference-style link and image are ones this document defines
+    ;; somewhere else in it, and they become the links they name.
+    (setq result
+          (replace-regexp-in-string
+           "!\\[\\([^]]*\\)\\]\\[\\([^]]*\\)\\]"
+           (lambda (match)
+             (let* ((alt (match-string 1 match))
+                    (label (match-string 2 match))
+                    (definition (heks-emacs-import-definition
+                                 (if (string-empty-p label) alt label))))
+               (if definition
+                   (heks-emacs-import--image (car definition) alt)
+                 match)))
+           result t t))
+    (setq result
+          (replace-regexp-in-string
+           "\\[\\([^]]*\\)\\]\\[\\([^]]*\\)\\]"
+           (lambda (match)
+             (let* ((text (match-string 1 match))
+                    (label (match-string 2 match))
+                    (definition (heks-emacs-import-definition
+                                 (if (string-empty-p label) text label))))
+               (if definition
+                   (heks-emacs-import--link (car definition) text)
+                 match)))
+           result t t))
     ;; Images before links: an image is a link with a bang in front of it.
     (setq result
           (replace-regexp-in-string
@@ -564,7 +614,15 @@ The blank lines are kept, because in HTML they decide nothing and in Org
 they decide what a block ends: a list that follows a paragraph with no
 blank line between them is a lazy line of that paragraph, and an import
 that lost the question would change the answer."
-  (let* ((lines (split-string (string-trim text) "\n"))
+  (let* ((split (split-string (string-trim text) "\n"))
+         ;; The link definitions are taken out of the document once, at
+         ;; the top: they are not blocks, and a note that kept them would
+         ;; keep the addresses as paragraphs of their own.
+         (parsed (if heks-emacs-import--links
+                     (cons split nil)
+                   (heks-emacs-markdown-link-definitions split)))
+         (heks-emacs-import--links (or (cdr parsed) heks-emacs-import--links))
+         (lines (car parsed))
          (n (length lines))
          (i 0)
          (out nil)
@@ -624,7 +682,10 @@ that lost the question would change the answer."
               (emit (car table))
               (setq consumed (- (cdr table) i))))
 
-           ;; A quote: the quoted lines are a document of their own.
+           ;; A quote: the quoted lines are a document of their own.  A
+           ;; quote that opens with GitHub's callout marker -- `[!NOTE]'
+           ;; -- is that sentence rather than the marker: the note says
+           ;; what the callout says, and not what kind of callout it was.
            ((string-match "\\`> ?\\(.*\\)\\'" trimmed)
             (close-paragraph)
             (let ((quoted nil)
@@ -635,10 +696,15 @@ that lost the question would change the answer."
                 (push (match-string 1 (string-trim (nth j lines))) quoted)
                 (setq j (1+ j)))
               (setq consumed (- j i))
+              (setq quoted (nreverse quoted))
+              (when (heks-emacs-markdown-alert (car quoted))
+                (let ((rest (cdr quoted))
+                      (remainder (heks-emacs-markdown-alert-remainder (car quoted))))
+                  (setq quoted (if remainder (cons remainder rest) rest))))
               (emit (concat "#+begin_quote\n"
                             (string-trim
                              (heks-emacs-import--blocks
-                              (mapconcat #'identity (nreverse quoted) "\n")))
+                              (mapconcat #'identity quoted "\n")))
                             "\n#+end_quote"))))
 
            ;; A heading: the depth it says it is, for now; the shift takes
@@ -785,8 +851,7 @@ further down is a drawer of text that `org-entry-get' will not find."
                        (heks-emacs-import--keywords metadata)
                        (heks-emacs-import--shift
                         (heks-emacs-import--blocks (plist-get metadata :body))))))
-    (concat (string-trim-right
-             ;; A document with no front matter has no keywords and one
+    (concat (string-trim-right             ;; A document with no front matter has no keywords and one
              ;; with no properties has no drawer, and neither leaves a
              ;; blank line behind it.
              (mapconcat #'identity

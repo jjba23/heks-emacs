@@ -42,3 +42,21 @@ And then a rule:
 ```
 
 <div>a raw block</div>
+
+## What a document has since
+
+A [reference link][ref] and a reference image ![a diagram][ref-image], an
+escaped \*asterisk\*, a ==highlighted phrase==, an emoji :rocket:, and a
+formula $E = mc^2$ that stays readable without a network.
+
+[ref]: https://example.com/reference "The reference"
+[ref-image]: images/reference.png "A diagram"
+
+> [!WARNING]
+> A callout is a quote that says what kind of quote it is.
+
+A note at the end of a sentence[^render] is a footnote, and it is answered
+where the definitions are.
+
+[^render]: A footnote is rendered where it is referred to, and answered at
+    the end of the document.

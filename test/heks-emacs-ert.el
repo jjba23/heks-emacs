@@ -67,7 +67,7 @@
   (load (expand-file-name (format "modules/%s.el" name) heks-ert--source) nil t))
 
 (dolist (module '("markdown" "render" "import" "present" "heks-emacs" "emacs-core"
-                 "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "openapi" "shell" "guile" "ui" "ai"))
+                 "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "openapi" "scheme-lint" "duplicates" "shell" "guile" "ui" "ai"))
   (heks-ert--module module))
 
 ;; `htmlize' is what Org colours the code in a note with, and the
@@ -2354,6 +2354,512 @@ line height can leave a gap in it."
         ;; A drawing that is not the package's own is left alone.
         (should-not (heks-emacs-fold-indicator-tree-sitter
                      nil overlay 'some-other-drawing))))))
+
+;;
+;; ====== The things a document has, and a preview needs ======
+;;
+
+(ert-deftest heks-emacs-render/a-reference-link-is-the-link-it-names ()
+  (let ((html (heks-emacs-markdown-to-html
+               "A [link][docs] and another [one][].\n\n[docs]: https://example.com/d \"Docs\"\n[one]: https://example.com/one\n")))
+    (should (string-match-p "<a href=\"https://example.com/d\">link</a>" html))
+    (should (string-match-p "<a href=\"https://example.com/one\">one</a>" html))
+    ;; The definition is not a paragraph of its own.
+    (should-not (string-match-p "<p>\\[docs\\]" html))))
+
+(ert-deftest heks-emacs-render/a-label-this-document-does-not-define-is-left-alone ()
+  (let ((html (heks-emacs-markdown-to-html "A [link][nowhere].\n")))
+    (should (string-match-p "\\[link\\]\\[nowhere\\]" html))))
+
+(ert-deftest heks-emacs-render/a-footnote-is-answered-at-the-end ()
+  (let ((html (heks-emacs-markdown-to-html
+               "Text[^a] and more[^b].\n\n[^a]: The first note.\n[^b]: The second note.\n")))
+    (should (string-match-p "<sup class=\"footnote-ref\"><a id=\"fnref-1\" href=\"#fn-1\">1</a></sup>" html))
+    (should (string-match-p "<sup class=\"footnote-ref\"><a id=\"fnref-2\" href=\"#fn-2\">2</a></sup>" html))
+    (should (string-match-p "<li id=\"fn-1\">The first note\\." html))
+    (should (string-match-p "<li id=\"fn-2\">The second note\\." html))))
+
+(ert-deftest heks-emacs-render/footnotes-are-numbered-in-the-order-they-are-read ()
+  "The order of the notes is the order of the reading, not of the file."
+  (let ((html (heks-emacs-markdown-to-html
+               "Text[^second] and more[^first].\n\n[^first]: Written first.\n[^second]: Read first.\n")))
+    (should (string-match-p "<li id=\"fn-1\">Read first\\." html))
+    (should (string-match-p "<li id=\"fn-2\">Written first\\." html))))
+
+(ert-deftest heks-emacs-render/a-callout-is-a-quote-that-says-what-it-is ()
+  (let ((html (heks-emacs-markdown-to-html
+               "> [!WARNING]\n> Mind the gap.\n")))
+    (should (string-match-p "<div class=\"callout callout-warning\">" html))
+    (should (string-match-p "class=\"callout-title\">Warning" html))
+    (should (string-match-p "<p>Mind the gap\\.</p>" html)))
+  ;; A quote that says nothing about itself is still a quote.
+  (let ((html (heks-emacs-markdown-to-html "> Just a quote.\n")))
+    (should (string-match-p "<blockquote>" html))
+    (should-not (string-match-p "callout" html))))
+
+(ert-deftest heks-emacs-render/a-formula-is-readable-without-a-network ()
+  (should (equal (heks-emacs-render-math-text "E = mc^2") "E = mc²"))
+  (should (equal (heks-emacs-render-math-text "\\alpha \\leq \\beta") "α ≤ β"))
+  (should (equal (heks-emacs-render-math-text "x_0 + y_{12}") "x₀ + y₁₂"))
+  (should (equal (heks-emacs-render-math-text "\\frac{a}{b}") "a/b"))
+  (let ((html (heks-emacs-markdown-to-html "So $E = mc^2$ holds, and $$x_1$$ too.")))
+    (should (string-match-p "<span class=\"math\">E = mc²</span>" html))
+    (should (string-match-p "class=\"math math-display\">x₁</span>" html))))
+
+(ert-deftest heks-emacs-render/an-emoji-is-written-as-its-shortcode ()
+  (let ((html (heks-emacs-markdown-to-html "Ship it :rocket: and :no_such_emoji: too.")))
+    (should (string-match-p "Ship it 🚀" html))
+    ;; A name this does not know is left as it was written.
+    (should (string-match-p ":no_such_emoji:" html))))
+
+(ert-deftest heks-emacs-render/escaped-markup-is-text-and-not-markup ()
+  (let ((html (heks-emacs-markdown-to-html "An \\*asterisk\\* and a \\_underscore\\_.")))
+    (should (string-match-p "An \\*asterisk\\*" html))
+    (should-not (string-match-p "<em>" html))))
+
+(ert-deftest heks-emacs-render/a-highlighted-phrase-is-marked ()
+  (should (string-match-p "<mark>this</mark>"
+                          (heks-emacs-markdown-to-html "A ==this== phrase."))))
+
+(ert-deftest heks-emacs-render/a-fence-says-what-language-it-is ()
+  "A code block is labelled the way a documentation site labels one."
+  (let ((html (heks-emacs-markdown-to-html "```elisp\n(setq x 1)\n```\n")))
+    (should (string-match-p "<figure class=\"code-block\">" html))
+    (should (string-match-p "<figcaption class=\"code-language\">elisp</figcaption>" html))
+    (should (string-match-p "class=\"language-elisp\"" html)))
+  ;; A fence with no language has no label to give.
+  (let ((html (heks-emacs-markdown-to-html "```\nplain\n```\n")))
+    (should-not (string-match-p "figcaption" html))))
+
+(ert-deftest heks-emacs-render/the-section-point-is-in-is-the-one-a-preview-follows ()
+  (with-temp-buffer
+    (insert "# One\n\ntext\n\n## Two\n\nmore text\n")
+    (setq buffer-file-name (expand-file-name "heks-ert-sync.md" temporary-file-directory))
+    ;; The file name is what makes the buffer Markdown here, so the test
+    ;; does not need the mode that a real visit would give it.
+    (goto-char (point-max))
+    (should (equal (heks-emacs-preview--section-heading) "Two"))
+    (goto-char (point-min))
+    (forward-line 2)
+    (should (equal (heks-emacs-preview--section-heading) "One")))
+  ;; An Org note says it with asterisks, and says the same thing.
+  (with-temp-buffer
+    (insert "* One\n\ntext\n\n** Two\n\nmore\n")
+    (org-mode)
+    (goto-char (point-max))
+    (should (equal (heks-emacs-preview--section-heading) "Two"))))
+
+(ert-deftest heks-emacs-render/a-buffer-with-no-heading-has-no-section-to-follow ()
+  (with-temp-buffer
+    (insert "just a paragraph\n")
+    (setq buffer-file-name (expand-file-name "heks-ert-sync.md" temporary-file-directory))
+    (goto-char (point-max))
+    (should-not (heks-emacs-preview--section-heading))))
+
+;;
+;; ====== The rules a Scheme buffer is held to ======
+;;
+;; `heks-emacs-scheme-lint-problems' is the whole checker as a function of
+;; a string, which is what makes these tests what they are: a form in, and
+;; the findings out.  Two kinds of test matter here, and the second more
+;; than the first: that a habit is reported, and that the code around it --
+;; the quote, the comment, the shebang line -- is not.
+;;
+
+(defun heks-ert--scheme-lint (text)
+  "Return the findings of the Scheme in TEXT, as (SEVERITY . MESSAGE) pairs."
+  (mapcar (lambda (finding)
+            (cons (plist-get finding :severity) (plist-get finding :message)))
+          (heks-emacs-scheme-lint-problems text)))
+
+(ert-deftest heks-emacs-scheme-lint/a-clean-form-is-left-alone ()
+  (should-not (heks-ert--scheme-lint
+               "(define (twice f x) (f (f x)))\n\n(let* ((a 1) (b 2)) (+ a b))\n"))
+  (should-not (heks-ert--scheme-lint
+               "(cond ((null? xs) '()) (else (car xs)))")))
+
+(ert-deftest heks-emacs-scheme-lint/a-name-bound-twice-is-an-error ()
+  (let ((found (heks-ert--scheme-lint "(let ((x 1) (x 2)) x)")))
+    (should (equal (length found) 1))
+    (should (eq (caar found) :error))
+    (should (string-match-p "bound twice" (cdar found)))))
+
+(ert-deftest heks-emacs-scheme-lint/a-procedure-that-binds-a-name-twice-is-an-error ()
+  (should (eq (caar (heks-ert--scheme-lint "(lambda (x x) x)")) :error))
+  (should (eq (caar (heks-ert--scheme-lint "(define (f a a) a)")) :error)))
+
+(ert-deftest heks-emacs-scheme-lint/a-clause-after-else-can-never-run ()
+  (should (eq (caar (heks-ert--scheme-lint "(cond (a 1) (else 2) (b 3))")) :error)))
+
+(ert-deftest heks-emacs-scheme-lint/eq-on-a-string-is-not-a-string-comparison ()
+  (let ((found (heks-ert--scheme-lint "(eq? \"a\" \"b\")")))
+    (should (eq (caar found) :warning))
+    (should (string-match-p "string=?" (cdar found))))
+  ;; The same question asked the right way says nothing.
+  (should-not (heks-ert--scheme-lint "(string=? a b)")))
+
+(ert-deftest heks-emacs-scheme-lint/quoted-data-is-data ()
+  "A `nil' a program reads is not a `nil' a program wrote."
+  (should-not (heks-ert--scheme-lint "(assq 'nil alist)"))
+  (should (heks-ert--scheme-lint "(car (list nil))")))
+
+(ert-deftest heks-emacs-scheme-lint/a-finding-sits-on-the-form-that-has-the-habit ()
+  (let* ((text "(define (f) (if c #t #f))")
+         (finding (car (heks-emacs-scheme-lint-problems text))))
+    (should (equal (substring text (plist-get finding :start) (plist-get finding :end))
+                   "(if c #t #f)"))))
+
+(ert-deftest heks-emacs-scheme-lint/what-is-not-code-does-not-move-the-reader ()
+  "Comments, a shebang line and a datum comment are read past, not read."
+  (should-not (heks-ert--scheme-lint "#| (let ((x 1) (x 2))) |#\n"))
+  (should-not (heks-ert--scheme-lint "#!/usr/bin/guile -s\n(define (f) 1)\n"))
+  (should-not (heks-ert--scheme-lint "(define (f) #;(let ((x 1) (x 2))) 1)"))
+  ;; A nested block comment ends where it ends, not at the first `|#'.
+  (should-not (heks-ert--scheme-lint "#| a #| b |# (let ((x 1) (x 2))) |#\n"))
+  ;; And the form after a string holding a comment opener is still read.
+  (should (heks-ert--scheme-lint "(define (f) \"#|\" (let ((x 1) (x 2)) x))")))
+
+(ert-deftest heks-emacs-scheme-lint/a-file-that-stops-in-the-middle-still-checks-what-it-has ()
+  (let ((found (heks-ert--scheme-lint "(let ((x 1) (x 2)) x)\n(define (f) 1")))
+    (should (= 1 (length found)))))
+
+(ert-deftest heks-emacs-scheme-lint/a-guix-package-says-what-it-turns-off ()
+  (let ((found (heks-ert--scheme-lint
+                "(package (name foo) (arguments '(#:tests? #f)))")))
+    (should (= 1 (length found)))
+    (should (string-match-p "tests" (cdar found))))
+  ;; A package that runs its tests says nothing.
+  (should-not (heks-ert--scheme-lint
+               "(package (name foo) (arguments (list #:tests? #t)))")))
+
+(ert-deftest heks-emacs-scheme-lint/a-guix-package-with-old-style-inputs-is-one-finding ()
+  (let ((found (heks-ert--scheme-lint
+                "(package (name foo) (inputs `((\"a\" ,a) (\"b\" ,b))))")))
+    (should (= 1 (length found)))
+    (should (string-match-p "old-style" (cdar found))))
+  ;; The inputs spelled the way `guix style' writes them are quiet.
+  (should-not (heks-ert--scheme-lint
+               "(package (name foo) (inputs (list a b)))")))
+
+(ert-deftest heks-emacs-scheme-lint/every-rule-is-a-function-and-there-are-many ()
+  (should (> (length heks-emacs-scheme-lint-rules) 15))
+  (dolist (rule heks-emacs-scheme-lint-rules)
+    (should (functionp rule))))
+
+(ert-deftest heks-emacs-scheme-lint/a-buffer-gets-diagnostics-on-the-lines-they-belong-to ()
+  (with-temp-buffer
+    (setq buffer-file-name (expand-file-name "heks-ert-lint.scm" temporary-file-directory))
+    (insert ";; a comment\n\n(let ((x 1) (x 2)) x)\n")
+    (scheme-mode)
+    (let ((diagnostics (heks-emacs-scheme-lint-diagnostics)))
+      (should (= 1 (length diagnostics)))
+      ;; The diagnostic sits on the form that has the habit -- the second
+      ;; binding, not the line it happens to be on -- because that is what
+      ;; the reader is being told to look at.
+      (should (equal (line-number-at-pos (flymake-diagnostic-beg (car diagnostics))) 3))
+      (should (equal (buffer-substring-no-properties
+                      (flymake-diagnostic-beg (car diagnostics))
+                      (flymake-diagnostic-end (car diagnostics)))
+                     "(x 2)"))
+      (should (equal (flymake-diagnostic-type (car diagnostics)) :error))
+      ;; What the user reads is a sentence with a tool in front of it,
+      ;; not a message with a gap where the tool should be.
+      (should (string-prefix-p "Scheme" (flymake-diagnostic-text (car diagnostics)))))))
+
+(ert-deftest heks-emacs-scheme-lint/nothing-is-said-in-a-buffer-that-is-not-scheme ()
+  (with-temp-buffer
+    (insert "(let ((x 1) (x 2)) x)")
+    (emacs-lisp-mode)
+    (should-not (heks-emacs-scheme-lint-diagnostics))))
+
+;;
+;; ====== The page an OpenAPI specification becomes ======
+;;
+
+(defconst heks-ert--spec
+  (concat
+   "{\"openapi\": \"3.0.3\","
+   "\"info\": {\"title\": \"Pets\", \"version\": \"1.0.0\"},"
+   "\"tags\": [{\"name\": \"pets\", \"description\": \"Everything the store keeps.\","
+   " \"externalDocs\": {\"url\": \"https://example.com/guide\", \"description\": \"The guide\"}}],"
+   "\"externalDocs\": {\"url\": \"https://example.com/api\", \"description\": \"The API docs\"},"
+   "\"paths\": {\"/pets\": {\"get\": {\"tags\": [\"pets\"], \"summary\": \"List them\","
+   " \"responses\": {\"200\": {\"description\": \"The pets\", \"content\":"
+   " {\"application/json\": {\"schema\": {\"$ref\": \"#/components/schemas/Pet\"},"
+   " \"example\": [{\"name\": \"Rex\", \"id\": 42}]}}}}}}},"
+   "\"components\": {"
+   "\"securitySchemes\": {\"key\": {\"type\": \"apiKey\", \"name\": \"X-Key\","
+   " \"in\": \"header\", \"description\": \"The caller's key.\"}},"
+   "\"schemas\": {\"Pet\": {\"type\": \"object\", \"description\": \"A pet.\","
+   " \"required\": [\"name\"],"
+   " \"properties\": {\"id\": {\"type\": \"integer\", \"format\": \"int64\", \"example\": 42},"
+   " \"name\": {\"type\": \"string\", \"description\": \"Its name.\"},"
+   " \"status\": {\"type\": \"string\", \"enum\": [\"available\", \"sold\"],"
+   " \"default\": \"available\"},"
+   " \"kind\": {\"oneOf\": [{\"type\": \"string\"}, {\"type\": \"integer\"}]}}}}}}")
+  "A specification written to be small and to have everything once.")
+
+(defmacro heks-ert--with-spec (&rest body)
+  "Run BODY in a buffer visiting `heks-ert--spec' as JSON."
+  (declare (indent 0))
+  `(with-temp-buffer
+     (setq buffer-file-name (expand-file-name "heks-ert-spec.json" temporary-file-directory))
+     (insert heks-ert--spec)
+     ,@body))
+
+(ert-deftest heks-emacs-openapi/a-schema-says-what-a-value-of-it-looks-like ()
+  (heks-ert--with-spec
+    (let* ((spec (heks-emacs-openapi-parse))
+           (schemas (heks-emacs-openapi-get (heks-emacs-openapi-get spec "components") "schemas"))
+           (pet (gethash "Pet" schemas))
+           (property (lambda (name)
+                       (heks-emacs-openapi--schema-html
+                        spec (gethash name (heks-emacs-openapi-get pet "properties")))))
+      (should (string-match-p "<code>integer</code> (int64) (example: <code>42</code>)"
+                              (funcall property "id")))
+      (should (string-match-p "one of <code>available</code>, <code>sold</code>"
+                              (funcall property "status")))
+      (should (string-match-p "(default: <code>available</code>)"
+                              (funcall property "status")))
+      (should (string-match-p "<code>one of</code> <code>string</code>, <code>integer</code>"
+                              (funcall property "kind"))))))
+
+(ert-deftest heks-emacs-openapi/an-object-is-a-table-of-what-it-holds ()
+  (heks-ert--with-spec
+    (let* ((spec (heks-emacs-openapi-parse))
+           (pet (gethash "Pet" (heks-emacs-openapi-get
+                                (heks-emacs-openapi-get spec "components") "schemas")))
+           (html (heks-emacs-openapi--properties-html spec pet)))
+      (should (string-match-p "<th>Property</th><th>Type</th><th>Required</th>" html))
+      (should (string-match-p "<td><code>name</code></td>.*<td>yes</td>.*<td>Its name\\.</td>" html))
+      (should (string-match-p "<td><code>id</code></td>.*<td></td>" html)))))
+
+(ert-deftest heks-emacs-openapi/an-example-is-the-json-it-is ()
+  (should (equal (heks-emacs-openapi--json '(:false))
+                 "false"))
+  (heks-ert--with-spec
+    (let* ((spec (heks-emacs-openapi-parse))
+           (pet (gethash "Pet" (heks-emacs-openapi-get
+                                (heks-emacs-openapi-get spec "components") "schemas"))))
+      (should (equal (heks-emacs-openapi--json pet)
+                     (concat "{\n  \"properties\": {\n    \"id\": {\n"
+                             "      \"example\": 42,\n      \"format\": \"int64\",\n"
+                             "      \"type\": \"integer\"\n    },\n"
+                             "    \"kind\": {\n      \"oneOf\": [\n        {\n"
+                             "          \"type\": \"string\"\n        },\n        {\n"
+                             "          \"type\": \"integer\"\n        }\n      ]\n    },\n"
+                             "    \"name\": {\n      \"description\": \"Its name.\",\n"
+                             "      \"type\": \"string\"\n    },\n"
+                             "    \"status\": {\n      \"default\": \"available\",\n"
+                             "      \"enum\": [\n        \"available\",\n        \"sold\"\n      ],\n"
+                             "      \"type\": \"string\"\n    }\n  },\n"
+                             "  \"required\": [\n    \"name\"\n  ],\n"
+                             "  \"type\": \"object\"\n}"))))))
+
+(ert-deftest heks-emacs-openapi/the-page-says-what-there-is-before-what-there-is ()
+  (heks-ert--with-spec
+    (let ((html (heks-emacs-openapi-html)))
+      ;; How much there is, where to read more, and who may call.
+      (should (string-match-p "<p class=\"headline\">1 operation · 1 tag" html))
+      (should (string-match-p "href=\"https://example.com/api\"" html))
+      (should (string-match-p "<h2>Authentication</h2>" html))
+      (should (string-match-p "<code>apiKey</code>" html))
+      ;; What the tag is for, and the guide it comes with.
+      (should (string-match-p "<p class=\"tag-description\">Everything the store keeps\\.</p>" html))
+      (should (string-match-p "href=\"https://example.com/guide\"" html))
+      ;; The operation, and the example of what it answers.
+      (should (string-match-p "<h3 id=\"get-/pets\">" html))
+      (should (string-match-p "class=\"example\"" html))
+      (should (string-match-p "\"name\": \"Rex\"" html))
+      ;; And the schemas, as the tables they are.
+      (should (string-match-p "<h2>Schemas</h2>" html))
+      (should (string-match-p "table class=\"properties\"" html)))))
+
+(ert-deftest heks-emacs-openapi/a-specification-that-cannot-be-read-says-nothing-it-does-not-know ()
+  (with-temp-buffer
+    (setq buffer-file-name (expand-file-name "heks-ert-spec.json" temporary-file-directory))
+    (insert "{\"openapi\": ")
+    (let ((html (heks-emacs-openapi-html)))
+      (should (string-match-p "<pre class=\"plain\">" html))
+      (should-not (string-match-p "<h1>" html))))))
+
+;;
+;; ====== What a project writes twice ======
+;;
+;; The scan is a function of a directory, so these tests are a directory
+;; of small files in and the clusters out.  What matters is not the exact
+;; numbers -- those are in the report, where a person reads them -- but
+;; that a block written twice is one cluster and not four, that a block
+;; written once is not a cluster, and that the report says where.
+;;
+
+(defconst heks-ert--shared-block
+  "(define (helper x y)
+  (let* ((sum (+ x y))
+         (product (* x y))
+         (difference (- x y)))
+    (when (> sum 100)
+      (error \"too big: %s\" sum))
+    (list sum product difference
+          (string-append (number->string sum)
+                         \"/\"
+                         (number->string product)))))
+"
+  "A block of Scheme this configuration's tests copy into two files.")
+
+(defmacro heks-ert--with-project (files &rest body)
+  "Run BODY in a temporary project holding FILES, an alist of name and text."
+  (declare (indent 1))
+  `(let ((directory (heks-ert--temp-directory)))
+     (unwind-protect
+         (progn
+           (dolist (entry ',files)
+             (let ((file (expand-file-name (car entry) directory)))
+               (make-directory (file-name-directory file) t)
+               (with-temp-file file (insert (cdr entry)))))
+           (let ((default-directory directory))
+             (let (project-current)
+               ,@body)))
+       (delete-directory directory t))))
+
+(ert-deftest heks-emacs-duplicates/a-block-in-two-files-is-one-cluster ()
+  (heks-ert--with-project (("a.scm" . ";;; a\n(define-module (a))\n\n")
+                           ("b.scm" . ";;; b\n(define-module (b))\n\n"))
+    ;; The same block, written twice, and nothing else.
+    (with-temp-file (expand-file-name "a.scm" default-directory)
+      (insert ";;; a\n(define-module (a))\n\n" heks-ert--shared-block))
+    (with-temp-file (expand-file-name "b.scm" default-directory)
+      (insert ";;; b\n(define-module (b))\n\n" heks-ert--shared-block))
+    (let ((runs (heks-emacs-duplicates-scan default-directory)))
+      (should (= 1 (length runs)))
+      (let ((run (car runs)))
+        (should (= 10 (plist-get run :length)))
+        (should (= 2 (length (plist-get run :occurrences))))
+        (should (= 10 (heks-emacs-duplicates-wasted-lines run)))
+        (should (equal (sort (mapcar (lambda (occurrence)
+                                       (file-name-nondirectory (nth 0 occurrence)))
+                                     (plist-get run :occurrences))
+                             #'string<)
+                       '("a.scm" "b.scm")))
+        ;; The occurrence starts where the block does: line 4 of each file,
+        ;; after the comment, the module and the blank line.
+        (should (equal (sort (mapcar (lambda (occurrence)
+                                       (list (file-name-nondirectory (nth 0 occurrence))
+                                             (nth 1 occurrence) (nth 2 occurrence)))
+                                     (plist-get run :occurrences))
+                             (lambda (one two) (string< (car one) (car two))))
+                       '(("a.scm" 4 13) ("b.scm" 4 13))))))))
+
+(ert-deftest heks-emacs-duplicates/a-block-written-once-is-not-a-cluster ()
+  (heks-ert--with-project (("a.scm" . ";;; a\n")
+                           ("b.scm" . ";;; b\n"))
+    (with-temp-file (expand-file-name "a.scm" default-directory)
+      (insert ";;; a\n(define-module (a))\n\n" heks-ert--shared-block))
+    (with-temp-file (expand-file-name "b.scm" default-directory)
+      (insert ";;; b\n(define (b-only) 1)\n"))
+    (should-not (heks-emacs-duplicates-scan default-directory))))
+
+(ert-deftest heks-emacs-duplicates/a-short-block-is-an-idiom-and-not-reported ()
+  (heks-ert--with-project (("a.el" . "(require 'cl-lib)\n")
+                           ("b.el" . "(require 'cl-lib)\n"))
+    (should-not (heks-emacs-duplicates-scan default-directory))))
+
+(ert-deftest heks-emacs-duplicates/a-block-copied-inside-one-file-is-hidden-until-asked-for ()
+  (let ((heks-emacs-duplicates-across-files-only t))
+    (heks-ert--with-project (("a.scm" . ""))
+      (with-temp-file (expand-file-name "a.scm" default-directory)
+        (insert heks-ert--shared-block "\n" heks-ert--shared-block))
+      (should-not (heks-emacs-duplicates-scan default-directory))
+      (let ((heks-emacs-duplicates-across-files-only nil))
+        (should (= 1 (length (heks-emacs-duplicates-scan default-directory))))))))
+
+(ert-deftest heks-emacs-duplicates/indentation-is-not-a-difference ()
+  "The same code indented differently is the same code."
+  (heks-ert--with-project (("a.scm" . "")
+                           ("b.scm" . ""))
+    (with-temp-file (expand-file-name "a.scm" default-directory)
+      (insert "(define (helper x y)\n  (let* ((sum (+ x y))\n         (product (* x y))\n         (difference (- x y)))\n    (when (> sum 100)\n      (error \"too big\"))\n    (list sum product difference)))\n"))
+    (with-temp-file (expand-file-name "b.scm" default-directory)
+      (insert "(define (helper x y)\n      (let* ((sum (+ x y))\n   (product (* x y))\n               (difference (- x y)))\n  (when (> sum 100)\n      (error \"too big\"))\n      (list sum product difference)))\n"))
+    (should (= 1 (length (heks-emacs-duplicates-scan default-directory))))))
+
+(ert-deftest heks-emacs-duplicates/a-comment-is-not-code-and-is-not-compared ()
+  "Two copies of a block are one cluster, whatever is said about them."
+  (heks-ert--with-project (("a.scm" . "")
+                           ("b.scm" . ""))
+    (with-temp-file (expand-file-name "a.scm" default-directory)
+      (insert ";; the helper, written once\n    ;; and explained\n"
+              heks-ert--shared-block))
+    (with-temp-file (expand-file-name "b.scm" default-directory)
+      (insert ";;; a different explanation\n;;; of the same thing\n"
+              heks-ert--shared-block))
+    (let ((runs (heks-emacs-duplicates-scan default-directory)))
+      (should (= 1 (length runs)))
+      ;; The comment lines are not part of what is compared, so the
+      ;; cluster is the code and starts where the code starts.
+      (should-not (string-match-p "written once" (plist-get (car runs) :text))))))
+
+(ert-deftest heks-emacs-duplicates/the-report-says-where-and-how-much ()
+  (let ((run (list :text "(a)\n(b)\n(c)" :length 3
+                   :occurrences '(("/p/a.el" 10 12) ("/p/b.el" 40 42)))))
+    (with-temp-buffer
+      (heks-emacs-duplicates-render (list run) "duplicated code · /p")
+      (let ((text (buffer-string)))
+        (should (string-match-p "1 cluster" text))
+        (should (string-match-p "3 lines in 2 places" text))
+        (should (string-match-p "3 lines wasted" text))
+        (should (string-match-p "a\\.el:10-12" text))
+        (should (string-match-p "b\\.el:40-42" text))
+        ;; The excerpt is there, so a reader can tell at a glance whether
+        ;; the block is worth opening.
+        (should (string-match-p "(b)" text))
+        ;; And every place is a button, which is what makes the report
+        ;; something to act on rather than something to read.
+        (goto-char (point-min))
+        (should (next-button (point-min)))))))
+
+(ert-deftest heks-emacs-duplicates/an-empty-report-says-so ()
+  (with-temp-buffer
+    (heks-emacs-duplicates-render nil "duplicated code · /p")
+    (should (string-match-p "Nothing is written twice" (buffer-string)))))
+
+(ert-deftest heks-emacs-duplicates/the-report-has-a-mode-and-keys ()
+  (with-temp-buffer
+    (heks-emacs-duplicates-report-mode)
+    (should (derived-mode-p 'special-mode))
+    (should (keymapp heks-emacs-duplicates-report-mode-map))
+    (should (eq (key-binding (kbd "n")) 'heks-emacs-duplicates-next))
+    (should (key-binding (kbd "s")))
+    (should (key-binding (kbd "q")))))
+
+(ert-deftest heks-emacs-duplicates/the-report-walks-its-clusters ()
+  (let ((one (list :text "(a)\n(b)" :length 2
+                   :occurrences '(("/p/a.el" 1 2) ("/p/b.el" 1 2))))
+        (two (list :text "(c)\n(d)" :length 2
+                   :occurrences '(("/p/c.el" 5 6) ("/p/d.el" 5 6)))))
+    (with-temp-buffer
+      (heks-emacs-duplicates-report-mode)
+      (let ((inhibit-read-only t))
+        (heks-emacs-duplicates-render (list one two) "duplicated code · /p"))
+      (goto-char (point-min))
+      (should (equal (heks-emacs-duplicates--clusters) '(1 2)))
+      (heks-emacs-duplicates-next)
+      (should (equal (get-text-property (point) 'heks-emacs-duplicates-cluster) 1))
+      (heks-emacs-duplicates-next)
+      (should (equal (get-text-property (point) 'heks-emacs-duplicates-cluster) 2))
+      ;; The last cluster is the last one: walking past it says so rather
+      ;; than moving nowhere, and walking back arrives at the first.
+      (heks-emacs-duplicates-next)
+      (should (equal (get-text-property (point) 'heks-emacs-duplicates-cluster) 2))
+      (heks-emacs-duplicates-next t)
+      (should (equal (get-text-property (point) 'heks-emacs-duplicates-cluster) 1)))))
+
+(ert-deftest heks-emacs-duplicates/the-scan-reads-what-is-code ()
+  "A file that is not written to be read is not read."
+  (heks-ert--with-project (("a.scm" . "") ("image.png" . "not really a png"))
+    (should (equal (mapcar #'file-name-nondirectory
+                           (heks-emacs-duplicates--candidate-files default-directory))
+                   '("a.scm")))))
 
 ;;
 ;; Run.

@@ -83,6 +83,7 @@ described only by a letter.
 | ~v~ | view: folding and comparisons |
 | ~w~ | workspace and project: running it, and Terraform |
 | ~x~ | eca: the AI coding assistant |
+| ~z~ | the thing at point: the region grown, the symbol lit up, a place jumped to |
 
 ** The letters a topic gives its own meaning
 
@@ -101,6 +102,7 @@ in every other topic.
 | ~!~ | ~a~ | all the diagnostics of the project |
 | ~#~ | ~j~ | his own configuration |
 | ~#~ | ~s~ | the system |
+| ~#~ | ~e~ | this file, edited as root |
 | ~#~ | ~f~ | everything: his configuration and the system |
 | ~;~ | ~v~ | the entry for today |
 | ~;~ | ~g~ | the entry for yesterday |
@@ -151,15 +153,18 @@ in every other topic.
 | ~j~ | ~N~ | a new project |
 | ~j~ | ~B~ | the project, built again |
 | ~j~ | ~D~ | the dependencies of this project |
+| ~j~ | ~T~ | the tree of this project's dependencies |
 | ~j~ | ~R~ | the project's classpath, reloaded |
 | ~l~ | ~l~ | a library, opened by name |
 | ~l~ | ~L~ | a library, loaded from disk |
 | ~l~ | ~p~ | the parentheses of this buffer |
 | ~n~ | ~c~ | capture a note |
+| ~n~ | ~d~ | today's entry, opened |
 | ~n~ | ~f~ | find a node |
 | ~n~ | ~g~ | the graph of the notes |
-| ~n~ | ~j~ | the journal entry for today |
+| ~n~ | ~j~ | today's entry, captured |
 | ~n~ | ~l~ | the buffer that lists the links |
+| ~n~ | ~A~ | the agenda: every note's dates and TODOs, in one list |
 | ~n~ | ~m~ | a Markdown file, imported as an Org note |
 | ~n~ | ~M~ | a region of Markdown, converted to Org |
 | ~o~ | ~m~ | Gnus itself |
@@ -188,6 +193,8 @@ in every other topic.
 | ~v~ | ~o~ | this fold, opened |
 | ~v~ | ~O~ | this fold and everything under it |
 | ~v~ | ~r~ | every fold, revealed |
+| ~v~ | ~d~ | the difference between two buffers |
+| ~v~ | ~D~ | the code this project writes more than once |
 | ~v~ | ~t~ | the fold at point, toggled |
 | ~w~ | ~c~ | a repository, cloned |
 | ~w~ | ~d~ | the development server |
@@ -198,6 +205,15 @@ in every other topic.
 | ~x~ | ~t~ | the chat window, shown or hidden |
 | ~x~ | ~m~ | the model, chosen |
 | ~x~ | ~p~ | the provider, chosen |
+| ~z~ | ~e~ | the region, grown to the next thing around it |
+| ~z~ | ~s~ | the region, shrunk back to what it was |
+| ~z~ | ~o~ | the symbol at point, lit up at every occurrence |
+| ~z~ | ~n~ | the next occurrence of it |
+| ~z~ | ~p~ | the previous occurrence of it |
+| ~z~ | ~r~ | every occurrence of it, renamed at once |
+| ~z~ | ~k~ | the lighting, taken off |
+| ~z~ | ~j~ | a place on the screen, jumped to by its letter |
+| ~z~ | ~J~ | a line, jumped to by its letter |
 
 * The keys, by topic
 
@@ -215,6 +231,7 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
+| ~C-c # e~ | ~sudo-edit~ | this file, edited as root | editor.el |
 | ~C-c # f~ | ~heks-emacs-full-reconfigure~ | everything: his configuration and the system | emacs-core.el |
 | ~C-c # j~ | ~heks-emacs-joe-reconfigure~ | his own configuration | emacs-core.el |
 | ~C-c # s~ | ~heks-emacs-sys-reconfigure~ | the system | emacs-core.el |
@@ -433,12 +450,14 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
+| ~C-c n A~ | ~org-agenda~ | the agenda: every note's dates and TODOs, in one list | org.el |
 | ~C-c n M~ | ~heks-emacs-markdown-region-to-org~ | the region of Markdown, converted to Org | import.el |
 | ~C-c n c~ | ~org-roam-capture~ | capture a note | org.el |
+| ~C-c n d~ | ~org-roam-dailies-goto-today~ | today's entry, opened | org.el |
 | ~C-c n f~ | ~org-roam-node-find~ | a node, found by title | org.el |
 | ~C-c n g~ | ~org-roam-graph~ | the graph of the notes | org.el |
 | ~C-c n i~ | ~org-roam-node-insert~ | a link to another node, inserted | org.el |
-| ~C-c n j~ | ~org-roam-dailies-capture-today~ | the journal entry for today | org.el |
+| ~C-c n j~ | ~org-roam-dailies-capture-today~ | today's entry, captured | org.el |
 | ~C-c n l~ | ~org-roam-buffer-toggle~ | the buffer that lists the links | org.el |
 | ~C-c n m~ | ~heks-emacs-import-markdown~ | the Markdown file of this buffer, imported as an Org note | import.el |
 | ~C-c n v~ | ~org-toggle-link-display~ | links, shown as their text | org.el |
@@ -469,6 +488,7 @@ in every other topic.
 | ~C-c r n~ | ~heks-emacs-present-insert-slide~ | a slide boundary, inserted | present.el |
 | ~C-c r p~ | ~heks-emacs-preview~ | this buffer, rendered in Emacs | render.el |
 | ~C-c r r~ | ~heks-emacs-preview-refresh~ | the preview, rendered again | render.el |
+| ~C-c r s~ | ~heks-emacs-preview-sync~ | the preview, moved to the section point is in | render.el |
 
 ** ~C-c s~ snippets and recorded macros
 
@@ -489,7 +509,9 @@ in every other topic.
 | ~C-c t a~ | ~sort-lines~ | the lines, sorted | emacs-core.el |
 | ~C-c t c~ | ~display-fill-column-indicator-mode~ | the fill column indicator | emacs-core.el |
 | ~C-c t i~ | ~heks-emacs-uuidgen~ | a UUID, generated | emacs-core.el |
+| ~C-c t n~ | ~hl-todo-next~ | the next TODO or FIXME in this buffer | dev-tools.el |
 | ~C-c t o~ | ~olivetti-mode~ | writing in the middle of the window | ui.el |
+| ~C-c t p~ | ~hl-todo-previous~ | the previous one | dev-tools.el |
 | ~C-c t r~ | ~rainbow-mode~ | colour names, shown as colours | emacs-core.el |
 | ~C-c t w~ | ~delete-trailing-whitespace~ | the whitespace at the end of the lines | emacs-core.el |
 | ~C-c t y~ | ~heks/dired-copy-marked-files-content~ | the marked files' contents, copied | emacs-core.el |
@@ -505,6 +527,7 @@ in every other topic.
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
 | ~C-c v C~ | ~heks-emacs-fold-close-all~ | every fold | emacs-core.el |
+| ~C-c v D~ | ~heks-emacs-duplicates-report~ | the code this project writes more than once | emacs-core.el |
 | ~C-c v O~ | ~heks-emacs-fold-open-recursive~ | this fold and everything under it | emacs-core.el |
 | ~C-c v c~ | ~heks-emacs-fold-close~ | this fold | emacs-core.el |
 | ~C-c v d~ | ~highlight-compare-buffers~ | two buffers, compared | emacs-core.el |
@@ -540,3 +563,17 @@ in every other topic.
 | ~C-c x p~ | ~heks-emacs-ai-use-provider~ | the provider, chosen | ai.el |
 | ~C-c x s~ | ~eca-chat-select~ | a chat, switched to by name | ai.el |
 | ~C-c x t~ | ~eca-chat-toggle-window~ | the chat window, shown or hidden | ai.el |
+
+** ~C-c z~ the thing at point: the region grown, the symbol lit up, a place jumped to
+
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c z J~ | ~avy-goto-line~ | a line, jumped to by its letter | search.el |
+| ~C-c z e~ | ~er/expand-region~ | the region, grown to the next thing around it | editor.el |
+| ~C-c z j~ | ~avy-goto-char-timer~ | a place on the screen, jumped to by its letter | search.el |
+| ~C-c z k~ | ~symbol-overlay-remove-all~ | the lighting, taken off | dev-tools.el |
+| ~C-c z n~ | ~symbol-overlay-jump-next~ | the next occurrence of it | dev-tools.el |
+| ~C-c z o~ | ~symbol-overlay-put~ | the symbol at point, lit up at every occurrence | dev-tools.el |
+| ~C-c z p~ | ~symbol-overlay-jump-prev~ | the previous occurrence of it | dev-tools.el |
+| ~C-c z r~ | ~symbol-overlay-rename~ | every occurrence of it, renamed at once | dev-tools.el |
+| ~C-c z s~ | ~er/contract-region~ | the region, shrunk back to what it was | editor.el |

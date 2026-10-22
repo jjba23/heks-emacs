@@ -357,17 +357,25 @@ configuration."
                "C-c i f" "C-c j m" "C-c j M" "C-c j g" "C-c j G"
                "C-c j s" "C-c j R" "C-c l d" "C-c l e" "C-c m r"
                "C-c n v" "C-c o m" "C-c o g"
-               "C-c r p" "C-c r b" "C-c r e" "C-c r m" "C-c r r"
-               "C-c t a" "C-c t w" "C-c t c" "C-c u u"
+               "C-c r p" "C-c r b" "C-c r e" "C-c r m" "C-c r r" "C-c r s"
+               "C-c t a" "C-c t w" "C-c t c" "C-c t n" "C-c t p"
                "C-c v o" "C-c v O" "C-c v c" "C-c v C" "C-c v r" "C-c v t" "C-c v d"
+               "C-c v D"
                "C-c w r" "C-c w f" "C-c w t" "C-c w d" "C-c w g"
-               "C-c # s" "C-c # u" "C-c # f" "C-c # j"
+               "C-c z e" "C-c z s" "C-c z o" "C-c z n" "C-c z p" "C-c z r"
+               "C-c z k" "C-c z j" "C-c z J"
+               "C-c # s" "C-c # u" "C-c # f" "C-c # j" "C-c # e"
                "C-c f n" "C-c f t" "C-c f s" "C-c f r" "C-c f l" "C-c f L"
                "C-c f j" "C-c f c"))
   (heks-verify--check (format "%s is bound" key)
                       (commandp (key-binding (kbd key)))))
 (heks-verify--check "C-c p is the completion prefix"
                     (keymapp (key-binding (kbd "C-c p"))))
+;; `C-c u' is kubed's own menu rather than a command of this configuration,
+;; and which keys it holds is the package's business: an older kubed had a
+;; `u' inside it and this one does not, so what is checked is the menu.
+(heks-verify--check "C-c u is kubed's prefix"
+                    (keymapp (key-binding (kbd "C-c u"))))
 
 
 ;;; A definition spread over several lines, which is what a real one looks
@@ -392,6 +400,10 @@ configuration."
                       hs-block-start-regexp "^(")
   (heks-verify--check "the compiler checks the buffer"
                       (and (memq 'heks-emacs-guile-compile-backend
+                                 flymake-diagnostic-functions)
+                           t))
+  (heks-verify--check "the bad-practice checker runs beside it"
+                      (and (memq 'heks-emacs-scheme-lint-check
                                  flymake-diagnostic-functions)
                            t))
   (heks-verify--check "Flymake is on" flymake-mode)

@@ -617,16 +617,22 @@ padding:0.2em 0.55em;border-radius:5px;letter-spacing:0.04em\">%s</span>"
 A body is written one way most of the time, but a document that offers
 JSON and one other serialisation has to show both, in a defined order."
   (mapcar (lambda (media-type)
-            (cons media-type
+            (list media-type
                   (heks-emacs-openapi--schema-html
-                   spec (heks-emacs-openapi-get (gethash media-type content) "schema"))))
+                   spec (heks-emacs-openapi-get (gethash media-type content) "schema"))
+                  (heks-emacs-openapi--content-example
+                   spec (gethash media-type content))))
           (heks-emacs-openapi--sorted-keys content)))
 
 (defun heks-emacs-openapi--schema-html (spec schema &optional depth)
   "Return a short description of SCHEMA, resolved through SPEC.
 
 DEPTH stops a schema that describes itself from describing itself
-forever."
+forever.  What it says is what a reader of a specification asks first --
+which shape it is (`object', `array of', one of several) -- and then the
+three things that decide how a value of it is written: the values it may
+take, the one it takes when none is given, and the one the document shows
+as an example."
   (let ((depth (or depth 0)))
     (if (> depth 4)
         "<code>…</code>"
@@ -634,33 +640,177 @@ forever."
              (resolved (if reference
                            (heks-emacs-openapi--resolve spec schema)
                          schema))
-             (type (and (hash-table-p resolved) (heks-emacs-openapi-get resolved "type")))
-             (schema-format (and (hash-table-p resolved)
-                                 (heks-emacs-openapi-get resolved "format")))
-             (items (and (hash-table-p resolved) (heks-emacs-openapi-get resolved "items")))
-             (properties (and (hash-table-p resolved)
-                              (heks-emacs-openapi-get resolved "properties"))))
-        (cond
-         (reference
-          (format "<code>%s</code>" (heks-emacs-openapi--html-text
-                                     (car (last (split-string (heks-emacs-openapi--key-text
-                                                               reference)
-                                                              "/"))))))
-         ((equal type "array")
-          (format "<code>array</code> of %s" (heks-emacs-openapi--schema-html
-                                              spec items (1+ depth))))
-         (properties
-          (format "<code>object</code> with %s"
-                  (string-join
-                   (mapcar (lambda (name)
-                             (format "<code>%s</code>" (heks-emacs-openapi--html-text name)))
-                           (heks-emacs-openapi--sorted-keys properties))
-                   ", ")))
-         (type (format "<code>%s</code>%s" (heks-emacs-openapi--html-text type)
-                       (if schema-format
-                           (format " (%s)" (heks-emacs-openapi--html-text schema-format))
-                         "")))
-         (t "<code>any</code>"))))))
+             (get (lambda (key)
+                    (and (hash-table-p resolved) (heks-emacs-openapi-get resolved key))))
+             (type (funcall get "type"))
+             (schema-format (funcall get "format"))
+             (items (funcall get "items"))
+             (properties (funcall get "properties"))
+             (enum (heks-emacs-openapi-seq (funcall get "enum")))
+             (alternatives (or (heks-emacs-openapi-seq (funcall get "oneOf"))
+                               (heks-emacs-openapi-seq (funcall get "anyOf"))))
+             (all-of (heks-emacs-openapi-seq (funcall get "allOf")))
+             (default (funcall get "default"))
+             (example (funcall get "example")))
+        (concat
+         (cond
+          (reference
+           (format "<code>%s</code>" (heks-emacs-openapi--html-text
+                                      (car (last (split-string (heks-emacs-openapi--key-text
+                                                                reference)
+                                                               "/"))))))
+          (alternatives
+           (format "<code>%s</code> %s"
+                   (if (funcall get "oneOf") "one of" "any of")
+                   (string-join
+                    (mapcar (lambda (alternative)
+                              (heks-emacs-openapi--schema-html spec alternative (1+ depth)))
+                            alternatives)
+                    ", ")))
+          (all-of
+           (format "<code>all of</code> %s"
+                   (string-join
+                    (mapcar (lambda (part)
+                              (heks-emacs-openapi--schema-html spec part (1+ depth)))
+                            all-of)
+                    " and ")))
+          ((equal type "array")
+           (format "<code>array</code> of %s" (heks-emacs-openapi--schema-html
+                                               spec items (1+ depth))))
+          (properties
+           (format "<code>object</code> with %s"
+                   (string-join
+                    (mapcar (lambda (name)
+                              (format "<code>%s</code>" (heks-emacs-openapi--html-text name)))
+                            (heks-emacs-openapi--sorted-keys properties))
+                    ", ")))
+          (type (format "<code>%s</code>%s" (heks-emacs-openapi--html-text type)
+                        (if schema-format
+                            (format " (%s)" (heks-emacs-openapi--html-text schema-format))
+                          "")))
+          (t "<code>any</code>"))
+         (if enum
+             (format " — one of %s"
+                     (string-join (mapcar (lambda (value)
+                                            (format "<code>%s</code>"
+                                                    (heks-emacs-openapi--html-text value)))
+                                          enum)
+                                  ", "))
+           "")
+         (if (null default) ""
+           (format " (default: <code>%s</code>)"
+                   (heks-emacs-openapi--html-text default)))
+         (if (null example) ""
+           (format " (example: <code>%s</code>)" (heks-emacs-openapi--html-text example))))))))
+
+(defun heks-emacs-openapi--required-names (schema)
+  "Return the properties SCHEMA says are required, as text."
+  (mapcar (lambda (name) (heks-emacs-openapi--key-text name))
+          (heks-emacs-openapi-seq
+           (and (hash-table-p schema) (heks-emacs-openapi-get schema "required")))))
+
+(defun heks-emacs-openapi--properties-html (spec schema &optional depth)
+  "Return a table of the properties SCHEMA describes, or the empty string.
+
+A reader who is shown `object with a, b, c' asks what `a' is; this is the
+answer, one row per property, with its type, whether the document requires
+it, and what it is for.  DEPTH stops an object that holds itself from
+holding itself forever."
+  (let* ((depth (or depth 0))
+         (resolved (heks-emacs-openapi--resolve spec schema))
+         (properties (and (hash-table-p resolved)
+                          (heks-emacs-openapi-get resolved "properties")))
+         (required (heks-emacs-openapi--required-names resolved)))
+    (if (or (not (hash-table-p properties))
+            (> depth 2)
+            (zerop (hash-table-count properties)))
+        ""
+      (concat
+       "<table class=\"properties\"><thead><tr><th>Property</th><th>Type</th>"
+       "<th>Required</th><th>What it is</th></tr></thead><tbody>\n"
+       (mapconcat
+        (lambda (name)
+          (let ((property (heks-emacs-openapi--resolve spec (gethash name properties))))
+            (format "<tr><td><code>%s</code></td><td>%s</td><td>%s</td><td>%s</td></tr>"
+                    (heks-emacs-openapi--html-text name)
+                    (heks-emacs-openapi--schema-html spec property (1+ depth))
+                    (if (member (heks-emacs-openapi--key-text name) required) "yes" "")
+                    (heks-emacs-openapi--html-text
+                     (and (hash-table-p property)
+                          (heks-emacs-openapi-get property "description"))))))
+        (heks-emacs-openapi--sorted-keys properties)
+        "\n")
+       "\n</tbody></table>"))))
+
+(defun heks-emacs-openapi--json (value &optional indent)
+  "Return VALUE as the JSON text of it, with INDENT spaces in front.
+
+The keys of a mapping are written in the order this configuration reads
+them in -- sorted -- rather than in the order a hash table happens to
+iterate: a specification written in YAML and the same one written in JSON
+are the same document, and an example that came out of one of them in a
+different order would make them two."
+  (let* ((indent (or indent 0))
+         (pad (make-string indent ?\s)))
+    (cond
+     ((hash-table-p value)
+      (if (zerop (hash-table-count value))
+          "{}"
+        (format "{\n%s\n%s}"
+                (mapconcat
+                 (lambda (key)
+                   (format "%s  %s: %s"
+                           pad (json-encode key)
+                           (heks-emacs-openapi--json (gethash key value) (+ indent 2))))
+                 (heks-emacs-openapi--sorted-keys value)
+                 ",\n")
+                pad)))
+     ((or (and (listp value) value) (vectorp value))
+      (let ((items (append value nil)))
+        (if (null items)
+            "[]"
+          (format "[\n%s\n%s]"
+                  (mapconcat (lambda (item)
+                               (format "%s  %s" pad
+                                       (heks-emacs-openapi--json item (+ indent 2))))
+                             items ",\n")
+                  pad))))
+     ((eq value :error) "null")
+     ((eq value :false) "false")
+     ((null value) "null")
+     ((numberp value) (number-to-string value))
+     ((stringp value) (json-encode value))
+     (t (json-encode (heks-emacs-openapi-text value))))))
+
+(defun heks-emacs-openapi--example-html (value)
+  "Return VALUE, an example in a document, as the block a reader expects.
+
+An example is what a call returns, and it is written as the JSON it is:
+the shape of the thing, because an example that has to be read as
+`#<hash-table ...>' is an example nobody reads."
+  (cond
+   ((null value) "")
+   ((or (hash-table-p value) (and (listp value) value) (vectorp value))
+    (format "<pre class=\"example\">%s</pre>"
+            (heks-emacs-render--escape (heks-emacs-openapi--json value))))
+   ((stringp value)
+    (format "<pre class=\"example\">%s</pre>"
+            (heks-emacs-render--escape value)))
+   (t (format "<code>%s</code>" (heks-emacs-openapi--html-text value)))))
+
+(defun heks-emacs-openapi--content-example (spec media)
+  "Return the example the MEDIA entry of a body or a response shows."
+  (let* ((media (heks-emacs-openapi--resolve spec media))
+         (example (and (hash-table-p media) (heks-emacs-openapi-get media "example")))
+         (examples (and (hash-table-p media) (heks-emacs-openapi-get media "examples")))
+         (schema (and (hash-table-p media) (heks-emacs-openapi-get media "schema")))
+         (value (or example
+                    (and (hash-table-p examples) (heks-emacs-openapi-get examples "default"))
+                    (and (hash-table-p schema) (heks-emacs-openapi-get schema "example")))))
+    (when (hash-table-p value)
+      ;; An `examples' entry is an object with a value of its own.
+      (setq value (or (heks-emacs-openapi-get value "value") value)))
+    (heks-emacs-openapi--example-html value)))
 
 (defun heks-emacs-openapi--parameters-html (spec parameters)
   "Return a table of the PARAMETERS of an operation of SPEC."
@@ -706,13 +856,23 @@ forever."
                                (heks-emacs-openapi-get response "description")))
                          (string-join
                           (mapcar (lambda (entry)
-                                    (format "%s → %s"
-                                            (heks-emacs-openapi--html-text (car entry))
-                                            (cdr entry)))
+                                    (concat
+                                     (format "%s → %s"
+                                             (heks-emacs-openapi--html-text (nth 0 entry))
+                                             (nth 1 entry))
+                                     (nth 2 entry)))
                                   (heks-emacs-openapi--media-entries spec content))
                           "<br>"))))
              (heks-emacs-openapi--sorted-keys responses)))
      "</tbody></table>")))
+
+(defun heks-emacs-openapi--body-schema (spec body)
+  "Return the schema of the first media type of BODY, resolved through SPEC."
+  (let* ((body (heks-emacs-openapi--resolve spec body))
+         (content (and (hash-table-p body) (heks-emacs-openapi-get body "content"))))
+    (when (hash-table-p content)
+      (let ((media-type (car (heks-emacs-openapi--sorted-keys content))))
+        (heks-emacs-openapi-get (gethash media-type content) "schema")))))
 
 (defun heks-emacs-openapi--body-html (spec body)
   "Return the request body of an operation of SPEC."
@@ -720,20 +880,26 @@ forever."
     (if (not (hash-table-p body))
         ""
       (let ((content (heks-emacs-openapi-get body "content"))
-            (description (heks-emacs-openapi-get body "description")))
+            (description (heks-emacs-openapi-get body "description"))
+            (required (heks-emacs-openapi-yes-p
+                       (heks-emacs-openapi-get body "required"))))
         (concat
          (when description
            (format "<p>%s</p>" (heks-emacs-openapi--html-text description)))
          (when (hash-table-p content)
-           (concat "<p class=\"headline\">Request body</p><ul>"
+           (concat (format "<p class=\"headline\">Request body%s</p><ul>"
+                           (if required " (required)" ""))
                    (string-join
                     (mapcar (lambda (entry)
-                              (format "<li><code>%s</code> — %s</li>"
-                                      (heks-emacs-openapi--html-text (car entry))
-                                      (cdr entry)))
+                              (format "<li><code>%s</code> — %s%s</li>"
+                                      (heks-emacs-openapi--html-text (nth 0 entry))
+                                      (nth 1 entry)
+                                      (nth 2 entry)))
                             (heks-emacs-openapi--media-entries spec content))
                     "")
-                   "</ul>")))))))
+                   "</ul>"))
+         (heks-emacs-openapi--properties-html
+          spec (heks-emacs-openapi--body-schema spec body)))))))
 
 (defun heks-emacs-openapi--operation-html (spec operation)
   "Return the rendered OPERATION of SPEC."
@@ -790,15 +956,117 @@ forever."
                                   (heks-emacs-openapi--html-text
                                    (heks-emacs-openapi-get schema "description"))))
                         (format "<p>%s</p>\n"
-                                (heks-emacs-openapi--schema-html spec schema)))))
+                                (heks-emacs-openapi--schema-html spec schema))
+                        (heks-emacs-openapi--properties-html spec schema))))
                    (heks-emacs-openapi--sorted-keys schemas)))))))))
+
+(defun heks-emacs-openapi--security-html (spec)
+  "Return the ways a caller can be allowed in, as a section.
+
+Swagger puts an `Authorize' button at the top of the page; what it opens
+is this -- the schemes the document declares, what kind of credential each
+one takes, and where it goes."
+  (let* ((components (heks-emacs-openapi-get spec "components"))
+         (schemes (and (hash-table-p components)
+                       (heks-emacs-openapi-get components "securitySchemes"))))
+    (if (not (hash-table-p schemes))
+        ""
+      (concat
+       "<h2>Authentication</h2>\n"
+       "<table class=\"security\"><thead><tr><th>Name</th><th>Kind</th>"
+       "<th>Where</th><th>What it says</th></tr></thead><tbody>\n"
+       (mapconcat
+        (lambda (name)
+          (let* ((scheme (heks-emacs-openapi--resolve spec (gethash name schemes)))
+                 (type (and (hash-table-p scheme) (heks-emacs-openapi-get scheme "type")))
+                 (detail (and (hash-table-p scheme)
+                              (or (heks-emacs-openapi-get scheme "scheme")
+                                  (heks-emacs-openapi-get scheme "bearerFormat")
+                                  (heks-emacs-openapi-get scheme "flow"))))
+                 (where (and (hash-table-p scheme)
+                             (or (heks-emacs-openapi-get scheme "in")
+                                 (heks-emacs-openapi-get scheme "name")))))
+            (format "<tr><td><code>%s</code></td><td>%s%s</td><td>%s</td><td>%s</td></tr>"
+                    (heks-emacs-openapi--html-text name)
+                    (heks-emacs-openapi--html-text type)
+                    (if detail
+                        (format " (%s)" (heks-emacs-openapi--html-text detail))
+                      "")
+                    (heks-emacs-openapi--html-text where)
+                    (heks-emacs-openapi--html-text
+                     (and (hash-table-p scheme)
+                          (heks-emacs-openapi-get scheme "description"))))))
+        (heks-emacs-openapi--sorted-keys schemes)
+        "\n")
+       "\n</tbody></table>\n"))))
+
+(defun heks-emacs-openapi--tag-description (spec tag)
+  "Return the description SPEC gives TAG, or nil."
+  (let ((tags (heks-emacs-openapi-seq (heks-emacs-openapi-get spec "tags"))))
+    (seq-some (lambda (entry)
+                (when (and (hash-table-p entry)
+                           (equal (heks-emacs-openapi-text
+                                   (heks-emacs-openapi-get entry "name"))
+                                  tag))
+                  (heks-emacs-openapi-text (heks-emacs-openapi-get entry "description"))))
+              tags)))
+
+(defun heks-emacs-openapi--tag-documentation (spec tag)
+  "Return TAG's own documentation -- its description and its links.
+
+It is written under the tag's heading, because what a tag is for is the
+first thing a reader of a page full of operations wants to know, and
+`externalDocs' is where a document keeps the guide it does not hold."
+  (let* ((tags (heks-emacs-openapi-seq (heks-emacs-openapi-get spec "tags")))
+         (entry (seq-some (lambda (candidate)
+                            (when (and (hash-table-p candidate)
+                                       (equal (heks-emacs-openapi-text
+                                               (heks-emacs-openapi-get candidate "name"))
+                                              tag))
+                              candidate))
+                          tags))
+         (docs (and (hash-table-p entry) (heks-emacs-openapi-get entry "externalDocs")))
+         (url (and (hash-table-p docs) (heks-emacs-openapi-get docs "url"))))
+    (concat
+     (if (heks-emacs-openapi--tag-description spec tag)
+         (format "<p class=\"tag-description\">%s</p>\n"
+                 (heks-emacs-openapi--html-text
+                  (heks-emacs-openapi--tag-description spec tag)))
+       "")
+     (if url
+         (format "<p class=\"tag-docs\"><a href=\"%s\">%s</a></p>\n"
+                 (heks-emacs-render--escape (heks-emacs-openapi-text url) t)
+                 (heks-emacs-openapi--html-text
+                  (or (and (hash-table-p docs) (heks-emacs-openapi-get docs "description"))
+                      "Further documentation")))
+       ""))))
+
+(defun heks-emacs-openapi--summary-html (spec operations tags)
+  "Return the line that says how much there is to read, before reading it.
+
+A page of fifty operations is a page to search; one of five is a page to
+read, and the count is what says which one you have opened."
+  (format "<p class=\"headline\">%d operation%s · %d tag%s%s</p>\n"
+          (length operations) (if (= (length operations) 1) "" "s")
+          (length tags) (if (= (length tags) 1) "" "s")
+          (let ((docs (heks-emacs-openapi-get spec "externalDocs")))
+            (if (and (hash-table-p docs) (heks-emacs-openapi-get docs "url"))
+                (format " · <a href=\"%s\">%s</a>"
+                        (heks-emacs-render--escape
+                         (heks-emacs-openapi-text (heks-emacs-openapi-get docs "url")) t)
+                        (heks-emacs-openapi--html-text
+                         (or (heks-emacs-openapi-get docs "description") "Documentation")))
+              ""))))
 
 (defun heks-emacs-openapi-html (&optional buffer)
   "Return the specification in BUFFER rendered as a page of HTML.
 
 The shape is the one Swagger UI has made familiar -- operations grouped
 by tag, each with its method, its parameters, its body and its responses
--- because that is the shape a reader already knows how to read."
+-- because that is the shape a reader already knows how to read.  What a
+reader of a specification asks before that is answered at the top as well:
+how many operations there are, what the servers are, and how a caller is
+let in."
   (with-current-buffer (or buffer (current-buffer))
     (let* ((spec (heks-emacs-openapi-parse))
            (info (and spec (heks-emacs-openapi-get spec "info")))
@@ -823,6 +1091,7 @@ by tag, each with its method, its parameters, its body and its responses
                 (setq entry (cons tag nil))
                 (push entry tags))
               (setcdr entry (append (cdr entry) (list operation))))))
+        (setq tags (nreverse tags))
         (concat
          (format "<h1>%s %s</h1>\n" (heks-emacs-openapi--html-text title)
                  (if version
@@ -830,6 +1099,7 @@ by tag, each with its method, its parameters, its body and its responses
                    ""))
          (when description
            (format "<p>%s</p>\n" (heks-emacs-openapi--html-text description)))
+         (heks-emacs-openapi--summary-html spec operations tags)
          (let ((servers (heks-emacs-openapi-seq (heks-emacs-openapi-get spec "servers"))))
            (if servers
                (concat "<p class=\"headline\">Servers</p><ul>"
@@ -848,14 +1118,18 @@ by tag, each with its method, its parameters, its body and its responses
                         "")
                        "</ul>")
              ""))
+         (heks-emacs-openapi--security-html spec)
          (apply #'concat
                 (mapcar (lambda (entry)
-                          (concat (format "<h2>%s</h2>\n" (heks-emacs-openapi--html-text (car entry)))
-                                  (apply #'concat
-                                         (mapcar (lambda (operation)
-                                                   (heks-emacs-openapi--operation-html spec operation))
-                                                 (cdr entry)))))
-                        (nreverse tags)))
+                          (concat
+                           (format "<h2>%s</h2>\n"
+                                   (heks-emacs-openapi--html-text (car entry)))
+                           (heks-emacs-openapi--tag-documentation spec (car entry))
+                           (apply #'concat
+                                  (mapcar (lambda (operation)
+                                            (heks-emacs-openapi--operation-html spec operation))
+                                          (cdr entry)))))
+                        tags))
          (heks-emacs-openapi--schemas-html spec)))))))
 
 (defun heks-emacs-openapi-view ()

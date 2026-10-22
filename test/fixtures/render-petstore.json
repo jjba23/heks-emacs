@@ -6,77 +6,134 @@
     "description": "A small API used to check the renderer."
   },
   "servers": [
-    {"url": "https://api.example.com/v1", "description": "Production"},
-    {"url": "http://localhost:8080"}
+    {
+      "url": "https://api.example.com/v1",
+      "description": "Production"
+    },
+    {
+      "url": "http://localhost:8080"
+    }
   ],
   "paths": {
     "/pets": {
       "get": {
         "operationId": "listPets",
-        "tags": ["pets"],
+        "tags": [
+          "pets"
+        ],
         "summary": "List the pets",
         "description": "Returns every pet the store knows about.",
-        "parameters": [{"$ref": "#/components/parameters/Limit"}],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
         "responses": {
           "200": {
             "description": "The pets",
             "content": {
               "application/json": {
-                "schema": {"type": "array", "items": {"$ref": "#/components/schemas/Pet"}}
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Pet"
+                  }
+                },
+                "example": [
+                  {
+                    "id": 42,
+                    "name": "Rex",
+                    "status": "available"
+                  }
+                ]
               },
-              "application/xml": {"schema": {"$ref": "#/components/schemas/PetList"}}
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PetList"
+                }
+              }
             }
           },
           "default": {
             "description": "Something went wrong",
             "content": {
-              "application/json": {"schema": {"$ref": "#/components/schemas/Error"}}
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
             }
           }
         }
       },
       "post": {
         "operationId": "createPet",
-        "tags": ["pets"],
+        "tags": [
+          "pets"
+        ],
         "summary": "Add a pet",
         "requestBody": {
           "description": "The pet to add",
           "required": true,
           "content": {
-            "application/json": {"schema": {"$ref": "#/components/schemas/NewPet"}}
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewPet"
+              }
+            }
           }
         },
         "responses": {
           "201": {
             "description": "The pet that was created",
             "content": {
-              "application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pet"
+                }
+              }
             }
           }
         }
       }
     },
     "/pets/{petId}": {
-      "parameters": [{"$ref": "#/components/parameters/PetId"}],
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/PetId"
+        }
+      ],
       "get": {
         "operationId": "getPet",
-        "tags": ["pets"],
+        "tags": [
+          "pets"
+        ],
         "summary": "One pet",
         "responses": {
           "200": {
             "description": "The pet",
             "content": {
-              "application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pet"
+                }
+              }
             }
           }
         }
       },
       "delete": {
         "operationId": "deletePet",
-        "tags": ["pets"],
+        "tags": [
+          "pets"
+        ],
         "summary": "Remove a pet",
         "deprecated": true,
-        "responses": {"204": {"description": "The pet is gone"}}
+        "responses": {
+          "204": {
+            "description": "The pet is gone"
+          }
+        }
       }
     }
   },
@@ -87,14 +144,19 @@
         "in": "query",
         "required": false,
         "description": "How many pets to return",
-        "schema": {"type": "integer", "format": "int32"}
+        "schema": {
+          "type": "integer",
+          "format": "int32"
+        }
       },
       "PetId": {
         "name": "petId",
         "in": "path",
         "required": true,
         "description": "The identity of the pet",
-        "schema": {"type": "string"}
+        "schema": {
+          "type": "string"
+        }
       }
     },
     "schemas": {
@@ -102,22 +164,105 @@
         "type": "object",
         "description": "A pet the store sells.",
         "properties": {
-          "id": {"type": "integer", "format": "int64"},
-          "name": {"type": "string"},
-          "tag": {"type": "string"}
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "example": 42
+          },
+          "name": {
+            "type": "string",
+            "description": "What the pet is called."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "available",
+              "pending",
+              "sold"
+            ],
+            "default": "available"
+          },
+          "tag": {
+            "type": "string",
+            "description": "A label, if it has one."
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "PetList": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Pet"
         }
       },
-      "PetList": {"type": "array", "items": {"$ref": "#/components/schemas/Pet"}},
       "NewPet": {
         "type": "object",
-        "required": ["name"],
-        "properties": {"name": {"type": "string"}}
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Rex"
+          },
+          "kind": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          }
+        }
       },
       "Error": {
         "type": "object",
         "description": "What the API says when it refuses.",
-        "properties": {"code": {"type": "integer"}, "message": {"type": "string"}}
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "apiKey": {
+        "type": "apiKey",
+        "name": "X-API-Key",
+        "in": "header",
+        "description": "The key of the caller."
+      },
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
       }
     }
-  }
+  },
+  "tags": [
+    {
+      "name": "pets",
+      "description": "Everything the store keeps.",
+      "externalDocs": {
+        "url": "https://example.com/guide",
+        "description": "The guide"
+      }
+    }
+  ],
+  "externalDocs": {
+    "url": "https://example.com/api",
+    "description": "The API docs"
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
 }

@@ -103,6 +103,123 @@ A table is a row of cells followed by a delimiter row: `| a | b |' then
        (string-match-p "|" next)
        (string-match-p "\\`[ \t]*|?[ \t]*:?-\\{2,\\}" next)))
 
+;;
+;; ====== The things a document defines for its own use ======
+;;
+;; Markdown has two kinds of line that are not read where they are written
+;; but remembered for later: a link written as `[text][label]' is resolved
+;; by a `[label]: url' line somewhere else in the file, and a footnote
+;; marker in the text is answered by its `[^label]: text' line.  Both are
+;; read here, once, so that the page and the note that are made of a
+;; document cannot disagree about what a label points at.
+
+(defconst heks-emacs-markdown-link-definition-regexp
+  (concat "\\`\\[\\([^]^][^]]*\\)\\]:[ \t]*"
+          "\\(?:<\\([^>]+\\)>\\|\\([^ \t]+\\)\\)"
+          "\\(?:[ \t]+\"\\([^\"]*\\)\"\\|[ \t]+'\\([^']*\\)'\\)?[ \t]*\\'")
+  "Regexp matching a link definition: `[label]: url \"title\"'.")
+
+(defconst heks-emacs-markdown-footnote-definition-regexp
+  "\\`\\[\\(\\^[^]]+\\)\\]:[ \t]*\\(.*\\)\\'"
+  "Regexp matching a footnote definition: `[^label]: text'.")
+
+(defun heks-emacs-markdown-normalize-label (label)
+  "Return LABEL as the key a reference to it is looked up by.
+
+A label is matched without regard to case and without its surrounding
+space, which is what makes `[the Docs][docs]' find a `[DOCS]: url' line."
+  (downcase (string-trim (replace-regexp-in-string "[ \t\n]+" " " (or label "")))))
+
+(defun heks-emacs-markdown-link-definitions (lines)
+  "Return (BODY . LINKS) for the document in LINES.
+
+LINKS is an alist from a normalized label to (URL . TITLE), and BODY is
+the lines that are left once the definition lines have been taken out.
+A footnote definition is not a link definition and stays in BODY: it is
+read where it is written, by the reader that makes a note of it."
+  (let ((body nil)
+        (links nil)
+        (rest lines))
+    (while rest
+      (let ((trimmed (string-trim (car rest))))
+        (if (string-match heks-emacs-markdown-link-definition-regexp trimmed)
+            (push (cons (heks-emacs-markdown-normalize-label (match-string 1 trimmed))
+                        (cons (or (match-string 2 trimmed) (match-string 3 trimmed))
+                              (or (match-string 4 trimmed) (match-string 5 trimmed))))
+                  links)
+          (push (car rest) body)))
+      (setq rest (cdr rest)))
+    (cons (nreverse body) (nreverse links))))
+
+(defun heks-emacs-markdown--footnote-text (first following)
+  "Return (TEXT . REST) for a footnote whose first line is FIRST.
+
+TEXT is the whole note, with the indented lines under FIRST joined to it
+the way the rest of Markdown continues a block, and REST is what is left
+of FOLLOWING once they have been read."
+  (let ((lines (list first))
+        (rest following))
+    (while (and rest
+                (string-match-p "\\`\\(?:    \\|\t\\)\\S-" (car rest)))
+      (push (string-trim (car rest)) lines)
+      (setq rest (cdr rest)))
+    (cons (string-join (nreverse lines) " ") rest)))
+
+(defun heks-emacs-markdown-definitions (lines)
+  "Return (BODY . DEFINITIONS) for the document in LINES.
+
+DEFINITIONS is a plist of `:links' -- an alist from a normalized label to
+\(URL . TITLE) -- and `:footnotes' -- an alist from a label to the text
+that answers it.  BODY is the lines that are left once the definitions
+have been taken out, which is what the readers below work on."
+  (let* ((without-links (heks-emacs-markdown-link-definitions lines))
+         (rest (car without-links))
+         (footnotes nil)
+         (kept nil))
+    (while rest
+      (let ((trimmed (string-trim (car rest))))
+        (if (string-match heks-emacs-markdown-footnote-definition-regexp trimmed)
+            ;; Both groups are read out before the note is read: reading it
+            ;; runs searches of its own, and this one's match data would be
+            ;; gone by the time the label was asked for.
+            (let* ((label (match-string 1 trimmed))
+                   (note (heks-emacs-markdown--footnote-text
+                          (match-string 2 trimmed) (cdr rest))))
+              (push (cons label (car note)) footnotes)
+              (setq rest (cdr note)))
+          (push (car rest) kept)
+          (setq rest (cdr rest)))))
+    (cons (nreverse kept)
+          (list :links (cdr without-links) :footnotes (nreverse footnotes)))))
+
+(defconst heks-emacs-markdown-alerts
+  '(("NOTE" . "note")
+    ("TIP" . "tip")
+    ("IMPORTANT" . "important")
+    ("WARNING" . "warning")
+    ("CAUTION" . "caution"))
+  "The kinds of callout GitHub's Markdown writes as a blockquote.
+
+The marker is a blockquote whose first line is `[!NOTE]'; what it is for is
+the reader's, and what it is *called* is the stylesheet's.")
+
+(defun heks-emacs-markdown-alert (line)
+  "Return the callout kind LINE announces, or nil when it announces none.
+
+LINE is the first line of a blockquote, and the answer is one of the kinds
+in `heks-emacs-markdown-alerts'."
+  (let ((trimmed (string-trim (or line ""))))
+    (when (string-match "\\`\\[!\\([A-Za-z]+\\)\\]" trimmed)
+      (cdr (assoc (upcase (match-string 1 trimmed))
+                  heks-emacs-markdown-alerts)))))
+
+(defun heks-emacs-markdown-alert-remainder (line)
+  "Return what follows the callout marker of LINE, or nil."
+  (let ((trimmed (string-trim (or line ""))))
+    (when (string-match "\\`\\[![A-Za-z]+\\][ \t]*\\(.*\\)\\'" trimmed)
+      (let ((rest (string-trim (match-string 1 trimmed))))
+        (unless (string-empty-p rest) rest)))))
+
 (provide 'heks-emacs/markdown)
 
 ;;; markdown.el ends here

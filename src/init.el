@@ -137,6 +137,7 @@
                            dev-project
                            dd
                            dired
+                           duplicates
                            editor
                            eglot
                            emacs-core
@@ -159,6 +160,7 @@
                            present
                            proofreading
                            render
+                           scheme-lint
                            search
                            shell
                            snippets

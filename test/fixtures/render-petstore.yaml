@@ -4,41 +4,45 @@ info:
   version: 1.0.0
   description: A small API used to check the renderer.
 servers:
-  - url: https://api.example.com/v1
-    description: Production
-  - url: http://localhost:8080
+- url: https://api.example.com/v1
+  description: Production
+- url: http://localhost:8080
 paths:
   /pets:
     get:
       operationId: listPets
       tags:
-        - pets
+      - pets
       summary: List the pets
       description: Returns every pet the store knows about.
       parameters:
-        - $ref: "#/components/parameters/Limit"
+      - $ref: '#/components/parameters/Limit'
       responses:
-        200:
+        '200':
           description: The pets
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Pet"
+                  $ref: '#/components/schemas/Pet'
+              example:
+              - id: 42
+                name: Rex
+                status: available
             application/xml:
               schema:
-                $ref: "#/components/schemas/PetList"
+                $ref: '#/components/schemas/PetList'
         default:
           description: Something went wrong
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
     post:
       operationId: createPet
       tags:
-        - pets
+      - pets
       summary: Add a pet
       requestBody:
         description: The pet to add
@@ -46,37 +50,37 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/NewPet"
+              $ref: '#/components/schemas/NewPet'
       responses:
-        201:
+        '201':
           description: The pet that was created
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Pet"
+                $ref: '#/components/schemas/Pet'
   /pets/{petId}:
     parameters:
-      - $ref: "#/components/parameters/PetId"
+    - $ref: '#/components/parameters/PetId'
     get:
       operationId: getPet
       tags:
-        - pets
+      - pets
       summary: One pet
       responses:
-        200:
+        '200':
           description: The pet
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Pet"
+                $ref: '#/components/schemas/Pet'
     delete:
       operationId: deletePet
       tags:
-        - pets
+      - pets
       summary: Remove a pet
       deprecated: true
       responses:
-        204:
+        '204':
           description: The pet is gone
 components:
   parameters:
@@ -103,21 +107,38 @@ components:
         id:
           type: integer
           format: int64
+          example: 42
         name:
           type: string
+          description: What the pet is called.
+        status:
+          type: string
+          enum:
+          - available
+          - pending
+          - sold
+          default: available
         tag:
           type: string
+          description: A label, if it has one.
+      required:
+      - name
     PetList:
       type: array
       items:
-        $ref: "#/components/schemas/Pet"
+        $ref: '#/components/schemas/Pet'
     NewPet:
       type: object
       required:
-        - name
+      - name
       properties:
         name:
           type: string
+          example: Rex
+        kind:
+          oneOf:
+          - type: string
+          - type: integer
     Error:
       type: object
       description: What the API says when it refuses.
@@ -126,3 +147,24 @@ components:
           type: integer
         message:
           type: string
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      name: X-API-Key
+      in: header
+      description: The key of the caller.
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+tags:
+- name: pets
+  description: Everything the store keeps.
+  externalDocs:
+    url: https://example.com/guide
+    description: The guide
+externalDocs:
+  url: https://example.com/api
+  description: The API docs
+security:
+- apiKey: []

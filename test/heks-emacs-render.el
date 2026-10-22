@@ -108,8 +108,12 @@
   (heks-render--matches "a list" html "<ul>\n<li>first</li>")
   (heks-render--matches "a nested list, inside its item"
                         html "<li>second</li>\n<ul>\n<li>nested</li>\n</ul>")
-  (heks-render--matches "an unchecked task" html "☐ todo")
-  (heks-render--matches "a checked task" html "☑ done")
+  ;; A task list is a list of checkboxes, the way every documentation site
+  ;; shows one, rather than a list of characters that look like them.
+  (heks-render--matches "an unchecked task"
+                        html "<li class=\"task\"><input type=\"checkbox\" disabled>[ \t]*todo")
+  (heks-render--matches "a checked task"
+                        html "<li class=\"task\"><input type=\"checkbox\" disabled checked>done")
   (heks-render--matches "an ordered list" html "<ol>\n<li>one</li>")
   ;; A list has to be closed when the next block is not a list, and at
   ;; the end of a document: an unclosed one puts the heading that follows

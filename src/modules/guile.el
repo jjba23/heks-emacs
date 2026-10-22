@@ -98,8 +98,8 @@
 ;; else (`C-c v ...'), because this Emacs has no Scheme grammar.  A Scheme
 ;; buffer is a sequence of top-level forms, so each of those is a block:
 ;; collapsing the definition you are in works from anywhere inside it,
-;; `C-c v m' collapses the file to one line per definition and `C-c v r'
-;; brings it back.
+;; `C-c v c' collapses it and `C-c v o' opens it, and `C-c v C' folds the
+;; whole file the way `C-c v r' opens it again.
 ;;
 ;; Tests stay the project's: `C-c g t' runs its `test' task, which is Maak's
 ;; when the project has a `maak.scm' (`C-c m r' lists the tasks a project
@@ -114,6 +114,12 @@
 (require 'scheme)
 (require 'seq)
 (require 'xref)
+
+;; The bad-practice checker of `modules/scheme-lint.el' is registered in
+;; every Scheme buffer below; it is a module of its own because it is
+;; Elisp over the buffer rather than a tool being run, and because its
+;; rules are worth reading -- and testing -- on their own.
+(declare-function heks-emacs-scheme-lint-check "scheme-lint" (report-fn &rest arguments))
 
 ;;;
 ;;; Customization
@@ -467,7 +473,14 @@ checkout, a channel and a package want; nothing where it is not, and
 The Guix tools load the whole Guix module tree and the Guile compiler
 reads a file, so these run on save (`flymake-start-on-save-buffer') rather
 than on every keystroke; the checker that applies to the buffer answers,
-and the others stay silent."
+and the others stay silent.
+
+The first of them is `modules/scheme-lint.el', which is Elisp over the
+buffer: it needs nothing installed, it is what says that a `cond' has a
+clause after its `else' or that a `let' binds one name twice -- the things
+that work and should not be written -- and it runs beside the tools rather
+than instead of them."
+  (add-hook 'flymake-diagnostic-functions #'heks-emacs-scheme-lint-check nil t)
   (when heks-emacs-scheme-guile-compile-flymake
     (add-hook 'flymake-diagnostic-functions #'heks-emacs-guile-compile-backend nil t))
   (when (heks-emacs-guix-available-p)

@@ -150,6 +150,55 @@
 (use-package request
   :ensure t)
 
+;; What a file says it still has to do: `TODO', `FIXME', `XXX', `NOTE',
+;; `HACK' and the rest are coloured wherever they are written, and walked
+;; one at a time under the text tools, where the other things one does to
+;; the text of a buffer live.
+(use-package hl-todo
+  :ensure t
+  :hook ((prog-mode . hl-todo-mode)
+         (org-mode . hl-todo-mode)
+         (markdown-mode . hl-todo-mode)
+         (markdown-ts-mode . hl-todo-mode))
+  :bind (("C-c t n" . hl-todo-next)
+         ("C-c t p" . hl-todo-previous))
+  :config
+  (setq hl-todo-highlight-punctuation ":"
+        hl-todo-keyword-faces
+        '(("TODO" . warning)
+          ("FIXME" . error)
+          ("BUG" . error)
+          ("HACK" . warning)
+          ("NOTE" . info)
+          ("XXX" . warning)
+          ("REVIEW" . info)
+          ("DEPRECATED" . shadow))))
+
+;; Parentheses coloured by how deep they are, which is the one thing that
+;; makes a list of lists readable at a glance: a Lisp file is a shape, and
+;; this is the shape made visible.
+(use-package rainbow-delimiters
+  :ensure t
+  :hook ((prog-mode . rainbow-delimiters-mode)))
+
+;; The occurrences of the symbol at point: lit up in the buffer, walked one
+;; at a time, and renamed together.  It is the question a reader of code
+;; asks most -- "where else is this?" -- answered without leaving the
+;; buffer and without a search that has to be typed.
+(use-package symbol-overlay
+  :ensure t
+  :bind (("C-c z o" . symbol-overlay-put)
+         ("C-c z n" . symbol-overlay-jump-next)
+         ("C-c z p" . symbol-overlay-jump-prev)
+         ("C-c z r" . symbol-overlay-rename)
+         ("C-c z k" . symbol-overlay-remove-all))
+  :config
+  ;; The package puts its own menu on `M-i' when it is loaded.  The keys
+  ;; are under `C-c z' here, and a global key that shadowed `M-i' would be
+  ;; the one thing in this configuration that is not where it says it is.
+  (when (eq (key-binding (kbd "M-i")) 'symbol-overlay-map)
+    (global-unset-key (kbd "M-i"))))
+
 (provide 'heks-emacs/dev-tools)
 
 ;;; dev-tools.el ends here
