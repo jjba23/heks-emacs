@@ -174,13 +174,6 @@
           ("REVIEW" . info)
           ("DEPRECATED" . shadow))))
 
-;; Parentheses coloured by how deep they are, which is the one thing that
-;; makes a list of lists readable at a glance: a Lisp file is a shape, and
-;; this is the shape made visible.
-(use-package rainbow-delimiters
-  :ensure t
-  :hook ((prog-mode . rainbow-delimiters-mode)))
-
 ;; The occurrences of the symbol at point: lit up in the buffer, walked one
 ;; at a time, and renamed together.  It is the question a reader of code
 ;; asks most -- "where else is this?" -- answered without leaving the
