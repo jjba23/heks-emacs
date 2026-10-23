@@ -21,6 +21,25 @@
 
 ;;; Code:
 
+;; `magit-popup' is Magit's pre-Transient menu library.  Nothing here needs
+;; it, and a stale copy left in an Elpaca tree clashes with current Magit
+;; and Transient.  Remove it, wherever this config runs, and forget it.
+(defun heks/git-purge-magit-popup ()
+  "Delete stale `magit-popup' build and source dirs, and unload the feature."
+  (when (featurep 'elpaca)
+    (dolist (dir (list (and (boundp 'elpaca-builds-directory) elpaca-builds-directory)
+                       (and (boundp 'elpaca-repos-directory) elpaca-repos-directory)))
+      (let ((target (and dir (expand-file-name "magit-popup" dir))))
+        (when (and target (file-directory-p target))
+          (ignore-errors (delete-directory target t))
+          (message "heks-emacs: removed stale %s" target)))))
+  (setq load-path (seq-remove (lambda (p) (string-match-p "/magit-popup/?\\'" p))
+                              load-path))
+  (when (featurep 'magit-popup)
+    (ignore-errors (unload-feature 'magit-popup t))))
+
+(heks/git-purge-magit-popup)
+
 (use-package magit
   :ensure t
   :after (transient compat)

@@ -48,14 +48,21 @@
   (org-src-fontify-natively t)
   (org-src-tab-acts-natively t)
   (org-edit-src-content-indentation 0)
-  (org-startup-with-inline-images t)
+  (org-startup-with-inline-images nil)
   (org-table-convert-region-max-lines 9999)
+  ;; Fold everything on open: invisible text is cheap to fontify, and the
+  ;; heading tree is what you want first anyway.
+  (org-startup-folded 'content)
+  ;; Don't re-parse the whole file for every cycle/visibility change.
+  (org-fold-core-style 'text-properties)
+  (org-element-use-cache t)
   :config
   (defun heks/org-mode ()
     (variable-pitch-mode 1)
     (org-indent-mode)
     (auto-fill-mode 0)
-    (org-restart-font-lock)
+    ;; No `org-restart-font-lock' here: it refontified the whole buffer a
+    ;; second time on open.  JIT-lock fontifies what is on screen only.
     (font-lock-add-keywords
      nil
      '(("^-\\{5,\\}"  0 '(:inherit font-lock-comment-face))))
@@ -126,9 +133,16 @@
                    (eol (line-end-position))
                    (folded (org-fold-folded-p eol))
                    (has-body (save-excursion
-                               (goto-char bol)
-                               (org-end-of-subtree t t)
-                               (> (point) (1+ eol)))))
+                               (goto-char eol)
+                               (and (< eol (point-max))
+                                    (progn
+                                      (forward-line 1)
+                                      (and (not (eobp))
+                                           (or (not (looking-at org-outline-regexp-bol))
+                                               (> (org-current-level)
+                                                  (save-excursion
+                                                    (goto-char bol)
+                                                    (org-current-level))))))))))
               (when (or folded has-body)
                 ;; Not empty, and not `evaporate': an empty overlay with
                 ;; that property is deleted the moment it is made, which
