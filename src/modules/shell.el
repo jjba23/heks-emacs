@@ -165,7 +165,9 @@ so on); a numeric ARG switches to, or creates, that numbered one instead."
   (require 'ghostel)
   (let ((ghostel-buffer-name
          (if (project-current)
-             (ghostel--project-buffer-name default-directory)
+             (format "*%s-ghostel*"
+                     (file-name-nondirectory
+                      (directory-file-name (project-root (project-current)))))
            ghostel-buffer-name)))
     (ghostel (if (numberp arg) arg t))))
 

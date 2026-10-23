@@ -1444,11 +1444,100 @@ two configurations happened to be loaded."
   ;; Essential for Nix/Guix/direnv workflows so project.el knows where the project starts.
   (setq project-vc-extra-root-markers '(".envrc")))
 
+(defconst heks-emacs-markdown-marker-regexp
+  (rx (or (seq (group "`") (+ (not (any "`\n"))) (group "`"))
+          (seq (group (or "***" "**" "__" "~~"))
+               (+? (not (any "\n"))) (group (backref 3)))
+          (seq (group-n 5 (any "*_")) (not (any "*_ \n"))
+               (*? (not (any "\n"))) (not (any "*_ \n")) (backref 5))))
+  "Inline Markdown markup whose delimiters are hidden, as in Org.")
+
+(defun heks-emacs-markdown-hide-markers (beg end)
+  "Hide the delimiters of inline Markdown markup between BEG and END.
+The delimiters show again while point is inside the markup."
+  (save-excursion
+    (goto-char beg)
+    (while (re-search-forward heks-emacs-markdown-marker-regexp end t)
+      (let* ((mb (match-beginning 0)) (me (match-end 0))
+             (open (cond ((match-beginning 1) 1)
+                         ((match-beginning 3) (length (match-string 3)))
+                         (t 1))))
+        (put-text-property mb (+ mb open) 'invisible 'heks-md)
+        (put-text-property (- me open) me 'invisible 'heks-md)))))
+
+(require 'org-faces)
+
+(defface heks-emacs-markdown-code-block
+  '((t :inherit org-block :extend t))
+  "Face for the lines of a fenced code block, like `org-block'.")
+
+(defface heks-emacs-markdown-code-fence
+  '((t :inherit (org-block-begin-line) :extend t))
+  "Face for the fence lines of a fenced code block.")
+
+(defun heks-emacs-markdown-prettify-blocks (beg end)
+  "Give the fenced code blocks overlapping BEG..END an Org-like look.
+The fence lines become a rule, labelled with the language, and the body
+gets a background."
+  (save-excursion
+    (goto-char beg)
+    (when (re-search-backward "^[ \t]*```" nil t)
+      (setq beg (line-beginning-position)))
+    (goto-char beg)
+    (while (re-search-forward
+            "^\\([ \t]*\\)```[ \t]*\\([^ \t\n`{}]*\\).*\n\\(\\(?:.*\n\\)*?\\)[ \t]*```[ \t]*$"
+            nil t)
+      (let ((open-end (save-excursion (goto-char (match-beginning 3))
+                                      (1- (point))))
+            (body-beg (match-beginning 3))
+            (body-end (match-end 3))
+            (close-beg (save-excursion (goto-char (match-end 0))
+                                       (line-beginning-position)))
+            (close-end (match-end 0))
+            (open-beg (match-beginning 0))
+            (lang (match-string 2)))
+        (add-text-properties
+         open-beg open-end
+         `(display ,(concat (propertize (if (string-empty-p lang) "───" (concat "─── " lang))
+                                        'face 'heks-emacs-markdown-code-fence))
+           font-lock-multiline t))
+        (font-lock-append-text-property
+         body-beg body-end 'face 'heks-emacs-markdown-code-block)
+        (add-text-properties
+         close-beg close-end
+         `(display ,(propertize "───" 'face 'heks-emacs-markdown-code-fence)
+           font-lock-multiline t))
+        (when (> (point) end) (goto-char (point-max)))))))
+
+(defun heks-emacs-markdown-prettify ()
+  "Make a Markdown buffer look like an Org one: hide inline markup."
+  (add-to-invisibility-spec 'heks-md)
+  (jit-lock-register #'heks-emacs-markdown-hide-markers)
+  (jit-lock-register #'heks-emacs-markdown-prettify-blocks)
+  ;; Reveal markup under point like `org-appear'.
+  (add-hook 'post-command-hook #'heks-emacs-markdown-reveal nil t))
+
+(defvar-local heks-emacs-markdown--revealed nil)
+
+(defun heks-emacs-markdown-reveal ()
+  "Show the delimiters of the markup around point, hide the rest."
+  (let ((inhibit-modification-hooks t)
+        (inhibit-read-only t))
+    (when heks-emacs-markdown--revealed
+      (remove-from-invisibility-spec 'heks-md)
+      (add-to-invisibility-spec 'heks-md)
+      (setq heks-emacs-markdown--revealed nil))
+    (when (and (get-text-property (point) 'invisible)
+               (eq (get-text-property (point) 'invisible) 'heks-md))
+      (remove-from-invisibility-spec 'heks-md)
+      (setq heks-emacs-markdown--revealed t))))
+
 (use-package markdown-ts-mode
   :ensure nil
   :hook ((markdown-ts-mode . heks-emacs-markdown-ts-mode))
   :config
   (defun heks-emacs-markdown-ts-mode ()
+    (heks-emacs-markdown-prettify)
     (variable-pitch-mode 1)
     (auto-fill-mode 0)
     (visual-line-mode 1)
