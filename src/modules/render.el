@@ -774,10 +774,12 @@ the document's tables rather than with an empty set of its own."
            ;; Fenced code, with the language it names kept as a class and
            ;; written above the block, the way a documentation site does.
            ((string-match "\\`\\(```+\\)\\(.*\\)\\'" trimmed)
-            (close-paragraph)
-            (close-lists -1)
             (let* ((fence (match-string 1 trimmed))
                    (info (string-trim (match-string 2 trimmed)))
+                   ;; Closing the open paragraph and lists runs regexps
+                   ;; of its own, which would clobber the match data, so
+                   ;; they come after the match has been read.
+                   (_ (progn (close-paragraph) (close-lists -1)))
                    (body nil)
                    (closed nil)
                    (j (1+ i))
