@@ -146,6 +146,142 @@ prompt here is the second one, in the vocabulary of the person asking."
   (heks-emacs-terraform-run "destroy"))
 
 ;;
+;; ====== Language breakdown of a project ======
+;;
+
+(defconst heks-emacs-language-by-extension
+  '(("tf" . "Terraform") ("tfvars" . "Terraform") ("hcl" . "HCL")
+    ("yml" . "YAML") ("yaml" . "YAML") ("json" . "JSON")
+    ("ts" . "TypeScript") ("tsx" . "TypeScript")
+    ("js" . "JavaScript") ("jsx" . "JavaScript") ("mjs" . "JavaScript")
+    ("py" . "Python") ("go" . "Go") ("rs" . "Rust") ("java" . "Java")
+    ("kt" . "Kotlin") ("scala" . "Scala") ("c" . "C") ("h" . "C")
+    ("cpp" . "C++") ("hpp" . "C++") ("cs" . "C#") ("rb" . "Ruby")
+    ("el" . "Emacs Lisp") ("scm" . "Scheme") ("lisp" . "Common Lisp")
+    ("clj" . "Clojure") ("cljs" . "Clojure") ("sh" . "Shell")
+    ("bash" . "Shell") ("zsh" . "Shell") ("sql" . "SQL")
+    ("html" . "HTML") ("css" . "CSS") ("scss" . "CSS")
+    ("md" . "Markdown") ("org" . "Org") ("toml" . "TOML")
+    ("nix" . "Nix") ("proto" . "Protobuf") ("lua" . "Lua")
+    ("php" . "PHP") ("swift" . "Swift") ("ex" . "Elixir") ("exs" . "Elixir"))
+  "Alist mapping file extensions to the language shown in the breakdown.
+Files with an extension that is not listed here are not counted.")
+
+(global-set-key (kbd "C-c w l") #'heks-emacs-project-languages)
+
+(defun heks-emacs-git-output (root &rest args)
+  "Return the trimmed output of `git ARGS' run in ROOT, or nil on failure."
+  (let ((default-directory root))
+    (with-temp-buffer
+      (when (zerop (apply #'call-process "git" nil '(t nil) nil args))
+        (string-trim (buffer-string))))))
+
+;;;###autoload
+(defun heks-emacs-project-git-stats ()
+  "Show a summary of the Git history of the current project.
+
+It covers when the project started, the latest commit, the number of
+commits and the top contributors, in a small window below the current one."
+  (interactive)
+  (let ((root (heks-emacs-terraform-root)))
+    (unless (and (executable-find "git")
+                 (heks-emacs-git-output root "rev-parse" "--git-dir"))
+      (user-error "%s is not in a Git repository" (abbreviate-file-name root)))
+    (let* ((out (apply-partially #'heks-emacs-git-output root))
+           (count (string-to-number (or (funcall out "rev-list" "--count" "HEAD") "0")))
+           (first (car (last (split-string
+                              (or (funcall out "log" "--max-parents=0" "--format=%as") "")
+                              "\n" t))))
+           (last (funcall out "log" "-1" "--format=%as %an: %s"))
+           (branch (funcall out "rev-parse" "--abbrev-ref" "HEAD"))
+           (authors (mapcar (lambda (l)
+                              (when (string-match "\\`\\s-*\\([0-9]+\\)\\s-+\\(.*\\)\\'" l)
+                                (cons (match-string 2 l)
+                                      (string-to-number (match-string 1 l)))))
+                            (split-string (or (funcall out "shortlog" "-sn" "HEAD") "")
+                                          "\n" t)))
+           (authors (delq nil authors))
+           (buf (get-buffer-create "*Project git*")))
+      (with-current-buffer buf
+        (let ((inhibit-read-only t))
+          (erase-buffer)
+          (insert (format "%s  (%s)\n\n" (abbreviate-file-name root) branch)
+                  (format "Started       %s\n" (or first "?"))
+                  (format "Latest        %s\n" (or last "?"))
+                  (format "Commits       %d\n\n" count)
+                  "Top 10 contributors\n")
+          (dolist (a (seq-take authors 10))
+            (insert (format "  %-22s %3d%%  (%d commits)\n"
+                            (car a)
+                            (max 1 (round (* 100.0 (cdr a)) (max count 1)))
+                            (cdr a))))
+          (goto-char (point-min)))
+        (special-mode))
+      (let ((win (split-window-below (- (min 18 (+ 9 (min 5 (length authors))))))))
+        (set-window-buffer win buf)
+        (select-window win)))))
+
+(global-set-key (kbd "C-c w G") #'heks-emacs-project-git-stats)
+
+(defun heks-emacs-language-files (root)
+  "Return the files under ROOT, honouring `.gitignore' when in a git repo."
+  (let ((default-directory root))
+    (if (and (executable-find "git")
+             (zerop (call-process "git" nil nil nil "rev-parse" "--git-dir")))
+        (mapcar (lambda (f) (expand-file-name f root))
+                (split-string
+                 (with-output-to-string
+                   (with-current-buffer standard-output
+                     (call-process "git" nil t nil "ls-files" "-z"
+                                   "--cached" "--others" "--exclude-standard")))
+                 "\0" t))
+      (directory-files-recursively
+       root "" nil
+       (lambda (d) (not (string-match-p "/\\(\\.git\\|node_modules\\|\\.terraform\\)\\'" d)))))))
+
+(defun heks-emacs-language-stats (root)
+  "Return an alist of (LANGUAGE . LINES) for the files under ROOT, largest first."
+  (let ((counts (make-hash-table :test #'equal)) result)
+    (dolist (file (heks-emacs-language-files root))
+      (when-let* ((lang (cdr (assoc (downcase (or (file-name-extension file) ""))
+                                    heks-emacs-language-by-extension)))
+                  ((file-regular-p file))
+                  ((< (file-attribute-size (file-attributes file)) 1000000)))
+        (with-temp-buffer
+          (insert-file-contents file)
+          (puthash lang (+ (gethash lang counts 0) (count-lines (point-min) (point-max)))
+                   counts))))
+    (maphash (lambda (k v) (push (cons k v) result)) counts)
+    (sort result (lambda (a b) (> (cdr a) (cdr b))))))
+
+;;;###autoload
+(defun heks-emacs-project-languages ()
+  "Show a rough percentage of lines of code per language in the current project.
+
+The result is displayed in a small window split below the current one."
+  (interactive)
+  (let* ((root (heks-emacs-terraform-root))
+         (stats (heks-emacs-language-stats root))
+         (total (apply #'+ (mapcar #'cdr stats)))
+         (buf (get-buffer-create "*Project languages*")))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (format "%s\n\n" (abbreviate-file-name root)))
+        (if (zerop total)
+            (insert "No recognised source files.\n")
+          (dolist (s stats)
+            (insert (format "%-14s %3d%%  (%d lines)\n"
+                            (car s)
+                            (max 1 (round (* 100.0 (cdr s)) total))
+                            (cdr s)))))
+        (goto-char (point-min)))
+      (special-mode))
+    (let ((win (split-window-below (- (min 15 (+ 4 (length stats)))))))
+      (set-window-buffer win buf)
+      (select-window win))))
+
+;;
 ;; ====== Databases: SQL, PostgreSQL and MongoDB ======
 ;;
 
@@ -174,3 +310,4 @@ prompt here is the second one, in the vocabulary of the person asking."
 (provide 'heks-emacs/dev-project)
 
 ;;; dev-project.el ends here
+

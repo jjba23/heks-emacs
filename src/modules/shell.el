@@ -154,10 +154,27 @@ length of PATH (sans directory slashes) down to MAX-LEN."
         (defalias (car alias) (cdr alias)))
       heks-emacs/eshell-aliases)
 
+(defun heks-emacs-ghostel (&optional arg)
+  "Open a Ghostel terminal named after the current project.
+
+The buffer is called `*PROJECT-ghostel*', so several terminals, in several
+projects, can be told apart in the buffer list.  Outside a project this is
+plain `ghostel'.  Each call opens a new terminal (`*PROJECT-ghostel*<2>' and
+so on); a numeric ARG switches to, or creates, that numbered one instead."
+  (interactive "P")
+  (require 'ghostel)
+  (let ((ghostel-buffer-name
+         (if (project-current)
+             (ghostel--project-buffer-name default-directory)
+           ghostel-buffer-name)))
+    (ghostel (if (numberp arg) arg t))))
+
 (use-package ghostel
   :ensure t
+  ;; `C-!' goes to the project's terminal (reusing it); `C-$' always opens
+  ;; a new one, named after the project.
   :bind (("C-!" . ghostel-project)
-         ("C-$" . ghostel))
+         ("C-$" . heks-emacs-ghostel))
   :custom
   (ghostel-module-auto-install 'download)
   :config

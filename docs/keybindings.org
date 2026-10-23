@@ -540,12 +540,14 @@ in every other topic.
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
 | ~C-c w D~ | ~heks-emacs-terraform-destroy~ | the infrastructure, destroyed | dev-project.el |
+| ~C-c w G~ | ~heks-emacs-project-git-stats~ | the Git history of the project, summarised | dev-project.el |
 | ~C-c w a~ | ~heks-emacs-terraform-apply~ | the plan, applied | dev-project.el |
 | ~C-c w c~ | ~magit-clone~ | a repository, cloned | emacs-core.el |
 | ~C-c w d~ | ~heks-emacs-project-start-dev~ | the development server | emacs-core.el |
 | ~C-c w f~ | ~heks-emacs-project-fmt~ | the project, formatted | emacs-core.el |
 | ~C-c w g~ | ~deadgrep~ | a search of the project | search.el |
 | ~C-c w i~ | ~heks-emacs-terraform-init~ | the providers and state, initialised | dev-project.el |
+| ~C-c w l~ | ~heks-emacs-project-languages~ | the languages of the project, measured | dev-project.el |
 | ~C-c w p~ | ~heks-emacs-terraform-plan~ | the change, previewed | dev-project.el |
 | ~C-c w r~ | ~heks-emacs-project-start-repl-process~ | a REPL process for this project | emacs-core.el |
 | ~C-c w s~ | ~heks-emacs-print-random-standup-order~ | a random order for the standup | emacs-core.el |
