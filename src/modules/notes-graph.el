@@ -94,13 +94,17 @@ The map needs a browser with JavaScript, so `eww' is not a choice."
 (defun heks/notes-graph--links (file)
   "Return the absolute names of the files FILE links to with a file: link.
 Links inside source, example, export and comment blocks are not links."
-  (let ((dir (file-name-directory file)) (in-block nil) links)
+  (let ((dir (file-name-directory file)) (in-block nil) (in-gen nil) links)
     (with-temp-buffer
       (insert-file-contents file)
       (goto-char (point-min))
       (while (not (eobp))
         (let ((line (buffer-substring-no-properties (line-beginning-position) (line-end-position))))
           (cond
+           (in-gen
+            (when (string-prefix-p "# END GENERATED RELATED" line) (setq in-gen nil)))
+           ((string-prefix-p "# BEGIN GENERATED RELATED" line)
+            (setq in-gen t))
            (in-block
             (when (string-match-p "\\`[ \t]*#\\+end_\\(?:src\\|example\\|export\\|comment\\|verse\\)" (downcase line))
               (setq in-block nil)))

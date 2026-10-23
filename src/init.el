@@ -150,6 +150,7 @@
                            libs
                            notes
                            notes-graph
+                           notes-auto
                            agenda
                            bookmarks
                            contacts

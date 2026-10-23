@@ -85,8 +85,25 @@ With ARCHIVE, return the files of the archive instead."
     (setq slug (string-trim slug "-+" "-+"))
     (if (string-empty-p slug) "untitled" slug)))
 
+(defun heks/notes--folder-tags (file)
+  "Return the tags FILE gets from the folders it is in, as a list of strings.
+They are derived, never written: move a note and its tags follow.  Purely
+numeric folders (the diary's years and months) say nothing and are skipped."
+  (when-let* ((root (heks/notes-directory)))
+    (let ((rel (file-relative-name file (file-name-as-directory root))))
+      (unless (string-prefix-p ".." rel)
+        (delete-dups
+         (delq nil
+               (mapcar (lambda (seg)
+                         (let ((s (string-remove-prefix "." seg)))
+                           (unless (or (string-empty-p s) (string-match-p "\\`[0-9]+\\'" s))
+                             s)))
+                       (butlast (split-string rel "/" t)))))))))
+
 (defun heks/notes--header (file)
-  "Return an alist of ID, TITLE and TAGS read from the head of FILE."
+  "Return an alist of ID, TITLE and TAGS read from the head of FILE.
+TAGS is an Org tag string: the note's own `#+filetags' plus the folders
+it lives in (see `heks/notes--folder-tags')."
   (with-temp-buffer
     (insert-file-contents file nil 0 2048)
     (let (id title tags)
@@ -99,6 +116,9 @@ With ARCHIVE, return the files of the archive instead."
       (goto-char (point-min))
       (when (re-search-forward "^#\\+filetags:[ \t]*\\(.*\\)$" nil t)
         (setq tags (string-trim (match-string 1))))
+      (let ((all (delete-dups (append (split-string (or tags "") ":" t "[ \t]+")
+                                      (heks/notes--folder-tags file)))))
+        (setq tags (and all (concat ":" (string-join all ":") ":"))))
       `((id . ,id) (title . ,title) (tags . ,tags)))))
 
 (defun heks/notes--age (time)
