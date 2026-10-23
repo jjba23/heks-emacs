@@ -227,6 +227,89 @@ Nodes are notes and topics; edges are `link' (note to note) and `tree'
                        (raise-frame) (select-frame-set-input-focus (selected-frame)))))
       t)))
 
+(defun heks/notes-graph--note-html (path)
+  "Return a complete HTML page rendering the note at PATH, or nil.
+Links from the note to other notes stay inside the viewer."
+  (let* ((root (file-name-as-directory (heks/notes--root)))
+         (file (expand-file-name path root)))
+    (when (and (file-in-directory-p file root) (file-regular-p file)
+               (require 'ox-html nil t))
+      (let* ((dir (file-name-directory file))
+             (title (or (alist-get 'title (heks/notes--header file)) (file-name-base file)))
+             (body
+              (with-temp-buffer
+                (insert-file-contents file)
+                (setq default-directory dir)
+                (let ((org-inhibit-startup t)
+                      (org-export-with-toc nil)
+                      (org-export-with-broken-links t)
+                      (org-export-use-babel nil)
+                      (org-export-babel-evaluate nil)
+                      (org-html-htmlize-output-type nil)
+                      (org-confirm-babel-evaluate nil))
+                  (delay-mode-hooks (org-mode))
+                  (org-export-as 'html nil nil t))))
+             (here (file-name-directory path)))
+        ;; relative links to other org notes go through the viewer
+        (setq body
+              (replace-regexp-in-string
+               "href=\"\\([^\"#:?]+\\.org\\)\\(#[^\"]*\\)?\""
+               (lambda (m)
+                 (let* ((rel (match-string 1 m))
+                        (abs (expand-file-name rel dir)))
+                   (if (file-in-directory-p abs root)
+                       (format "href=\"/note?t=%s&p=%s\""
+                               heks/notes-graph--token
+                               (url-hexify-string (file-relative-name abs root)))
+                     m)))
+               body t))
+        (ignore here)
+        (format "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">
+<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+<title>%s · heks notes</title><style>%s</style>
+<script>(function(){var m=matchMedia('(prefers-color-scheme: dark)'),r=document.documentElement;
+function s(){try{return localStorage.getItem('heks-theme')}catch(e){return null}}
+function a(){r.dataset.theme=s()||(m.matches?'dark':'light')}a();m.addEventListener('change',a);
+window.heksToggle=function(){try{localStorage.setItem('heks-theme',r.dataset.theme=='dark'?'light':'dark')}catch(e){}a()}})()</script>
+</head><body>
+<nav><a href=\"/?t=%s\">← heks notes map</a><span class=\"sp\"></span>
+<span class=\"path\">%s</span><button onclick=\"heksToggle()\" title=\"Light / dark\">◐</button></nav>
+<article>%s</article>
+<footer>rendered by heks-emacs · <a href=\"/open?t=%s&k=note&p=%s\" onclick=\"fetch(this.href);return false\">open in Emacs</a></footer>
+</body></html>"
+                (url-insert-entities-in-string title)
+                heks/notes-graph--note-css
+                heks/notes-graph--token
+                (url-insert-entities-in-string path)
+                body
+                heks/notes-graph--token (url-hexify-string path))))))
+
+(defconst heks/notes-graph--note-css
+  ":root{color-scheme:light dark;--bg:#e9ecf3;--glass:rgba(255,255,255,.62);--ink:#1d1d1f;--dim:#6e6e73;--line:rgba(0,0,0,.1);--accent:#0a64d8;--code:rgba(0,0,0,.05)}
+:root[data-theme=dark]{--bg:#15161c;--glass:rgba(40,42,52,.6);--ink:#f2f2f5;--dim:#98989f;--line:rgba(255,255,255,.12);--accent:#64a5ff;--code:rgba(255,255,255,.08)}
+nav button{border:1px solid var(--line);background:var(--code);color:var(--ink);border-radius:8px;padding:2px 9px;cursor:pointer;font:inherit}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;color:var(--ink);font:16px/1.65 -apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;-webkit-font-smoothing:antialiased;
+background:radial-gradient(900px 600px at 10% -10%,rgba(255,150,90,.35),transparent 60%),radial-gradient(900px 700px at 100% 10%,rgba(90,140,255,.35),transparent 60%),radial-gradient(800px 600px at 50% 110%,rgba(180,100,255,.25),transparent 60%),var(--bg);background-attachment:fixed}
+nav{position:sticky;top:0;z-index:2;display:flex;gap:12px;align-items:center;padding:10px 20px;background:var(--glass);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border-bottom:1px solid var(--line);font-size:13px}
+nav .sp{flex:1}.path,footer{color:var(--dim);font-size:12px}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+article{max-width:780px;margin:32px auto;padding:30px 40px;background:var(--glass);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);border:1px solid var(--line);border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,.12)}
+h1.title{font-size:2em;letter-spacing:-.02em;margin:.1em 0 .6em}
+h2,h3,h4{letter-spacing:-.01em;line-height:1.25;margin:1.6em 0 .5em}
+h2{border-bottom:1px solid var(--line);padding-bottom:.25em}
+pre,code{font:13px/1.5 ui-monospace,'SF Mono',Menlo,monospace}
+code{background:var(--code);padding:.1em .35em;border-radius:5px}
+pre{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow:auto}pre code{background:none;padding:0}
+blockquote{margin:1em 0;padding:.1em 1em;border-left:3px solid var(--accent);color:var(--dim)}
+table{border-collapse:collapse}td,th{border:1px solid var(--line);padding:4px 10px}
+img{max-width:100%;border-radius:10px}
+.todo,.done{font:600 11px ui-monospace,monospace;border-radius:5px;padding:1px 6px;background:var(--code)}.done{color:#28a745}.todo{color:#e5484d}
+.tag span{font-size:11px;border:1px solid var(--line);border-radius:999px;padding:0 8px;color:var(--dim);margin-left:4px}
+footer{text-align:center;padding:0 0 30px}
+"
+  "Stylesheet of the note viewer: macOS-like, light and dark, frosted glass.")
+
 (defun heks/notes-graph--handle (proc request)
   "Answer PROC's HTTP REQUEST (its text up to the blank line)."
   (let* ((lines (split-string request "\r\n" t))
@@ -254,6 +337,11 @@ Nodes are notes and topics; edges are `link' (note to note) and `tree'
            proc "200 OK" "application/json; charset=utf-8"
            (json-serialize (heks/notes-graph-data (equal (funcall arg "archive") "1"))
                            :false-object :false :null-object :null)))
+         ((equal path "/note")
+          (if-let* ((p (funcall arg "p"))
+                    (html (heks/notes-graph--note-html p)))
+              (heks/notes-graph--respond proc "200 OK" "text/html; charset=utf-8" html)
+            (heks/notes-graph--respond proc "404 Not Found" "text/plain" "no such note")))
          ((equal path "/open")
           (if (heks/notes-graph--open (funcall arg "k") (funcall arg "p"))
               (heks/notes-graph--respond proc "204 No Content" "text/plain" "")

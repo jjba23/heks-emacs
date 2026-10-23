@@ -110,18 +110,44 @@ With ARCHIVE, return the files of the archive instead."
           ((< days 730) (format "%dmo" (/ days 30)))
           (t (format "%dy" (/ days 365))))))
 
-(defun heks/notes--annotation (text)
-  "Return TEXT as a completion annotation, aligned the way Marginalia aligns."
-  (concat (propertize " " 'display '(space :align-to 48))
-          (propertize text 'face 'completions-annotations)))
+(defface heks/notes-meta
+  '((t :inherit completions-annotations :height 0.85 :slant normal))
+  "Face of the muted metadata columns next to a note or topic candidate."
+  :group 'heks)
 
-(defun heks/notes--table (candidates category annotate &optional sort)
+(defun heks/notes--annotation (text)
+  "Return TEXT as a muted, smaller annotation column."
+  (propertize text 'face 'heks/notes-meta))
+
+(defun heks/notes--align (candidates annotation widths)
+  "Lay ANNOTATION (a string, or a list of column strings) out in columns.
+The first column starts after the longest of CANDIDATES (capped), so every
+row lines up; WIDTHS gives the width of each column but the last."
+  (let* ((start (+ 3 (min 52 (apply #'max 8 (mapcar #'string-width candidates)))))
+         (cols (if (listp annotation) annotation (list annotation)))
+         (out (propertize " " 'display `(space :align-to ,start)))
+         (pos start))
+    (while cols
+      (let ((text (or (pop cols) "")) (w (pop widths)))
+        (setq out (concat out (heks/notes--annotation
+                               (if w (truncate-string-to-width text w nil nil "…") text))))
+        (when (and cols w)
+          (setq pos (+ pos w 2))
+          (setq out (concat out (propertize " " 'display `(space :align-to ,pos)))))))
+    out))
+
+(defun heks/notes--table (candidates category annotate &optional sort widths)
   "Return a completion table of CANDIDATES (strings), in CATEGORY.
-ANNOTATE maps a candidate to its annotation; SORT, when given, orders them."
+ANNOTATE maps a candidate to its annotation (a string or a list of column
+strings, laid out by `heks/notes--align' with WIDTHS); SORT, when given,
+orders them."
   (lambda (string pred action)
     (if (eq action 'metadata)
         `(metadata (category . ,category)
-                   (annotation-function . ,annotate)
+                   (annotation-function
+                    . ,(lambda (c)
+                         (when-let* ((a (funcall annotate c)))
+                           (heks/notes--align candidates a widths))))
                    (display-sort-function . ,(or sort #'identity))
                    (cycle-sort-function . ,(or sort #'identity)))
       (complete-with-action action candidates string pred))))
@@ -166,13 +192,11 @@ ANNOTATE maps a candidate to its annotation; SORT, when given, orders them."
   "Return the annotation function for topics, over the table INFO."
   (lambda (topic)
     (let ((cell (gethash topic info)))
-      (heks/notes--annotation
-       (if (not cell) "new topic"
-         (concat (format "%3d notes" (nth 0 cell))
-                 (if (> (nth 1 cell) 0) (format " · %d sub" (nth 1 cell)) "")
-                 (if (nth 2 cell) (format " · %s" (heks/notes--age (nth 2 cell))) "")
-                 (when-let* ((d (heks/notes--topic-description topic)))
-                   (concat " — " d))))))))
+      (if (not cell) (list "new topic")
+        (list (format "%d notes" (nth 0 cell))
+              (if (> (nth 1 cell) 0) (format "%d sub" (nth 1 cell)) "")
+              (if (nth 2 cell) (heks/notes--age (nth 2 cell)) "")
+              (or (heks/notes--topic-description topic) ""))))))
 
 (defun heks/notes--topic-name (input)
   "Return INPUT as a topic path: each segment lowercase words with dashes."
@@ -200,7 +224,7 @@ what its index says it is for; the busiest recent ones come first."
                  "Put the note in (type a new topic to create it): "
                  (heks/notes--table
                   topics 'heks/note-topic
-                  (heks/notes--topic-annotation info) sort)))
+                  (heks/notes--topic-annotation info) sort '(10 8 6))))
          (topic (heks/notes--topic-name input)))
     (when (string-empty-p topic)
       (user-error "A note needs a topic"))
@@ -237,17 +261,14 @@ title alone, or the title and topic when two notes share a title."
                    (or (file-name-directory (file-relative-name file root)) "")))
            (tags (alist-get 'tags (heks/notes--header file)))
            (time (file-attribute-modification-time (file-attributes file))))
-      (heks/notes--annotation
-       (string-join
-        (delq nil (list (unless (string-empty-p topic) topic)
-                        (unless (string-empty-p (or tags "")) tags)
-                        (heks/notes--age time)))
-        " · ")))))
+      (list (if (string-empty-p topic) "" topic)
+            (string-trim (or tags "") ":" ":")
+            (heks/notes--age time)))))
 
 (defun heks/notes--note-table (candidates)
   "Return a completion table of the notes CANDIDATES."
   (heks/notes--table (mapcar #'car candidates) 'heks/note
-                           #'heks/notes--note-annotation))
+                     #'heks/notes--note-annotation nil '(22 28)))
 
 (defun heks/notes--read-note (prompt &optional archive require-match)
   "Ask for a note with PROMPT and return its file, or the text typed.
