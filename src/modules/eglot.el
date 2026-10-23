@@ -34,6 +34,12 @@
 (defun heks/eglot-ensure ()
   (if eglot-enabled-p (eglot-ensure) nil))
 
+(defun heks/eglot-format-before-save ()
+  "Format with Eglot, only where a live server manages this buffer."
+  (when (and (fboundp 'eglot-managed-p) (eglot-managed-p)
+             (ignore-errors (eglot-current-server)))
+    (eglot-format-buffer)))
+
 (use-package eglot
   :ensure nil
   :hook ((scala-ts-mode . heks/eglot-ensure)
@@ -63,7 +69,7 @@
          (kotlin-ts-mode . heks/eglot-ensure)
          (yaml-mode . heks/eglot-ensure)
          (yaml-ts-mode . heks/eglot-ensure)
-         (before-save . eglot-format-buffer))
+         (before-save . heks/eglot-format-before-save))
   ;; `g' goes to the implementation and `k' shuts the server down, so that
   ;; both are the letters they are everywhere else; `x' used to reconnect
   ;; it, which is not what `x' means (running a script), and is now the

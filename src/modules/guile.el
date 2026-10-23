@@ -1112,6 +1112,18 @@ Geiser's commands stop and offer to start one when there is none -- see
 that jumps to a definition should not have to: the files can answer."
   (and (fboundp 'geiser-repl--connection*) (geiser-repl--connection*) t))
 
+;; Geiser's completion-at-point functions ask the REPL and signal
+;; "No Geiser REPL for this buffer" when there is none, which Corfu then
+;; reports on every keystroke.  With no REPL there is nothing to complete.
+(with-eval-after-load 'geiser-capf
+  (dolist (fn '(geiser-capf--for-module geiser-capf--for-symbol))
+    (when (fboundp fn)
+      (advice-add fn :around
+                  (lambda (orig &rest args)
+                    (and (heks/scheme-repl-connected-p)
+                         (apply orig args)))
+                  '((name . heks/geiser-capf-needs-repl))))))
+
 (defun heks/scheme--symbol-at-point ()
   "Return the name at point, as Geiser reads it, or nil.
 
@@ -1650,7 +1662,33 @@ which is the command it is everywhere else too."
   (hs-minor-mode 1)
   (heks/scheme-setup-flymake))
 
+(defun heks/scheme-repl-start-in-background (buffer)
+  "Start the project REPL for BUFFER without showing it, if none runs yet."
+  (when (and (buffer-live-p buffer) (executable-find heks/scheme-guile-program))
+    (with-current-buffer buffer
+      (when (and (derived-mode-p 'scheme-mode)
+                 (not (heks/scheme-repl-connected-p)))
+        (condition-case err
+            (save-selected-window
+              (save-current-buffer
+                (let ((display-buffer-overriding-action
+                       '(display-buffer-no-window (allow-no-window . t)))
+                      (inhibit-message t))
+                  (heks/scheme--with-repl-program
+                   (lambda ()
+                     (geiser-mode 1)
+                     (geiser-repl--start-repl 'guile nil))))))
+          (error (message "Background Geiser REPL failed: %s"
+                          (error-message-string err))))))))
+
+(defun heks/scheme-repl-auto-start ()
+  "Queue a background REPL for this Scheme buffer's project."
+  (when (and buffer-file-name (not (heks/scheme-repl-connected-p)))
+    (run-with-idle-timer 1 nil #'heks/scheme-repl-start-in-background
+                         (current-buffer))))
+
 (add-hook 'scheme-mode-hook #'heks/scheme-mode-setup)
+(add-hook 'scheme-mode-hook #'heks/scheme-repl-auto-start 90)
 
 (provide 'heks/guile)
 
