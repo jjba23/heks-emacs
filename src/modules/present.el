@@ -59,15 +59,15 @@
 (require 'seq)
 (require 'subr-x)
 
-(declare-function heks-emacs-markdown-to-html "render")
-(declare-function heks-emacs-render--org-body "render")
-(declare-function heks-emacs-render-markdown-p "render")
-(declare-function heks-emacs-render-palette "render")
-(declare-function heks-emacs-render-highlight-css "render")
-(declare-function heks-emacs-render-title "render")
-(declare-function heks-emacs-render--escape "render")
+(declare-function heks/markdown-to-html "render")
+(declare-function heks/render--org-body "render")
+(declare-function heks/render-markdown-p "render")
+(declare-function heks/render-palette "render")
+(declare-function heks/render-highlight-css "render")
+(declare-function heks/render-title "render")
+(declare-function heks/render--escape "render")
 
-(defgroup heks-emacs-present nil
+(defgroup heks/present nil
   "Showing a document one section at a time."
   :group 'tools)
 
@@ -75,14 +75,14 @@
 ;; ====== Where a document's slides begin ======
 ;;
 
-(defconst heks-emacs-present--markdown-boundary
+(defconst heks/present--markdown-boundary
   "^\\([-*_]\\)\\1\\{2,\\}[ \t]*$"
   "The line that separates two slides of a Markdown deck.
 
 A thematic break, which is what `---' on its own line already means, so
 that a deck is a document that also reads as one.")
 
-(defun heks-emacs-present--org-level (text)
+(defun heks/present--org-level (text)
   "Return the heading level a deck of the Org TEXT is written in.
 
 The shallowest level that occurs more than once: a file that has one `*'
@@ -97,14 +97,14 @@ file of flat `*' headings means those.  nil when TEXT has no heading."
       (or (seq-find (lambda (candidate) (> (gethash candidate counts) 1)) levels)
           (car levels)))))
 
-(defun heks-emacs-present--org-boundary (text)
+(defun heks/present--org-boundary (text)
   "Return the regular expression that starts a slide of the Org TEXT.
 
 A heading exactly as many stars deep as the deck's level, and not the
 first stars of a deeper one: `** x' is a slide where `*** x' is not."
-  (format "^\\*\\{%d\\}\\(?:[ \t]\\|$\\)" (or (heks-emacs-present--org-level text) 1)))
+  (format "^\\*\\{%d\\}\\(?:[ \t]\\|$\\)" (or (heks/present--org-level text) 1)))
 
-(defun heks-emacs-present--split (text pattern)
+(defun heks/present--split (text pattern)
   "Return TEXT cut before each match of PATTERN, empty pieces left out."
   (let ((position 0)
         (at 0)
@@ -120,30 +120,30 @@ first stars of a deeper one: `** x' is a slide where `*** x' is not."
                           (unless (string-empty-p trimmed) trimmed)))
                       (nreverse pieces)))))
 
-(defun heks-emacs-present-format (&optional buffer)
+(defun heks/present-format (&optional buffer)
   "Return the format of BUFFER, which is `markdown', `org' or nil.
 
 nil is the answer for a buffer that has no way to say where a slide ends,
 and it is an answer rather than a guess: a deck of one slide is not a
 presentation."
   (with-current-buffer (or buffer (current-buffer))
-    (cond ((heks-emacs-render-markdown-p) 'markdown)
+    (cond ((heks/render-markdown-p) 'markdown)
           ((eq major-mode 'org-mode) 'org)
           (t nil))))
 
-(defun heks-emacs-present-slides (&optional buffer)
+(defun heks/present-slides (&optional buffer)
   "Return BUFFER's slides, as the pieces of its own text.
 Each piece is still written in the buffer's format: it is rendered on its
 own, so that a slide is a well-formed fragment rather than a slice of one."
   (with-current-buffer (or buffer (current-buffer))
-    (pcase (heks-emacs-present-format)
-      ('markdown (heks-emacs-present--split (buffer-string)
-                                            heks-emacs-present--markdown-boundary))
-      ('org (heks-emacs-present--split (buffer-string)
-                                       (heks-emacs-present--org-boundary (buffer-string))))
+    (pcase (heks/present-format)
+      ('markdown (heks/present--split (buffer-string)
+                                            heks/present--markdown-boundary))
+      ('org (heks/present--split (buffer-string)
+                                       (heks/present--org-boundary (buffer-string))))
       (_ nil))))
 
-(defun heks-emacs-present-slide-html (slide format)
+(defun heks/present-slide-html (slide format)
   "Return SLIDE, written in FORMAT, as the HTML of one slide.
 
 An Org slide is exported on its own, so what the file's own `#+' lines set
@@ -151,19 +151,19 @@ up applies to the file's preview rather than to every slide of it; a
 Markdown slide is rendered by the renderer the preview uses, images and
 links included, because that renderer works on a string."
   (pcase format
-    ('markdown (heks-emacs-markdown-to-html slide))
+    ('markdown (heks/markdown-to-html slide))
     ('org (with-temp-buffer
             (insert slide)
             (org-mode)
-            (or (heks-emacs-render--org-body (current-buffer))
+            (or (heks/render--org-body (current-buffer))
                 (format "<pre class=\"plain\">%s</pre>"
-                        (heks-emacs-render--escape slide)))))))
+                        (heks/render--escape slide)))))))
 
 ;;
 ;; ====== The deck ======
 ;;
 
-(defconst heks-emacs-present-deck-script
+(defconst heks/present-deck-script
   "(function () {
   var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
   var counter = document.getElementById('counter');
@@ -201,13 +201,13 @@ links included, because that renderer works on a string."
 It is the whole of the JavaScript here: no framework, no network, and
 nothing that a reader who would rather scroll cannot ignore.")
 
-(defun heks-emacs-present-deck-stylesheet ()
+(defun heks/present-deck-stylesheet ()
   "Return the stylesheet a deck carries.
 
 It is built from the colours of the current theme, like the stylesheet of
 a rendered document -- the two are meant to look like each other -- and it
 carries the code colouring of whatever the slides fontified."
-  (let ((palette (heks-emacs-render-palette)))
+  (let ((palette (heks/render-palette)))
     (concat
      (format "
 :root { color-scheme: light dark; }
@@ -279,9 +279,9 @@ body { background: %s; color: %s; line-height: 1.5;
              (plist-get palette :foreground) (plist-get palette :accent)
              (plist-get palette :muted))
      ;; The colours of the code, one rule per face the slides used.
-     (heks-emacs-render-highlight-css))))
+     (heks/render-highlight-css))))
 
-(defun heks-emacs-present-deck-document (title slides)
+(defun heks/present-deck-document (title slides)
   "Return a whole deck as one HTML document.
 
 TITLE is what the tab says and SLIDES is a list of fragments of HTML, one
@@ -310,8 +310,8 @@ finger."
 </body>
 </html>
 "
-          (heks-emacs-render--escape title)
-          (heks-emacs-present-deck-stylesheet)
+          (heks/render--escape title)
+          (heks/present-deck-stylesheet)
           (mapconcat #'identity
                      (cl-loop for slide in slides
                               for number from 1
@@ -320,17 +320,17 @@ finger."
                                               number number slide))
                      "\n")
           (length slides)
-          heks-emacs-present-deck-script))
+          heks/present-deck-script))
 
-(defun heks-emacs-present-deck-html (&optional buffer)
+(defun heks/present-deck-html (&optional buffer)
   "Return BUFFER as a whole deck, or refuse to when it has no slides.
 
 The refusal is the point: a buffer that says nowhere where a slide begins
 is not a deck, and a page with the whole file on one slide is worse than
 being told so."
   (let* ((source (or buffer (current-buffer)))
-         (format (heks-emacs-present-format source))
-         (slides (and format (heks-emacs-present-slides source))))
+         (format (heks/present-format source))
+         (slides (and format (heks/present-slides source))))
     (unless format
       (user-error "A deck is made of a Markdown or Org document, and this is %s"
                   (buffer-local-value 'major-mode source)))
@@ -340,45 +340,45 @@ being told so."
                       " (a line of three or more dashes starts one)"
                     "")))
     (with-current-buffer source
-      (let ((heks-emacs-markdown-base-directory
+      (let ((heks/markdown-base-directory
              (and buffer-file-name (file-name-directory buffer-file-name))))
-        (heks-emacs-present-deck-document
-         (heks-emacs-render-title source)
-         (mapcar (lambda (slide) (heks-emacs-present-slide-html slide format)) slides))))))
+        (heks/present-deck-document
+         (heks/render-title source)
+         (mapcar (lambda (slide) (heks/present-slide-html slide format)) slides))))))
 
-(defvar heks-emacs-present--files nil
+(defvar heks/present--files nil
   "Alist of buffer name to the file its deck was written to.
 
 The file is written once per buffer and rewritten after that, so that
 reloading the tab shows what the buffer says now rather than opening one
 more file each time the deck changes.")
 
-(defun heks-emacs-present-deck-file (&optional buffer)
+(defun heks/present-deck-file (&optional buffer)
   "Write BUFFER's deck to a file and return its name."
   (let* ((source (or buffer (current-buffer)))
          (key (buffer-name source))
-         (known (assoc key heks-emacs-present--files))
+         (known (assoc key heks/present--files))
          (file (or (cdr known)
-                   (make-temp-file "heks-emacs-deck-" nil ".html"))))
+                   (make-temp-file "heks-deck-" nil ".html"))))
     (unless known
-      (push (cons key file) heks-emacs-present--files))
-    (write-region (heks-emacs-present-deck-html source) nil file nil 'silent)
+      (push (cons key file) heks/present--files))
+    (write-region (heks/present-deck-html source) nil file nil 'silent)
     file))
 
-(defun heks-emacs-present-deck (&optional buffer)
+(defun heks/present-deck (&optional buffer)
   "Show BUFFER as a deck in the browser.
 
 Save the document and reload the tab to show it again after an edit: the
 deck is written to the same file each time, so the tab keeps its place."
   (interactive)
   (let* ((source (or buffer (current-buffer)))
-         (file (heks-emacs-present-deck-file source))
-         (slides (length (heks-emacs-present-slides source))))
+         (file (heks/present-deck-file source))
+         (slides (length (heks/present-slides source))))
     (browse-url (browse-url-file-url file))
     (message "%d slides of %s in the browser: %s"
-             slides (heks-emacs-render-title source) file)))
+             slides (heks/render-title source) file)))
 
-(defun heks-emacs-present-deck-export (&optional buffer)
+(defun heks/present-deck-export (&optional buffer)
   "Write BUFFER's deck next to its file, as a `.deck.html' file to keep.
 
 This is the one to use before a talk on a machine that is not this one:
@@ -389,7 +389,7 @@ it without a server, a network or Emacs."
          (file (or (buffer-local-value 'buffer-file-name source)
                    (user-error "This buffer is not visiting a file")))
          (target (concat (file-name-sans-extension file) ".deck.html")))
-    (write-region (heks-emacs-present-deck-html source) nil target)
+    (write-region (heks/present-deck-html source) nil target)
     (message "Wrote %s" target)
     target))
 
@@ -397,22 +397,22 @@ it without a server, a network or Emacs."
 ;; ====== Presenting in Emacs ======
 ;;;
 
-(defvar-local heks-emacs-present--mode-line nil
+(defvar-local heks/present--mode-line nil
   "The mode line this buffer had before it was presented.")
 
-(defun heks-emacs-present-hide-mode-line ()
+(defun heks/present-hide-mode-line ()
   "Hide the mode line while presenting, and put it back afterwards.
 
 `org-present-mode' runs this both ways, so what was there before the talk
 is what comes back after it."
   (if org-present-mode
       (progn
-        (setq heks-emacs-present--mode-line mode-line-format)
+        (setq heks/present--mode-line mode-line-format)
         (setq mode-line-format nil))
-    (when heks-emacs-present--mode-line
-      (setq mode-line-format heks-emacs-present--mode-line))))
+    (when heks/present--mode-line
+      (setq mode-line-format heks/present--mode-line))))
 
-(defun heks-emacs-present-in-emacs ()
+(defun heks/present-in-emacs ()
   "Present this Org note in Emacs, one heading at a time.
 
 `org-present' does the work: it narrows the buffer to a subtree, scales
@@ -424,7 +424,7 @@ because it is not part of what is being shown."
   (unless (bound-and-true-p org-present-mode)
     (org-present)))
 
-(defun heks-emacs-present ()
+(defun heks/present ()
   "Present this buffer: in Emacs when it is an Org note, elsewhere in a browser.
 
 Emacs can show an Org note one heading at a time with its own faces, which
@@ -433,22 +433,22 @@ page, which is what a Markdown deck wants; so an Org buffer is presented
 here and anything else as a deck in the browser."
   (interactive)
   (if (eq major-mode 'org-mode)
-      (heks-emacs-present-in-emacs)
-    (heks-emacs-present-deck)))
+      (heks/present-in-emacs)
+    (heks/present-deck)))
 
-(defun heks-emacs-present-insert-slide ()
+(defun heks/present-insert-slide ()
   "Start the next slide of this document, at point.
 
 What a boundary for a slide is depends on the document: a line of dashes
 in Markdown, and in Org a heading at the level this file's slides are at,
 since that is where a deck of it begins."
   (interactive)
-  (pcase (heks-emacs-present-format)
+  (pcase (heks/present-format)
     ('markdown
      (unless (bolp) (newline))
      (insert "\n---\n\n"))
     ('org
-     (let ((level (or (heks-emacs-present--org-level (buffer-string)) 1)))
+     (let ((level (or (heks/present--org-level (buffer-string)) 1)))
        (unless (bolp) (newline))
        (insert "\n" (make-string level ?*) " ")))
     (_ (user-error "Slides are a Markdown or Org thing, and this is %s" major-mode))))
@@ -459,7 +459,7 @@ since that is where a deck of it begins."
 
 (use-package org-present
   :ensure t
-  :hook ((org-present-mode . heks-emacs-present-hide-mode-line))
+  :hook ((org-present-mode . heks/present-hide-mode-line))
   :bind (:map org-present-mode-keymap
               ;; A presentation is left with `q' everywhere else in the
               ;; world, and `C-c C-q' is a long way to reach when one is
@@ -469,11 +469,11 @@ since that is where a deck of it begins."
 
 (use-package emacs
   :ensure nil
-  :bind (("C-c r d" . heks-emacs-present-deck)
-         ("C-c r D" . heks-emacs-present-deck-export)
-         ("C-c r P" . heks-emacs-present)
-         ("C-c r n" . heks-emacs-present-insert-slide)))
+  :bind (("C-c r d" . heks/present-deck)
+         ("C-c r D" . heks/present-deck-export)
+         ("C-c r P" . heks/present)
+         ("C-c r n" . heks/present-insert-slide)))
 
-(provide 'heks-emacs/present)
+(provide 'heks/present)
 
 ;;; present.el ends here

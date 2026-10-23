@@ -74,14 +74,14 @@
 ;; `treesit-fold' (below) folds, with fringe indicators.
 ;; The grammar check happens when a buffer opens, not when this file loads,
 ;; because the grammar directory may be configured after this point.
-(defun heks-emacs-yaml-ts-mode ()
+(defun heks/yaml-ts-mode ()
   "Use `yaml-ts-mode' when its grammar is available, else `yaml-mode'."
   (if (and (fboundp 'yaml-ts-mode)
            (treesit-language-available-p 'yaml))
       (yaml-ts-mode)
     (yaml-mode)))
-(add-to-list 'major-mode-remap-alist '(yaml-mode . heks-emacs-yaml-ts-mode))
+(add-to-list 'major-mode-remap-alist '(yaml-mode . heks/yaml-ts-mode))
 
-(provide 'heks-emacs/dev-langs)
+(provide 'heks/dev-langs)
 
 ;;; dev-langs.el ends here

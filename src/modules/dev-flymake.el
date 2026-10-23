@@ -76,7 +76,7 @@
 ;; what checks its buffers where it belongs, and connecting a server can
 ;; neither lose a checker nor make a problem be reported twice.
 
-(defun heks-emacs-flymake-keep-backends ()
+(defun heks/flymake-keep-backends ()
   "Put a buffer's own Flymake backends back when Eglot manages it.
 
 Eglot replaces `flymake-diagnostic-functions' with a list of its own
@@ -99,7 +99,7 @@ that module saying anything about it."
             (add-hook 'flymake-diagnostic-functions backend nil t)))
         (flymake-start)))))
 
-(add-hook 'eglot-managed-mode-hook #'heks-emacs-flymake-keep-backends)
+(add-hook 'eglot-managed-mode-hook #'heks/flymake-keep-backends)
 
 ;; What `python-flymake' -- Emacs's own backend for Python, which
 ;; `python-base-mode' registers for every Python buffer -- runs where it
@@ -112,6 +112,6 @@ that module saying anything about it."
 ;; backend (and so flake8) the checker of a Python buffer.
 (setq python-flymake-command '("~/.local/bin/flake8" "-"))
 
-(provide 'heks-emacs/dev-flymake)
+(provide 'heks/dev-flymake)
 
 ;;; dev-flymake.el ends here

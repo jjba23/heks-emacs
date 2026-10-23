@@ -30,6 +30,6 @@
   :init
   (setopt tempel-path '("~/.emacs.d/snippets/*.eld")))
 
-(provide 'heks-emacs/snippets)
+(provide 'heks/snippets)
 
 ;;; snippets.el ends here

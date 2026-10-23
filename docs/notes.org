@@ -1,0 +1,566 @@
+#+title: Notes, tasks and a personal agenda -- in plain files
+#+author: Josep Bigorra
+#+options: toc:3
+
+This is how note taking works in this configuration, why it is built the way it is, and how to build the same thing for yourself.  It is meant to be read top to bottom once, and then used as a reference.
+
+The short version: *a note is a plain Org file in a folder.  That is the whole database.*  Everything else -- finding, capturing, linking, indexes, a todo inbox, habits, contacts with birthdays, bookmarks -- is a thin layer of Emacs Lisp (and, from a terminal, of ZSH) over those files.  Nothing needs to be indexed, nothing needs to be synced except files, and nothing stops working if Emacs does.
+
+#+begin_quote
+Contents: [[#why][Why plain files]] · [[#tour][A tour in five minutes]] · [[#layout][The layout]] · [[#formats][The formats]] · [[#workflows][Workflows]] · [[#agenda][The personal agenda]] · [[#indexes][Index pages]] · [[#links][Links]] · [[#terminal][From the terminal]] · [[#sync][Syncing and backups]] · [[#setup][Setting it up]] · [[#tweak][Making it yours]] · [[#design][Design notes]] · [[#faq][FAQ]]
+#+end_quote
+
+* Why plain files
+:PROPERTIES:
+:CUSTOM_ID: why
+:END:
+
+This setup replaced a pile of ~org-roam~ nodes.  Roam is excellent, but for one person it came with costs that kept adding up:
+
+- *A database to keep in step.*  The sqlite file has to be rebuilt, can conflict when two machines sync, and has to be told about files changed outside Emacs.
+- *Identifiers everywhere.*  Every note carried a UUID, and every link was a UUID.  Nothing outside Emacs could follow a link; a ~grep~ for a link target found nothing meaningful.
+- *One big dump.*  Roam is flat on purpose.  A few hundred notes in one directory are a haystack; a person browsing for "that Kubernetes note from work" wants a /place/.
+
+What replaced it follows three rules:
+
+1. *Structure is folders.*  A note lives in a topic folder (~engineering/languages/haskell/~).  Where a note lives says what it is about, and you can read the structure with ~ls~.
+2. *A link is a relative path.*  ~[[file:../architecture/overview.org][Overview]]~.  Any Org-aware tool can follow it, ~grep~ understands it, a static site generator understands it, and moving a note is a /rewrite/, not a database migration.
+3. *Everything is derived and rebuildable.*  Titles are read from the files; backlinks and search are ~grep~; index pages are generated from what is in the folder.  There is no state that cannot be thrown away.
+
+The payoffs: it syncs with git or Syncthing without ever producing a conflict in a binary file; it is readable on a phone, in ~less~, in a different editor; it survives this configuration; and it is easy to /review/ -- a refactor of the whole knowledge base is a reviewable ~git diff~.
+
+* A tour in five minutes
+:PROPERTIES:
+:CUSTOM_ID: tour
+:END:
+
+All keys live under ~C-c n~ ("notes") and work from any buffer.
+
+#+begin_example
+You are reading a web page / a stack trace / some code, and want to keep it:
+
+  select it            →  C-c n c      "Put the note in:" picks a topic
+                                         (completion shows how many notes it
+                                         holds, how recently it changed, and
+                                         what it is for)
+                                       "Title:" "Tags:"  →  saved, linked back
+                                         to where it came from.  You stay where
+                                         you were.
+
+You remember writing something about it:
+
+  C-c n f              →  find by title (topic, tags, age shown beside)
+  C-c n s              →  search the text of every note
+
+You are writing a note and want to refer to another:
+
+  C-c n i              →  pick a note (or type a new title to create it);
+                          a relative link is inserted
+
+You have something to do:
+
+  C-c n x              →  captured into your inbox, linked to what you were doing
+  C-c n d              →  "today": the day's agenda, habits, birthdays, what is
+                          in progress, the inbox
+
+You want to file a URL or save an address:
+
+  C-c n B              →  bookmark under a category
+  C-c n K              →  new contact (with an optional birthday)
+#+end_example
+
+Everything above is explained in [[#workflows][Workflows]]; the full key list is [[#keys][at the end of this section]].
+
+** All the keys
+:PROPERTIES:
+:CUSTOM_ID: keys
+:END:
+
+| Key       | What it does |
+|-----------+--------------|
+| ~C-c n c~ | *Capture* a note from anywhere: the region (with a prefix, the latest kill) is filed under a topic you pick, with a link back to where it came from. With no text, a new note opens for writing. |
+| ~C-c n n~ | A *new* note, opened for writing, in a topic you pick. |
+| ~C-c n e~ | *Extend* an existing note: add text to its end, under a dated heading. |
+| ~C-c n f~ | *Find* a note by title (its topic, tags and age are shown beside it). |
+| ~C-c n F~ | Find a note, or *create* it when no note has that title. |
+| ~C-c n a~ | Find a note in the *archive* (see [[#archive][The archive]]). |
+| ~C-c n i~ | *Insert* a link to a note (creating it when it does not exist). |
+| ~C-c n l~ | *Links to* this note: every note that links here. |
+| ~C-c n r~ | *Relocate* this note to another topic; links to it, and inside it, are repaired. |
+| ~C-c n s~ | *Search* the text of every note. |
+| ~C-c n t~ | *Topic*: open a topic folder in Dired. |
+| ~C-c n I~ | *Index* pages: regenerate all of them. |
+| ~C-c n d~ | *Today*: agenda, habits, birthdays, what is in progress, the inbox. |
+| ~C-c n x~ | A todo, captured into the inbox. |
+| ~C-c n X~ | A habit, captured. |
+| ~C-c n h~ | The *habits*, with their consistency graphs. |
+| ~C-c n u~ | Birthdays *upcoming*. |
+| ~C-c n A~ | The full agenda dispatcher (~org-agenda~). |
+| ~C-c n k~ / ~C-c n K~ | Find a *contact* / add one. |
+| ~C-c n b~ / ~C-c n B~ | Open a *bookmark* / file one. |
+| ~C-c n m~ / ~C-c n M~ | Import a Markdown file / region as an Org note (see [[#import][Importing]]). |
+| ~C-c n v~ | Toggle how Org links are displayed. |
+
+The authoritative list, generated from the code, is [[file:keybindings.org][the keybindings reference]].
+
+* The layout
+:PROPERTIES:
+:CUSTOM_ID: layout
+:END:
+
+Everything lives under one directory, set once as ~heks/notes-dir~ (see [[#setup][Setting it up]]).
+
+#+begin_example
+notes/
+├── index.org              generated: the list of topics
+├── todo.org               the inbox
+├── habits.org             recurring things, drawn as graphs
+├── birthdays.org          one line: birthdays come from contacts.org
+├── contacts.org           people, with properties
+├── bookmarks.org          your start page: headings are categories
+├── diary/2026/10/23.org   daily entries (kept by a journal package)
+├── engineering/
+│   ├── index.org          generated: what is in engineering/
+│   ├── languages/
+│   │   ├── index.org
+│   │   └── haskell/
+│   │       ├── index.org
+│   │       ├── functor-design-pattern.org
+│   │       └── why-haskell-matters.org
+│   └── devops/ …
+├── food/recipes/ …
+├── projects/ …
+└── .archive/              old employers' knowledge; hidden from everything
+    └── some-company/ …
+#+end_example
+
+** Topics are folders, and may nest
+
+A /topic/ is a folder inside the notes directory; ~engineering/languages/haskell~ is one.  Give them as much depth as you like, but a good rule of thumb is: *a folder with more than about twelve notes wants a subfolder, a folder with one note wants to be merged*.  A topic that does not exist yet is created the first time you file a note into it (you are asked to confirm, so a typo does not become a folder).  Topic names are normalised to lowercase words joined by dashes: typing ~Work Stuff/Infra~ gives ~work-stuff/infra~.
+
+** The top-level personal files
+
+Five files sit at the top and are not in any topic, because tools (and habits) expect them there: ~todo.org~, ~habits.org~, ~birthdays.org~, ~contacts.org~ and ~bookmarks.org~.  They are described under [[#agenda][The personal agenda]].
+
+** One note, one file
+
+A note is ~<topic>/<slug>.org~, where the slug is the title in lowercase with dashes.  Prefer notes that are about one thing and are findable by their title; split a note that has grown to cover two.  Long reference material and a 3-line reminder are both fine; there is no template to fill in.
+
+** The archive
+:PROPERTIES:
+:CUSTOM_ID: archive
+:END:
+
+Knowledge that is true but no longer /current/ -- what you learnt at a former employer, a finished project -- goes in ~.archive/~, with its own topics.  It starts with a dot, so by construction it is:
+
+- left out of ~C-c n f~, search, topic completion and indexes of the live notes,
+- left out of the agenda,
+- still reachable on purpose: ~C-c n a~ finds a note in it, and a link from an archived note to another archived note works as normal.
+
+The point is /visibility/, not deletion: a dot-folder keeps old material from competing with current notes without throwing anything away, and ~git~ keeps it all anyway.  It also makes an obvious boundary if you ever publish the live notes: publish everything except ~.archive/~.
+
+* The formats
+:PROPERTIES:
+:CUSTOM_ID: formats
+:END:
+
+Everything is ordinary Org.  Nothing here needs this configuration to be read; the configuration just writes it consistently.
+
+** A note
+
+#+begin_src org
+,#+title: Functor design pattern
+,#+date: [2026-10-09 Fri]
+,#+filetags: :haskell:patterns:
+
+Text starts here.  Link to another note with a relative path:
+[[file:../freer-monads.org][Freer monads]], or one in a sibling topic:
+[[file:../../devops/kubernetes/handy-commands.org][kubectl cheat sheet]].
+#+end_src
+
+- ~#+title:~ is the only required line.  It is what finding, linking and the index pages show.
+- ~#+date:~ is when the note was created, as an Org inactive timestamp.
+- ~#+filetags:~ is optional.  A tag is a label shown beside the note when finding it, and searchable (~C-c n s~ for ~:haskell:~).  Use tags for what a folder cannot say (~:todo:~, ~:reference:~), not as a second folder tree.
+- There are *no identifiers*.  A note is named by its path.
+
+** Captured notes
+
+A note made from a selection keeps the text, formatted for what it is, and a link to where it came from:
+
+#+begin_src org
+,#+title: Idempotent consumers
+,#+date: [2026-10-23 Fri]
+
+,#+begin_quote
+An idempotent receiver is a receiver that can safely process the same
+message more than once.
+,#+end_quote
+
+Source: [[https://example.org/article][Messaging patterns]]
+#+end_src
+
+Text captured from a source buffer arrives as a ~#+begin_src <language>~ block; from a web page (in ~eww~) the source is the page's URL and title; from a file, a link to the file.
+
+** Index pages
+
+Described in [[#indexes][Index pages]]; they are ordinary ~.org~ files with a generated section between two marker comments.
+
+** The personal files
+
+*** ~todo.org~
+
+#+begin_src org
+,#+title: Todo
+
+,* Inbox
+,** TODO Renew the passport
+:PROPERTIES:
+:CREATED: [2026-10-23 Fri 11:42]
+:END:
+[[file:~/notes/personal/id-documents.org][id documents]]
+#+end_src
+
+The inbox is /not/ where things stay.  It is where they land at the speed of thought; you refile each one (~C-c C-w~ in Org) into the note or project it belongs to.  The keywords are ~TODO~ → ~WIP~, ~REVIEWING~ → ~DONE~ (set in ~org.el~).
+
+*** ~habits.org~
+
+A habit is a ~TODO~ with a repeater and the habit style:
+
+#+begin_src org
+,* Habits
+,** House
+,*** TODO Vacuum
+SCHEDULED: <2026-10-24 Sat .+1w>
+:PROPERTIES:
+:STYLE: habit
+:END:
+#+end_src
+
+~.+1w~ means "one week after I /last did/ it" (as opposed to ~+1w~, a fixed calendar rhythm).  Marking it done moves it a week on from today, and the agenda draws a consistency graph from the history (via ~org-habit~).
+
+*** ~contacts.org~
+
+#+begin_src org
+,#+title: Contacts
+
+,* Manon
+:PROPERTIES:
+:EMAIL: manon@example.org
+:PHONE: +31 6 12345678
+:BIRTHDAY: 1992-11-23
+:END:
+#+end_src
+
+A contact is a level-one heading; its details are properties; the empty ones are simply left out.  A birthday is ~YYYY-MM-DD~, or ~MM-DD~ when the year is not known (the age is then not shown).  The properties read are ~EMAIL~, ~PHONE~, ~BIRTHDAY~ and ~NICKNAME~; any other property or free text under the heading is yours to use.
+
+*** ~birthdays.org~
+
+#+begin_src org
+,#+title: Birthdays
+
+,* Birthdays
+%%(heks/contacts-birthdays)
+#+end_src
+
+The one line is a /diary sexp/: each day the agenda shows, Org evaluates it, and the function asks ~contacts.org~ who has a birthday that day.  Nothing is duplicated, so there is nothing to keep in step: add a ~:BIRTHDAY:~ to a contact and it is in the agenda.
+
+*** ~bookmarks.org~
+
+#+begin_src org
+,* Development
+,** Haskell
+- [[https://wiki.haskell.org/][Haskell wiki]]
+- [[https://hackage.haskell.org/][Hackage]]
+,* Cooking
+- [[https://example.org/][A recipe site]]
+#+end_src
+
+Headings are categories (and may nest); every Org link under one is a bookmark.  Because this is also how a start page is written, the same file can be exported to HTML and set as a browser home page; the commands here neither need nor impose any other format.
+
+* Workflows
+:PROPERTIES:
+:CUSTOM_ID: workflows
+:END:
+
+** Capturing something while you work (~C-c n c~)
+
+The fast path, designed to cost a few seconds and no change of context.
+
+1. *Select* what you want to keep (a paragraph in ~eww~, a function, a log excerpt).  With nothing selected and a prefix argument (~C-u C-c n c~) the latest kill is used instead; with neither, the note opens for you to write.
+2. *~C-c n c~.*  You are asked, in order:
+   - *"Put the note in (type a new topic to create it):"*  A completion list of every topic.  Each candidate is annotated: how many notes it holds, how many subtopics, how long ago it changed, and the first line of its index page -- so you can tell what a topic /is for/ without opening it.  Recently changed topics are listed first, which is usually where the new note belongs.  Type a name that does not exist to make a new topic.
+   - *"Title:"*  Pre-filled with the first line of what you captured.
+   - *"Tags:"*  Optional; space separated.
+3. *The note is saved and you stay where you were.*  The message line says where it went.
+
+A few details that matter:
+
+- The text is wrapped as ~#+begin_src <mode>~ when captured from a programming buffer and as a quote otherwise.
+- The source is recorded as a link (file, or URL and title in ~eww~), so you can always get back to context.
+- The completion has real /categories/ (~heks/note-topic~, ~heks/note~, ~heks-contact~, ~heks-bookmark~, ~heks-bookmark-category~), so Marginalia, Embark and Consult integrations see them; the annotations also work with plain Vertico and the default UI.
+
+** Writing a note properly (~C-c n n~)
+
+Same questions, but at the end the new note is opened with point at the end, ready to type.  A hook, ~heks/notes-after-create-hook~, runs in the new buffer -- use it to turn on a writing mode, say.
+
+** Adding to a note (~C-c n e~)
+
+Pick an existing note by title; the selection (or latest kill with a prefix, or text you type) is appended under a heading with today's date.  This is the habit that keeps a running note ("what I learnt about X") alive without ever re-opening it.
+
+** Finding things (~C-c n f~, ~C-c n F~, ~C-c n s~, ~C-c n t~)
+
+- ~C-c n f~ completes over *titles*, with each note's topic, tags and age shown beside it (annotations are for reading; the typing matches the title).  Two notes with the same title are told apart by their topic.  To find by tag or topic, search: ~C-c n s~ for =filetags:= lines, or open the topic with ~C-c n t~.
+- ~C-c n F~ does the same, and a title that matches nothing *creates* a note (and asks where it goes).  It is the "go to the page named X, making it if need be" command.
+- ~C-c n s~ searches the *text* of every note (with ~consult-ripgrep~ if you have Consult, ~lgrep~ otherwise).
+- ~C-c n t~ opens a topic in Dired, for the times you want to /see/ the folder.
+
+** Linking (~C-c n i~, ~C-c n l~)
+
+~C-c n i~ asks for a note (a title that does not exist creates one, in a topic you pick) and inserts =[[file:<relative path>][Title]]=, relative to the note you are in.  ~C-c n l~ lists every note that links to the current one -- backlinks, with no index: it is a ~grep~ for the file name.
+
+The habit that makes a notes system valuable is /linking as you write/, not tidying afterwards: when you mention a concept that has a note, link it.
+
+** Moving a note (~C-c n r~)
+
+Because links are relative, moving a note must rewrite them.  ~C-c n r~ asks for the new topic, moves the file, then:
+
+- rewrites every link *to* the note, in every note (and the archive), to point at its new place;
+- rewrites the links *inside* the note so they still point at the same targets from its new folder;
+- regenerates the index pages of the old and the new folder.
+
+A note with unsaved changes elsewhere is skipped, and you are told.  Links outside the notes (URLs, absolute paths) are never touched.
+
+** Reorganising a lot at once
+
+Because everything is files, a big restructuring is just ~git mv~, a script, and then ~C-c n I~ to rebuild the indexes.  (This configuration's author moved 360 notes into ~90 folders that way, redacted every credential with a regexp pass, and fixed every link with a script, on a branch, reviewing the diff.)  Work on a branch; the result is a reviewable diff.
+
+** Importing (~C-c n m~, ~C-c n M~)
+:PROPERTIES:
+:CUSTOM_ID: import
+:END:
+
+A document written for other tools -- a README, a blog post, an ADR -- becomes a note with ~C-c n m~ (the file in this buffer; with a prefix, written straight into the notes directory), and a selected region of Markdown becomes Org with ~C-c n M~.  What it does and does not translate is in the [[file:../README.org][README]] (the ~import.el~ section).
+
+* The personal agenda
+:PROPERTIES:
+:CUSTOM_ID: agenda
+:END:
+
+The agenda reads the TODOs and dates found in your notes, plus the personal files, so that "what should I do?" is one key.  It deliberately leaves out ~bookmarks.org~, ~contacts.org~, index pages and any note larger than 100 KB (a big imported article would make every agenda slow): see [[#tweak][Making it yours]].
+
+** Today (~C-c n d~)
+
+One screen, in this order:
+
+1. *The day's agenda*: what is scheduled, deadlines in the next week, *birthdays*, and *habits due* (with their graphs).
+2. *In progress*: everything marked ~WIP~ or ~REVIEWING~, wherever in your notes it is.
+3. *Inbox*: what you have captured and not yet filed.
+
+~C-c n h~ shows just the habits; ~C-c n u~ the birthdays of the next 60 days; ~C-c n A~ is the ordinary agenda dispatcher (~t~ lists every todo, by file).
+
+** Capturing a todo (~C-c n x~)
+
+A one-line prompt, from any buffer, into the Inbox of ~todo.org~, with a ~:CREATED:~ timestamp and a link to the file you were in.  The aim is that the thought costs you three seconds.  *Process the inbox regularly* -- open today's view and, for each item, either do it, delete it, or refile it (~C-c C-w~) to the note or project it belongs to.  An inbox you never empty is just a second pile.
+
+** Habits (~C-c n X~, ~C-c n h~)
+
+~C-c n X~ asks what the habit is and how often (~.+1d~, ~.+2d~, ~.+1w~, ~.+2w~, ~.+1m~) and files it in ~habits.org~.  In the habits view each habit is a row of colour: green when you did it on time, red when you missed it.  Mark one done with ~t~ (or ~C-c C-t~) in the agenda.
+
+Choose repeaters that match how you /actually/ live: a weekly thing is ~.+1w~, a chore you do "about every two weeks" is ~.+2w~.  A habit that is always red is a signal to change the habit, not to feel bad.
+
+** Contacts and birthdays (~C-c n k~, ~C-c n K~, ~C-c n u~)
+
+- ~C-c n K~ asks name, email, phone, birthday (all but the name optional) and appends the contact to ~contacts.org~; empty details are not written.
+- ~C-c n k~ completes over contacts with their details beside the name: =name   email · phone · 🎂 birthday=.  Selecting opens the entry; *with a prefix it inserts =Name <email>= at point* -- the quickest way to address an email.
+- In a *message* buffer, typing part of a contact's name and pressing the completion key completes ~Name <email>~ for the address headers (a ~completion-at-point~ function, so it works with any completion UI).
+- Birthdays appear in the agenda by themselves, with the person's age when the year is known (=🎂 Manon (34)=).  A 29 February birthday shows on the 28th in non-leap years.
+
+** Bookmarks (~C-c n b~, ~C-c n B~)
+
+- ~C-c n b~ completes over every bookmark with its *category and host* beside the title.  Enter opens it in your browser; with ~C-u~ the URL is copied instead; with ~C-u C-u~ it is inserted at point as an Org link.
+- ~C-c n B~ files a bookmark.  The URL is taken from point, from the page you are viewing in ~eww~, or from the kill ring if it looks like a URL.  The title is fetched from the page (with a four-second timeout; type your own otherwise) and you pick the category from a completion list that shows how many bookmarks each holds.  A category that does not exist is created (~Music / Guitar~ makes a nested one).  A URL you already have is not added twice: you are taken to it.
+
+* Index pages
+:PROPERTIES:
+:CUSTOM_ID: indexes
+:END:
+
+Every topic folder has an ~index.org~: its title, an optional hand-written description, and a /generated/ list of what is in it.  The point is *browsability without search*: open the root index, then a topic, then a note, using nothing but links; and the description line (the first thing you write under the title) is what shows beside a topic in the capture completion.
+
+#+begin_src org
+,#+title: Engineering / Languages / Haskell
+,#+date: [2026-10-23 Fri]
+
+How I use Haskell: patterns worth remembering and the tooling around it.
+
+# BEGIN GENERATED INDEX
+,* Topics
+- [[file:./patterns/index.org][Patterns]]
+,* Notes
+- [[file:./freer-monads.org][Freer monads]]
+- [[file:./why-haskell-matters.org][Why Haskell matters]]
+# END GENERATED INDEX
+#+end_src
+
+** The rules
+
+- Only what is between ~# BEGIN GENERATED INDEX~ and ~# END GENERATED INDEX~ is rewritten.  *Everything above it (your description) and below it (anything you add) is kept.*
+- An ~index.org~ *without* those markers is considered yours and is never touched -- write one by hand and you are safe.
+- A page is written only when it would change, so regenerating is idempotent and your ~git status~ stays quiet.
+- Titles come from each note's ~#+title:~; titles that start with an emoji or a capital sort the way code points do (letters first), the same in Emacs and in the shell.
+- The root index lists topics only; folders named ~diary~ and every dot-folder (except the archive's own root page) are skipped.
+
+** When they update
+
+- *When you save a note* in the notes directory: the folder's index, and every index above it, is refreshed.
+- *When you create or move a note* with these commands.
+- *On demand*: ~C-c n I~ rebuilds everything; or from a shell, with no Emacs session:
+
+  #+begin_src sh
+  emacs --batch --eval '(setq heks/notes-dir "~/notes")' \
+        -l ~/.emacs.d/modules/heks-emacs.el -l ~/.emacs.d/modules/notes.el \
+        -f heks/notes-regenerate-indexes
+  # or, with the ZSH helpers from cask-and-cons:
+  n index
+  #+end_src
+
+  Both produce *byte-identical* output (checked by generating every page with one and regenerating with the other: nothing changes), so it does not matter which one wrote a page last.
+
+A note moved, renamed or deleted /outside/ Emacs is picked up the next time you save any note in that folder, or by ~C-c n I~ / ~n index~.  A git pre-commit hook running ~n index~ keeps a repository's indexes always right.
+
+* Links
+:PROPERTIES:
+:CUSTOM_ID: links
+:END:
+
+** Relative file links
+
+Between notes: =[[file:../sibling-topic/note.org][Title]]=, always relative, written for you by ~C-c n i~.  Consequences worth knowing:
+
+- Moving the *whole* notes directory costs nothing.  Moving *one* note needs the links repaired -- use ~C-c n r~.
+- A link works in Org, in a ~grep~ ("who links to ~overview.org~?"), in ~git~ history, and in any converter.
+- Backlinks (~C-c n l~) are a search for the file name, so they work even for notes edited with other tools.
+
+** External links
+
+Plain Org links, =[[https://…][description]]=.  The bookmarks file and every note use the same syntax, so there is one thing to learn.  Dead links rot; a periodic pass that follows redirects and replaces dead links by an archive copy keeps a large collection healthy (the author's was a short script run against the whole tree, then reviewed as a diff).
+
+* From the terminal
+:PROPERTIES:
+:CUSTOM_ID: terminal
+:END:
+
+Emacs is not always at hand: a server over SSH, a quick thought in a shell, a machine without your configuration.  Because the notes are files, the basics work from ZSH too, with an ~n~ command that reads and writes the same formats described here (capture, find, search, todo, today, bookmarks, contacts, birthdays, indexes).  It is installed by [[https://codeberg.org/jjba23/cask-and-cons][cask-and-cons]]; its documentation, with every command and the design behind it, is the [[https://codeberg.org/jjba23/cask-and-cons/src/branch/trunk/docs/notes-from-the-terminal.org][Notes from the terminal]] guide in that repository.
+
+The two share one contract, and it is the whole design: *the files are the interface*.  If you would rather write your own tool in Python, Rust or Babashka, you can: honour the formats in this document and it will interoperate with all of this.
+
+* Syncing and backups
+:PROPERTIES:
+:CUSTOM_ID: sync
+:END:
+
+The notes are a directory of text files, so:
+
+- *Git* is the natural fit: history for free, a branch per restructuring, a remote as a backup.  Commit often, with real messages.  Binary or generated files are not part of the notes.
+- *Syncthing* (or any file synchroniser) works too, and is a good way to read the notes on a phone.  Nothing needs special handling: there is no database whose conflicts you must resolve.  A file conflicting is just two texts to compare.
+- The only local state is the cache of recent files and your editor's own; none of it is in the notes.
+
+Two cautions: *treat the directory as private by default* (notes accumulate credentials by accident; keep the repository private or run a redaction pass before sharing), and *never put a secret in a note intentionally*.  A rotated password in a note is a lie waiting to hurt you; a pointer ("in the password manager under X") is the right content.  If a secret has ever been committed, rewriting the file does not remove it from history: rotate the secret.
+
+* Setting it up
+:PROPERTIES:
+:CUSTOM_ID: setup
+:END:
+
+** In this configuration
+
+The modules are ~notes.el~, ~contacts.el~, ~bookmarks.el~ and ~agenda.el~, loaded by ~init.el~.  The only required setting is where the notes are:
+
+#+begin_src emacs-lisp
+(setopt heks/notes-dir "~/notes")        ; "$HOME/notes" works too
+#+end_src
+
+The place to put it is the *bridge* (see [[file:../README.org][the README]]), ~~/.emacs.d/cask-and-cons-bridge.el~ if you use cask-and-cons, because the bridge is loaded /before/ the modules read their settings.  (The older name ~heks-emacs-notes-roam-dir~ still works, as an obsolete alias.)  Until the setting exists the commands tell you what to set rather than guessing.
+
+** Start from nothing
+
+#+begin_src sh
+mkdir -p ~/notes && cd ~/notes && git init
+#+end_src
+
+Then, in Emacs, ~C-c n c~ or ~C-c n n~, and type a topic, a title, and go: the folder, the file and the index pages appear as you use it.  Create the personal files on first use (~C-c n x~ creates ~todo.org~; ~C-c n X~ creates ~habits.org~; ~C-c n K~ appends to ~contacts.org~ -- create it with ~#+title: Contacts~; and put the one-line sexp into ~birthdays.org~ as shown above).
+
+** Start from existing notes
+
+Whatever you have: Markdown (use ~C-c n m~ on each file, or the project variant), a folder of ~.org~ files (move them into topic folders, give each a ~#+title:~, and run ~C-c n I~), a Roam directory (the formats are compatible: delete the ~:ID:~ drawers if you like -- nothing reads them -- and convert ~id:~ links to relative ones with a short script, since ~id~ links need the database this replaces).
+
+A migration checklist that worked:
+
+1. Make a *branch*.
+2. Scan for credentials (a regexp pass plus an entropy check) /before/ anything else, and redact.
+3. Decide the top-level topics (ten to fifteen; fewer is better), then place each note by a rules file (a table of regexps → folder), review the unclassified remainder by hand.
+4. Move with ~git mv~ so history follows.
+5. Give every note a title; fix the links (a script resolving old paths to new ones).
+6. ~C-c n I~; commit; read the diff.
+
+* Making it yours
+:PROPERTIES:
+:CUSTOM_ID: tweak
+:END:
+
+| Setting / hook | Default | What it does |
+|----------------+---------+--------------|
+| ~heks/notes-dir~ | nil | The notes directory.  Required. |
+| ~heks/notes-index-acronyms~ | AH, HTTP, APIs, … | Words in folder names that are written specially in generated titles (=http-apis= → =HTTP APIs=). Add your own. |
+| ~heks/notes-agenda-exclude~ | bookmarks, contacts, index pages | Regexps, on the path inside the notes, of notes that are not agenda files. |
+| ~heks/notes-agenda-max-size~ | 100000 | Notes larger than this (bytes) are not scanned for the agenda. |
+| ~heks/notes-after-create-hook~ | nil | Run in the buffer of a note just created with ~C-c n n~ (or ~C-c n c~ with no text). |
+
+Things you may want to change, with where:
+
+- *The keys.*  They are ~global-set-key~ calls at the bottom of each module.  Rebind in your own configuration after the modules load; ~maak keys-update~ regenerates the reference.
+- *Todo keywords.*  ~org-todo-keywords~ in ~org.el~ (~TODO~, ~WIP~, ~REVIEWING~ → ~DONE~).
+- *What a note starts with.*  The header written by ~heks/notes-new~ (title, date, optional tags).  If you want a template, advise or replace that function; it is a single ~insert~.
+- *Habit graph.*  ~org-habit-graph-column~, ~org-habit-preceding-days~ and ~org-habit-following-days~ are set in ~agenda.el~.
+- *Today's view.*  It is an ordinary ~org-agenda-custom-commands~ entry (~"d"~) in ~agenda.el~: reorder or add blocks (blocked tasks, deadlines…) the usual Org way.
+- *The completion look.*  Annotations are aligned with ~:align-to~; with Marginalia the categories above let you give each its own annotator.
+
+* Design notes
+:PROPERTIES:
+:CUSTOM_ID: design
+:END:
+
+For readers who want to build something similar, or disagree.
+
+- *Files are the API.*  The Emacs code, the shell code and anything you add all agree on formats, not on code.  The shell version and the Emacs version generate byte-identical index pages; the way to keep that true is to treat the format described here as the contract and change both together.
+- *Derive, do not store.*  Titles, backlinks, indexes, the birthday list, the habit graphs: all computed from the files on demand.  The few caches (parsed contacts, parsed bookmarks) are keyed on file modification time and are invisible.
+- *Be reversible.*  Every command writes a file you could have written by hand; nothing is hidden in a drawer you cannot read.  Index pages without markers are never touched; a refused overwrite is a message, not a prompt.
+- *Make capture cheaper than forgetting.*  The commands that run while you are doing something else (~c~, ~x~, ~B~) ask the fewest questions, pre-fill what they can, and never move you.  Organising (moving, linking, refiling) is a separate, deliberate act.
+- *Annotations are the interface.*  A topic is chosen from a list because the list /tells you what the topic is/.  Showing counts, recency and a description removes the commonest failure of folder-based notes: not knowing where something goes.
+- *Folders for place, tags for aspect, links for relation.*  Each does one job.  A note is /in/ one folder, may carry a few tags, and links to as many notes as it relates to.
+- *Hiding is not deleting.*  The archive is a dot-folder, not a purge.
+- *Roam is not wrong.*  A graph of many tiny, densely-linked notes is a legitimate method (Zettelkasten); this setup suits people who think in topics, keep reference material, and want their notes to be a file tree first.  Nothing stops you creating many small linked notes here too.
+- *One writer at a time.*  The tools assume a single person.  Syncing between your own machines is easy; collaborative editing of the same notes is not what this is for.
+
+* FAQ
+:PROPERTIES:
+:CUSTOM_ID: faq
+:END:
+
+*Why not ID links, so that moving is free?*  Because an ID is only meaningful to the tool that indexes it.  A relative path is meaningful to everything, and ~C-c n r~ makes moving as easy.
+
+*What about a graph view?*  Not provided.  If you want one, a script that walks the ~[[file:~/...]]~ links and emits Graphviz is thirty lines, and all the data is already in the files.
+
+*Can I use this without the personal files?*  Yes: they are independent modules.  Drop ~contacts.el~, ~bookmarks.el~ and ~agenda.el~ from the module list in ~init.el~ and nothing else changes (the agenda commands of ~C-c n d~ etc. go with ~agenda.el~).
+
+*My notes directory is huge and the agenda is slow.*  Lower ~heks/notes-agenda-max-size~ or add patterns to ~heks/notes-agenda-exclude~.  The agenda only needs the files that contain tasks and dates.
+
+*A page I edited by hand lost its description.*  Put the description /above/ ~# BEGIN GENERATED INDEX~.  Anything inside the markers is regenerated.
+
+*I renamed a topic folder in Dired.*  Run ~C-c n I~ to rebuild the indexes; the links from notes in /other/ folders to notes in the renamed one need a one-off search-and-replace (a rename of a whole folder is the one operation that is not automated).
+
+*How do I find a note I only half remember?*  ~C-c n f~ completes on titles with any completion style your UI supports (orderless works well); ~C-c n s~ searches the text, which includes tags and dates.
+
+*Is a note's date its last-modified date?*  No, its creation date.  Last modification is the file's modification time, which is what the completion annotations show as the note's age.
+
+*What happens to the ~dagboek~ diary?*  It keeps its own ~diary/YYYY/MM/DD.org~ tree, which is skipped by the index generator, and is found like any other note.

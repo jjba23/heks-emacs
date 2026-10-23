@@ -60,6 +60,6 @@
         smtpmail-debug-info t
         smtpmail-debug-verb t))
 
-(provide 'heks-emacs/mail)
+(provide 'heks/mail)
 
 ;;; mail.el ends here

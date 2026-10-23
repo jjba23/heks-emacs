@@ -78,27 +78,27 @@ Note: Since heks-emacs is a compilation of several packages and libraries, it's 
 
 You can customize heks-emacs with these variables at your will. This can also be done conveniently via ~heks-linux-brige.el~ or ~cask-and-cons-bridge.el~
 
-The bridge is loaded *before* the modules, and the modules are loaded after it, because these are the settings they read while they are set up: a module that reads one of them while it is still ~nil~ -- ~heks-emacs-notes-roam-dir~ is the one with no sensible default, since nobody can guess where somebody else keeps their notes -- is configured wrongly whatever the setting says a moment later.
+The bridge is loaded *before* the modules, and the modules are loaded after it, because these are the settings they read while they are set up: a module that reads one of them while it is still ~nil~ -- ~heks/notes-dir~ is the one with no sensible default, since nobody can guess where somebody else keeps their notes -- is configured wrongly whatever the setting says a moment later.
 
 Feel free to ~setopt~ these:
 #+begin_src elisp
 ;; heks-linux-bridge.el --- Bridge to Heks Emacs  -*- lexical-binding: t -*-
-(setopt heks-emacs-font-mono "IBM Plex Mono"
-        heks-emacs-font-sans "IBM Plex Sans"
-        heks-emacs-font-serif "IBM Plex Serif"
-        heks-emacs-theme 'modus-vivendi
-        heks-emacs-clone-dir "~/Hacking/heks-emacs"
-        heks-emacs-notes-roam-dir "~/Hacking/private-notes")
+(setopt heks/font-mono "IBM Plex Mono"
+        heks/font-sans "IBM Plex Sans"
+        heks/font-serif "IBM Plex Serif"
+        heks/theme 'modus-vivendi
+        heks/clone-dir "~/Hacking/heks-emacs"
+        heks/notes-dir "~/Hacking/private-notes")
 #+end_src
 
 #+begin_src elisp
 ;; cask-and-cons-bridge.el --- Bridge to Heks Emacs  -*- lexical-binding: t -*-
-(setopt heks-emacs-font-mono "Intel One Mono"
-        heks-emacs-font-sans "Lucida Sans"
-        heks-emacs-font-serif "Baskerville"
-        heks-emacs-theme 'ayu-dark
-        heks-emacs-clone-dir "~/Hacking/heks-emacs"
-        heks-emacs-notes-roam-dir "~/Hacking/private-notes")
+(setopt heks/font-mono "Intel One Mono"
+        heks/font-sans "Lucida Sans"
+        heks/font-serif "Baskerville"
+        heks/theme 'ayu-dark
+        heks/clone-dir "~/Hacking/heks-emacs"
+        heks/notes-dir "~/Hacking/private-notes")
 #+end_src
 
 -----------------
@@ -183,7 +183,7 @@ The configuration is deliberately split by responsibility:
 - *Core* modules establish Emacs behavior and HEKS-specific infrastructure.
 - *UI* modules control presentation, themes, completion, navigation, and interaction.
 - *Development* modules provide language tooling, LSP, Git, containers, formatting, and project workflows.
-- *Knowledge* modules handle Org, Org Roam, Markdown, and writing.
+- *Knowledge* modules handle Org notes, Markdown, and writing.
 - *System* modules integrate shells, Guix, Dired, USB image writing, and other operating-system workflows.
 - *.eld* files provide lightweight, mode-specific editor configuration and snippets without turning every file type into a standalone module.
 
@@ -199,7 +199,7 @@ Early Emacs startup configuration. Handles settings that need to be applied befo
 *** =emacs-core.el=
 Establishes the baseline behavior of Emacs. Configures core editing behavior, UTF-8, minibuffer behavior, state persistence, Tree-sitter, window management, Dired defaults, diagnostics, keybindings, prettification, and other global defaults.
 
-Tree-sitter is set up so that no grammar is ever fetched while a file is being opened: every grammar this Emacs can be asked for is built once, into ~~/.emacs.d/tree-sitter~, by ~treesit-grammars.el~ in a batch Emacs of its own, started in the background at startup. ~M-x heks-emacs-treesit-install-grammars~ does the same work in front of you, and what the child says -- a grammar whose repository moved, or one whose compiler is missing -- is in the ~*heks-emacs tree-sitter grammars*~ buffer.
+Tree-sitter is set up so that no grammar is ever fetched while a file is being opened: every grammar this Emacs can be asked for is built once, into ~~/.emacs.d/tree-sitter~, by ~treesit-grammars.el~ in a batch Emacs of its own, started in the background at startup. ~M-x heks/treesit-install-grammars~ does the same work in front of you, and what the child says -- a grammar whose repository moved, or one whose compiler is missing -- is in the ~*heks-emacs tree-sitter grammars*~ buffer.
 
 =which-key= is what shows the keys of a prefix while it is being typed, and it is taught the whole key scheme here: every topic and every key is named in the words this configuration gives it, so a key that is being learned is explained as it is pressed rather than only in a document. What it may cut a description to is measured from those sentences rather than guessed at, so a menu is a list of whole sentences, and the menu itself is a window at the bottom of the frame -- tall enough for the page it holds, with the number of the prefix's keys it is showing in its mode line -- rather than the echo area, which cannot grow past a quarter of the frame.
 
@@ -311,9 +311,9 @@ Contains small keyboard-driven editing macros and transformations, particularly 
 ** Org & Knowledge Management
 
 *** =org.el=
-Configures Org mode as a major part of the HEKS workflow. Provides Org editing behavior, visual customization, Org Roam knowledge management, Org Roam UI, presentations, automatic tangling, HTTP and Mermaid source blocks, and related Org tooling.
+Configures Org mode as a major part of the HEKS workflow. Provides Org editing behavior, visual customization, presentations, automatic tangling, HTTP and Mermaid source blocks, and related Org tooling.
 
-The notes topic holds both halves of a system of notes: a note is opened, found, captured and linked with ~C-c n f~, ~C-c n c~, ~C-c n i~ and ~C-c n l~, today's note is opened with ~C-c n d~ and captured with ~C-c n j~, and the agenda -- the dates and the ~TODO~s of every one of them in a single list -- is ~C-c n A~.
+Notes, tasks, contacts, bookmarks and the agenda are one system of plain files, documented end to end -- the philosophy, the layout and file formats, every workflow, the index pages, syncing, setup and tweaking -- in [[file:docs/notes.org][docs/notes.org]]. The key reference is [[file:docs/keybindings.org][docs/keybindings.org]].
 
 ** Shell & System Interaction
 
@@ -344,7 +344,7 @@ A search is a list of lines to change as often as it is a list of lines to look 
 Acts as the broader navigation layer, integrating searching with buffers, projects, bookmarks, registers, xrefs, and the minibuffer.
 
 *** =duplicates.el=
-Finds the code a project writes more than once. The scan reads the files the project says it has, normalizes every line -- indentation and runs of spaces taken out -- drops the blank ones and the comments, indexes every window of ~heks-emacs-duplicates-min-lines~ consecutive lines, extends the windows that appear twice as far as the two copies agree, and reports what is left in the order of what it costs: the lines that are written twice and could be written once.
+Finds the code a project writes more than once. The scan reads the files the project says it has, normalizes every line -- indentation and runs of spaces taken out -- drops the blank ones and the comments, indexes every window of ~heks/duplicates-min-lines~ consecutive lines, extends the windows that appear twice as far as the two copies agree, and reports what is left in the order of what it costs: the lines that are written twice and could be written once.
 
 The report is the point of it: ~C-c v D~ shows a buffer with a line per cluster -- how many lines, in how many places, how many of them wasted -- a button per place that opens the file with the clone lit up, the first lines of the block as an excerpt, and ~n~ and ~p~ to walk the clusters. ~s~ shows the copies inside one file as well, which are hidden by default because a block copied within a file is a function waiting to be written and the same block in two files is the one nobody notices. ~g~ scans again.
 
@@ -399,12 +399,20 @@ It checks the document as it is written, and ~C-c a l~ says what is wrong with t
 
 ~C-c a r~ calls one of the operations (the server, the method and the parameters come from the document, and the answer is shown in a buffer of its own), and ~C-c a b~ writes one as an Org request block instead, which is what a request with a body or a request worth keeping wants.
 
+*** =notes.el=
+/The full guide: [[file:docs/notes.org][docs/notes.org]]./
+
+Notes as plain files: one Org file per note in topic folders under the notes directory (~heks/notes-dir~), linked by relative ~file:~ links, with no database. ~C-c n c~ captures from anywhere -- the region, or with a prefix the latest kill, filed under a topic picked from a completion list that shows how many notes each topic holds, when it last changed and what its index says it is for -- ~C-c n n~ writes a new note, ~C-c n f~ finds one, ~C-c n i~ links one, ~C-c n r~ moves one and repairs the links to it. Every topic folder's ~index.org~ is generated between markers from what is in it, and kept current on save (~C-c n I~ rebuilds them all). The archive of old employers is the dot-folder ~.archive~, kept out of search and the agenda; ~C-c n a~ opens from it.
+
+*** =contacts.el=, =bookmarks.el=, =agenda.el=
+The personal files at the top of the notes directory, integrated: contacts with their birthdays (in the agenda, and an address completed in a message), the bookmarks start page with a picker and a filing command, and the todo inbox, habits and the day's agenda. See the NEWS entry for the keys.
+
 *** =import.el=
-Turns a Markdown document into an Org note, so that a file written for other tools can be one to work in. ~C-c n m~ imports the Markdown file of the buffer, writing the note beside it and leaving the Markdown exactly as it was, or, with a prefix argument, writes it into the notes directory as an ~org-roam~ node instead -- keeping the identifier a note already carries, making one for a document that has none, and writing the aliases its front matter gives it, so that importing a document twice updates the note rather than making a second one.
+Turns a Markdown document into an Org note, so that a file written for other tools can be one to work in. ~C-c n m~ imports the Markdown file of the buffer, writing the note beside it and leaving the Markdown exactly as it was, or, with a prefix argument, writes it into the notes directory as a note instead -- keeping the identifier a note already carries, making one for a document that has none, and writing the aliases its front matter gives it, so that importing a document twice updates the note rather than making a second one.
 
 What the note says is what the document said. The front matter becomes the keywords a note keeps its own business in, a field with no Org keyword of its own arriving as a keyword of its own name rather than being dropped; the heading a document opens by naming itself with becomes the title rather than a heading repeated under it, and the headings below are shifted up to be sections of the note. The rest keeps its meaning and changes its spelling: headings become headlines, bullets become ~-~ (never ~*~, which is a headline in Org), lists keep their nesting and ordered lists their numbers, task lists become the checkboxes Org reads -- ~[X]~ for a checked one, since Org reads Markdown’s ~[x]~ as text -- fences become source blocks of the language they name, quotes quote blocks, thematic breaks rules, footnotes real footnotes, and raw HTML an export block. A table becomes an Org table, with the alignment row its delimiter row declared and the rule that closes the header; emphasis, code, links and images become Org’s own markup, with a relative link resolved against the document’s directory; and a property drawer is written where Org actually reads one, at the top of the file.
 
-Nothing is written over unasked, an import into the notes asks ~org-roam~ to index the note it wrote so it is findable at once, and the Markdown file itself is never modified.
+Nothing is written over unasked, an import into the notes registers the note it wrote with ~org-id~ so links to it work at once, and the Markdown file itself is never modified.
 
 *** =markdown.el=
 Reads a Markdown document, and only reads it: whether a line and the next are a table, the cells of a row, how deep a list is indented, what a code span keeps out of the rest of a line, and the directory a relative link in the document is resolved against. It is the reading ~render.el~ turns into an HTML page and ~import.el~ turns into an Org note, in one place, so that the file previewed and the file imported cannot disagree about what a table is, how deep a list is nested, or whether a paragraph with a rule under it is a level-two heading rather than a plain one.
@@ -424,12 +432,12 @@ Mode-specific Tempel snippets live in =src/snippets/*.eld= (e.g. =lisp.eld=, =em
 ** AI
 
 *** =ai.el=
-Configures AI-assisted development in Emacs: GPTel answers a prompt about what is at point, and ECA is the chat that reads and edits the project.  Both talk to either of two accounts, and which one a session uses is not written into the checkout: ~auto~ takes a DeepSeek key -- in ~DEEPSEEK_API_KEY~ or in the encrypted file described below -- as the personal account and GitHub Copilot as what is left, ~HEKS_AI_PROVIDER~ (or ~heks-emacs-ai-provider~) names one outright, and ~C-c x p~ moves the session to the other account without a restart.  The Copilot login is GPTel's and ECA's own.
+Configures AI-assisted development in Emacs: GPTel answers a prompt about what is at point, and ECA is the chat that reads and edits the project.  Both talk to either of two accounts, and which one a session uses is not written into the checkout: ~auto~ takes a DeepSeek key -- in ~DEEPSEEK_API_KEY~ or in the encrypted file described below -- as the personal account and GitHub Copilot as what is left, ~HEKS_AI_PROVIDER~ (or ~heks/ai-provider~) names one outright, and ~C-c x p~ moves the session to the other account without a restart.  The Copilot login is GPTel's and ECA's own.
 
-ECA's server is started in the background, so that a chat opens at once rather than seconds after the key was pressed, and it is started quietly: no window and no message, because nobody asked for either yet.  There is no project to prepare at startup -- this Emacs is a daemon, started in a directory that belongs to none -- so what is prepared is the project of the first file visited in one, once; an Emacs started with ~emacs .~ has its project already and is prepared at its first idle moment.  The chat buffer is made at that point, so ~C-c x t~ toggles a chat rather than showing the current buffer, and the first chat one opens is the one that shows itself.  ~heks-emacs-ai-eca-prepare~ turns this off and ~heks-emacs-ai-eca-prepare-delay~ says how soon it happens.
+ECA's server is started in the background, so that a chat opens at once rather than seconds after the key was pressed, and it is started quietly: no window and no message, because nobody asked for either yet.  There is no project to prepare at startup -- this Emacs is a daemon, started in a directory that belongs to none -- so what is prepared is the project of the first file visited in one, once; an Emacs started with ~emacs .~ has its project already and is prepared at its first idle moment.  The chat buffer is made at that point, so ~C-c x t~ toggles a chat rather than showing the current buffer, and the first chat one opens is the one that shows itself.  ~heks/ai-eca-prepare~ turns this off and ~heks/ai-eca-prepare-delay~ says how soon it happens.
 
 *** Storing the DeepSeek key
-The key belongs nowhere near this checkout.  It is looked for in three places, in this order, when a request is made rather than when Emacs starts: ~DEEPSEEK_API_KEY~, the file named by ~heks-emacs-ai-deepseek-key-file~ (by default =~/.config/heks/deepseek.key.gpg=), and an auth-source entry for =api.deepseek.com=.  A file whose name ends in =.gpg= or =.asc= is decrypted with GPG; any other file is read as it is, which is convenient but not what this configuration recommends for a key that outlives the machine.  Nothing found is an error that names all three, rather than a request that leaves without a key and comes back as a 401.
+The key belongs nowhere near this checkout.  It is looked for in three places, in this order, when a request is made rather than when Emacs starts: ~DEEPSEEK_API_KEY~, the file named by ~heks/ai-deepseek-key-file~ (by default =~/.config/heks/deepseek.key.gpg=), and an auth-source entry for =api.deepseek.com=.  A file whose name ends in =.gpg= or =.asc= is decrypted with GPG; any other file is read as it is, which is convenient but not what this configuration recommends for a key that outlives the machine.  Nothing found is an error that names all three, rather than a request that leaves without a key and comes back as a 401.
 
 The environment variable is not the recommended place, even though it works.  Emacs here is a daemon started by the compositor, so a line in =~/.profile= never reaches it; and what is exported to the daemon is inherited by every process it starts -- language servers, shells, and the commands an AI chat runs -- and is readable by any process of the same user through =/proc=.  A key file is read only when a request needs it.
 
@@ -477,7 +485,7 @@ DeepSeek has a provider in ECA, but not one of the endpoints it ships by default
 
 An auth-source entry in =~/.authinfo.gpg= -- =machine api.deepseek.com login apikey password ...= -- is the third place, and the natural one if a machine already keeps a netrc there.  ECA cannot read that format, so the key file above is what serves both tools.
 
-A key file that exists is also what ~auto~ takes as the sign that this machine is the personal one, so no environment variable is needed for that either.  On a machine without one, ~auto~ chooses Copilot; ~HEKS_AI_PROVIDER~ or ~heks-emacs-ai-provider~ overrides the choice either way.
+A key file that exists is also what ~auto~ takes as the sign that this machine is the personal one, so no environment variable is needed for that either.  On a machine without one, ~auto~ chooses Copilot; ~HEKS_AI_PROVIDER~ or ~heks/ai-provider~ overrides the choice either way.
 
 
 -------

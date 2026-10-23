@@ -78,8 +78,8 @@
          ("C-c i a" . eglot-code-actions)
          ("C-c i m" . eglot-menu)
          ("C-c i E" . eglot-events-buffer)
-         ("C-c i s" . heks-emacs-yaml-insert-schema-modeline)
-         ;; No `C-c i f' here: formatting is `heks-emacs-format-buffer',
+         ("C-c i s" . heks/yaml-insert-schema-modeline)
+         ;; No `C-c i f' here: formatting is `heks/format-buffer',
          ;; which asks Eglot when a server manages the buffer and the
          ;; language's own formatter when it does not.
          ("C-c i h" . eglot-inlay-hints-mode))
@@ -266,7 +266,7 @@ depend on either of them."
   ;; one.  (3.2 is what `yaml.schemas' associates by name, because it is
   ;; the most modern version; a file can only be checked against one
   ;; schema at a time, so older files need this modeline.)
-  (defconst heks-emacs-yaml-version-schemas
+  (defconst heks/yaml-version-schemas
     '(("3.0" . "https://spec.openapis.org/oas/3.0/schema/2024-10-18")
       ("3.1" . "https://spec.openapis.org/oas/3.1/schema/2026-08-03")
       ("3.2" . "https://spec.openapis.org/oas/3.2/schema/2026-08-30"))
@@ -276,7 +276,7 @@ The date in a URL is how the OpenAPI Initiative identifies a schema
 revision, and the ones here are the current revisions of each version;
 `https://spec.openapis.org/oas/' is where they are listed.")
 
-  (defun heks-emacs-yaml--declared-version ()
+  (defun heks/yaml--declared-version ()
     "Return the OpenAPI version this buffer declares, like \"3.1\", or nil."
     (save-excursion
       (goto-char (point-min))
@@ -284,7 +284,7 @@ revision, and the ones here are the current revisions of each version;
              "^[ \t]*openapi:[ \t]*[\"']?\\([0-9]+\\.[0-9]+\\)" 4000 t)
         (match-string 1))))
 
-  (defun heks-emacs-yaml-schema-for-file ()
+  (defun heks/yaml-schema-for-file ()
     "Return the schema this YAML file should name for itself, or nil.
 
 A `values.yaml' is validated by the `values.schema.json' that sits beside
@@ -295,10 +295,10 @@ version it declares."
       (or (when (and directory
                      (file-exists-p (expand-file-name "values.schema.json" directory)))
             "./values.schema.json")
-          (cdr (assoc (heks-emacs-yaml--declared-version)
-                      heks-emacs-yaml-version-schemas)))))
+          (cdr (assoc (heks/yaml--declared-version)
+                      heks/yaml-version-schemas)))))
 
-  (defun heks-emacs-yaml-insert-schema-modeline (schema)
+  (defun heks/yaml-insert-schema-modeline (schema)
     "Insert the comment that tells the YAML language server which SCHEMA to use.
 
 Interactively SCHEMA is worked out from the file itself, with a prompt
@@ -306,7 +306,7 @@ only when the file says nothing: a chart's `values.schema.json' beside a
 `values.yaml', or the published schema of a specification's version.  The
 line goes at the top of the file, and replaces one that is already
 there."
-    (interactive (list (or (heks-emacs-yaml-schema-for-file)
+    (interactive (list (or (heks/yaml-schema-for-file)
                            (read-string "Schema URL or path: "))))
     (unless (derived-mode-p 'yaml-mode 'yaml-ts-mode)
       (user-error "This is a %s buffer, and the line is for a YAML one" major-mode))
@@ -397,7 +397,7 @@ there."
   ;; with it, which is what used to be written for Python alone.  Eglot
   ;; replaces `flymake-diagnostic-functions' with a list of its own backend
   ;; alone while it manages a buffer, and what the buffer had is put back for
-  ;; every language at once by `heks-emacs-flymake-keep-backends' (see
+  ;; every language at once by `heks/flymake-keep-backends' (see
   ;; `dev-flymake.el') -- Python's flake8 among them, registered by `python-base-mode'
   ;; itself, and the command it runs set in that module with it.  A server is
   ;; then language intelligence and never the reason a buffer stops being
@@ -415,7 +415,7 @@ there."
   ;; yet; wait for the real load before touching its internals.
   (with-eval-after-load 'eglot-java
     ;; Bindings local to Java buffers using eglot-java; the global
-    ;; `C-c j m/g/s' build commands (see `heks-emacs-maven-run' and
+    ;; `C-c j m/g/s' build commands (see `heks/maven-run' and
     ;; friends) keep working in every other buffer.
     (keymap-set eglot-java-mode-map "C-c j n" #'eglot-java-file-new)
     (keymap-set eglot-java-mode-map "C-c j r" #'eglot-java-run-main)
@@ -437,6 +437,6 @@ there."
   :config
   (jarchive-mode))
 
-(provide 'heks-emacs/eglot)
+(provide 'heks/eglot)
 
 ;;; eglot.el ends here

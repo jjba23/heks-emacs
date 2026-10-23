@@ -47,6 +47,6 @@
 ;;   (erc-services-mode 1)
 ;;   (erc-update-modules))
 
-(provide 'heks-emacs/irc)
+(provide 'heks/irc)
 
 ;;; irc.el ends here

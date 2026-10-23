@@ -106,7 +106,7 @@
 ;; the customization variables, the bridge below gives them this user's own
 ;; values (which fonts, which theme, where the notes are), and only then is a
 ;; module loaded.  A module that reads a setting while it is still nil is
-;; configured wrongly whatever the setting says a moment later -- org-roam,
+;; configured wrongly whatever the setting says a moment later -- the notes,
 ;; whose notes directory is nobody's default, is where that showed.
 (load-user-file "modules/heks-emacs.el")
 
@@ -121,8 +121,8 @@
     (load-user-file "cask-and-cons-bridge.el")))
 
 ;; Load more user modules
-(defvar heks-emacs-modules '())
-(setq heks-emacs-modules '(
+(defvar heks/modules '())
+(setq heks/modules '(
                            ai
                            common-lisp
                            completion
@@ -148,6 +148,10 @@
                            help
                            import
                            libs
+                           notes
+                           agenda
+                           bookmarks
+                           contacts
                            macros
                            mail
                            maps
@@ -166,6 +170,6 @@
                            snippets
                            theme
                            ui))
-(mapc (lambda(f) (load-user-file (format "modules/%s.el" f))) heks-emacs-modules)
+(mapc (lambda(f) (load-user-file (format "modules/%s.el" f))) heks/modules)
 
 ;;; init.el ends here

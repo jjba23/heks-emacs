@@ -67,7 +67,7 @@
   (load (expand-file-name (format "modules/%s.el" name) heks-ert--source) nil t))
 
 (dolist (module '("markdown" "render" "import" "present" "heks-emacs" "emacs-core"
-                 "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "openapi" "scheme-lint" "duplicates" "shell" "guile" "ui" "ai"))
+                 "notes" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "openapi" "scheme-lint" "duplicates" "shell" "guile" "ui" "ai"))
   (heks-ert--module module))
 
 ;; `htmlize' is what Org colours the code in a note with, and the
@@ -148,40 +148,40 @@ so the check is not also a check on where the text was wrapped."
 ;; ====== The renderer ======
 ;;
 
-(ert-deftest heks-emacs-render/code-is-fontified-with-its-modes-faces ()
+(ert-deftest heks/render/code-is-fontified-with-its-modes-faces ()
   "A fenced block of Elisp comes out with Emacs's own faces on it."
-  (let ((html (heks-emacs-render-highlight "(defun f (x) x)" "elisp")))
+  (let ((html (heks/render-highlight "(defun f (x) x)" "elisp")))
     (should (string-match-p "<span class=\"hl-font-lock-keyword-face\">defun</span>" html))
     (should (string-match-p "hl-font-lock-function-name-face" html))))
 
-(ert-deftest heks-emacs-render/fontified-code-is-still-escaped ()
+(ert-deftest heks/render/fontified-code-is-still-escaped ()
   "Highlighting never lets a `<' of the snippet into the page."
-  (let* ((html (heks-emacs-render-highlight "(if (< a b) \"x\")" "elisp"))
+  (let* ((html (heks/render-highlight "(if (< a b) \"x\")" "elisp"))
          (text (replace-regexp-in-string "</?span[^>]*>" "" html)))
     (should (string-match-p "&lt; a b" text))
     (should-not (string-match-p "[a-z] < [a-z]" text))))
 
-(ert-deftest heks-emacs-render/a-language-without-a-mode-is-left-as-text ()
+(ert-deftest heks/render/a-language-without-a-mode-is-left-as-text ()
   "A language no mode reads is escaped and not guessed at."
-  (should (equal (heks-emacs-render-highlight "a < b" "nosuchlanguage")
+  (should (equal (heks/render-highlight "a < b" "nosuchlanguage")
                  "a &lt; b")))
 
-(ert-deftest heks-emacs-render/the-language-of-a-fence-finds-its-mode ()
+(ert-deftest heks/render/the-language-of-a-fence-finds-its-mode ()
   "The names a fence uses are the ones the mode table knows."
-  (should (eq (heks-emacs-render-language-mode "bash") 'sh-mode))
-  (should (eq (heks-emacs-render-language-mode "elisp") 'emacs-lisp-mode))
-  (should (eq (heks-emacs-render-language-mode "shell") 'sh-mode))
-  (should (eq (heks-emacs-render-language-mode "Scheme") 'scheme-mode))
-  (should-not (heks-emacs-render-language-mode "nosuchlanguage")))
+  (should (eq (heks/render-language-mode "bash") 'sh-mode))
+  (should (eq (heks/render-language-mode "elisp") 'emacs-lisp-mode))
+  (should (eq (heks/render-language-mode "shell") 'sh-mode))
+  (should (eq (heks/render-language-mode "Scheme") 'scheme-mode))
+  (should-not (heks/render-language-mode "nosuchlanguage")))
 
-(ert-deftest heks-emacs-render/anchors-are-ids-a-link-can-use ()
-  (should (equal (heks-emacs-render-anchor "Get /pets and the rest")
+(ert-deftest heks/render/anchors-are-ids-a-link-can-use ()
+  (should (equal (heks/render-anchor "Get /pets and the rest")
                  "get-pets-and-the-rest"))
-  (should (equal (heks-emacs-render-anchor "A title: with punctuation!") "a-title-with-punctuation"))
-  (should (equal (heks-emacs-render-anchor "   ") "section")))
+  (should (equal (heks/render-anchor "A title: with punctuation!") "a-title-with-punctuation"))
+  (should (equal (heks/render-anchor "   ") "section")))
 
-(ert-deftest heks-emacs-render/headings-get-ids-in-the-order-they-appear ()
-  (let* ((rendered (heks-emacs-render--headings "<h1>A</h1>\n<h2>B</h2>"))
+(ert-deftest heks/render/headings-get-ids-in-the-order-they-appear ()
+  (let* ((rendered (heks/render--headings "<h1>A</h1>\n<h2>B</h2>"))
          (html (car rendered))
          (entries (cdr rendered)))
     (should (string-match-p "<h1 id=\"a\">A</h1>" html))
@@ -190,60 +190,60 @@ so the check is not also a check on where the text was wrapped."
                            entries)
                    '((1 "a") (2 "b"))))))
 
-(ert-deftest heks-emacs-render/two-headings-with-one-name-get-two-ids ()
-  (let* ((rendered (heks-emacs-render--headings "<h2>Same</h2>\n<h2>Same</h2>"))
+(ert-deftest heks/render/two-headings-with-one-name-get-two-ids ()
+  (let* ((rendered (heks/render--headings "<h2>Same</h2>\n<h2>Same</h2>"))
          (ids (mapcar (lambda (entry) (nth 1 entry)) (cdr rendered))))
     (should (equal ids '("same" "same-2")))
     (should-not (string-match-p "<h2 id=\"same\">Same</h2>.*<h2 id=\"same\">" (car rendered)))))
 
-(ert-deftest heks-emacs-render/a-heading-that-has-an-id-keeps-it ()
+(ert-deftest heks/render/a-heading-that-has-an-id-keeps-it ()
   "The OpenAPI renderer writes ids worth mentioning, and they survive.
 
 They are not decoration: the contents list links to them, so a heading
 whose id is thrown away and replaced by a slug of its text is a heading
 the list cannot reach."
-  (let ((rendered (heks-emacs-render--headings "<h3 id=\"get-/pets\">GET /pets</h3>")))
+  (let ((rendered (heks/render--headings "<h3 id=\"get-/pets\">GET /pets</h3>")))
     (should (string-match-p "<h3 id=\"get-/pets\">" (car rendered)))
     (should (equal (nth 1 (car (cdr rendered))) "get-/pets"))))
 
-(ert-deftest heks-emacs-render/the-contents-list-reaches-the-operations-it-names ()
-  (let ((heks-emacs-render-toc-headings 3))
+(ert-deftest heks/render/the-contents-list-reaches-the-operations-it-names ()
+  (let ((heks/render-toc-headings 3))
     (let* ((body (mapconcat #'identity
                             '("<h1>Pet Store</h1>"
                               "<h2>pets</h2>"
                               "<h3 id=\"get-/pets\">GET /pets</h3>"
                               "<h3 id=\"post-/pets\">POST /pets</h3>")
                             "\n"))
-           (document (heks-emacs-html-document "T" body)))
+           (document (heks/html-document "T" body)))
       (should (string-match-p "href=\"#get-/pets\"" document))
       (should (string-match-p "<h3 id=\"get-/pets\">" document)))))
 
-(ert-deftest heks-emacs-render/contents-are-listed-when-there-are-enough ()
-  (let ((heks-emacs-render-toc-headings 3))
-    (let* ((two (heks-emacs-render-toc
+(ert-deftest heks/render/contents-are-listed-when-there-are-enough ()
+  (let ((heks/render-toc-headings 3))
+    (let* ((two (heks/render-toc
                  (list (list 2 "a" "A") (list 2 "b" "B"))))
-           (three (heks-emacs-render-toc
+           (three (heks/render-toc
                    (list (list 2 "a" "A") (list 2 "b" "B") (list 2 "c" "C")))))
       (should-not two)
       (should (string-match-p "nav class=\"toc\"" three))
       (should (string-match-p "href=\"#b\"" three))
       (should (equal (heks-ert--count "<li" three) 3)))))
 
-(ert-deftest heks-emacs-render/contents-do-not-list-the-title ()
+(ert-deftest heks/render/contents-do-not-list-the-title ()
   "A document's own heading heads it; the contents start under it."
-  (let ((listed (heks-emacs-render-toc-entries
+  (let ((listed (heks/render-toc-entries
                  (list (list 1 "title" "Title") (list 2 "a" "A") (list 2 "b" "B")))))
     (should (equal (mapcar (lambda (entry) (nth 1 entry)) listed) '("a" "b")))))
 
-(ert-deftest heks-emacs-render/contents-stop-one-level-under-the-shallowest ()
-  (let ((listed (heks-emacs-render-toc-entries
+(ert-deftest heks/render/contents-stop-one-level-under-the-shallowest ()
+  (let ((listed (heks/render-toc-entries
                  (list (list 2 "a" "A") (list 2 "b" "B")
                        (list 3 "c" "C") (list 5 "d" "D")))))
     (should (equal (mapcar (lambda (entry) (nth 1 entry)) listed) '("a" "b" "c")))))
 
-(ert-deftest heks-emacs-render/contents-are-in-the-document ()
-  (let ((heks-emacs-render-toc-headings 3))
-    (let ((document (heks-emacs-html-document
+(ert-deftest heks/render/contents-are-in-the-document ()
+  (let ((heks/render-toc-headings 3))
+    (let ((document (heks/html-document
                      "T" "<h1>T</h1>\n<h2>A</h2>\n<h2>B</h2>\n<h3>C</h3>")))
       (should (string-match-p "<nav class=\"toc\"" document))
       (should (string-match-p "<h2 id=\"a\">" document))
@@ -259,15 +259,15 @@ the list cannot reach."
   "* One\n\nfirst\n\n* Two\n\nsecond\n\n* Three\n\n#+begin_src elisp\n(setq x \"<not markup>\")\n#+end_src\n"
   "A note with enough headings to want a contents list, and a code block.")
 
-(ert-deftest heks-emacs-render/an-org-note-is-exported-by-org-itself ()
+(ert-deftest heks/render/an-org-note-is-exported-by-org-itself ()
   "An Org buffer is rendered, and it is Org's own exporter that renders it.
 
 A note is read as Org and not as text, so what Org knows -- a heading, a
 list, a table, a link, a block of code -- arrives as the markup for it."
   (heks-ert--with-file ".org" heks-ert--org-note
     (should (eq major-mode 'org-mode))
-    (should (equal (heks-emacs-render--variant-name (current-buffer)) "Org"))
-    (let ((body (heks-emacs-render-body)))
+    (should (equal (heks/render--variant-name (current-buffer)) "Org"))
+    (let ((body (heks/render-body)))
       (should (stringp body))
       (should (string-match-p "One</h" body))
       (should (string-match-p "Three</h" body))
@@ -276,7 +276,7 @@ list, a table, a link, a block of code -- arrives as the markup for it."
       (should (string-match-p "&lt;not markup&gt;" body))
       (should-not (string-match-p "<not markup>" body)))))
 
-(ert-deftest heks-emacs-render/a-note-gets-one-contents-list-and-it-is-this-modules ()
+(ert-deftest heks/render/a-note-gets-one-contents-list-and-it-is-this-modules ()
   "Org's own contents list is asked for and dropped, not left in the body.
 
 `org-export-with-toc' is on by default, so an export asked for it before
@@ -285,8 +285,8 @@ page would then have two, one of them linking to ids of Org's making.
 The values of a `let' are evaluated before any of them is bound, which is
 why these settings are bound one by one."
   (heks-ert--with-file ".org" heks-ert--org-note
-    (let* ((body (heks-emacs-render-body))
-           (document (heks-emacs-html-document "A note" body)))
+    (let* ((body (heks/render-body))
+           (document (heks/html-document "A note" body)))
       (should-not (string-match-p "table-of-contents" body))
       (should (equal (heks-ert--count "<nav class=\"toc\"" document) 1))
       (should (string-match-p "Contents" document))
@@ -294,15 +294,15 @@ why these settings are bound one by one."
       (dolist (heading '("One" "Two" "Three"))
         (should (string-match-p heading document))))))
 
-(ert-deftest heks-emacs-render/every-link-in-a-notes-contents-list-reaches-a-heading ()
+(ert-deftest heks/render/every-link-in-a-notes-contents-list-reaches-a-heading ()
   "Each entry of the list points at an id the page really has.
 
 Org gives its headings ids of its own, so the list has to keep them: a
 list that named unanchored slugs would be entries nobody can follow, which
 is what the OpenAPI page's list was before this was checked."
   (heks-ert--with-file ".org" heks-ert--org-note
-    (let* ((body (heks-emacs-render-body))
-           (document (heks-emacs-html-document "A note" body))
+    (let* ((body (heks/render-body))
+           (document (heks/html-document "A note" body))
            (position 0)
            (links 0))
       (while (string-match "href=\"#\\([^\"]+\\)\"" document position)
@@ -312,7 +312,7 @@ is what the OpenAPI page's list was before this was checked."
           (should (string-match-p (regexp-quote (format "id=\"%s\"" target)) document))))
       (should (> links 0)))))
 
-(ert-deftest heks-emacs-render/a-note-asks-for-colours-htmlize-can-give-it ()
+(ert-deftest heks/render/a-note-asks-for-colours-htmlize-can-give-it ()
   "Colouring a block of code is asked for when it can be done, and not otherwise.
 
 `htmlize' is what Org colours a source block with.  Where it is here the
@@ -321,7 +321,7 @@ none of Org's stylesheet and a class name with no stylesheet behind it is
 a block with no colour; where it is not, the setting is nil -- Org's plain
 text -- because asking Org for colours it cannot produce is a warning on
 every export."
-  (should (eq (heks-emacs-render--org-output-type)
+  (should (eq (heks/render--org-output-type)
               (if (require 'htmlize nil t) 'inline-css nil))))
 
 (defface heks-ert-coloured-face '((t :foreground "#123456" :weight bold))
@@ -330,10 +330,10 @@ every export."
 (defface heks-ert-plain-face '((t))
   "A face for the test of the stylesheet, with no colour of its own.")
 
-(ert-deftest heks-emacs-render/the-stylesheet-colours-the-faces-that-have-colours ()
-  (let* ((heks-emacs-render--faces '(heks-ert-coloured-face heks-ert-plain-face
+(ert-deftest heks/render/the-stylesheet-colours-the-faces-that-have-colours ()
+  (let* ((heks/render--faces '(heks-ert-coloured-face heks-ert-plain-face
                                                            heks-ert-coloured-face))
-         (css (heks-emacs-render-highlight-css)))
+         (css (heks/render-highlight-css)))
     (should (string-match-p "color: #123456" css))
     (should (string-match-p "font-weight: 700" css))
     ;; One rule per face, and the same face twice is still one rule.
@@ -341,8 +341,8 @@ every export."
     ;; A face that says nothing about a colour inherits the text's.
     (should (string-match-p "\\.hl-heks-ert-plain-face { *}" css))))
 
-(ert-deftest heks-emacs-render/the-palette-has-the-colours-a-page-needs ()
-  (let ((palette (heks-emacs-render-palette)))
+(ert-deftest heks/render/the-palette-has-the-colours-a-page-needs ()
+  (let ((palette (heks/render-palette)))
     (dolist (key '(:background :foreground :surface :border :muted :accent))
       (should (stringp (plist-get palette key))))))
 
@@ -350,25 +350,25 @@ every export."
 ;; ====== Where a deck's slides are ======
 ;;
 
-(ert-deftest heks-emacs-present/markdown-divides-on-a-line-of-dashes ()
+(ert-deftest heks/present/markdown-divides-on-a-line-of-dashes ()
   (heks-ert--with-file ".md" "# One\n\nA\n\n---\n\n# Two\n\nB\n"
-    (should (equal (heks-emacs-present-format) 'markdown))
-    (should (equal (length (heks-emacs-present-slides)) 2))
-    (should (string-prefix-p "# One" (car (heks-emacs-present-slides))))))
+    (should (equal (heks/present-format) 'markdown))
+    (should (equal (length (heks/present-slides)) 2))
+    (should (string-prefix-p "# One" (car (heks/present-slides))))))
 
-(ert-deftest heks-emacs-present/markdown-without-a-break-is-one-slide ()
+(ert-deftest heks/present/markdown-without-a-break-is-one-slide ()
   (heks-ert--with-file ".md" "# Only\n\nOne section.\n"
-    (should (equal (length (heks-emacs-present-slides)) 1))))
+    (should (equal (length (heks/present-slides)) 1))))
 
-(ert-deftest heks-emacs-present/org-divides-on-its-own-headings ()
+(ert-deftest heks/present/org-divides-on-its-own-headings ()
   (with-temp-buffer
     (insert "* One\nA\n\n* Two\nB\n\n* Three\nC\n")
     (org-mode)
-    (should (equal (heks-emacs-present-format) 'org))
-    (should (equal (length (heks-emacs-present-slides)) 3))
-    (should (string-prefix-p "* One" (car (heks-emacs-present-slides))))))
+    (should (equal (heks/present-format) 'org))
+    (should (equal (length (heks/present-slides)) 3))
+    (should (string-prefix-p "* One" (car (heks/present-slides))))))
 
-(ert-deftest heks-emacs-present/org-slides-are-the-level-that-repeats ()
+(ert-deftest heks/present/org-slides-are-the-level-that-repeats ()
   "One `*' title over several `**' sections means the sections are the slides.
 
 What comes before the first section -- the file's own `#+' lines and its
@@ -376,36 +376,36 @@ title -- is the first slide, because a talk does open with its title."
   (with-temp-buffer
     (insert "#+title: Talk\n\n* The title\n\n** One\nA\n\n** Two\nB\n")
     (org-mode)
-    (should (equal (heks-emacs-present--org-level (buffer-string)) 2))
-    (let ((slides (heks-emacs-present-slides)))
+    (should (equal (heks/present--org-level (buffer-string)) 2))
+    (let ((slides (heks/present-slides)))
       (should (equal (length slides) 3))
       (should (string-prefix-p "#+title: Talk" (car slides)))
       (should (string-prefix-p "** One" (nth 1 slides)))
       (should (string-prefix-p "** Two" (nth 2 slides))))))
 
-(ert-deftest heks-emacs-present/a-buffer-that-is-not-a-document-has-no-slides ()
+(ert-deftest heks/present/a-buffer-that-is-not-a-document-has-no-slides ()
   (with-temp-buffer
     (insert "just some text\n")
-    (should-not (heks-emacs-present-format))
-    (should-not (heks-emacs-present-slides))
-    (should-error (heks-emacs-present-deck-html) :type 'user-error)))
+    (should-not (heks/present-format))
+    (should-not (heks/present-slides))
+    (should-error (heks/present-deck-html) :type 'user-error)))
 
-(ert-deftest heks-emacs-present/an-empty-document-has-no-slides ()
+(ert-deftest heks/present/an-empty-document-has-no-slides ()
   (heks-ert--with-file ".md" ""
-    (should-error (heks-emacs-present-deck-html) :type 'user-error)))
+    (should-error (heks/present-deck-html) :type 'user-error)))
 
 ;;
 ;; ====== The deck ======
 ;;
 
-(ert-deftest heks-emacs-present/deck-is-one-section-per-slide ()
+(ert-deftest heks/present/deck-is-one-section-per-slide ()
   (heks-ert--with-file ".md" "# One\n\nA\n\n---\n\n# Two\n\nB\n\n---\n\n# Three\n\nC\n"
-    (let ((deck (heks-emacs-present-deck-html)))
+    (let ((deck (heks/present-deck-html)))
       (should (equal (heks-ert--count "<section class=\"slide\"" deck) 3))
       (should (equal (heks-ert--count "</section>" deck) 3))
       (should (string-match-p "<title>" deck)))))
 
-(ert-deftest heks-emacs-present/a-deck-of-an-org-note-is-made-too ()
+(ert-deftest heks/present/a-deck-of-an-org-note-is-made-too ()
   "A deck is not a Markdown thing: an Org note is exported slide by slide,
 which is a different way of reading the same document."
   (with-temp-buffer
@@ -413,14 +413,14 @@ which is a different way of reading the same document."
                     "** One\nA paragraph.\n\n"
                     "** Two\nB paragraph.\n"))
     (org-mode)
-    (let ((deck (heks-emacs-present-deck-html)))
+    (let ((deck (heks/present-deck-html)))
       (should (equal (heks-ert--count "<section class=\"slide\"" deck) 3))
       (should (string-match-p "A paragraph." deck))
       (should (string-match-p "B paragraph." deck)))))
 
-(ert-deftest heks-emacs-present/deck-walks-its-slides-with-the-keyboard ()
+(ert-deftest heks/present/deck-walks-its-slides-with-the-keyboard ()
   (heks-ert--with-file ".md" "# One\n\nA\n\n---\n\n# Two\n\nB\n"
-    (let ((deck (heks-emacs-present-deck-html)))
+    (let ((deck (heks/present-deck-html)))
       (should (string-match-p "ArrowRight" deck))
       (should (string-match-p "ArrowLeft" deck))
       (should (string-match-p "addEventListener('keydown'" deck))
@@ -432,53 +432,53 @@ which is a different way of reading the same document."
       (should (string-match-p "id=\"prev\"" deck))
       (should (string-match-p "aria-label=\"Next slide\"" deck)))))
 
-(ert-deftest heks-emacs-present/a-deck-prints-one-slide-per-page ()
+(ert-deftest heks/present/a-deck-prints-one-slide-per-page ()
   (heks-ert--with-file ".md" "# One\n\nA\n\n---\n\n# Two\n\nB\n"
-    (let ((deck (heks-emacs-present-deck-html)))
+    (let ((deck (heks/present-deck-html)))
       (should (string-match-p "@page" deck))
       (should (string-match-p "break-after: page" deck))
       (should (string-match-p "page-break-after: always" deck)))))
 
-(ert-deftest heks-emacs-present/a-deck-carries-its-own-stylesheet-and-script ()
+(ert-deftest heks/present/a-deck-carries-its-own-stylesheet-and-script ()
   "Nothing a deck needs is fetched: it opens from a file:// URL."
   (heks-ert--with-file ".md" "# One\n\nA\n"
-    (let ((deck (heks-emacs-present-deck-html)))
+    (let ((deck (heks/present-deck-html)))
       (should (string-match-p "<style>" deck))
       (should (string-match-p "<script>" deck))
       (should-not (string-match-p "src=\"http" deck))
       (should-not (string-match-p "href=\"http" deck)))))
 
-(ert-deftest heks-emacs-present/the-deck-of-a-file-is-written-beside-it ()
+(ert-deftest heks/present/the-deck-of-a-file-is-written-beside-it ()
   (heks-ert--with-file ".md" "# One\n\nA\n\n---\n\n# Two\n\nB\n"
     (let* ((source (buffer-file-name))
            (target (concat (file-name-sans-extension source) ".deck.html")))
-      (should (equal (heks-emacs-present-deck-export) target))
+      (should (equal (heks/present-deck-export) target))
       (should (file-exists-p target))
       (with-temp-buffer
         (insert-file-contents target)
         (should (string-match-p "<section class=\"slide\"" (buffer-string)))))))
 
-(ert-deftest heks-emacs-present/a-slide-boundary-is-inserted-in-the-documents-own-way ()
+(ert-deftest heks/present/a-slide-boundary-is-inserted-in-the-documents-own-way ()
   (heks-ert--with-file ".md" "# One\n\nA\n"
     (goto-char (point-max))
-    (heks-emacs-present-insert-slide)
+    (heks/present-insert-slide)
     (should (string-match-p "^---$" (buffer-string))))
   (with-temp-buffer
     (insert (concat "#+title: Talk\n\n* The title\n\n"
                     "** One\nA\n\n** Two\nB\n"))
     (org-mode)
     (goto-char (point-max))
-    (heks-emacs-present-insert-slide)
+    (heks/present-insert-slide)
     (should (string-match-p "^\\*\\* $" (buffer-string))))
   (with-temp-buffer
     (insert "text\n")
-    (should-error (heks-emacs-present-insert-slide) :type 'user-error)))
+    (should-error (heks/present-insert-slide) :type 'user-error)))
 
 ;;
 ;; ====== The preview ======
 ;;
 
-(ert-deftest heks-emacs-preview/the-document-is-shown-in-a-buffer-that-survives ()
+(ert-deftest heks/preview/the-document-is-shown-in-a-buffer-that-survives ()
   "EWW renders the document into the preview buffer, and it is still there
 afterwards.
 
@@ -487,53 +487,53 @@ callback of a retrieval and that buffer is the retrieval's own; a preview
 that renders from its own destination buffer is left holding a dead one,
 and the document that was rendered is gone with it."
   (heks-ert--with-file ".md" "# Title\n\nSome text.\n"
-    (let ((heks-emacs-preview-buffer-name "*heks-ert preview*"))
+    (let ((heks/preview-buffer-name "*heks-ert preview*"))
       (unwind-protect
           (progn
-            (heks-emacs-preview)
-            (let ((shown (get-buffer heks-emacs-preview-buffer-name)))
+            (heks/preview)
+            (let ((shown (get-buffer heks/preview-buffer-name)))
               (should (buffer-live-p shown))
               (with-current-buffer shown
                 (should (eq major-mode 'eww-mode)))
               (should (string-match-p "Some text\\." (heks-ert--text shown)))))
-        (when (get-buffer heks-emacs-preview-buffer-name)
-          (kill-buffer heks-emacs-preview-buffer-name))))))
+        (when (get-buffer heks/preview-buffer-name)
+          (kill-buffer heks/preview-buffer-name))))))
 
-(ert-deftest heks-emacs-preview/rendering-it-again-shows-what-the-buffer-says-now ()
+(ert-deftest heks/preview/rendering-it-again-shows-what-the-buffer-says-now ()
   "The preview follows its buffer: the same call renders the current text."
   (heks-ert--with-file ".md" "# One\n\nfirst\n"
     (let ((source (current-buffer))
-          (heks-emacs-preview-buffer-name "*heks-ert preview*"))
+          (heks/preview-buffer-name "*heks-ert preview*"))
       (unwind-protect
           (progn
-            (heks-emacs-preview)
+            (heks/preview)
             (with-current-buffer source
               (goto-char (point-max))
               (insert "\nsecond paragraph\n")
-              (heks-emacs-render-file source)
-              (should (heks-emacs-preview--reload source)))
+              (heks/render-file source)
+              (should (heks/preview--reload source)))
             (should (string-match-p "second paragraph"
-                                    (heks-ert--text heks-emacs-preview-buffer-name))))
-        (when (get-buffer heks-emacs-preview-buffer-name)
-          (kill-buffer heks-emacs-preview-buffer-name))))))
+                                    (heks-ert--text heks/preview-buffer-name))))
+        (when (get-buffer heks/preview-buffer-name)
+          (kill-buffer heks/preview-buffer-name))))))
 
 ;;
 ;; ====== Where the notes are ======
 ;;
 
-(ert-deftest heks-emacs-notes/a-directory-nobody-set-is-not-a-directory ()
+(ert-deftest heks/notes/a-directory-nobody-set-is-not-a-directory ()
   "A setting that was never given a value cannot be turned into a path.
 
-This is what naming org-roam's notes directory after nothing used to do:
+This is what naming the notes directory after nothing used to do:
 `file-truename' of nil stops the configuration where it is loaded."
   (dolist (unset '(nil "" "   "))
-    (let ((heks-emacs-notes-roam-dir unset))
-      (should-not (heks-emacs-notes-roam-directory)))))
+    (let ((heks/notes-dir unset))
+      (should-not (heks/notes-directory)))))
 
-(ert-deftest heks-emacs-notes/a-directory-that-is-set-is-answered-expanded ()
+(ert-deftest heks/notes/a-directory-that-is-set-is-answered-expanded ()
   (dolist (written '("~/Hacking/private-notes" "$HOME/Hacking/private-notes"))
-    (let* ((heks-emacs-notes-roam-dir written)
-           (directory (heks-emacs-notes-roam-directory)))
+    (let* ((heks/notes-dir written)
+           (directory (heks/notes-directory)))
       (should (stringp directory))
       (should (string-suffix-p "private-notes" directory))
       (should (string-prefix-p (file-truename (expand-file-name "~")) directory)))))
@@ -542,24 +542,24 @@ This is what naming org-roam's notes directory after nothing used to do:
 ;; ====== The JVM build tools ======
 ;;
 
-(ert-deftest heks-emacs-jvm/the-same-goal-has-a-name-in-each-build-tool ()
-  (should (equal (heks-emacs-jvm-goal-for "test" 'maven) "test"))
-  (should (equal (heks-emacs-jvm-goal-for "package" 'maven) "package"))
-  (should (equal (heks-emacs-jvm-goal-for "package" 'gradle) "assemble"))
-  (should (equal (heks-emacs-jvm-goal-for "verify" 'gradle) "check"))
-  (should (equal (heks-emacs-jvm-goal-for "dependencies" 'maven) "dependency:tree")))
+(ert-deftest heks/jvm/the-same-goal-has-a-name-in-each-build-tool ()
+  (should (equal (heks/jvm-goal-for "test" 'maven) "test"))
+  (should (equal (heks/jvm-goal-for "package" 'maven) "package"))
+  (should (equal (heks/jvm-goal-for "package" 'gradle) "assemble"))
+  (should (equal (heks/jvm-goal-for "verify" 'gradle) "check"))
+  (should (equal (heks/jvm-goal-for "dependencies" 'maven) "dependency:tree")))
 
-(ert-deftest heks-emacs-jvm/a-goal-nobody-defined-is-refused ()
-  (should-error (heks-emacs-jvm-goal-for "nosuchgoal" 'maven) :type 'user-error))
+(ert-deftest heks/jvm/a-goal-nobody-defined-is-refused ()
+  (should-error (heks/jvm-goal-for "nosuchgoal" 'maven) :type 'user-error))
 
-(ert-deftest heks-emacs-jvm/what-is-offered-is-what-the-table-says ()
-  (dolist (entry heks-emacs-jvm-goals)
+(ert-deftest heks/jvm/what-is-offered-is-what-the-table-says ()
+  (dolist (entry heks/jvm-goals)
     (should (equal (length entry) 4))
-    (should (assoc (car entry) (heks-emacs-jvm--read-table) #'equal))
+    (should (assoc (car entry) (heks/jvm--read-table) #'equal))
     ;; What is read out of the menu is a goal the table can answer for.
-    (should (stringp (heks-emacs-jvm-goal-for (car entry) 'gradle)))))
+    (should (stringp (heks/jvm-goal-for (car entry) 'gradle)))))
 
-(ert-deftest heks-emacs-jvm/the-project-is-the-nearest-one ()
+(ert-deftest heks/jvm/the-project-is-the-nearest-one ()
   "A Maven project being migrated to Gradle is two projects at once."
   (let* ((root (heks-ert--temp-directory))
          (inner (expand-file-name "service/" root)))
@@ -569,32 +569,32 @@ This is what naming org-roam's notes directory after nothing used to do:
           (write-region "" nil (expand-file-name "pom.xml" root) nil 'silent)
           (write-region "" nil (expand-file-name "build.gradle.kts" inner) nil 'silent)
           (heks-ert--in root
-            (should (eq (car (heks-emacs-jvm--project)) 'maven)))
+            (should (eq (car (heks/jvm--project)) 'maven)))
           (heks-ert--in inner
-            (should (eq (car (heks-emacs-jvm--project)) 'gradle))))
+            (should (eq (car (heks/jvm--project)) 'gradle))))
       (delete-directory root t))))
 
-(ert-deftest heks-emacs-jvm/a-directory-that-is-no-project-says-so ()
+(ert-deftest heks/jvm/a-directory-that-is-no-project-says-so ()
   (let ((root (heks-ert--temp-directory)))
     (unwind-protect
         (heks-ert--in root
-          (should-not (heks-emacs-jvm--project)))
+          (should-not (heks/jvm--project)))
       (delete-directory root t))))
 
-(ert-deftest heks-emacs-jvm/a-wrapper-is-preferred-to-a-system-program ()
+(ert-deftest heks/jvm/a-wrapper-is-preferred-to-a-system-program ()
   (let* ((root (heks-ert--temp-directory))
          (wrapper (expand-file-name "mvnw" root)))
     (unwind-protect
         (progn
           (write-region "#!/bin/sh\n" nil wrapper nil 'silent)
           (set-file-modes wrapper #o755)
-          (should (equal (heks-emacs--jvm-build-program root "mvnw" "mvn") wrapper))
+          (should (equal (heks//jvm-build-program root "mvnw" "mvn") wrapper))
           (set-file-modes wrapper #o644)
           ;; Not executable, so not the wrapper.
-          (should (equal (heks-emacs--jvm-build-program root "mvnw" "mvn") "mvn")))
+          (should (equal (heks//jvm-build-program root "mvnw" "mvn") "mvn")))
       (delete-directory root t))))
 
-(ert-deftest heks-emacs-jvm/the-build-file-is-found-above-the-buffer ()
+(ert-deftest heks/jvm/the-build-file-is-found-above-the-buffer ()
   (let* ((root (heks-ert--temp-directory))
          (inner (expand-file-name "a/b/" root)))
     (unwind-protect
@@ -602,11 +602,11 @@ This is what naming org-roam's notes directory after nothing used to do:
           (make-directory inner t)
           (write-region "" nil (expand-file-name "pom.xml" root) nil 'silent)
           (heks-ert--in inner
-            (should (equal (file-name-as-directory (heks-emacs--locate-project-file "pom.xml"))
+            (should (equal (file-name-as-directory (heks//locate-project-file "pom.xml"))
                            (file-name-as-directory root))))
           ;; Above the directory holding it there is nothing.
           (heks-ert--in "/"
-            (should-not (heks-emacs--locate-project-file "heks-emacs-no-such-file"))))
+            (should-not (heks//locate-project-file "heks/no-such-file"))))
       (delete-directory root t))))
 
 ;;
@@ -625,43 +625,43 @@ because the command is called the way a key calls it -- by name, from
   (interactive)
   (setq heks-ert-format-ran t))
 
-(ert-deftest heks-emacs-format/a-language-of-its-own-answers-first ()
+(ert-deftest heks/format/a-language-of-its-own-answers-first ()
   "A module teaches the one key a formatter by adding a predicate."
   (let ((heks-ert-format-ran nil)
-        (heks-emacs-format-dispatch
+        (heks/format-dispatch
          (list (cons (lambda () t) #'heks-ert-format-something))))
     (with-temp-buffer
-      (heks-emacs-format-buffer)
+      (heks/format-buffer)
       (should heks-ert-format-ran))))
 
-(ert-deftest heks-emacs-format/a-predicate-that-does-not-hold-is-passed-over ()
+(ert-deftest heks/format/a-predicate-that-does-not-hold-is-passed-over ()
   "The dispatcher asks every formatter in turn, and only the one that
 answers is the one that formats."
   (let ((heks-ert-format-ran nil)
-        (heks-emacs-format-dispatch (list (cons (lambda () nil) #'heks-ert-format-something))))
+        (heks/format-dispatch (list (cons (lambda () nil) #'heks-ert-format-something))))
     (with-temp-buffer
       (fundamental-mode)
       ;; What is left after the language's own formatter -- Eglot, then
       ;; `format-all' -- depends on what this machine has installed, and
       ;; saying so is the point of the refusal when it has neither.
       (if (fboundp 'format-all-region-or-buffer)
-          (ignore-errors (heks-emacs-format-buffer))
-        (should-error (heks-emacs-format-buffer) :type 'user-error)))
+          (ignore-errors (heks/format-buffer))
+        (should-error (heks/format-buffer) :type 'user-error)))
     (should-not heks-ert-format-ran)))
 
 ;;
 ;; ====== Terraform ======
 ;;
 
-(ert-deftest heks-emacs-terraform/the-commands-say-so-when-there-is-no-terraform ()
+(ert-deftest heks/terraform/the-commands-say-so-when-there-is-no-terraform ()
   (skip-unless (not (executable-find terraform-command)))
   (let ((root (heks-ert--temp-directory)))
     (unwind-protect
         (heks-ert--in root
-          (should-error (heks-emacs-terraform-run "plan") :type 'user-error))
+          (should-error (heks/terraform-run "plan") :type 'user-error))
       (delete-directory root t))))
 
-(ert-deftest heks-emacs-terraform/the-configuration-is-the-directory-of-the-file ()
+(ert-deftest heks/terraform/the-configuration-is-the-directory-of-the-file ()
   (let* ((root (heks-ert--temp-directory))
          (file (expand-file-name "main.tf" root)))
     (unwind-protect
@@ -669,7 +669,7 @@ answers is the one that formats."
           (write-region "" nil file nil 'silent)
           (with-current-buffer (find-file-noselect file)
             (unwind-protect
-                (should (equal (file-name-as-directory (heks-emacs-terraform-root))
+                (should (equal (file-name-as-directory (heks/terraform-root))
                                (file-name-as-directory root)))
               (set-buffer-modified-p nil)
               (kill-buffer))))
@@ -679,40 +679,40 @@ answers is the one that formats."
 ;; ====== Shell scripts ======
 ;;
 
-(ert-deftest heks-emacs-shell/shellcheck-is-told-to-follow-the-sources-of-a-script ()
+(ert-deftest heks/shell/shellcheck-is-told-to-follow-the-sources-of-a-script ()
   "Emacs runs shellcheck itself (`sh-shellcheck-flymake'); what this
 configuration says to it is that the files a script sources are part of
 what is checked, rather than a note on every `source' line."
   (require 'sh-script)
   (should (member "--external-sources" sh-shellcheck-arguments)))
 
-(ert-deftest heks-emacs-shell/a-copy-keeps-the-extension-of-the-file ()
+(ert-deftest heks/shell/a-copy-keeps-the-extension-of-the-file ()
   "shfmt and shellcheck read the dialect from the name too."
   (with-temp-buffer
     (setq-local buffer-file-name "/tmp/heks-ert/one/script.bash")
-    (should (equal (heks-emacs-shell-copy-suffix) ".bash")))
+    (should (equal (heks/shell-copy-suffix) ".bash")))
   (with-temp-buffer
-    (should (equal (heks-emacs-shell-copy-suffix) ".sh"))))
+    (should (equal (heks/shell-copy-suffix) ".sh"))))
 
-(ert-deftest heks-emacs-shell/shfmt-arguments-come-before-the-file ()
-  (let ((heks-emacs-shfmt-arguments '("-i" "2")))
-    (should (equal (heks-emacs-shfmt-command "/tmp/a.sh")
-                   (list (heks-emacs-tool-path heks-emacs-shfmt-program)
+(ert-deftest heks/shell/shfmt-arguments-come-before-the-file ()
+  (let ((heks/shfmt-arguments '("-i" "2")))
+    (should (equal (heks/shfmt-command "/tmp/a.sh")
+                   (list (heks/tool-path heks/shfmt-program)
                          "-w" "-i" "2" "/tmp/a.sh")))))
 
 
-(ert-deftest heks-emacs-shell/both-of-the-modes-of-a-script-are-shell-buffers ()
+(ert-deftest heks/shell/both-of-the-modes-of-a-script-are-shell-buffers ()
   (with-temp-buffer
     (sh-mode)
-    (should (heks-emacs-shell-buffer-p)))
+    (should (heks/shell-buffer-p)))
   ;; The other mode a `.sh' file opens in.  It is not run here -- the
   ;; Tree-sitter parser is not what is being tested -- only recognised.
   (with-temp-buffer
     (setq major-mode 'bash-ts-mode)
-    (should (heks-emacs-shell-buffer-p)))
+    (should (heks/shell-buffer-p)))
   (with-temp-buffer
     (fundamental-mode)
-    (should-not (heks-emacs-shell-buffer-p))))
+    (should-not (heks/shell-buffer-p))))
 
 ;;
 ;; ====== A language server and the checkers of a buffer ======
@@ -722,40 +722,40 @@ what is checked, rather than a note on every `source' line."
 ;; back what the buffer had.  The swap below is made with the macro Eglot's
 ;; own mode is written with, so what is read is Eglot's behaviour rather
 ;; than a list this file made up: if Eglot stops keeping the old value where
-;; `heks-emacs-flymake-keep-backends' reads it, these tests fail instead of
+;; `heks/flymake-keep-backends' reads it, these tests fail instead of
 ;; quietly leaving a buffer checked by its server alone.
 
-(ert-deftest heks-emacs-flymake/a-server-does-not-take-the-checkers-of-a-buffer ()
+(ert-deftest heks/flymake/a-server-does-not-take-the-checkers-of-a-buffer ()
   "Whatever checked a buffer before a server manages it checks it still."
   (require 'eglot)
   (with-temp-buffer
     (setq-local flymake-diagnostic-functions
-                '(python-flymake sh-shellcheck-flymake heks-emacs-shfmt-backend))
+                '(python-flymake sh-shellcheck-flymake heks/shfmt-backend))
     (eval '(eglot--setq-saving flymake-diagnostic-functions
                                '(eglot-flymake-backend))
           t)
     (should (equal flymake-diagnostic-functions '(eglot-flymake-backend)))
     (setq-local eglot--managed-mode t)
-    (heks-emacs-flymake-keep-backends)
+    (heks/flymake-keep-backends)
     ;; The buffer is one Flymake is not on in, so being asked to check it --
     ;; which is the other half of what the call above does -- does nothing.
     (should (memq 'eglot-flymake-backend flymake-diagnostic-functions))
     (should (memq 'python-flymake flymake-diagnostic-functions))
     (should (memq 'sh-shellcheck-flymake flymake-diagnostic-functions))
-    (should (memq 'heks-emacs-shfmt-backend flymake-diagnostic-functions))))
+    (should (memq 'heks/shfmt-backend flymake-diagnostic-functions))))
 
-(ert-deftest heks-emacs-flymake/a-buffer-no-server-manages-keeps-what-it-has ()
+(ert-deftest heks/flymake/a-buffer-no-server-manages-keeps-what-it-has ()
   (require 'eglot)
   (with-temp-buffer
     (setq-local flymake-diagnostic-functions '(python-flymake))
-    (heks-emacs-flymake-keep-backends)
+    (heks/flymake-keep-backends)
     (should (equal flymake-diagnostic-functions '(python-flymake)))))
 
 ;;
 ;; ====== What a Scheme definition looks like, and where it is ======
 ;;
 
-(ert-deftest heks-emacs-scheme/a-definition-is-the-head-and-not-a-mention ()
+(ert-deftest heks/scheme/a-definition-is-the-head-and-not-a-mention ()
   "A name is defined by the head of a `define', not by being mentioned.
 
 The search itself cannot tell a definition from a use -- it looks for a
@@ -775,15 +775,15 @@ its definition."
                   ("(greet world)" "greet" nil)
                   ("(define pub-var-2 1)" "pub-var" nil)
                   ("(define (greet name) (string-append name))" "string-append" nil)))
-    (should (equal (and (heks-emacs-scheme-definition-line-p (nth 0 case) (nth 1 case)) t)
+    (should (equal (and (heks/scheme-definition-line-p (nth 0 case) (nth 1 case)) t)
                    (nth 2 case)))))
 
-(ert-deftest heks-emacs-scheme/the-column-is-where-the-name-is-defined ()
+(ert-deftest heks/scheme/the-column-is-where-the-name-is-defined ()
   "The jump lands on the name being defined, not on the name first seen."
-  (should (equal (heks-emacs-scheme-definition-column "(define (greet name) name)" "greet") 9))
-  (should (equal (heks-emacs-scheme-definition-column "(define-public pub-var 1)" "pub-var") 15)))
+  (should (equal (heks/scheme-definition-column "(define (greet name) name)" "greet") 9))
+  (should (equal (heks/scheme-definition-column "(define-public pub-var 1)" "pub-var") 15)))
 
-(ert-deftest heks-emacs-scheme/the-files-answer-with-the-definitions ()
+(ert-deftest heks/scheme/the-files-answer-with-the-definitions ()
   "A definition is found in another file, and a use is not a definition.
 
 The files are what answer when no REPL can: the buffer is reading a file
@@ -815,36 +815,36 @@ name is not searched at all."
               (unwind-protect
                   (progn
                     (should (equal (heks-ert--xref-locations
-                                    (heks-emacs-scheme-definitions-in-files "greet"))
+                                    (heks/scheme-definitions-in-files "greet"))
                                    '(("utility.scm" 1))))
                     (should (equal (heks-ert--xref-locations
-                                    (heks-emacs-scheme-definitions-in-files "pub-var"))
+                                    (heks/scheme-definitions-in-files "pub-var"))
                                    '(("main.scm" 3))))
                     ;; Defined in both: the file being read comes first.
                     (should (equal (heks-ert--xref-locations
-                                    (heks-emacs-scheme-definitions-in-files "twice"))
+                                    (heks/scheme-definitions-in-files "twice"))
                                    '(("main.scm" 4) ("utility.scm" 3))))
-                    (should-not (heks-emacs-scheme-definitions-in-files "no-such-name")))
+                    (should-not (heks/scheme-definitions-in-files "no-such-name")))
                 (set-buffer-modified-p nil)
                 (kill-buffer))))
       (delete-directory root t)))))
 
-(ert-deftest heks-emacs-scheme/the-backend-answers-for-a-scheme-buffer-alone ()
+(ert-deftest heks/scheme/the-backend-answers-for-a-scheme-buffer-alone ()
   "The backend of this module is the one a Scheme buffer is jumped with.
 
 `xref' takes the first function of `xref-backend-functions' that answers,
 so what makes `M-.' a Scheme jump is this function saying
-`heks-emacs-scheme' in a Scheme buffer -- and saying nothing in a buffer
+`heks/scheme' in a Scheme buffer -- and saying nothing in a buffer
 that is not one, where the backends the rest of the configuration has
 should still answer."
   (with-temp-buffer
     (scheme-mode)
-    (should (eq (heks-emacs-scheme-xref-backend) 'heks-emacs-scheme)))
+    (should (eq (heks/scheme-xref-backend) 'heks/scheme)))
   (with-temp-buffer
     (emacs-lisp-mode)
-    (should-not (heks-emacs-scheme-xref-backend))))
+    (should-not (heks/scheme-xref-backend))))
 
-(ert-deftest heks-emacs-scheme/the-repl-is-asked-before-the-files ()
+(ert-deftest heks/scheme/the-repl-is-asked-before-the-files ()
   "A jump asks the REPL, then the files, then the wider search.
 
 What the REPL says is the answer when it has one; where it has none -- or
@@ -854,19 +854,19 @@ the configuration gives a buffer is asked last (see `dev-flymake.el').  Each of
 the four is stubbed, so what is checked is the order they are asked in
 rather than what they answer with."
   (let ((asked '()))
-    (cl-letf (((symbol-function 'heks-emacs-scheme--repl-definition)
+    (cl-letf (((symbol-function 'heks/scheme--repl-definition)
                (lambda (_) (push 'repl asked) nil))
-              ((symbol-function 'heks-emacs-scheme--repl-module)
+              ((symbol-function 'heks/scheme--repl-module)
                (lambda (_) (push 'module asked) nil))
-              ((symbol-function 'heks-emacs-scheme-definitions-in-files)
+              ((symbol-function 'heks/scheme-definitions-in-files)
                (lambda (_) (push 'files asked) nil))
-              ((symbol-function 'heks-emacs-scheme--dumb-jump)
+              ((symbol-function 'heks/scheme--dumb-jump)
                (lambda (_) (push 'dumb-jump asked) 'the-wider-answer)))
-      (should (eq (xref-backend-definitions 'heks-emacs-scheme "greet")
+      (should (eq (xref-backend-definitions 'heks/scheme "greet")
                   'the-wider-answer)))
     (should (equal (nreverse asked) '(repl module files dumb-jump)))))
 
-(ert-deftest heks-emacs-scheme/the-repl-says-a-line-and-the-column-is-read ()
+(ert-deftest heks/scheme/the-repl-says-a-line-and-the-column-is-read ()
   "What the REPL says is turned into a jump onto the name itself.
 
 Guile's location of a procedure is a file and a line and no column at
@@ -902,7 +902,7 @@ that is not on this machine is not an answer to jump to."
                      (lambda (name)
                        (concat "[(]define-syntaxes[[:space:]]+[(]"
                                (regexp-quote name)))))
-            (let* ((xref (heks-emacs-scheme--location-xref
+            (let* ((xref (heks/scheme--location-xref
                           `(("file" . ,file) ("line" . 2)) "greet"))
                    (place (xref-item-location xref)))
               (should (equal (file-name-nondirectory (xref-file-location-file place))
@@ -914,33 +914,33 @@ that is not on this machine is not an answer to jump to."
               ;; definition is the one that arrives when it named that one.
               (should (equal (xref-file-location-line
                               (xref-item-location
-                               (heks-emacs-scheme--location-xref
+                               (heks/scheme--location-xref
                                 `(("file" . ,file) ("line" . 5)) "greet")))
                              5))
-              (should-not (heks-emacs-scheme--location-xref
+              (should-not (heks/scheme--location-xref
                            '(("file" . "/no/such/file.scm") ("line" . 1))
                            "greet")))))
       (delete-directory root t)))
 
-(ert-deftest heks-emacs-scheme/a-mention-is-a-name-of-its-own ()
+(ert-deftest heks/scheme/a-mention-is-a-name-of-its-own ()
   "A name is mentioned where it is written as a name.
 
 `greet' is not mentioned by `greeting' or by `greet-and-run', and it is
 mentioned by `greet?' -- which a word boundary cannot say, because `1+',
 `string-append' and `set-x!' are names that a word boundary falls in the
 middle of."
-  (should (heks-emacs-scheme-mention-line-p "(greet name)" "greet"))
-  (should (heks-emacs-scheme-mention-line-p "  greet" "greet"))
-  (should-not (heks-emacs-scheme-mention-line-p "(greeting)" "greet"))
-  (should-not (heks-emacs-scheme-mention-line-p "(greet-and-run)" "greet"))
-  (should (heks-emacs-scheme-mention-line-p "(greet? x)" "greet?"))
-  (should-not (heks-emacs-scheme-mention-line-p "(greet? x)" "greet"))
-  (should-not (heks-emacs-scheme-mention-line-p "(string-append a b)" "append"))
-  (should (heks-emacs-scheme-mention-line-p "(set-x! v)" "set-x!"))
-  (should-not (heks-emacs-scheme-mention-line-p "1+" "1"))
-  (should (heks-emacs-scheme-mention-line-p "(let ((a 1+)) 1+)" "1+")))
+  (should (heks/scheme-mention-line-p "(greet name)" "greet"))
+  (should (heks/scheme-mention-line-p "  greet" "greet"))
+  (should-not (heks/scheme-mention-line-p "(greeting)" "greet"))
+  (should-not (heks/scheme-mention-line-p "(greet-and-run)" "greet"))
+  (should (heks/scheme-mention-line-p "(greet? x)" "greet?"))
+  (should-not (heks/scheme-mention-line-p "(greet? x)" "greet"))
+  (should-not (heks/scheme-mention-line-p "(string-append a b)" "append"))
+  (should (heks/scheme-mention-line-p "(set-x! v)" "set-x!"))
+  (should-not (heks/scheme-mention-line-p "1+" "1"))
+  (should (heks/scheme-mention-line-p "(let ((a 1+)) 1+)" "1+")))
 
-(ert-deftest heks-emacs-scheme/the-names-the-files-define-are-what-is-asked-for ()
+(ert-deftest heks/scheme/the-names-the-files-define-are-what-is-asked-for ()
   "What `M-.' can be asked for is what the project's files define.
 
 A `define' of any kind is one name, a name defined twice in two files is
@@ -964,13 +964,13 @@ name in it to search for."
           (heks-ert--in root
             (with-current-buffer (find-file-noselect main)
               (unwind-protect
-                  (should (equal (heks-emacs-scheme-defined-names)
+                  (should (equal (heks/scheme-defined-names)
                                  '("greet" "main" "pub-var" "twice")))
                 (set-buffer-modified-p nil)
                 (kill-buffer))))
       (delete-directory root t)))))
 
-(ert-deftest heks-emacs-scheme/the-names-are-read-once-and-remembered ()
+(ert-deftest heks/scheme/the-names-are-read-once-and-remembered ()
   "The search behind the prompt is not made twice in the same minute.
 
 The names a project defines are what `M-.' completes from, so they are
@@ -980,28 +980,28 @@ directory it was read from and by its age: the second question is answered
 from it, a question about another directory is not, and neither is one
 asked after the lifetime has passed."
   (let ((asked 0)
-        (heks-emacs-scheme--defined-names-cache nil))
-    (cl-letf (((symbol-function 'heks-emacs-scheme--search-files)
+        (heks/scheme--defined-names-cache nil))
+    (cl-letf (((symbol-function 'heks/scheme--search-files)
                (lambda (&rest _) (setq asked (1+ asked)) nil))
-              ((symbol-function 'heks-emacs-scheme-load-path)
+              ((symbol-function 'heks/scheme-load-path)
                (lambda () temporary-file-directory)))
-      (should-not (heks-emacs-scheme-defined-names))
-      (should-not (heks-emacs-scheme-defined-names))
+      (should-not (heks/scheme-defined-names))
+      (should-not (heks/scheme-defined-names))
       (should (equal asked 1))
       ;; Another project, read from another directory, is a new question.
       (let ((temporary-file-directory (file-name-as-directory
                                        (heks-ert--temp-directory))))
         (unwind-protect
             (progn
-              (heks-emacs-scheme-defined-names)
+              (heks/scheme-defined-names)
               (should (equal asked 2)))
           (delete-directory temporary-file-directory t)))
       ;; And so is the same project once the answer has gone stale.
-      (let ((heks-emacs-scheme-defined-names-lifetime -1))
-        (heks-emacs-scheme-defined-names)
+      (let ((heks/scheme-defined-names-lifetime -1))
+        (heks/scheme-defined-names)
         (should (equal asked 3))))))
 
-(ert-deftest heks-emacs-scheme/the-repls-false-is-no-answer-at-all ()
+(ert-deftest heks/scheme/the-repls-false-is-no-answer-at-all ()
   "A `#f' from Guile is not a place, whichever question it answers.
 
 Guile answers `#f' for a symbol it has and cannot place -- a procedure
@@ -1010,14 +1010,14 @@ written in C, whose module it knows and whose file it does not -- and the
 rather than as nothing at all.  So what is a place is what Geiser's own
 jump reads as one (`geiser-edit--try-edit'): a list, and anything else is
 no answer, read in the one function that reads a location
-(`heks-emacs-scheme--location-p') so that every question that carries one
+(`heks/scheme--location-p') so that every question that carries one
 -- a definition, a module, the places a name is called from -- is answered
 without a stop."
-  (should-not (heks-emacs-scheme--location-p :f))
-  (should-not (heks-emacs-scheme--location-p nil))
-  (should (equal (heks-emacs-scheme--location-p '(("file" . "/tmp/x"))) '(("file" . "/tmp/x"))))
-  (should-not (heks-emacs-scheme--location-xref :f "string->number"))
-  (cl-letf (((symbol-function 'heks-emacs-scheme-repl-connected-p) (lambda () t))
+  (should-not (heks/scheme--location-p :f))
+  (should-not (heks/scheme--location-p nil))
+  (should (equal (heks/scheme--location-p '(("file" . "/tmp/x"))) '(("file" . "/tmp/x"))))
+  (should-not (heks/scheme--location-xref :f "string->number"))
+  (cl-letf (((symbol-function 'heks/scheme-repl-connected-p) (lambda () t))
             ((symbol-function 'geiser-edit-symbol-location) (lambda (_) :f))
             ((symbol-function 'geiser-completion--module-at-point)
              (lambda () '(ice-9 popen)))
@@ -1030,12 +1030,12 @@ without a stop."
              (lambda (_)
                '( (("location" . :f)
                    ("signature" . ("greet")))))))
-    (should-not (heks-emacs-scheme--repl-definition "string->number"))
-    (should-not (heks-emacs-scheme--repl-module "string->number"))
+    (should-not (heks/scheme--repl-definition "string->number"))
+    (should-not (heks/scheme--repl-module "string->number"))
     ;; A caller whose place Guile has as `#f' is dropped, not read as one.
-    (should-not (heks-emacs-scheme--repl-callers "greet"))))
+    (should-not (heks/scheme--repl-callers "greet"))))
 
-(ert-deftest heks-emacs-scheme/a-head-says-which-name-it-defines ()
+(ert-deftest heks/scheme/a-head-says-which-name-it-defines ()
   "A line says which name it defines, or that it defines none.
 
 The name is read out of the head of the definition, and a `define' that
@@ -1052,9 +1052,9 @@ form, or commented out, defines nothing this project can jump to."
                   ("(list (define (greet name) name))" nil)
                   (";; (define (greet name) name)" nil)
                   ("" nil)))
-    (should (equal (heks-emacs-scheme-definition-name (nth 0 case)) (nth 1 case)))))
+    (should (equal (heks/scheme-definition-name (nth 0 case)) (nth 1 case)))))
 
-(ert-deftest heks-emacs-scheme/the-files-answer-with-the-definitions-that-match ()
+(ert-deftest heks/scheme/the-files-answer-with-the-definitions-that-match ()
   "A pattern is answered with the definitions whose name matches it.
 
 One search of the files answers a pattern of any kind, and what makes an
@@ -1085,22 +1085,22 @@ these."
                     ;; A name, and the names that contain it: a fragment of
                     ;; one is a pattern like any other.
                     (should (equal (mapcar #'car
-                                           (heks-emacs-scheme-definitions-in-files-matching
+                                           (heks/scheme-definitions-in-files-matching
                                             "greet"))
                                    '("greet" "greeting")))
                     (should (equal (heks-ert--xref-locations
                                     (mapcar #'cdr
-                                            (heks-emacs-scheme-definitions-in-files-matching
+                                            (heks/scheme-definitions-in-files-matching
                                              "greet")))
                                    '(("utility.scm" 1) ("utility.scm" 3))))
                     ;; A pattern of words: all of them, in any order.
                     (should (equal (mapcar #'car
-                                           (heks-emacs-scheme-definitions-in-files-matching
+                                           (heks/scheme-definitions-in-files-matching
                                             "var pub"))
                                    '("pub-var")))
                     ;; A regexp, and the head as the line of the entry.
                     (let ((items (mapcar #'cdr
-                                         (heks-emacs-scheme-definitions-in-files-matching
+                                         (heks/scheme-definitions-in-files-matching
                                           "^pub-"))))
                       (should (equal (heks-ert--xref-locations items)
                                      '(("main.scm" 3))))
@@ -1110,13 +1110,13 @@ these."
                                       (xref-item-location (car items)))
                                      15)))
                     ;; A name no head defines is answered with nothing.
-                    (should-not (heks-emacs-scheme-definitions-in-files-matching
+                    (should-not (heks/scheme-definitions-in-files-matching
                                  "no-such-name")))
                 (set-buffer-modified-p nil)
                 (kill-buffer))))
       (delete-directory root t)))))
 
-(ert-deftest heks-emacs-scheme/the-repl-answers-with-the-names-it-has-loaded ()
+(ert-deftest heks/scheme/the-repl-answers-with-the-names-it-has-loaded ()
   "The names of the REPL are asked of Guile, and read in Emacs.
 
 What is asked is Guile's own question about the names it has -- the same
@@ -1127,10 +1127,10 @@ that a question which is wider than the answer -- the first word of a list
 of words, say -- still answers with the pattern's own names."
   (let ((asked nil)
         (names '("string-append" "string-append/shared" "string-copy")))
-    (cl-letf (((symbol-function 'heks-emacs-scheme-repl-connected-p) (lambda () t))
+    (cl-letf (((symbol-function 'heks/scheme-repl-connected-p) (lambda () t))
               ((symbol-function 'geiser-eval--send/result)
                (lambda (question) (setq asked question) names)))
-      (should (equal (heks-emacs-scheme--repl-names "string-append")
+      (should (equal (heks/scheme--repl-names "string-append")
                      '("string-append" "string-append/shared")))
       (should (equal (cadr (nth 1 asked))
                      (concat "(sort (map symbol->string ((@ (ice-9 session) "
@@ -1138,28 +1138,28 @@ of words, say -- still answers with the pattern's own names."
       ;; A list of words is asked for by its first word, and the names are
       ;; read against all of them.
       (setq names '("pub-var" "public-name" "var-pub"))
-      (should (equal (heks-emacs-scheme--repl-names "pub var")
+      (should (equal (heks/scheme--repl-names "pub var")
                      '("pub-var" "var-pub")))
       (should (equal (cadr (nth 1 asked))
                      (concat "(sort (map symbol->string ((@ (ice-9 session) "
                              "apropos-internal) \"pub\")) string<?)"))))))
 
-(ert-deftest heks-emacs-scheme/apropos-is-answered-by-both-sources-once-each ()
+(ert-deftest heks/scheme/apropos-is-answered-by-both-sources-once-each ()
   "`M-s .' in a Scheme buffer is answered by the files and by the REPL.
 
 The files' answer comes first, with the place each definition is in, and
 the names the REPL has that no definition answered for follow it as names;
 a name both sources have is one entry, because the files know where it is
 and the REPL knows only that it has it."
-  (cl-letf (((symbol-function 'heks-emacs-scheme-definitions-in-files-matching)
+  (cl-letf (((symbol-function 'heks/scheme-definitions-in-files-matching)
              (lambda (_pattern)
                (list (cons "greet"
                            (xref-make "(define (greet name)"
                                       (xref-make-file-location
                                        "/tmp/heks-greet.scm" 1 9))))))
-            ((symbol-function 'heks-emacs-scheme--repl-names)
+            ((symbol-function 'heks/scheme--repl-names)
              (lambda (_pattern) '("greet" "greeting" "string-append"))))
-    (let ((items (xref-backend-apropos 'heks-emacs-scheme "greet")))
+    (let ((items (xref-backend-apropos 'heks/scheme "greet")))
       (should (equal (mapcar #'xref-item-summary items)
                      '("(define (greet name)" "greeting" "string-append")))
       (should (equal (mapcar (lambda (item)
@@ -1167,7 +1167,7 @@ and the REPL knows only that it has it."
                              items)
                      '("/tmp/heks-greet.scm" "the REPL" "the REPL"))))))
 
-(ert-deftest heks-emacs-scheme/a-name-the-repl-knows-asks-it-where-it-is-when-jumped-to ()
+(ert-deftest heks/scheme/a-name-the-repl-knows-asks-it-where-it-is-when-jumped-to ()
   "What the REPL knows of one of its names is asked when the name is jumped to.
 
 The names a program has loaded are many and their files are files the
@@ -1181,13 +1181,13 @@ says so rather than one that lands wherever the name was searched for."
     (unwind-protect
         (progn
           (write-region "(define (greet name)\n  name)\n" nil file nil 'silent)
-          (cl-letf (((symbol-function 'heks-emacs-scheme--repl-definition)
+          (cl-letf (((symbol-function 'heks/scheme--repl-definition)
                      (lambda (name)
                        (push name asked)
                        (when (equal name "greet")
                          (list (xref-make "greet"
                                           (xref-make-file-location file 1 0)))))))
-            (let ((location (heks-emacs-scheme--repl-name "greet")))
+            (let ((location (heks/scheme--repl-name "greet")))
               ;; The name is all there is until it is jumped to.
               (should-not asked)
               (let ((marker (xref-location-marker location)))
@@ -1198,11 +1198,11 @@ says so rather than one that lands wherever the name was searched for."
                   (set-buffer-modified-p nil)
                   (kill-buffer)))
               (should-error (xref-location-marker
-                             (heks-emacs-scheme--repl-name "no-such-name"))
+                             (heks/scheme--repl-name "no-such-name"))
                             :type 'user-error)))
       (delete-directory root t)))))
 
-(ert-deftest heks-emacs-scheme/the-places-a-name-is-used-are-found-in-the-files ()
+(ert-deftest heks/scheme/the-places-a-name-is-used-are-found-in-the-files ()
   "`M-?' is answered by the files where the REPL has no callers.
 
 Every file that mentions the name is offered -- the call, the definition
@@ -1226,24 +1226,24 @@ mentions has no places."
               (unwind-protect
                   (progn
                     (should (equal (heks-ert--xref-locations
-                                    (heks-emacs-scheme-mentions-in-files "greet"))
+                                    (heks/scheme-mentions-in-files "greet"))
                                    '(("main.scm" 2) ("main.scm" 3) ("utility.scm" 1))))
-                    (should-not (heks-emacs-scheme-mentions-in-files "no-such-name")))
+                    (should-not (heks/scheme-mentions-in-files "no-such-name")))
                 (set-buffer-modified-p nil)
                 (kill-buffer))))
       (delete-directory root t)))))
 
-(ert-deftest heks-emacs-scheme/no-repl-is-a-question-the-repl-answers-with-nil ()
+(ert-deftest heks/scheme/no-repl-is-a-question-the-repl-answers-with-nil ()
   "A buffer with no REPL says so rather than starting one."
-  (cl-letf (((symbol-function 'heks-emacs-scheme-repl-connected-p) (lambda () nil))
+  (cl-letf (((symbol-function 'heks/scheme-repl-connected-p) (lambda () nil))
             ((symbol-function 'geiser-edit-symbol-location)
              (lambda (_) (error "The REPL was asked although there is none")))
             ((symbol-function 'geiser-eval--send/result)
              (lambda (_) (error "The REPL was asked although there is none"))))
-    (should-not (heks-emacs-scheme--repl-definition "greet"))
-    (should-not (heks-emacs-scheme--repl-callers "greet"))
-    (should-not (heks-emacs-scheme--repl-names "greet"))
-    (should-not (heks-emacs-scheme-repl-connected-p))))
+    (should-not (heks/scheme--repl-definition "greet"))
+    (should-not (heks/scheme--repl-callers "greet"))
+    (should-not (heks/scheme--repl-names "greet"))
+    (should-not (heks/scheme-repl-connected-p))))
 
 ;;
 ;; ====== Importing a Markdown document ======
@@ -1282,23 +1282,23 @@ mentions has no places."
           "[^1]: The note.\n")
   "A document with the parts of Markdown an import has to have an answer for.")
 
-(ert-deftest heks-emacs-import/the-heading-a-document-names-itself-with-is-its-title ()
+(ert-deftest heks/import/the-heading-a-document-names-itself-with-is-its-title ()
   "The `# ...' a document opens with names the note, and is not repeated under it."
-  (let ((metadata (heks-emacs-markdown-metadata "# Heks\n\ntext\n")))
+  (let ((metadata (heks/markdown-metadata "# Heks\n\ntext\n")))
     (should (equal (plist-get metadata :title) "Heks"))
     (should (equal (string-trim (plist-get metadata :body)) "text"))))
 
-(ert-deftest heks-emacs-import/a-title-can-be-left-as-a-heading ()
+(ert-deftest heks/import/a-title-can-be-left-as-a-heading ()
   "With the setting off, every heading stays a heading."
-  (let ((heks-emacs-import-title-from-heading nil))
-    (should (equal (heks-emacs-markdown-to-org "# Heks\n\ntext\n")
+  (let ((heks/import-title-from-heading nil))
+    (should (equal (heks/markdown-to-org "# Heks\n\ntext\n")
                    "* Heks\n\ntext\n"))))
 
-(ert-deftest heks-emacs-import/front-matter-is-what-the-note-says-about-itself ()
+(ert-deftest heks/import/front-matter-is-what-the-note-says-about-itself ()
   "Title, tags, aliases and the fields this does not name are all kept."
-  (let ((org (heks-emacs-markdown-to-org heks-ert-import-document
+  (let ((org (heks/markdown-to-org heks-ert-import-document
                                         '(("ID" . "an-id")
-                                          ("ROAM_ALIASES" . "Things, stuff")))))
+                                          ("ALIASES" . "Things, stuff")))))
     (should (string-match-p "^#\\+title: A note$" org))
     (should (string-match-p "^#\\+filetags: :emacs:org_mode:$" org))
     (should (string-match-p "^#\\+author: Josep$" org))
@@ -1306,7 +1306,7 @@ mentions has no places."
     ;; rather than something dropped on the floor.
     (should (string-match-p "^#\\+permalink: /notes/a$" org))
     (should (string-match-p "^ *:ID: *an-id$" org))
-    (should (string-match-p "^ *:ROAM_ALIASES: *Things, stuff$" org))
+    (should (string-match-p "^ *:ALIASES: *Things, stuff$" org))
     ;; The drawer comes first, then the keywords, then the body: a drawer
     ;; Org reads as the file's properties is the first thing in the file
     ;; (`org-entry-get' finds the id there, and finds nothing when the
@@ -1315,30 +1315,30 @@ mentions has no places."
     (should (< (string-match ":PROPERTIES:" org) (string-match "#\\+title:" org)))
     (should (< (string-match ":END:" org) (string-match "^\\* Why$" org)))))
 
-(ert-deftest heks-emacs-import/the-hierarchy-of-a-document-is-the-hierarchy-of-a-note ()
+(ert-deftest heks/import/the-hierarchy-of-a-document-is-the-hierarchy-of-a-note ()
   "The headings left under the title are shifted up to be its sections."
-  (let ((org (heks-emacs-markdown-to-org "# Title\n\n## One\n\n### Two\n\n#### Three\n")))
+  (let ((org (heks/markdown-to-org "# Title\n\n## One\n\n### Two\n\n#### Three\n")))
     (should (string-match-p "^\\* One$" org))
     (should (string-match-p "^\\*\\* Two$" org))
     (should (string-match-p "^\\*\\*\\* Three$" org))))
 
-(ert-deftest heks-emacs-import/nothing-is-shifted-when-there-is-no-title ()
+(ert-deftest heks/import/nothing-is-shifted-when-there-is-no-title ()
   "A document that names itself nowhere keeps its own depth."
-  (let ((org (heks-emacs-markdown-to-org "## One\n\ntext\n")))
+  (let ((org (heks/markdown-to-org "## One\n\ntext\n")))
     (should (string-match-p "^\\* One$" org))))
 
-(ert-deftest heks-emacs-import/a-block-that-says-it-is-not-a-heading-is-not-shifted ()
+(ert-deftest heks/import/a-block-that-says-it-is-not-a-heading-is-not-shifted ()
   "A line of a code block is a line of a code block, whatever it starts with."
-  (let ((org (heks-emacs-markdown-to-org
+  (let ((org (heks/markdown-to-org
               (concat "# Title\n\n```sh\n* not a headline\n** neither\n```\n"
                       "\n## Section\n"))))
     (should (string-match-p "^\\* not a headline$" org))
     (should (string-match-p "^\\*\\* neither$" org))
     (should (string-match-p "^\\* Section$" org))))
 
-(ert-deftest heks-emacs-import/emphasis-links-and-images-become-org-markup ()
+(ert-deftest heks/import/emphasis-links-and-images-become-org-markup ()
   "What Markdown says with markers, Org says with its own."
-  (let ((org (heks-emacs-markdown-to-org
+  (let ((org (heks/markdown-to-org
               (concat "*emphasis*, **strong**, `code`, ~~gone~~, a [link](a.md)\n"
                       "an ![image](b.png), <https://example.com/x> and a foot[^2].\n"
                       "\n[^2]: a note\n"))))
@@ -1350,18 +1350,18 @@ mentions has no places."
              org))
     (should (string-match-p "^\\[fn:2\\] a note$" org))))
 
-(ert-deftest heks-emacs-import/a-link-in-a-document-becomes-the-file-it-names ()
+(ert-deftest heks/import/a-link-in-a-document-becomes-the-file-it-names ()
   "A relative link is resolved against the document's own directory."
-  (let ((heks-emacs-markdown-base-directory "/home/someone/docs/"))
+  (let ((heks/markdown-base-directory "/home/someone/docs/"))
     (should (string-match-p "\\[\\[/home/someone/docs/img/a.png\\]\\[d\\]\\]"
-                            (heks-emacs-markdown-to-org "![d](img/a.png)\n")))
+                            (heks/markdown-to-org "![d](img/a.png)\n")))
     (should (string-match-p "\\[\\[https://example.com/x\\]\\[a\\]\\]"
-                            (heks-emacs-markdown-to-org "[a](https://example.com/x)\n")))))
+                            (heks/markdown-to-org "[a](https://example.com/x)\n")))))
 
-(ert-deftest heks-emacs-import/a-table-becomes-a-table-org-can-align ()
+(ert-deftest heks/import/a-table-becomes-a-table-org-can-align ()
   "The columns keep the alignment their delimiter row gave them, and the
 header row stays a header row."
-  (let ((org (heks-emacs-markdown-to-org
+  (let ((org (heks/markdown-to-org
               "| Name | Count |\n|:-----|------:|\n| a | 1 |\n")))
     ;; The delimiter row is what tells Org where the header ends, so it is
     ;; written as well as the alignment row rather than only as one, and a
@@ -1372,10 +1372,10 @@ header row stays a header row."
                                "|------+-------|\n"
                                "| a    | 1     |\n")))))
 
-(ert-deftest heks-emacs-import/a-checked-box-is-the-box-org-reads ()
+(ert-deftest heks/import/a-checked-box-is-the-box-org-reads ()
   "Markdown checks a box with `[x]' and Org reads `[X]': the box is written
 as the one Org reads, so that what was done stays done."
-  (let ((org (heks-emacs-markdown-to-org
+  (let ((org (heks/markdown-to-org
               "- [ ] one\n- [x] two\n- [X] three\n- [ ]done without a space\n")))
     (should (equal org (concat "- [ ] one\n"
                                "- [X] two\n"
@@ -1384,24 +1384,24 @@ as the one Org reads, so that what was done stays done."
                                ;; as the text a document made of it.
                                "- [ ]done without a space\n")))))
 
-(ert-deftest heks-emacs-import/a-bullet-is-never-written-as-a-headline ()
+(ert-deftest heks/import/a-bullet-is-never-written-as-a-headline ()
   "Markdown's `*' bullet is Org's `-', which is what a headline is not."
-  (should (equal (heks-emacs-markdown-to-org "* one\n* two\n")
+  (should (equal (heks/markdown-to-org "* one\n* two\n")
                  "- one\n- two\n")))
 
-(ert-deftest heks-emacs-import/the-blank-lines-a-document-has-separate-its-blocks ()
+(ert-deftest heks/import/the-blank-lines-a-document-has-separate-its-blocks ()
   "In Org a blank line decides what a block ends, so the import keeps them."
-  (let ((org (heks-emacs-markdown-to-org "text\n\nmore text\n")))
+  (let ((org (heks/markdown-to-org "text\n\nmore text\n")))
     (should (equal org "text\n\nmore text\n"))))
 
-(ert-deftest heks-emacs-import/a-fragment-keeps-its-headings-where-they-are ()
+(ert-deftest heks/import/a-fragment-keeps-its-headings-where-they-are ()
   "A piece of a document is not a note: no title is made of it, no heading moves."
-  (should (equal (heks-emacs-markdown-fragment-to-org "# One\n\n## Two\n\ntext\n")
+  (should (equal (heks/markdown-fragment-to-org "# One\n\n## Two\n\ntext\n")
                  "* One\n\n** Two\n\ntext")))
 
-(ert-deftest heks-emacs-import/a-fragment-says-things-the-way-a-note-does ()
+(ert-deftest heks/import/a-fragment-says-things-the-way-a-note-does ()
   "Emphasis, code, links, lists and fences are spelled as they are in a note."
-  (let ((org (heks-emacs-markdown-fragment-to-org
+  (let ((org (heks/markdown-fragment-to-org
               (concat "Some **bold** and `code` and [a](https://example.com/x).\n"
                       "\n"
                       "* one\n"
@@ -1416,67 +1416,67 @@ as the one Org reads, so that what was done stays done."
     (should-not (string-match-p "^#\\+title" org))
     (should-not (string-match-p ":PROPERTIES:" org))))
 
-(ert-deftest heks-emacs-import/the-region-is-replaced-by-what-it-says-in-org ()
+(ert-deftest heks/import/the-region-is-replaced-by-what-it-says-in-org ()
   "Only the region changes, and a region that ended a line still ends one."
   (with-temp-buffer
     (insert "before\n## Two\n\n* one\n* two\nafter\n")
     (let ((beg (save-excursion (goto-char (point-min)) (forward-line 1) (point)))
           (end (save-excursion (goto-char (point-max)) (forward-line -1) (point))))
-      (heks-emacs-markdown-region-to-org beg end)
+      (heks/markdown-region-to-org beg end)
       (should (equal (buffer-string)
                      "before\n** Two\n\n- one\n- two\nafter\n")))))
 
-(ert-deftest heks-emacs-import/a-region-without-a-final-newline-gets-none ()
+(ert-deftest heks/import/a-region-without-a-final-newline-gets-none ()
   "What the region did not end with it is not given."
   (with-temp-buffer
     (insert "see **this**")
-    (heks-emacs-markdown-region-to-org (point-min) (point-max))
+    (heks/markdown-region-to-org (point-min) (point-max))
     (should (equal (buffer-string) "see *this*"))))
 
-(ert-deftest heks-emacs-import/a-prefix-argument-copies-and-leaves-the-buffer-alone ()
+(ert-deftest heks/import/a-prefix-argument-copies-and-leaves-the-buffer-alone ()
   "With a prefix, the Org goes on the kill ring and the Markdown stays."
   (with-temp-buffer
     (insert "## Two\n")
     (let ((kill-ring nil))
-      (heks-emacs-markdown-region-to-org (point-min) (point-max) t)
+      (heks/markdown-region-to-org (point-min) (point-max) t)
       (should (equal (buffer-string) "## Two\n"))
       (should (equal (car kill-ring) "** Two\n")))))
 
-(ert-deftest heks-emacs-import/a-buffer-that-cannot-be-written-to-is-copied-from ()
+(ert-deftest heks/import/a-buffer-that-cannot-be-written-to-is-copied-from ()
   "A read-only buffer -- a chat, a help buffer -- is the place Markdown comes from."
   (with-temp-buffer
     (insert "## Two\n")
     (setq buffer-read-only t)
     (let ((kill-ring nil))
-      (heks-emacs-markdown-region-to-org (point-min) (point-max))
+      (heks/markdown-region-to-org (point-min) (point-max))
       (should (equal (buffer-string) "## Two\n"))
       (should (equal (car kill-ring) "** Two\n")))))
 
-(ert-deftest heks-emacs-import/an-identifier-is-a-uuid ()
-  "A note is named the way `org-id' and `org-roam' name one."
-  (let ((id (heks-emacs-import--id)))
+(ert-deftest heks/import/an-identifier-is-a-uuid ()
+  "A note is named the way `org-id' names one."
+  (let ((id (heks/import--id)))
     (should (string-match-p
              "\\`[0-9a-f]\\{8\\}-[0-9a-f]\\{4\\}-4[0-9a-f]\\{3\\}-[89ab][0-9a-f]\\{3\\}-[0-9a-f]\\{12\\}\\'"
              id))
-    (should-not (equal id (heks-emacs-import--id)))))
+    (should-not (equal id (heks/import--id)))))
 
-(ert-deftest heks-emacs-import/a-file-is-imported-next-to-the-source ()
+(ert-deftest heks/import/a-file-is-imported-next-to-the-source ()
   "The Org is written beside the Markdown, and the Markdown is left alone."
   (let ((root (heks-ert--temp-directory)))
     (unwind-protect
         (let ((source (expand-file-name "README.md" root)))
           (write-region heks-ert-import-document nil source nil 'silent)
-          (should (equal (heks-emacs-import-markdown-file source)
+          (should (equal (heks/import-markdown-file source)
                          (expand-file-name "README.org" root)))
           (should (file-exists-p (expand-file-name "README.org" root)))
           (should (equal (with-temp-buffer (insert-file-contents source) (buffer-string))
                          heks-ert-import-document))
           ;; The same document again writes the same file, silently.
-          (should (equal (heks-emacs-import-markdown-file source)
+          (should (equal (heks/import-markdown-file source)
                          (expand-file-name "README.org" root))))
       (delete-directory root t))))
 
-(ert-deftest heks-emacs-import/a-note-somebody-wrote-is-not-written-over-unasked ()
+(ert-deftest heks/import/a-note-somebody-wrote-is-not-written-over-unasked ()
   "A file that is already there and differs is kept unless the reader says otherwise."
   (let ((root (heks-ert--temp-directory)))
     (unwind-protect
@@ -1485,35 +1485,35 @@ as the one Org reads, so that what was done stays done."
           (write-region "# Heks\n" nil source nil 'silent)
           (write-region "my own note\n" nil target nil 'silent)
           (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) nil)))
-            (should-not (heks-emacs-import-markdown-file source)))
+            (should-not (heks/import-markdown-file source)))
           (should (equal (with-temp-buffer (insert-file-contents target) (buffer-string))
                          "my own note\n"))
           (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
-            (should (heks-emacs-import-markdown-file source)))
+            (should (heks/import-markdown-file source)))
           (should (string-match-p "^#\\+title: Heks$"
                                   (with-temp-buffer (insert-file-contents target)
                                                     (buffer-string)))))
       (delete-directory root t))))
 
-(ert-deftest heks-emacs-import/a-note-imported-into-the-notes-is-a-node ()
+(ert-deftest heks/import/a-note-imported-into-the-notes-is-a-node ()
   "It carries an identifier and its aliases, and a second import keeps them."
   (let ((root (heks-ert--temp-directory))
         (notes (make-temp-file "heks-ert-notes-" t)))
     (unwind-protect
         (let ((source (expand-file-name "note.md" root)))
           (write-region heks-ert-import-document nil source nil 'silent)
-          (cl-letf (((symbol-function 'heks-emacs-notes-roam-directory)
+          (cl-letf (((symbol-function 'heks/notes-directory)
                      (lambda () (file-name-as-directory notes))))
-            (let* ((target (heks-emacs-import-markdown-file source t))
+            (let* ((target (heks/import-markdown-file source t))
                    (text (with-temp-buffer (insert-file-contents target) (buffer-string)))
                    (id (and (string-match ":ID: *\\([^ \t\n]+\\)" text)
                             (match-string 1 text))))
               (should (equal target (expand-file-name "note.org" notes)))
-              (should (string-match-p "^ *:ROAM_ALIASES: *Things, stuff$" text))
+              (should (string-match-p "^ *:ALIASES: *Things, stuff$" text))
               (should id)
               ;; Importing it again updates the note rather than making a
               ;; second node, which is what keeping the identifier does.
-              (heks-emacs-import-markdown-file source t)
+              (heks/import-markdown-file source t)
               (let ((again (with-temp-buffer (insert-file-contents target)
                                              (buffer-string))))
                 (should (string-match ":ID: *\\([^ \t\n]+\\)" again))
@@ -1521,7 +1521,7 @@ as the one Org reads, so that what was done stays done."
       (delete-directory root t)
       (delete-directory notes t))))
 
-(ert-deftest heks-emacs-import/the-project-import-asks-once-and-imports-the-markdown ()
+(ert-deftest heks/import/the-project-import-asks-once-and-imports-the-markdown ()
   "Every Markdown file the project has is imported, and nothing else is."
   (let ((root (heks-ert--temp-directory))
         (asked 0))
@@ -1535,49 +1535,49 @@ as the one Org reads, so that what was done stays done."
           (cl-letf (((symbol-function 'project-current) (lambda (&optional _) 'a-project))
                     ((symbol-function 'project-files) (lambda (&optional _) (list one two other)))
                     ((symbol-function 'yes-or-no-p) (lambda (&rest _) (setq asked (1+ asked)) t)))
-            (heks-emacs-import-markdown-project))
+            (heks/import-markdown-project))
           (should (file-exists-p (expand-file-name "README.org" root)))
           (should (file-exists-p (expand-file-name "guide.org" root)))
           (should (= asked 0)))
       (delete-directory root t))))
 
-(ert-deftest heks-emacs-import/a-document-is-what-its-name-says-it-is ()
+(ert-deftest heks/import/a-document-is-what-its-name-says-it-is ()
   "The names a Markdown document is written with, and the ones it is not."
-  (should (heks-emacs-import-markdown-p "README.md"))
-  (should (heks-emacs-import-markdown-p "guide.markdown"))
-  (should (heks-emacs-import-markdown-p "NOTES.MD"))
-  (should-not (heks-emacs-import-markdown-p "notes.org"))
-  (should-not (heks-emacs-import-markdown-p "notes.md.org")))
+  (should (heks/import-markdown-p "README.md"))
+  (should (heks/import-markdown-p "guide.markdown"))
+  (should (heks/import-markdown-p "NOTES.MD"))
+  (should-not (heks/import-markdown-p "notes.org"))
+  (should-not (heks/import-markdown-p "notes.md.org")))
 
-(ert-deftest heks-emacs-scheme/an-evaluation-brings-up-the-repl-it-needs ()
+(ert-deftest heks/scheme/an-evaluation-brings-up-the-repl-it-needs ()
   "Evaluating with no REPL starts the project's one; with one, it does not."
   (let ((started 0)
         (evaluated 0))
-    (cl-letf (((symbol-function 'heks-emacs-scheme-repl-connected-p)
+    (cl-letf (((symbol-function 'heks/scheme-repl-connected-p)
                (lambda () (>= started 1)))
-              ((symbol-function 'heks-emacs-scheme-repl--start)
+              ((symbol-function 'heks/scheme-repl--start)
                (lambda () (setq started (1+ started))))
               ((symbol-function 'geiser-eval-definition)
                (lambda (_) (setq evaluated (1+ evaluated)))))
-      (heks-emacs-scheme-repl-needed (lambda () (geiser-eval-definition nil)))
+      (heks/scheme-repl-needed (lambda () (geiser-eval-definition nil)))
       (should (= started 1))
       (should (= evaluated 1))
-      (heks-emacs-scheme-repl-needed (lambda () (geiser-eval-definition nil)))
+      (heks/scheme-repl-needed (lambda () (geiser-eval-definition nil)))
       (should (= started 1))
       (should (= evaluated 2)))))
 
-(ert-deftest heks-emacs-scheme/a-repl-that-will-not-come-up-is-said-so ()
+(ert-deftest heks/scheme/a-repl-that-will-not-come-up-is-said-so ()
   "A machine where the program is missing is told that rather than left waiting."
-  (cl-letf (((symbol-function 'heks-emacs-scheme-repl-connected-p) (lambda () nil))
-            ((symbol-function 'heks-emacs-scheme-repl--start) (lambda () nil))
+  (cl-letf (((symbol-function 'heks/scheme-repl-connected-p) (lambda () nil))
+            ((symbol-function 'heks/scheme-repl--start) (lambda () nil))
             ((symbol-function 'accept-process-output) (lambda (&rest _) nil)))
-    (should-error (heks-emacs-scheme-repl-needed (lambda () nil)) :type 'user-error)))
+    (should-error (heks/scheme-repl-needed (lambda () nil)) :type 'user-error)))
 
 ;;
 ;; ====== Dired ======
 ;;
 
-(ert-deftest heks-emacs-dired/the-contents-of-the-marked-files-are-copied ()
+(ert-deftest heks/dired/the-contents-of-the-marked-files-are-copied ()
   (let ((root (heks-ert--temp-directory)))
     (unwind-protect
         (progn
@@ -1602,9 +1602,9 @@ as the one Org reads, so that what was done stays done."
 ;; the shape they are read as, which a report of no problems would not
 ;; notice being wrong.
 
-(ert-deftest heks-emacs-keys/every-topic-letter-is-a-key-and-means-one-thing ()
+(ert-deftest heks/keys/every-topic-letter-is-a-key-and-means-one-thing ()
   (let (seen)
-    (dolist (topic heks-emacs-key-topics)
+    (dolist (topic heks/key-topics)
       (should (stringp (car topic)))
       (should (stringp (cdr topic)))
       (should (not (string-empty-p (cdr topic))))
@@ -1613,76 +1613,76 @@ as the one Org reads, so that what was done stays done."
       (should-not (member (car topic) seen))
       (push (car topic) seen))))
 
-(ert-deftest heks-emacs-keys/the-action-alphabet-has-no-duplicates ()
+(ert-deftest heks/keys/the-action-alphabet-has-no-duplicates ()
   (let (seen)
-    (dolist (action heks-emacs-key-actions)
+    (dolist (action heks/key-actions)
       (should (stringp (cdr action)))
       (should-not (member (car action) seen))
       (push (car action) seen))))
 
-(ert-deftest heks-emacs-keys/every-key-is-described-once ()
+(ert-deftest heks/keys/every-key-is-described-once ()
   (let (seen)
-    (dolist (entry heks-emacs-key-descriptions)
+    (dolist (entry heks/key-descriptions)
       (should (string-prefix-p "C-c " (car entry)))
       (should (stringp (cdr entry)))
       (should (not (string-empty-p (cdr entry))))
       (should-not (member (car entry) seen))
       (push (car entry) seen))))
 
-(ert-deftest heks-emacs-keys/a-topic-letters-are-letters ()
-  (dolist (topic heks-emacs-key-letters)
-    (should (assoc (car topic) heks-emacs-key-topics #'equal))
+(ert-deftest heks/keys/a-topic-letters-are-letters ()
+  (dolist (topic heks/key-letters)
+    (should (assoc (car topic) heks/key-topics #'equal))
     (dolist (letter (cdr topic))
       (should (string-match-p "\\`[[:alpha:]]\\'" (car letter)))
       (should (stringp (cdr letter))))))
 
-(ert-deftest heks-emacs-keys/a-description-is-found-for-what-the-tables-hold ()
+(ert-deftest heks/keys/a-description-is-found-for-what-the-tables-hold ()
   "The lookup the reference and `which-key' both read is one function."
-  (should (equal (heks-emacs-key-description "C-c i f")
+  (should (equal (heks/key-description "C-c i f")
                  "the buffer, formatted by whoever knows how"))
   ;; A topic's own letter, when the key has no description of its own.
-  (should (equal (heks-emacs-key-description "C-c f t") "tiny"))
+  (should (equal (heks/key-description "C-c f t") "tiny"))
   ;; An action letter, under a topic that says nothing of its own about it.
-  (should (equal (heks-emacs-key-description "C-c s c")
+  (should (equal (heks/key-description "C-c s c")
                  "the snippet at point, completed"))
   ;; A key whose last stroke is not a letter is what its topic is for.
-  (should (equal (heks-emacs-key-description "C-c C-d z")
+  (should (equal (heks/key-description "C-c C-d z")
                  "diagrams: Mermaid")))
 
 ;;
 ;; ====== The tree-sitter grammars ======
 ;;
 
-(ert-deftest heks-emacs-treesit/the-grammars-are-built-by-a-batch-emacs ()
+(ert-deftest heks/treesit/the-grammars-are-built-by-a-batch-emacs ()
   "The grammars are built by a child Emacs that is handed what it needs.
 
 The child is a batch Emacs and nothing else -- no configuration to load, no
 packages to install first -- so the directory, the recipes this
 configuration names itself and the directories a grammar may already be in
 are given to it as Lisp it is told before the script is loaded."
-  (let* ((command (heks-emacs-treesit--batch-command))
+  (let* ((command (heks/treesit--batch-command))
          (form (read (nth 4 command))))
     (should (equal (nth 1 command) "-Q"))
     (should (equal (nth 2 command) "--batch"))
     (should (equal (nth 3 command) "--eval"))
     (should (equal (nth 5 command) "-l"))
-    (should (equal (nth 6 command) heks-emacs-treesit-script))
+    (should (equal (nth 6 command) heks/treesit-script))
     (should (eq (car form) 'setq))
-    (should (equal (nth 1 form) 'heks-emacs-treesit-grammar-directory))
-    (should (equal (nth 2 form) heks-emacs-treesit-grammar-directory))
-    (should (equal (nth 3 form) 'heks-emacs-treesit-own-recipes))
+    (should (equal (nth 1 form) 'heks/treesit-grammar-directory))
+    (should (equal (nth 2 form) heks/treesit-grammar-directory))
+    (should (equal (nth 3 form) 'heks/treesit-own-recipes))
     (should (equal (nth 5 form) 'treesit-extra-load-path))))
 
-(ert-deftest heks-emacs-treesit/the-grammars-are-installed-where-told-to ()
+(ert-deftest heks/treesit/the-grammars-are-installed-where-told-to ()
   "The directory is the one this configuration installs and looks in."
   (should (equal (file-name-nondirectory
-                  (directory-file-name heks-emacs-treesit-grammar-directory))
+                  (directory-file-name heks/treesit-grammar-directory))
                  "tree-sitter"))
   (should (string-prefix-p (file-name-as-directory (expand-file-name "~/.emacs.d"))
                            (file-name-as-directory
-                            heks-emacs-treesit-grammar-directory))))
+                            heks/treesit-grammar-directory))))
 
-(ert-deftest heks-emacs-treesit/the-script-builds-the-grammars-emacs-knows ()
+(ert-deftest heks/treesit/the-script-builds-the-grammars-emacs-knows ()
   "The script asks for the grammar of every mode Emacs ships, and for ours.
 
 It is loaded here with the installing stubbed out -- nothing in a test has a
@@ -1690,8 +1690,8 @@ network -- and with every grammar reported as missing, so what it would
 build is what is checked: Emacs's own recipes come from its own mode files,
 which is why the languages Emacs has modes for are in the answer at all."
   (let ((asked nil)
-        (heks-emacs-treesit-grammar-directory "/tmp/heks-ert-grammars")
-        (heks-emacs-treesit-own-recipes '((heks-ert-own "https://example.com/own"))))
+        (heks/treesit-grammar-directory "/tmp/heks-ert-grammars")
+        (heks/treesit-own-recipes '((heks-ert-own "https://example.com/own"))))
     (cl-letf (((symbol-function 'treesit-language-available-p)
                (lambda (&rest _) nil))
               ((symbol-function 'treesit-install-language-grammar)
@@ -1706,10 +1706,10 @@ which is why the languages Emacs has modes for are in the answer at all."
     (dolist (entry asked)
       (should (equal (cdr entry) "/tmp/heks-ert-grammars")))))
 
-(ert-deftest heks-emacs-treesit/a-grammar-that-is-here-is-not-built-again ()
+(ert-deftest heks/treesit/a-grammar-that-is-here-is-not-built-again ()
   "What is installed is not cloned and compiled a second time."
   (let ((asked nil)
-        (heks-emacs-treesit-grammar-directory "/tmp/heks-ert-grammars"))
+        (heks/treesit-grammar-directory "/tmp/heks-ert-grammars"))
     (cl-letf (((symbol-function 'treesit-language-available-p)
                (lambda (language &rest _) (eq language 'java)))
               ((symbol-function 'treesit-install-language-grammar)
@@ -1718,7 +1718,7 @@ which is why the languages Emacs has modes for are in the answer at all."
     (should-not (memq 'java asked))
     (should (memq 'python asked))))
 
-(ert-deftest heks-emacs-treesit/a-grammar-that-fails-once-is-built-on-the-second-try ()
+(ert-deftest heks/treesit/a-grammar-that-fails-once-is-built-on-the-second-try ()
   "A clone that timed out, or a checkout that was busy, is not a verdict.
 
 What is reported is a grammar that would not build twice, so a language
@@ -1727,7 +1727,7 @@ taken a second attempt rather than reported as one this machine cannot
 build."
   (let ((attempts 0)
         (built nil)
-        (heks-emacs-treesit-grammar-directory "/tmp/heks-ert-grammars"))
+        (heks/treesit-grammar-directory "/tmp/heks-ert-grammars"))
     (cl-letf (((symbol-function 'treesit-language-available-p)
                (lambda (&rest _) built))
               ((symbol-function 'treesit-install-language-grammar)
@@ -1742,9 +1742,9 @@ build."
     ;; The grammar that failed was tried again, and the one that arrived
     ;; was not built a third time: the rest of the languages were already
     ;; here, because the retry made the library loadable.
-    (should (equal attempts heks-emacs-treesit-attempts))))
+    (should (equal attempts heks/treesit-attempts))))
 
-(ert-deftest heks-emacs-treesit/a-build-that-produces-nothing-is-not-a-grammar ()
+(ert-deftest heks/treesit/a-build-that-produces-nothing-is-not-a-grammar ()
   "A build that returns for a library that cannot be loaded is a failure.
 
 Emacs warns rather than errors when the library it built cannot be found or
@@ -1752,7 +1752,7 @@ loaded, so counting the return of the build as success would report a
 grammar as built that no mode can use -- and would leave it unbuilt for
 ever, since the next run would find it missing and try again from scratch."
   (let ((asked nil)
-        (heks-emacs-treesit-grammar-directory "/tmp/heks-ert-grammars"))
+        (heks/treesit-grammar-directory "/tmp/heks-ert-grammars"))
     (cl-letf (((symbol-function 'treesit-language-available-p)
                (lambda (&rest _) nil))
               ((symbol-function 'treesit-install-language-grammar)
@@ -1763,12 +1763,12 @@ ever, since the next run would find it missing and try again from scratch."
     (should (> (length asked) 25))
     (dolist (language (delete-dups (copy-sequence asked)))
       (should (equal (seq-count (lambda (one) (eq one language)) asked)
-                     heks-emacs-treesit-attempts)))))
+                     heks/treesit-attempts)))))
 
-(ert-deftest heks-emacs-treesit/a-grammar-that-will-not-build-does-not-stop-the-others ()
+(ert-deftest heks/treesit/a-grammar-that-will-not-build-does-not-stop-the-others ()
   "One language failing is a line of output, not the end of the run."
   (let ((asked nil)
-        (heks-emacs-treesit-grammar-directory "/tmp/heks-ert-grammars"))
+        (heks/treesit-grammar-directory "/tmp/heks-ert-grammars"))
     (cl-letf (((symbol-function 'treesit-language-available-p)
                (lambda (&rest _) nil))
               ((symbol-function 'treesit-install-language-grammar)
@@ -1779,14 +1779,14 @@ ever, since the next run would find it missing and try again from scratch."
     ;; java was given both of its attempts before anything was said about
     ;; it, and the languages after it were built all the same.
     (should (equal (seq-count (lambda (language) (eq language 'java)) asked)
-                   heks-emacs-treesit-attempts))
+                   heks/treesit-attempts))
     (should (memq 'python asked))
     (should (memq 'cpp asked))))
 
-(ert-deftest heks-emacs-which-key/the-scheme-is-what-which-key-shows ()
-  (skip-unless (and (featurep 'which-key) (fboundp 'heks-emacs-which-key-setup)))
+(ert-deftest heks/which-key/the-scheme-is-what-which-key-shows ()
+  (skip-unless (and (featurep 'which-key) (fboundp 'heks/which-key-setup)))
   (let ((before (length which-key-replacement-alist)))
-    (heks-emacs-which-key-setup)
+    (heks/which-key-setup)
     (cl-flet ((shown (key)
                      (let ((entry (seq-find (lambda (candidate)
                                               (equal (car (car candidate))
@@ -1802,10 +1802,10 @@ ever, since the next run would find it missing and try again from scratch."
       (should (string-match-p "topic" (shown "C-c"))))
     (should (> (length which-key-replacement-alist) before))))
 
-(ert-deftest heks-emacs-which-key/a-mode-that-answers-first-says-its-own-wording ()
+(ert-deftest heks/which-key/a-mode-that-answers-first-says-its-own-wording ()
   "A key a mode owns is described for that mode, in the mode's own words."
-  (skip-unless (and (featurep 'which-key) (fboundp 'heks-emacs-which-key-setup)))
-  (heks-emacs-which-key-setup)
+  (skip-unless (and (featurep 'which-key) (fboundp 'heks/which-key-setup)))
+  (heks/which-key-setup)
   ;; A mode's own table is keyed by the pattern `which-key' stores, not by
   ;; the key: the pattern is what it matches a key being typed against.
   (let* ((replacements (cdr (assq 'java-mode which-key-replacement-alist)))
@@ -1816,7 +1816,7 @@ ever, since the next run would find it missing and try again from scratch."
     (should replacements)
     (should (equal described "the test at point, through the language server"))))
 
-(ert-deftest heks-emacs-which-key/no-sentence-of-the-scheme-is-cut ()
+(ert-deftest heks/which-key/no-sentence-of-the-scheme-is-cut ()
   "The length which-key is told fits every description the scheme gives a key.
 
 `which-key' cuts a description longer than that with `which-key-ellipsis',
@@ -1830,29 +1830,29 @@ is held to which-key's behaviour rather than to a copy of it, and the
 description of `C-c' itself is checked to be among the ones measured -- it
 was not when the length was a round number, and it is the longest of them."
   (skip-unless (and (featurep 'which-key) (fboundp 'which-key--truncate-description)))
-  (let ((which-key-max-description-length heks-emacs-which-key-description-length)
+  (let ((which-key-max-description-length heks/which-key-description-length)
         (cut '()))
-    (dolist (text (heks-emacs-key-description-texts))
+    (dolist (text (heks/key-description-texts))
       (let ((cell (concat which-key-prefix-prefix text)))
         (unless (equal (which-key--truncate-description cell 80) cell)
           (push text cut))))
     (should (equal cut '())))
-  (should (member heks-emacs-key-root-description (heks-emacs-key-description-texts))))
+  (should (member heks/key-root-description (heks/key-description-texts))))
 
-(ert-deftest heks-emacs-which-key/the-menu-goes-where-the-frame-has-room ()
+(ert-deftest heks/which-key/the-menu-goes-where-the-frame-has-room ()
   "The bottom window needs twice the smallest a frame's window may be.
 
 `which-key' makes the window it shows the menu in by splitting the frame's
 main window in two and keeping one half, and it asks `split-window' for
 that with `split-window-no-error', whose nil answer it does not read -- so
 when the split is refused, the menu is written into `which-key's buffer and
-nobody sees it.  `heks-emacs-which-key-side-window-p' is the rule that
+nobody sees it.  `heks/which-key-side-window-p' is the rule that
 decides the place instead, and the rule is checked here against
 `split-window-no-error' itself: what the predicate answers and what the
 split does are the same question, so a change in Emacs's own rule is a
 failing test rather than a menu that disappears again."
   (skip-unless (and (featurep 'which-key)
-                    (fboundp 'heks-emacs-which-key-side-window-p)))
+                    (fboundp 'heks/which-key-side-window-p)))
   (let ((configuration (current-window-configuration))
         (min-height window-min-height)
         ;; A refused split is an error `split-window-no-error' is meant to
@@ -1862,10 +1862,10 @@ failing test rather than a menu that disappears again."
         (progn
           ;; One window: room for the menu, and the place is the window.
           (delete-other-windows)
-          (should (heks-emacs-which-key-side-window-p))
+          (should (heks/which-key-side-window-p))
           (should (windowp (split-window-no-error (frame-root-window) nil 'below)))
-          (heks-emacs-which-key-popup-dimensions 80)
-          (should-not heks-emacs-which-key-echoing)
+          (heks/which-key-popup-dimensions 80)
+          (should-not heks/which-key-echoing)
           (delete-other-windows)
           ;; Windows which are too small to be split in two: no room, and the
           ;; menu is asked for in the echo area, with one line less than the
@@ -1873,11 +1873,11 @@ failing test rather than a menu that disappears again."
           ;; part of the page but is shown with it.
           (dotimes (_ 2) (split-window-no-error (selected-window) nil 'below))
           (setq window-min-height 5)
-          (should-not (heks-emacs-which-key-side-window-p))
+          (should-not (heks/which-key-side-window-p))
           (should-not (split-window-no-error (frame-root-window) nil 'below))
-          (heks-emacs-which-key-popup-dimensions 80)
-          (should heks-emacs-which-key-echoing)
-          (should (equal (car (heks-emacs-which-key-popup-dimensions 80))
+          (heks/which-key-popup-dimensions 80)
+          (should heks/which-key-echoing)
+          (should (equal (car (heks/which-key-popup-dimensions 80))
                          (1- (car (which-key--minibuffer-max-dimensions))))))
       (setq window-min-height min-height)
       (set-window-configuration configuration))))
@@ -1886,37 +1886,37 @@ failing test rather than a menu that disappears again."
 ;; ====== The family a face is given ======
 ;;
 
-(ert-deftest heks-emacs-ui/an-eca-face-gets-the-family-of-what-it-prints ()
+(ert-deftest heks/ui/an-eca-face-gets-the-family-of-what-it-prints ()
   "A chat is read, and what a reader copies out of it is not."
   (let ((given nil))
-    (cl-letf (((symbol-function 'heks-emacs--set-face)
+    (cl-letf (((symbol-function 'heks//set-face)
                (lambda (face &rest attributes)
                  (push (cons face attributes) given))))
-      (heks-emacs-set-eca-faces))
+      (heks/set-eca-faces))
     (should (equal (length given)
-                   (+ (length heks-emacs-eca-sans-faces)
-                      (length heks-emacs-eca-mono-faces))))
+                   (+ (length heks/eca-sans-faces)
+                      (length heks/eca-mono-faces))))
     (should (equal (cdr (assq 'eca-chat-title-face given))
-                   (list :font heks-emacs-font-sans)))
+                   (list :font heks/font-sans)))
     (should (equal (cdr (assq 'eca-chat-tool-call-accept-face given))
-                   (list :font heks-emacs-font-sans)))
+                   (list :font heks/font-sans)))
     (should (equal (cdr (assq 'eca-chat-file-path-face given))
-                   (list :font heks-emacs-font-mono)))
+                   (list :font heks/font-mono)))
     (should (equal (cdr (assq 'eca-chat-shell-command-face given))
-                   (list :font heks-emacs-font-mono)))))
+                   (list :font heks/font-mono)))))
 
-(ert-deftest heks-emacs-ui/no-eca-face-is-in-both-lists ()
+(ert-deftest heks/ui/no-eca-face-is-in-both-lists ()
   "A face in both lists would be given whichever family came last."
-  (should-not (cl-intersection heks-emacs-eca-sans-faces
-                               heks-emacs-eca-mono-faces))
-  (should (cl-every #'symbolp (append heks-emacs-eca-sans-faces
-                                      heks-emacs-eca-mono-faces))))
+  (should-not (cl-intersection heks/eca-sans-faces
+                               heks/eca-mono-faces))
+  (should (cl-every #'symbolp (append heks/eca-sans-faces
+                                      heks/eca-mono-faces))))
 
-(ert-deftest heks-emacs-ui/a-face-that-is-not-there-yet-is-skipped ()
+(ert-deftest heks/ui/a-face-that-is-not-there-yet-is-skipped ()
   "ECA defines its faces when it is loaded, which is after this module runs."
-  (should-not (facep 'heks-emacs-no-such-face))
-  (heks-emacs--set-face 'heks-emacs-no-such-face :font heks-emacs-font-sans)
-  (should-not (facep 'heks-emacs-no-such-face)))
+  (should-not (facep 'heks/no-such-face))
+  (heks//set-face 'heks/no-such-face :font heks/font-sans)
+  (should-not (facep 'heks/no-such-face)))
 
 ;;
 ;; ====== Which AI account this session is for ======
@@ -1937,47 +1937,47 @@ exports."
           (funcall function))
       (dolist (pair saved) (setenv (car pair) (cdr pair))))))
 
-(ert-deftest heks-emacs-ai/the-key-in-the-environment-is-the-personal-account ()
+(ert-deftest heks/ai/the-key-in-the-environment-is-the-personal-account ()
   "Exporting the DeepSeek key is what makes an Emacs the personal one."
   (heks-ert--call-with-environment
    '(("HEKS_AI_PROVIDER" . nil) ("DEEPSEEK_API_KEY" . "sk-test"))
    (lambda ()
-     (let ((heks-emacs-ai-provider 'auto))
-       (should (eq (heks-emacs-ai-provider) 'deepseek))))))
+     (let ((heks/ai-provider 'auto))
+       (should (eq (heks/ai-provider) 'deepseek))))))
 
-(ert-deftest heks-emacs-ai/copilot-is-what-is-left-without-a-key ()
+(ert-deftest heks/ai/copilot-is-what-is-left-without-a-key ()
   (heks-ert--call-with-environment
    '(("HEKS_AI_PROVIDER" . nil) ("DEEPSEEK_API_KEY" . nil))
    (lambda ()
-     (let ((heks-emacs-ai-provider 'auto)
-           (heks-emacs-ai-deepseek-key-file nil))
-       (should (eq (heks-emacs-ai-provider) 'copilot))))))
+     (let ((heks/ai-provider 'auto)
+           (heks/ai-deepseek-key-file nil))
+       (should (eq (heks/ai-provider) 'copilot))))))
 
-(ert-deftest heks-emacs-ai/the-environment-can-name-one-outright ()
+(ert-deftest heks/ai/the-environment-can-name-one-outright ()
   "A machine that must be told does not have to export a key to say so."
   (heks-ert--call-with-environment
    '(("HEKS_AI_PROVIDER" . "copilot") ("DEEPSEEK_API_KEY" . "sk-test"))
    (lambda ()
-     (let ((heks-emacs-ai-provider 'auto))
-       (should (eq (heks-emacs-ai-provider) 'copilot))))))
+     (let ((heks/ai-provider 'auto))
+       (should (eq (heks/ai-provider) 'copilot))))))
 
-(ert-deftest heks-emacs-ai/a-name-it-does-not-know-is-not-obeyed ()
+(ert-deftest heks/ai/a-name-it-does-not-know-is-not-obeyed ()
   "A typo should send a prompt nowhere, not to the wrong account."
   (heks-ert--call-with-environment
    '(("HEKS_AI_PROVIDER" . "copilot-work") ("DEEPSEEK_API_KEY" . nil))
    (lambda ()
-     (let ((heks-emacs-ai-provider 'auto)
-           (heks-emacs-ai-deepseek-key-file nil))
-       (should (eq (heks-emacs-ai-provider) 'copilot))))))
+     (let ((heks/ai-provider 'auto)
+           (heks/ai-deepseek-key-file nil))
+       (should (eq (heks/ai-provider) 'copilot))))))
 
-(ert-deftest heks-emacs-ai/the-setting-does-not-need-the-environment ()
+(ert-deftest heks/ai/the-setting-does-not-need-the-environment ()
   (heks-ert--call-with-environment
    '(("HEKS_AI_PROVIDER" . nil) ("DEEPSEEK_API_KEY" . nil))
    (lambda ()
-     (let ((heks-emacs-ai-provider 'deepseek))
-       (should (eq (heks-emacs-ai-provider) 'deepseek))))))
+     (let ((heks/ai-provider 'deepseek))
+       (should (eq (heks/ai-provider) 'deepseek))))))
 
-(ert-deftest heks-emacs-ai/the-key-file-is-read-when-the-environment-has-none ()
+(ert-deftest heks/ai/the-key-file-is-read-when-the-environment-has-none ()
   "A machine with no exported key can still keep one, and this is how it is read."
   (let ((file (make-temp-file "heks-ai-key-")))
     (unwind-protect
@@ -1986,28 +1986,28 @@ exports."
           (heks-ert--call-with-environment
            '(("DEEPSEEK_API_KEY" . nil))
            (lambda ()
-             (let ((heks-emacs-ai-deepseek-key-file file))
-               (should (equal (heks-emacs-ai-deepseek-api-key) "sk-from-file"))))))
+             (let ((heks/ai-deepseek-key-file file))
+               (should (equal (heks/ai-deepseek-api-key) "sk-from-file"))))))
       (delete-file file))))
 
-(ert-deftest heks-emacs-ai/the-key-file-is-what-makes-it-the-personal-machine ()
+(ert-deftest heks/ai/the-key-file-is-what-makes-it-the-personal-machine ()
   "The file's existence is the sign at startup; it is not decrypted there."
   (let ((file (make-temp-file "heks-ai-key-")))
     (unwind-protect
         (heks-ert--call-with-environment
          '(("HEKS_AI_PROVIDER" . nil) ("DEEPSEEK_API_KEY" . nil))
          (lambda ()
-           (let ((heks-emacs-ai-provider 'auto)
-                 (heks-emacs-ai-deepseek-key-file file))
-             (should (eq (heks-emacs-ai-provider) 'deepseek)))))
+           (let ((heks/ai-provider 'auto)
+                 (heks/ai-deepseek-key-file file))
+             (should (eq (heks/ai-provider) 'deepseek)))))
       (delete-file file))))
 
-(ert-deftest heks-emacs-ai/an-encrypted-key-file-is-decrypted-with-gpg ()
+(ert-deftest heks/ai/an-encrypted-key-file-is-decrypted-with-gpg ()
   "A `.gpg' file is GPG's to read, and only its stdout is the key."
   (let ((file (make-temp-file "heks-ai-key-" nil ".gpg"))
         (invocation nil))
     (unwind-protect
-        (let ((heks-emacs-ai-deepseek-key-file file))
+        (let ((heks/ai-deepseek-key-file file))
           (cl-letf (((symbol-function 'call-process)
                      (lambda (program _infile destination _display &rest args)
                        (setq invocation (cons program args))
@@ -2017,18 +2017,18 @@ exports."
                                               (error "GPG's output was not captured"))
                          (insert "sk-from-gpg\n"))
                        0)))
-            (should (equal (heks-emacs-ai--deepseek-key-file-key) "sk-from-gpg"))
+            (should (equal (heks/ai--deepseek-key-file-key) "sk-from-gpg"))
             (should (equal invocation
                            (list "gpg" "--batch" "--quiet" "--decrypt" file)))))
       (delete-file file))))
 
-(ert-deftest heks-emacs-ai/eca-names-the-account-its-own-way ()
+(ert-deftest heks/ai/eca-names-the-account-its-own-way ()
   "ECA's model id is qualified with the provider it logs in with."
-  (let ((heks-emacs-ai-copilot-model 'some-copilot-model)
-        (heks-emacs-ai-deepseek-model 'some-deepseek-model))
-    (should (equal (heks-emacs-ai-eca-model 'copilot)
+  (let ((heks/ai-copilot-model 'some-copilot-model)
+        (heks/ai-deepseek-model 'some-deepseek-model))
+    (should (equal (heks/ai-eca-model 'copilot)
                    "github-copilot/some-copilot-model"))
-    (should (equal (heks-emacs-ai-eca-model 'deepseek)
+    (should (equal (heks/ai-eca-model 'deepseek)
                    "deepseek/some-deepseek-model"))))
 
 (defvar gptel-backend nil
@@ -2040,15 +2040,15 @@ exports."
 (defvar eca-chat-custom-model nil
   "The variable ECA owns, declared so a test can bind it without ECA.")
 
-(ert-deftest heks-emacs-ai/switching-points-both-tools-at-the-same-account ()
+(ert-deftest heks/ai/switching-points-both-tools-at-the-same-account ()
   "Choosing a provider is one choice, not one per tool."
-  (let ((heks-emacs-ai-deepseek-model 'some-deepseek-model)
+  (let ((heks/ai-deepseek-model 'some-deepseek-model)
         (gptel-backend nil)
         (gptel-model nil)
         (eca-chat-custom-model nil))
-    (cl-letf (((symbol-function 'heks-emacs-ai-gptel-backend)
+    (cl-letf (((symbol-function 'heks/ai-gptel-backend)
                (lambda (provider) (list 'backend provider))))
-      (heks-emacs-ai-use-provider 'deepseek))
+      (heks/ai-use-provider 'deepseek))
     (should (equal gptel-backend '(backend deepseek)))
     (should (eq gptel-model 'some-deepseek-model))
     (should (equal eca-chat-custom-model "deepseek/some-deepseek-model"))))
@@ -2057,14 +2057,14 @@ exports."
 ;; ====== Preparing ECA before it is asked for ======
 ;;
 
-(ert-deftest heks-emacs-ai/a-prepared-chat-is-made-without-a-window ()
+(ert-deftest heks/ai/a-prepared-chat-is-made-without-a-window ()
   "The chat is still created; what it is not given is a window."
   (let ((displayed nil)
         (opened nil))
     (cl-letf (((symbol-function 'eca-chat--display-buffer)
                (lambda (buffer) (push buffer displayed))))
-      (let ((heks-emacs-ai--eca-quiet t))
-        (heks-emacs-ai--eca-open-without-window
+      (let ((heks/ai--eca-quiet t))
+        (heks/ai--eca-open-without-window
          (lambda (session)
            (setq opened session)
            (eca-chat--display-buffer (current-buffer)))
@@ -2072,89 +2072,89 @@ exports."
       (should (eq opened 'the-session))
       (should-not displayed))))
 
-(ert-deftest heks-emacs-ai/the-chat-the-reader-asks-for-shows-itself ()
+(ert-deftest heks/ai/the-chat-the-reader-asks-for-shows-itself ()
   "The preparation spends the quietness, so the next chat opens normally."
   (let ((displayed nil))
     (cl-letf (((symbol-function 'eca-chat--display-buffer)
                (lambda (buffer) (push buffer displayed))))
-      (let ((heks-emacs-ai--eca-quiet t))
-        (heks-emacs-ai--eca-open-without-window (lambda (_session) nil) 'the-session))
-      (heks-emacs-ai--eca-open-without-window
+      (let ((heks/ai--eca-quiet t))
+        (heks/ai--eca-open-without-window (lambda (_session) nil) 'the-session))
+      (heks/ai--eca-open-without-window
        (lambda (_session) (eca-chat--display-buffer (current-buffer)))
        'the-session)
       (should displayed))))
 
-(ert-deftest heks-emacs-ai/a-chat-that-is-asked-for-is-not-quiet ()
+(ert-deftest heks/ai/a-chat-that-is-asked-for-is-not-quiet ()
   "The quietness is for the start, and asking is what ends it."
-  (let ((heks-emacs-ai--eca-quiet t)
-        (heks-emacs-ai--eca-quiet-timer nil))
-    (heks-emacs-ai--eca-quiet-off)
-    (should-not heks-emacs-ai--eca-quiet)))
+  (let ((heks/ai--eca-quiet t)
+        (heks/ai--eca-quiet-timer nil))
+    (heks/ai--eca-quiet-off)
+    (should-not heks/ai--eca-quiet)))
 
-(ert-deftest heks-emacs-ai/giving-up-cancels-the-timer ()
+(ert-deftest heks/ai/giving-up-cancels-the-timer ()
   "A timer that would clear the flag twice is one timer too many."
   (let ((timer (run-with-timer 60 nil #'ignore))
-        (heks-emacs-ai--eca-quiet t))
-    (let ((heks-emacs-ai--eca-quiet-timer timer))
-      (heks-emacs-ai--eca-quiet-off)
+        (heks/ai--eca-quiet t))
+    (let ((heks/ai--eca-quiet-timer timer))
+      (heks/ai--eca-quiet-off)
       (should-not (memq timer timer-list))
-      (should-not heks-emacs-ai--eca-quiet-timer))))
+      (should-not heks/ai--eca-quiet-timer))))
 
-(ert-deftest heks-emacs-ai/nothing-is-said-while-preparing ()
+(ert-deftest heks/ai/nothing-is-said-while-preparing ()
   "A start nobody asked for is not a message in the echo area."
   (let ((said nil)
-        (heks-emacs-ai--eca-quiet t))
-    (heks-emacs-ai--eca-say-nothing (lambda (&rest args) (setq said args)) "ECA")
+        (heks/ai--eca-quiet t))
+    (heks/ai--eca-say-nothing (lambda (&rest args) (setq said args)) "ECA")
     (should-not said))
   (let ((said nil))
-    (heks-emacs-ai--eca-say-nothing (lambda (&rest args) (setq said args)) "ECA")
+    (heks/ai--eca-say-nothing (lambda (&rest args) (setq said args)) "ECA")
     (should (equal said '("ECA")))))
 
-(ert-deftest heks-emacs-ai/there-is-nothing-to-prepare-outside-a-project ()
+(ert-deftest heks/ai/there-is-nothing-to-prepare-outside-a-project ()
   "A session rooted where there is no project would claim every project under it."
   (let ((starts 0)
-        (heks-emacs-ai-eca-prepare t)
-        (heks-emacs-ai--eca-prepared nil))
-    (cl-letf (((symbol-function 'heks-emacs-ai--project-root)
+        (heks/ai-eca-prepare t)
+        (heks/ai--eca-prepared nil))
+    (cl-letf (((symbol-function 'heks/ai--project-root)
                (lambda (&optional _directory) nil))
-              ((symbol-function 'heks-emacs-ai--eca-start-for-project)
+              ((symbol-function 'heks/ai--eca-start-for-project)
                (lambda (_root) (cl-incf starts))))
-      (heks-emacs-ai-eca-prepare))
+      (heks/ai-eca-prepare))
     (should (= starts 0))
     ;; Nothing was prepared, so the file that does name a project can be.
-    (should-not heks-emacs-ai--eca-prepared)))
+    (should-not heks/ai--eca-prepared)))
 
-(ert-deftest heks-emacs-ai/eca-is-prepared-once ()
+(ert-deftest heks/ai/eca-is-prepared-once ()
   "One server is prepared at startup, not one per buffer that follows."
   (let ((roots nil)
-        (heks-emacs-ai-eca-prepare t)
-        (heks-emacs-ai--eca-prepared nil))
-    (cl-letf (((symbol-function 'heks-emacs-ai--project-root)
+        (heks/ai-eca-prepare t)
+        (heks/ai--eca-prepared nil))
+    (cl-letf (((symbol-function 'heks/ai--project-root)
                (lambda (&optional _directory) "/tmp/heks-project/"))
-              ((symbol-function 'heks-emacs-ai--eca-start-for-project)
+              ((symbol-function 'heks/ai--eca-start-for-project)
                (lambda (root) (push root roots))))
-      (heks-emacs-ai-eca-prepare)
-      (heks-emacs-ai-eca-prepare))
+      (heks/ai-eca-prepare)
+      (heks/ai-eca-prepare))
     (should (equal roots '("/tmp/heks-project/")))
-    (should heks-emacs-ai--eca-prepared)))
+    (should heks/ai--eca-prepared)))
 
-(ert-deftest heks-emacs-ai/a-start-that-is-not-asked-for-is-not-started ()
+(ert-deftest heks/ai/a-start-that-is-not-asked-for-is-not-started ()
   "The setting is what decides, not a hook that was left in place."
   (let ((starts 0)
-        (heks-emacs-ai-eca-prepare nil)
-        (heks-emacs-ai--eca-prepared nil))
-    (cl-letf (((symbol-function 'heks-emacs-ai--project-root)
+        (heks/ai-eca-prepare nil)
+        (heks/ai--eca-prepared nil))
+    (cl-letf (((symbol-function 'heks/ai--project-root)
                (lambda (&optional _directory) "/tmp/heks-project/"))
-              ((symbol-function 'heks-emacs-ai--eca-start-for-project)
+              ((symbol-function 'heks/ai--eca-start-for-project)
                (lambda (_root) (cl-incf starts))))
-      (heks-emacs-ai-eca-prepare))
+      (heks/ai-eca-prepare))
     (should (= starts 0))))
 
-(ert-deftest heks-emacs-ai/a-start-that-fails-is-reported-and-is-not-quiet ()
+(ert-deftest heks/ai/a-start-that-fails-is-reported-and-is-not-quiet ()
   "A failure is said once, and the chat the reader asks for is theirs."
   (let ((messages nil)
         (real-require (symbol-function 'require))
-        (heks-emacs-ai--eca-quiet nil))
+        (heks/ai--eca-quiet nil))
     (cl-letf (((symbol-function 'require)
                (lambda (feature &optional filename noerror)
                  (if (eq feature 'eca) t
@@ -2164,15 +2164,15 @@ exports."
               ((symbol-function 'run-with-timer) (lambda (&rest _) nil))
               ((symbol-function 'message)
                (lambda (format &rest args) (push (apply #'format format args) messages))))
-      (heks-emacs-ai--eca-start-for-project "/tmp/heks-project/"))
-    (should-not heks-emacs-ai--eca-quiet)
+      (heks/ai--eca-start-for-project "/tmp/heks-project/"))
+    (should-not heks/ai--eca-quiet)
     (should (seq-some (lambda (one) (string-match-p "no network" one)) messages))))
 
-(ert-deftest heks-emacs-ai/a-session-that-is-already-there-is-not-started-again ()
+(ert-deftest heks/ai/a-session-that-is-already-there-is-not-started-again ()
   "Preparing what is prepared would open a second server."
   (let ((started 0)
         (real-require (symbol-function 'require))
-        (heks-emacs-ai--eca-quiet nil))
+        (heks/ai--eca-quiet nil))
     (cl-letf (((symbol-function 'require)
                (lambda (feature &optional filename noerror)
                  (if (eq feature 'eca) t
@@ -2180,55 +2180,55 @@ exports."
               ((symbol-function 'eca-session-for-root) (lambda (_root) 'a-session))
               ((symbol-function 'eca) (lambda (&optional _arg) (cl-incf started)))
               ((symbol-function 'run-with-timer) (lambda (&rest _) nil)))
-      (heks-emacs-ai--eca-start-for-project "/tmp/heks-project/"))
+      (heks/ai--eca-start-for-project "/tmp/heks-project/"))
     (should (= started 0))))
 
-(ert-deftest heks-emacs-ai/the-watch-for-a-project-removes-itself ()
+(ert-deftest heks/ai/the-watch-for-a-project-removes-itself ()
   "Watching for a project stops once there is one to prepare.
 The project is handed to the timer: by the time the timer runs, the
 buffer that said which project it is is not the current one any more."
   (let ((timers nil)
-        (heks-emacs-ai-eca-prepare t)
-        (heks-emacs-ai-eca-prepare-delay 1))
-    (cl-letf (((symbol-function 'heks-emacs-ai--project-root)
+        (heks/ai-eca-prepare t)
+        (heks/ai-eca-prepare-delay 1))
+    (cl-letf (((symbol-function 'heks/ai--project-root)
                (lambda (&optional _directory) "/tmp/heks-project/"))
               ((symbol-function 'run-with-idle-timer)
                (lambda (seconds _repeat function &rest args)
                  (push (cons seconds (cons function args)) timers))))
-      (add-hook 'find-file-hook #'heks-emacs-ai--eca-prepare-when-visiting)
-      (heks-emacs-ai--eca-prepare-when-visiting))
-    (should-not (memq 'heks-emacs-ai--eca-prepare-when-visiting find-file-hook))
-    (should (equal timers '((1 heks-emacs-ai-eca-prepare "/tmp/heks-project/"))))))
+      (add-hook 'find-file-hook #'heks/ai--eca-prepare-when-visiting)
+      (heks/ai--eca-prepare-when-visiting))
+    (should-not (memq 'heks/ai--eca-prepare-when-visiting find-file-hook))
+    (should (equal timers '((1 heks/ai-eca-prepare "/tmp/heks-project/"))))))
 
-(ert-deftest heks-emacs-ai/the-daemon-waits-for-the-first-project-file ()
+(ert-deftest heks/ai/the-daemon-waits-for-the-first-project-file ()
   "There is no project at startup, so the first one visited is the one prepared."
-  (let ((heks-emacs-ai-eca-prepare t))
-    (cl-letf (((symbol-function 'heks-emacs-ai--project-root)
+  (let ((heks/ai-eca-prepare t))
+    (cl-letf (((symbol-function 'heks/ai--project-root)
                (lambda (&optional _directory) nil)))
       (unwind-protect
           (progn
-            (heks-emacs-ai--eca-prepare-soon)
-            (should (memq 'heks-emacs-ai--eca-prepare-when-visiting find-file-hook)))
-        (remove-hook 'find-file-hook #'heks-emacs-ai--eca-prepare-when-visiting)))))
+            (heks/ai--eca-prepare-soon)
+            (should (memq 'heks/ai--eca-prepare-when-visiting find-file-hook)))
+        (remove-hook 'find-file-hook #'heks/ai--eca-prepare-when-visiting)))))
 
-(ert-deftest heks-emacs-ai/starting-inside-a-project-needs-no-file-visited ()
+(ert-deftest heks/ai/starting-inside-a-project-needs-no-file-visited ()
   "`emacs .' knows its project before anything is opened."
   (let ((timers nil)
-        (heks-emacs-ai-eca-prepare t))
-    (cl-letf (((symbol-function 'heks-emacs-ai--project-root)
+        (heks/ai-eca-prepare t))
+    (cl-letf (((symbol-function 'heks/ai--project-root)
                (lambda (&optional _directory) "/tmp/heks-project/"))
               ((symbol-function 'run-with-idle-timer)
                (lambda (seconds _repeat function &rest args)
                  (push (cons seconds (cons function args)) timers))))
-      (heks-emacs-ai--eca-prepare-soon))
-    (should (equal timers '((1 heks-emacs-ai-eca-prepare "/tmp/heks-project/"))))
-    (should-not (memq 'heks-emacs-ai--eca-prepare-when-visiting find-file-hook))))
+      (heks/ai--eca-prepare-soon))
+    (should (equal timers '((1 heks/ai-eca-prepare "/tmp/heks-project/"))))
+    (should-not (memq 'heks/ai--eca-prepare-when-visiting find-file-hook))))
 
 ;;
 ;; ====== The fold indicators are quiet ======
 ;;
 
-(ert-deftest heks-emacs-dev-folding/an-indicator-is-faded-toward-the-background ()
+(ert-deftest heks/dev-folding/an-indicator-is-faded-toward-the-background ()
   "The marker colour is `shadow' moved part of the way to the background."
   (cl-letf (((symbol-function 'face-attribute)
              (lambda (face attribute &optional _frame _inherit)
@@ -2236,23 +2236,23 @@ buffer that said which project it is is not the current one any more."
                  ('(shadow . :foreground) "#989898")
                  ('(default . :background) "#000000")
                  (_ (error "The colour of %S %S was asked for" face attribute))))))
-    (let ((heks-emacs-fold-indicator-fade 50))
-      (should (equal (heks-emacs-fold-indicator-color) "#4c4c4c4c4c4c")))))
+    (let ((heks/fold-indicator-fade 50))
+      (should (equal (heks/fold-indicator-color) "#4c4c4c4c4c4c")))))
 
-(ert-deftest heks-emacs-dev-folding/no-fade-leaves-the-markers-alone ()
-  (let ((heks-emacs-fold-indicator-fade 0))
-    (should-not (heks-emacs-fold-indicator-color))))
+(ert-deftest heks/dev-folding/no-fade-leaves-the-markers-alone ()
+  (let ((heks/fold-indicator-fade 0))
+    (should-not (heks/fold-indicator-color))))
 
-(ert-deftest heks-emacs-dev-folding/every-engine-gets-the-quiet-colour ()
+(ert-deftest heks/dev-folding/every-engine-gets-the-quiet-colour ()
   "Hideshow and Tree-sitter draw the same element and get the same face."
   (let ((given nil))
-    (cl-letf (((symbol-function 'heks-emacs-fold-indicator-color)
+    (cl-letf (((symbol-function 'heks/fold-indicator-color)
                (lambda () "#4c4c4c4c4c4c"))
               ((symbol-function 'facep) (lambda (_face) t))
               ((symbol-function 'set-face-attribute)
                (lambda (face _frame &rest attributes)
                  (push (cons face attributes) given))))
-      (heks-emacs-fold-indicator-faces))
+      (heks/fold-indicator-faces))
     (should (= (length given) 5))
     (should (cl-every (lambda (one)
                         (equal (plist-get (cdr one) :foreground) "#4c4c4c4c4c4c"))
@@ -2264,82 +2264,82 @@ buffer that said which project it is is not the current one any more."
 ;; ====== The guides of a fold are unbroken ======
 ;;
 
-(ert-deftest heks-emacs-dev-folding/the-guide-is-given-back-five-points ()
+(ert-deftest heks/dev-folding/the-guide-is-given-back-five-points ()
   "The indicators are five points less faded now that the guide is solid."
-  (should (= heks-emacs-fold-indicator-fade 50)))
+  (should (= heks/fold-indicator-fade 50)))
 
-(ert-deftest heks-emacs-dev-folding/a-line-is-as-tall-as-its-font-and-spacing ()
+(ert-deftest heks/dev-folding/a-line-is-as-tall-as-its-font-and-spacing ()
   "A line here is the font's 23 pixels and the six `line-spacing' adds."
   (with-temp-buffer
     (setq-local line-spacing 6)
     (cl-letf (((symbol-function 'window-font-height)
                (lambda (&optional _window) 23)))
-      (should (= (heks-emacs-fold-indicator-line-height) 29)))))
+      (should (= (heks/fold-indicator-line-height) 29)))))
 
-(ert-deftest heks-emacs-dev-folding/the-marker-of-an-open-block-ends-in-its-guide ()
+(ert-deftest heks/dev-folding/the-marker-of-an-open-block-ends-in-its-guide ()
   "The guide of an open block runs from its marker to the line below it."
-  (let ((rows (heks-emacs-fold-indicator-fringe-rows 'open 29)))
+  (let ((rows (heks/fold-indicator-fringe-rows 'open 29)))
     (should (= (length rows) 29))
     ;; Nothing above the box: this is the line the block starts on.
     (should (equal (seq-take rows 11) (make-vector 11 0)))
     ;; The box is centred in the line...
     (should (equal (append (seq-subseq rows 11 18) nil)
-                   (append heks-emacs-fold-indicator-box-open nil)))
+                   (append heks/fold-indicator-box-open nil)))
     ;; ...and the guide runs from it to the last row, where the guide of
     ;; the next line picks it up.
     (should (equal (seq-drop rows 18)
-                   (make-vector 11 heks-emacs-fold-indicator-line-row)))))
+                   (make-vector 11 heks/fold-indicator-line-row)))))
 
-(ert-deftest heks-emacs-dev-folding/a-folded-block-shows-only-its-marker ()
+(ert-deftest heks/dev-folding/a-folded-block-shows-only-its-marker ()
   "A folded block has no guide to draw, so its line is just the marker."
-  (let ((rows (heks-emacs-fold-indicator-fringe-rows 'closed 29)))
+  (let ((rows (heks/fold-indicator-fringe-rows 'closed 29)))
     (should (equal (append (seq-subseq rows 11 18) nil)
-                   (append heks-emacs-fold-indicator-box-closed nil)))
+                   (append heks/fold-indicator-box-closed nil)))
     (should (equal (seq-subseq rows 0 11) (make-vector 11 0)))
     (should (equal (seq-subseq rows 18 29) (make-vector 11 0)))))
 
-(ert-deftest heks-emacs-dev-folding/the-guide-of-a-block-ends-where-the-block-does ()
+(ert-deftest heks/dev-folding/the-guide-of-a-block-ends-where-the-block-does ()
   "The last line of a block turns the guide toward the text and stops."
-  (let ((rows (heks-emacs-fold-indicator-fringe-rows 'end 29)))
-    (should (= (aref rows 0) heks-emacs-fold-indicator-line-row))
-    (should (= (aref rows 13) heks-emacs-fold-indicator-line-row))
-    (should (= (aref rows 14) heks-emacs-fold-indicator-elbow))
-    (should (= (aref rows 15) heks-emacs-fold-indicator-elbow))
+  (let ((rows (heks/fold-indicator-fringe-rows 'end 29)))
+    (should (= (aref rows 0) heks/fold-indicator-line-row))
+    (should (= (aref rows 13) heks/fold-indicator-line-row))
+    (should (= (aref rows 14) heks/fold-indicator-elbow))
+    (should (= (aref rows 15) heks/fold-indicator-elbow))
     (should (seq-every-p #'zerop (seq-drop rows 16)))))
 
-(ert-deftest heks-emacs-dev-folding/a-marker-is-cut-to-the-height-of-a-line ()
+(ert-deftest heks/dev-folding/a-marker-is-cut-to-the-height-of-a-line ()
   "A marker is a bitmap of the height of a line, made once per height."
   (with-temp-buffer
     (setq-local line-spacing 6)
     (cl-letf (((symbol-function 'window-font-height)
                (lambda (&optional _window) 23)))
-      (should (eq (heks-emacs-fold-indicator-fringe-bitmap 'open)
-                  'heks-emacs-fold-indicator-open-29))
-      (should (eq (heks-emacs-fold-indicator-fringe-bitmap 'open)
-                  'heks-emacs-fold-indicator-open-29)))))
+      (should (eq (heks/fold-indicator-fringe-bitmap 'open)
+                  'heks/fold-indicator-open-29))
+      (should (eq (heks/fold-indicator-fringe-bitmap 'open)
+                  'heks/fold-indicator-open-29)))))
 
-(ert-deftest heks-emacs-dev-folding/the-guide-is-one-row-repeated ()
+(ert-deftest heks/dev-folding/the-guide-is-one-row-repeated ()
   "A guide is a single row, which `define-fringe-bitmap' repeats, so no
 line height can leave a gap in it."
-  (should (eq (heks-emacs-fold-indicator-fringe-bitmap 'guide)
-              'heks-emacs-fold-indicator-guide))
-  (should (integerp (get 'heks-emacs-fold-indicator-guide 'fringe))))
+  (should (eq (heks/fold-indicator-fringe-bitmap 'guide)
+              'heks/fold-indicator-guide))
+  (should (integerp (get 'heks/fold-indicator-guide 'fringe))))
 
-(ert-deftest heks-emacs-dev-folding/every-line-of-a-block-is-drawn-by-its-own-bitmap ()
+(ert-deftest heks/dev-folding/every-line-of-a-block-is-drawn-by-its-own-bitmap ()
   "The head of a block, its middle and its end are drawn differently."
   (with-temp-buffer
     (insert "x")
     (let ((overlay (make-overlay 1 2))
           (drawn nil))
-      (cl-letf (((symbol-function 'heks-emacs-fold-indicator-fringe-bitmap)
+      (cl-letf (((symbol-function 'heks/fold-indicator-fringe-bitmap)
                  (lambda (kind &optional _window) (push kind drawn) kind))
-                ((symbol-function 'heks-emacs-fold-indicator-fringe)
+                ((symbol-function 'heks/fold-indicator-fringe)
                  (lambda () 'left-fringe)))
         (dolist (case '((treesit-fold-indicators-fr-plus . closed)
                         (treesit-fold-indicators-fr-minus-tail . open)
                         (treesit-fold-indicators-fr-center . guide)
                         (treesit-fold-indicators-fr-end-left . end)))
-          (let* ((string (heks-emacs-fold-indicator-tree-sitter
+          (let* ((string (heks/fold-indicator-tree-sitter
                           nil overlay (car case)))
                  (display (get-text-property 0 'display string)))
             (should (eq (car drawn) (cdr case)))
@@ -2347,119 +2347,119 @@ line height can leave a gap in it."
             (should (eq (nth 1 display) (cdr case)))
             (should (eq (nth 2 display) 'treesit-fold-fringe-face))))
         ;; A folded block shows the line it starts on and nothing else.
-        (should-not (heks-emacs-fold-indicator-tree-sitter
+        (should-not (heks/fold-indicator-tree-sitter
                      t overlay 'treesit-fold-indicators-fr-center))
-        (should (heks-emacs-fold-indicator-tree-sitter
+        (should (heks/fold-indicator-tree-sitter
                  t overlay 'treesit-fold-indicators-fr-plus))
         ;; A drawing that is not the package's own is left alone.
-        (should-not (heks-emacs-fold-indicator-tree-sitter
+        (should-not (heks/fold-indicator-tree-sitter
                      nil overlay 'some-other-drawing))))))
 
 ;;
 ;; ====== The things a document has, and a preview needs ======
 ;;
 
-(ert-deftest heks-emacs-render/a-reference-link-is-the-link-it-names ()
-  (let ((html (heks-emacs-markdown-to-html
+(ert-deftest heks/render/a-reference-link-is-the-link-it-names ()
+  (let ((html (heks/markdown-to-html
                "A [link][docs] and another [one][].\n\n[docs]: https://example.com/d \"Docs\"\n[one]: https://example.com/one\n")))
     (should (string-match-p "<a href=\"https://example.com/d\">link</a>" html))
     (should (string-match-p "<a href=\"https://example.com/one\">one</a>" html))
     ;; The definition is not a paragraph of its own.
     (should-not (string-match-p "<p>\\[docs\\]" html))))
 
-(ert-deftest heks-emacs-render/a-label-this-document-does-not-define-is-left-alone ()
-  (let ((html (heks-emacs-markdown-to-html "A [link][nowhere].\n")))
+(ert-deftest heks/render/a-label-this-document-does-not-define-is-left-alone ()
+  (let ((html (heks/markdown-to-html "A [link][nowhere].\n")))
     (should (string-match-p "\\[link\\]\\[nowhere\\]" html))))
 
-(ert-deftest heks-emacs-render/a-footnote-is-answered-at-the-end ()
-  (let ((html (heks-emacs-markdown-to-html
+(ert-deftest heks/render/a-footnote-is-answered-at-the-end ()
+  (let ((html (heks/markdown-to-html
                "Text[^a] and more[^b].\n\n[^a]: The first note.\n[^b]: The second note.\n")))
     (should (string-match-p "<sup class=\"footnote-ref\"><a id=\"fnref-1\" href=\"#fn-1\">1</a></sup>" html))
     (should (string-match-p "<sup class=\"footnote-ref\"><a id=\"fnref-2\" href=\"#fn-2\">2</a></sup>" html))
     (should (string-match-p "<li id=\"fn-1\">The first note\\." html))
     (should (string-match-p "<li id=\"fn-2\">The second note\\." html))))
 
-(ert-deftest heks-emacs-render/footnotes-are-numbered-in-the-order-they-are-read ()
+(ert-deftest heks/render/footnotes-are-numbered-in-the-order-they-are-read ()
   "The order of the notes is the order of the reading, not of the file."
-  (let ((html (heks-emacs-markdown-to-html
+  (let ((html (heks/markdown-to-html
                "Text[^second] and more[^first].\n\n[^first]: Written first.\n[^second]: Read first.\n")))
     (should (string-match-p "<li id=\"fn-1\">Read first\\." html))
     (should (string-match-p "<li id=\"fn-2\">Written first\\." html))))
 
-(ert-deftest heks-emacs-render/a-callout-is-a-quote-that-says-what-it-is ()
-  (let ((html (heks-emacs-markdown-to-html
+(ert-deftest heks/render/a-callout-is-a-quote-that-says-what-it-is ()
+  (let ((html (heks/markdown-to-html
                "> [!WARNING]\n> Mind the gap.\n")))
     (should (string-match-p "<div class=\"callout callout-warning\">" html))
     (should (string-match-p "class=\"callout-title\">Warning" html))
     (should (string-match-p "<p>Mind the gap\\.</p>" html)))
   ;; A quote that says nothing about itself is still a quote.
-  (let ((html (heks-emacs-markdown-to-html "> Just a quote.\n")))
+  (let ((html (heks/markdown-to-html "> Just a quote.\n")))
     (should (string-match-p "<blockquote>" html))
     (should-not (string-match-p "callout" html))))
 
-(ert-deftest heks-emacs-render/a-formula-is-readable-without-a-network ()
-  (should (equal (heks-emacs-render-math-text "E = mc^2") "E = mc²"))
-  (should (equal (heks-emacs-render-math-text "\\alpha \\leq \\beta") "α ≤ β"))
-  (should (equal (heks-emacs-render-math-text "x_0 + y_{12}") "x₀ + y₁₂"))
-  (should (equal (heks-emacs-render-math-text "\\frac{a}{b}") "a/b"))
-  (let ((html (heks-emacs-markdown-to-html "So $E = mc^2$ holds, and $$x_1$$ too.")))
+(ert-deftest heks/render/a-formula-is-readable-without-a-network ()
+  (should (equal (heks/render-math-text "E = mc^2") "E = mc²"))
+  (should (equal (heks/render-math-text "\\alpha \\leq \\beta") "α ≤ β"))
+  (should (equal (heks/render-math-text "x_0 + y_{12}") "x₀ + y₁₂"))
+  (should (equal (heks/render-math-text "\\frac{a}{b}") "a/b"))
+  (let ((html (heks/markdown-to-html "So $E = mc^2$ holds, and $$x_1$$ too.")))
     (should (string-match-p "<span class=\"math\">E = mc²</span>" html))
     (should (string-match-p "class=\"math math-display\">x₁</span>" html))))
 
-(ert-deftest heks-emacs-render/an-emoji-is-written-as-its-shortcode ()
-  (let ((html (heks-emacs-markdown-to-html "Ship it :rocket: and :no_such_emoji: too.")))
+(ert-deftest heks/render/an-emoji-is-written-as-its-shortcode ()
+  (let ((html (heks/markdown-to-html "Ship it :rocket: and :no_such_emoji: too.")))
     (should (string-match-p "Ship it 🚀" html))
     ;; A name this does not know is left as it was written.
     (should (string-match-p ":no_such_emoji:" html))))
 
-(ert-deftest heks-emacs-render/escaped-markup-is-text-and-not-markup ()
-  (let ((html (heks-emacs-markdown-to-html "An \\*asterisk\\* and a \\_underscore\\_.")))
+(ert-deftest heks/render/escaped-markup-is-text-and-not-markup ()
+  (let ((html (heks/markdown-to-html "An \\*asterisk\\* and a \\_underscore\\_.")))
     (should (string-match-p "An \\*asterisk\\*" html))
     (should-not (string-match-p "<em>" html))))
 
-(ert-deftest heks-emacs-render/a-highlighted-phrase-is-marked ()
+(ert-deftest heks/render/a-highlighted-phrase-is-marked ()
   (should (string-match-p "<mark>this</mark>"
-                          (heks-emacs-markdown-to-html "A ==this== phrase."))))
+                          (heks/markdown-to-html "A ==this== phrase."))))
 
-(ert-deftest heks-emacs-render/a-fence-says-what-language-it-is ()
+(ert-deftest heks/render/a-fence-says-what-language-it-is ()
   "A code block is labelled the way a documentation site labels one."
-  (let ((html (heks-emacs-markdown-to-html "```elisp\n(setq x 1)\n```\n")))
+  (let ((html (heks/markdown-to-html "```elisp\n(setq x 1)\n```\n")))
     (should (string-match-p "<figure class=\"code-block\">" html))
     (should (string-match-p "<figcaption class=\"code-language\">elisp</figcaption>" html))
     (should (string-match-p "class=\"language-elisp\"" html)))
   ;; A fence with no language has no label to give.
-  (let ((html (heks-emacs-markdown-to-html "```\nplain\n```\n")))
+  (let ((html (heks/markdown-to-html "```\nplain\n```\n")))
     (should-not (string-match-p "figcaption" html))))
 
-(ert-deftest heks-emacs-render/the-section-point-is-in-is-the-one-a-preview-follows ()
+(ert-deftest heks/render/the-section-point-is-in-is-the-one-a-preview-follows ()
   (with-temp-buffer
     (insert "# One\n\ntext\n\n## Two\n\nmore text\n")
     (setq buffer-file-name (expand-file-name "heks-ert-sync.md" temporary-file-directory))
     ;; The file name is what makes the buffer Markdown here, so the test
     ;; does not need the mode that a real visit would give it.
     (goto-char (point-max))
-    (should (equal (heks-emacs-preview--section-heading) "Two"))
+    (should (equal (heks/preview--section-heading) "Two"))
     (goto-char (point-min))
     (forward-line 2)
-    (should (equal (heks-emacs-preview--section-heading) "One")))
+    (should (equal (heks/preview--section-heading) "One")))
   ;; An Org note says it with asterisks, and says the same thing.
   (with-temp-buffer
     (insert "* One\n\ntext\n\n** Two\n\nmore\n")
     (org-mode)
     (goto-char (point-max))
-    (should (equal (heks-emacs-preview--section-heading) "Two"))))
+    (should (equal (heks/preview--section-heading) "Two"))))
 
-(ert-deftest heks-emacs-render/a-buffer-with-no-heading-has-no-section-to-follow ()
+(ert-deftest heks/render/a-buffer-with-no-heading-has-no-section-to-follow ()
   (with-temp-buffer
     (insert "just a paragraph\n")
     (setq buffer-file-name (expand-file-name "heks-ert-sync.md" temporary-file-directory))
     (goto-char (point-max))
-    (should-not (heks-emacs-preview--section-heading))))
+    (should-not (heks/preview--section-heading))))
 
 ;;
 ;; ====== The rules a Scheme buffer is held to ======
 ;;
-;; `heks-emacs-scheme-lint-problems' is the whole checker as a function of
+;; `heks/scheme-lint-problems' is the whole checker as a function of
 ;; a string, which is what makes these tests what they are: a form in, and
 ;; the findings out.  Two kinds of test matter here, and the second more
 ;; than the first: that a habit is reported, and that the code around it --
@@ -2470,46 +2470,46 @@ line height can leave a gap in it."
   "Return the findings of the Scheme in TEXT, as (SEVERITY . MESSAGE) pairs."
   (mapcar (lambda (finding)
             (cons (plist-get finding :severity) (plist-get finding :message)))
-          (heks-emacs-scheme-lint-problems text)))
+          (heks/scheme-lint-problems text)))
 
-(ert-deftest heks-emacs-scheme-lint/a-clean-form-is-left-alone ()
+(ert-deftest heks/scheme-lint/a-clean-form-is-left-alone ()
   (should-not (heks-ert--scheme-lint
                "(define (twice f x) (f (f x)))\n\n(let* ((a 1) (b 2)) (+ a b))\n"))
   (should-not (heks-ert--scheme-lint
                "(cond ((null? xs) '()) (else (car xs)))")))
 
-(ert-deftest heks-emacs-scheme-lint/a-name-bound-twice-is-an-error ()
+(ert-deftest heks/scheme-lint/a-name-bound-twice-is-an-error ()
   (let ((found (heks-ert--scheme-lint "(let ((x 1) (x 2)) x)")))
     (should (equal (length found) 1))
     (should (eq (caar found) :error))
     (should (string-match-p "bound twice" (cdar found)))))
 
-(ert-deftest heks-emacs-scheme-lint/a-procedure-that-binds-a-name-twice-is-an-error ()
+(ert-deftest heks/scheme-lint/a-procedure-that-binds-a-name-twice-is-an-error ()
   (should (eq (caar (heks-ert--scheme-lint "(lambda (x x) x)")) :error))
   (should (eq (caar (heks-ert--scheme-lint "(define (f a a) a)")) :error)))
 
-(ert-deftest heks-emacs-scheme-lint/a-clause-after-else-can-never-run ()
+(ert-deftest heks/scheme-lint/a-clause-after-else-can-never-run ()
   (should (eq (caar (heks-ert--scheme-lint "(cond (a 1) (else 2) (b 3))")) :error)))
 
-(ert-deftest heks-emacs-scheme-lint/eq-on-a-string-is-not-a-string-comparison ()
+(ert-deftest heks/scheme-lint/eq-on-a-string-is-not-a-string-comparison ()
   (let ((found (heks-ert--scheme-lint "(eq? \"a\" \"b\")")))
     (should (eq (caar found) :warning))
     (should (string-match-p "string=?" (cdar found))))
   ;; The same question asked the right way says nothing.
   (should-not (heks-ert--scheme-lint "(string=? a b)")))
 
-(ert-deftest heks-emacs-scheme-lint/quoted-data-is-data ()
+(ert-deftest heks/scheme-lint/quoted-data-is-data ()
   "A `nil' a program reads is not a `nil' a program wrote."
   (should-not (heks-ert--scheme-lint "(assq 'nil alist)"))
   (should (heks-ert--scheme-lint "(car (list nil))")))
 
-(ert-deftest heks-emacs-scheme-lint/a-finding-sits-on-the-form-that-has-the-habit ()
+(ert-deftest heks/scheme-lint/a-finding-sits-on-the-form-that-has-the-habit ()
   (let* ((text "(define (f) (if c #t #f))")
-         (finding (car (heks-emacs-scheme-lint-problems text))))
+         (finding (car (heks/scheme-lint-problems text))))
     (should (equal (substring text (plist-get finding :start) (plist-get finding :end))
                    "(if c #t #f)"))))
 
-(ert-deftest heks-emacs-scheme-lint/what-is-not-code-does-not-move-the-reader ()
+(ert-deftest heks/scheme-lint/what-is-not-code-does-not-move-the-reader ()
   "Comments, a shebang line and a datum comment are read past, not read."
   (should-not (heks-ert--scheme-lint "#| (let ((x 1) (x 2))) |#\n"))
   (should-not (heks-ert--scheme-lint "#!/usr/bin/guile -s\n(define (f) 1)\n"))
@@ -2519,11 +2519,11 @@ line height can leave a gap in it."
   ;; And the form after a string holding a comment opener is still read.
   (should (heks-ert--scheme-lint "(define (f) \"#|\" (let ((x 1) (x 2)) x))")))
 
-(ert-deftest heks-emacs-scheme-lint/a-file-that-stops-in-the-middle-still-checks-what-it-has ()
+(ert-deftest heks/scheme-lint/a-file-that-stops-in-the-middle-still-checks-what-it-has ()
   (let ((found (heks-ert--scheme-lint "(let ((x 1) (x 2)) x)\n(define (f) 1")))
     (should (= 1 (length found)))))
 
-(ert-deftest heks-emacs-scheme-lint/a-guix-package-says-what-it-turns-off ()
+(ert-deftest heks/scheme-lint/a-guix-package-says-what-it-turns-off ()
   (let ((found (heks-ert--scheme-lint
                 "(package (name foo) (arguments '(#:tests? #f)))")))
     (should (= 1 (length found)))
@@ -2532,7 +2532,7 @@ line height can leave a gap in it."
   (should-not (heks-ert--scheme-lint
                "(package (name foo) (arguments (list #:tests? #t)))")))
 
-(ert-deftest heks-emacs-scheme-lint/a-guix-package-with-old-style-inputs-is-one-finding ()
+(ert-deftest heks/scheme-lint/a-guix-package-with-old-style-inputs-is-one-finding ()
   (let ((found (heks-ert--scheme-lint
                 "(package (name foo) (inputs `((\"a\" ,a) (\"b\" ,b))))")))
     (should (= 1 (length found)))
@@ -2541,17 +2541,17 @@ line height can leave a gap in it."
   (should-not (heks-ert--scheme-lint
                "(package (name foo) (inputs (list a b)))")))
 
-(ert-deftest heks-emacs-scheme-lint/every-rule-is-a-function-and-there-are-many ()
-  (should (> (length heks-emacs-scheme-lint-rules) 15))
-  (dolist (rule heks-emacs-scheme-lint-rules)
+(ert-deftest heks/scheme-lint/every-rule-is-a-function-and-there-are-many ()
+  (should (> (length heks/scheme-lint-rules) 15))
+  (dolist (rule heks/scheme-lint-rules)
     (should (functionp rule))))
 
-(ert-deftest heks-emacs-scheme-lint/a-buffer-gets-diagnostics-on-the-lines-they-belong-to ()
+(ert-deftest heks/scheme-lint/a-buffer-gets-diagnostics-on-the-lines-they-belong-to ()
   (with-temp-buffer
     (setq buffer-file-name (expand-file-name "heks-ert-lint.scm" temporary-file-directory))
     (insert ";; a comment\n\n(let ((x 1) (x 2)) x)\n")
     (scheme-mode)
-    (let ((diagnostics (heks-emacs-scheme-lint-diagnostics)))
+    (let ((diagnostics (heks/scheme-lint-diagnostics)))
       (should (= 1 (length diagnostics)))
       ;; The diagnostic sits on the form that has the habit -- the second
       ;; binding, not the line it happens to be on -- because that is what
@@ -2566,11 +2566,11 @@ line height can leave a gap in it."
       ;; not a message with a gap where the tool should be.
       (should (string-prefix-p "Scheme" (flymake-diagnostic-text (car diagnostics)))))))
 
-(ert-deftest heks-emacs-scheme-lint/nothing-is-said-in-a-buffer-that-is-not-scheme ()
+(ert-deftest heks/scheme-lint/nothing-is-said-in-a-buffer-that-is-not-scheme ()
   (with-temp-buffer
     (insert "(let ((x 1) (x 2)) x)")
     (emacs-lisp-mode)
-    (should-not (heks-emacs-scheme-lint-diagnostics))))
+    (should-not (heks/scheme-lint-diagnostics))))
 
 ;;
 ;; ====== The page an OpenAPI specification becomes ======
@@ -2607,14 +2607,14 @@ line height can leave a gap in it."
      (insert heks-ert--spec)
      ,@body))
 
-(ert-deftest heks-emacs-openapi/a-schema-says-what-a-value-of-it-looks-like ()
+(ert-deftest heks/openapi/a-schema-says-what-a-value-of-it-looks-like ()
   (heks-ert--with-spec
-    (let* ((spec (heks-emacs-openapi-parse))
-           (schemas (heks-emacs-openapi-get (heks-emacs-openapi-get spec "components") "schemas"))
+    (let* ((spec (heks/openapi-parse))
+           (schemas (heks/openapi-get (heks/openapi-get spec "components") "schemas"))
            (pet (gethash "Pet" schemas))
            (property (lambda (name)
-                       (heks-emacs-openapi--schema-html
-                        spec (gethash name (heks-emacs-openapi-get pet "properties")))))
+                       (heks/openapi--schema-html
+                        spec (gethash name (heks/openapi-get pet "properties")))))
       (should (string-match-p "<code>integer</code> (int64) (example: <code>42</code>)"
                               (funcall property "id")))
       (should (string-match-p "one of <code>available</code>, <code>sold</code>"
@@ -2624,24 +2624,24 @@ line height can leave a gap in it."
       (should (string-match-p "<code>one of</code> <code>string</code>, <code>integer</code>"
                               (funcall property "kind"))))))
 
-(ert-deftest heks-emacs-openapi/an-object-is-a-table-of-what-it-holds ()
+(ert-deftest heks/openapi/an-object-is-a-table-of-what-it-holds ()
   (heks-ert--with-spec
-    (let* ((spec (heks-emacs-openapi-parse))
-           (pet (gethash "Pet" (heks-emacs-openapi-get
-                                (heks-emacs-openapi-get spec "components") "schemas")))
-           (html (heks-emacs-openapi--properties-html spec pet)))
+    (let* ((spec (heks/openapi-parse))
+           (pet (gethash "Pet" (heks/openapi-get
+                                (heks/openapi-get spec "components") "schemas")))
+           (html (heks/openapi--properties-html spec pet)))
       (should (string-match-p "<th>Property</th><th>Type</th><th>Required</th>" html))
       (should (string-match-p "<td><code>name</code></td>.*<td>yes</td>.*<td>Its name\\.</td>" html))
       (should (string-match-p "<td><code>id</code></td>.*<td></td>" html)))))
 
-(ert-deftest heks-emacs-openapi/an-example-is-the-json-it-is ()
-  (should (equal (heks-emacs-openapi--json '(:false))
+(ert-deftest heks/openapi/an-example-is-the-json-it-is ()
+  (should (equal (heks/openapi--json '(:false))
                  "false"))
   (heks-ert--with-spec
-    (let* ((spec (heks-emacs-openapi-parse))
-           (pet (gethash "Pet" (heks-emacs-openapi-get
-                                (heks-emacs-openapi-get spec "components") "schemas"))))
-      (should (equal (heks-emacs-openapi--json pet)
+    (let* ((spec (heks/openapi-parse))
+           (pet (gethash "Pet" (heks/openapi-get
+                                (heks/openapi-get spec "components") "schemas"))))
+      (should (equal (heks/openapi--json pet)
                      (concat "{\n  \"properties\": {\n    \"id\": {\n"
                              "      \"example\": 42,\n      \"format\": \"int64\",\n"
                              "      \"type\": \"integer\"\n    },\n"
@@ -2656,9 +2656,9 @@ line height can leave a gap in it."
                              "  \"required\": [\n    \"name\"\n  ],\n"
                              "  \"type\": \"object\"\n}"))))))
 
-(ert-deftest heks-emacs-openapi/the-page-says-what-there-is-before-what-there-is ()
+(ert-deftest heks/openapi/the-page-says-what-there-is-before-what-there-is ()
   (heks-ert--with-spec
-    (let ((html (heks-emacs-openapi-html)))
+    (let ((html (heks/openapi-html)))
       ;; How much there is, where to read more, and who may call.
       (should (string-match-p "<p class=\"headline\">1 operation · 1 tag" html))
       (should (string-match-p "href=\"https://example.com/api\"" html))
@@ -2675,11 +2675,11 @@ line height can leave a gap in it."
       (should (string-match-p "<h2>Schemas</h2>" html))
       (should (string-match-p "table class=\"properties\"" html)))))
 
-(ert-deftest heks-emacs-openapi/a-specification-that-cannot-be-read-says-nothing-it-does-not-know ()
+(ert-deftest heks/openapi/a-specification-that-cannot-be-read-says-nothing-it-does-not-know ()
   (with-temp-buffer
     (setq buffer-file-name (expand-file-name "heks-ert-spec.json" temporary-file-directory))
     (insert "{\"openapi\": ")
-    (let ((html (heks-emacs-openapi-html)))
+    (let ((html (heks/openapi-html)))
       (should (string-match-p "<pre class=\"plain\">" html))
       (should-not (string-match-p "<h1>" html))))))
 
@@ -2722,7 +2722,7 @@ line height can leave a gap in it."
                ,@body)))
        (delete-directory directory t))))
 
-(ert-deftest heks-emacs-duplicates/a-block-in-two-files-is-one-cluster ()
+(ert-deftest heks/duplicates/a-block-in-two-files-is-one-cluster ()
   (heks-ert--with-project (("a.scm" . ";;; a\n(define-module (a))\n\n")
                            ("b.scm" . ";;; b\n(define-module (b))\n\n"))
     ;; The same block, written twice, and nothing else.
@@ -2730,12 +2730,12 @@ line height can leave a gap in it."
       (insert ";;; a\n(define-module (a))\n\n" heks-ert--shared-block))
     (with-temp-file (expand-file-name "b.scm" default-directory)
       (insert ";;; b\n(define-module (b))\n\n" heks-ert--shared-block))
-    (let ((runs (heks-emacs-duplicates-scan default-directory)))
+    (let ((runs (heks/duplicates-scan default-directory)))
       (should (= 1 (length runs)))
       (let ((run (car runs)))
         (should (= 10 (plist-get run :length)))
         (should (= 2 (length (plist-get run :occurrences))))
-        (should (= 10 (heks-emacs-duplicates-wasted-lines run)))
+        (should (= 10 (heks/duplicates-wasted-lines run)))
         (should (equal (sort (mapcar (lambda (occurrence)
                                        (file-name-nondirectory (nth 0 occurrence)))
                                      (plist-get run :occurrences))
@@ -2750,30 +2750,30 @@ line height can leave a gap in it."
                              (lambda (one two) (string< (car one) (car two))))
                        '(("a.scm" 4 13) ("b.scm" 4 13))))))))
 
-(ert-deftest heks-emacs-duplicates/a-block-written-once-is-not-a-cluster ()
+(ert-deftest heks/duplicates/a-block-written-once-is-not-a-cluster ()
   (heks-ert--with-project (("a.scm" . ";;; a\n")
                            ("b.scm" . ";;; b\n"))
     (with-temp-file (expand-file-name "a.scm" default-directory)
       (insert ";;; a\n(define-module (a))\n\n" heks-ert--shared-block))
     (with-temp-file (expand-file-name "b.scm" default-directory)
       (insert ";;; b\n(define (b-only) 1)\n"))
-    (should-not (heks-emacs-duplicates-scan default-directory))))
+    (should-not (heks/duplicates-scan default-directory))))
 
-(ert-deftest heks-emacs-duplicates/a-short-block-is-an-idiom-and-not-reported ()
+(ert-deftest heks/duplicates/a-short-block-is-an-idiom-and-not-reported ()
   (heks-ert--with-project (("a.el" . "(require 'cl-lib)\n")
                            ("b.el" . "(require 'cl-lib)\n"))
-    (should-not (heks-emacs-duplicates-scan default-directory))))
+    (should-not (heks/duplicates-scan default-directory))))
 
-(ert-deftest heks-emacs-duplicates/a-block-copied-inside-one-file-is-hidden-until-asked-for ()
-  (let ((heks-emacs-duplicates-across-files-only t))
+(ert-deftest heks/duplicates/a-block-copied-inside-one-file-is-hidden-until-asked-for ()
+  (let ((heks/duplicates-across-files-only t))
     (heks-ert--with-project (("a.scm" . ""))
       (with-temp-file (expand-file-name "a.scm" default-directory)
         (insert heks-ert--shared-block "\n" heks-ert--shared-block))
-      (should-not (heks-emacs-duplicates-scan default-directory))
-      (let ((heks-emacs-duplicates-across-files-only nil))
-        (should (= 1 (length (heks-emacs-duplicates-scan default-directory))))))))
+      (should-not (heks/duplicates-scan default-directory))
+      (let ((heks/duplicates-across-files-only nil))
+        (should (= 1 (length (heks/duplicates-scan default-directory))))))))
 
-(ert-deftest heks-emacs-duplicates/indentation-is-not-a-difference ()
+(ert-deftest heks/duplicates/indentation-is-not-a-difference ()
   "The same code indented differently is the same code."
   (heks-ert--with-project (("a.scm" . "")
                            ("b.scm" . ""))
@@ -2781,9 +2781,9 @@ line height can leave a gap in it."
       (insert "(define (helper x y)\n  (let* ((sum (+ x y))\n         (product (* x y))\n         (difference (- x y)))\n    (when (> sum 100)\n      (error \"too big\"))\n    (list sum product difference)))\n"))
     (with-temp-file (expand-file-name "b.scm" default-directory)
       (insert "(define (helper x y)\n      (let* ((sum (+ x y))\n   (product (* x y))\n               (difference (- x y)))\n  (when (> sum 100)\n      (error \"too big\"))\n      (list sum product difference)))\n"))
-    (should (= 1 (length (heks-emacs-duplicates-scan default-directory))))))
+    (should (= 1 (length (heks/duplicates-scan default-directory))))))
 
-(ert-deftest heks-emacs-duplicates/a-comment-is-not-code-and-is-not-compared ()
+(ert-deftest heks/duplicates/a-comment-is-not-code-and-is-not-compared ()
   "Two copies of a block are one cluster, whatever is said about them."
   (heks-ert--with-project (("a.scm" . "")
                            ("b.scm" . ""))
@@ -2793,17 +2793,17 @@ line height can leave a gap in it."
     (with-temp-file (expand-file-name "b.scm" default-directory)
       (insert ";;; a different explanation\n;;; of the same thing\n"
               heks-ert--shared-block))
-    (let ((runs (heks-emacs-duplicates-scan default-directory)))
+    (let ((runs (heks/duplicates-scan default-directory)))
       (should (= 1 (length runs)))
       ;; The comment lines are not part of what is compared, so the
       ;; cluster is the code and starts where the code starts.
       (should-not (string-match-p "written once" (plist-get (car runs) :text))))))
 
-(ert-deftest heks-emacs-duplicates/the-report-says-where-and-how-much ()
+(ert-deftest heks/duplicates/the-report-says-where-and-how-much ()
   (let ((run (list :text "(a)\n(b)\n(c)" :length 3
                    :occurrences '(("/p/a.el" 10 12) ("/p/b.el" 40 42)))))
     (with-temp-buffer
-      (heks-emacs-duplicates-render (list run) "duplicated code · /p")
+      (heks/duplicates-render (list run) "duplicated code · /p")
       (let ((text (buffer-string)))
         (should (string-match-p "1 cluster" text))
         (should (string-match-p "3 lines in 2 places" text))
@@ -2818,52 +2818,171 @@ line height can leave a gap in it."
         (goto-char (point-min))
         (should (next-button (point-min)))))))
 
-(ert-deftest heks-emacs-duplicates/an-empty-report-says-so ()
+(ert-deftest heks/duplicates/an-empty-report-says-so ()
   (with-temp-buffer
-    (heks-emacs-duplicates-render nil "duplicated code · /p")
+    (heks/duplicates-render nil "duplicated code · /p")
     (should (string-match-p "Nothing is written twice" (buffer-string)))))
 
-(ert-deftest heks-emacs-duplicates/the-report-has-a-mode-and-keys ()
+(ert-deftest heks/duplicates/the-report-has-a-mode-and-keys ()
   (with-temp-buffer
-    (heks-emacs-duplicates-report-mode)
+    (heks/duplicates-report-mode)
     (should (derived-mode-p 'special-mode))
-    (should (keymapp heks-emacs-duplicates-report-mode-map))
-    (should (eq (key-binding (kbd "n")) 'heks-emacs-duplicates-next))
+    (should (keymapp heks/duplicates-report-mode-map))
+    (should (eq (key-binding (kbd "n")) 'heks/duplicates-next))
     (should (key-binding (kbd "s")))
     (should (key-binding (kbd "q")))))
 
-(ert-deftest heks-emacs-duplicates/the-report-walks-its-clusters ()
+(ert-deftest heks/duplicates/the-report-walks-its-clusters ()
   (let ((one (list :text "(a)\n(b)" :length 2
                    :occurrences '(("/p/a.el" 1 2) ("/p/b.el" 1 2))))
         (two (list :text "(c)\n(d)" :length 2
                    :occurrences '(("/p/c.el" 5 6) ("/p/d.el" 5 6)))))
     (with-temp-buffer
-      (heks-emacs-duplicates-report-mode)
+      (heks/duplicates-report-mode)
       (let ((inhibit-read-only t))
-        (heks-emacs-duplicates-render (list one two) "duplicated code · /p"))
+        (heks/duplicates-render (list one two) "duplicated code · /p"))
       (goto-char (point-min))
-      (should (equal (heks-emacs-duplicates--clusters) '(1 2)))
-      (heks-emacs-duplicates-next)
-      (should (equal (get-text-property (point) 'heks-emacs-duplicates-cluster) 1))
-      (heks-emacs-duplicates-next)
-      (should (equal (get-text-property (point) 'heks-emacs-duplicates-cluster) 2))
+      (should (equal (heks/duplicates--clusters) '(1 2)))
+      (heks/duplicates-next)
+      (should (equal (get-text-property (point) 'heks/duplicates-cluster) 1))
+      (heks/duplicates-next)
+      (should (equal (get-text-property (point) 'heks/duplicates-cluster) 2))
       ;; The last cluster is the last one: walking past it says so rather
       ;; than moving nowhere, and walking back arrives at the first.
-      (heks-emacs-duplicates-next)
-      (should (equal (get-text-property (point) 'heks-emacs-duplicates-cluster) 2))
-      (heks-emacs-duplicates-next t)
-      (should (equal (get-text-property (point) 'heks-emacs-duplicates-cluster) 1)))))
+      (heks/duplicates-next)
+      (should (equal (get-text-property (point) 'heks/duplicates-cluster) 2))
+      (heks/duplicates-next t)
+      (should (equal (get-text-property (point) 'heks/duplicates-cluster) 1)))))
 
-(ert-deftest heks-emacs-duplicates/the-scan-reads-what-is-code ()
+(ert-deftest heks/duplicates/the-scan-reads-what-is-code ()
   "A file that is not written to be read is not read."
   (heks-ert--with-project (("a.scm" . "") ("image.png" . "not really a png"))
     (should (equal (mapcar #'file-name-nondirectory
-                           (heks-emacs-duplicates--candidate-files default-directory))
+                           (heks/duplicates--candidate-files default-directory))
                    '("a.scm")))))
 
 ;;
 ;; Run.
 ;;
+
+;;
+;; ====== The notes: indexes, links, contacts, bookmarks ======
+;;
+
+(defvar date)
+
+(defmacro heks-ert--with-notes (&rest body)
+  "Run BODY with `root' a fresh, empty notes directory."
+  `(let* ((root (file-name-as-directory (file-truename (heks-ert--temp-directory))))
+          (heks/notes-dir root)
+          (heks/contacts--cache nil)
+          (heks/bookmarks--cache nil))
+     (unwind-protect (progn ,@body)
+       (delete-directory root t))))
+
+(defun heks-ert--write (file text)
+  "Write TEXT to FILE, making its folder."
+  (make-directory (file-name-directory file) t)
+  (write-region text nil file nil 'silent))
+
+(defun heks-ert--read (file)
+  "Return the text of FILE."
+  (with-temp-buffer (insert-file-contents file) (buffer-string)))
+
+(ert-deftest heks/notes/an-index-lists-what-is-in-its-folder ()
+  (heks-ert--with-notes
+    (heks-ert--write (expand-file-name "eng/haskell/monads.org" root) "#+title: Monads\n\ntext\n")
+    (heks-ert--write (expand-file-name "eng/overview.org" root) "#+title: Overview\n")
+    (heks/notes-regenerate-indexes)
+    (let ((eng (heks-ert--read (expand-file-name "eng/index.org" root)))
+          (haskell (heks-ert--read (expand-file-name "eng/haskell/index.org" root))))
+      (should (string-match-p "^- \\[\\[file:\\./haskell/index\\.org\\]\\[Haskell\\]\\]$" eng))
+      (should (string-match-p "^- \\[\\[file:\\./overview\\.org\\]\\[Overview\\]\\]$" eng))
+      (should (string-match-p "^- \\[\\[file:\\./monads\\.org\\]\\[Monads\\]\\]$" haskell))
+      (should (string-match-p "^#\\+title: Eng$" eng)))))
+
+(ert-deftest heks/notes/regenerating-an-index-changes-nothing-and-keeps-its-description ()
+  (heks-ert--with-notes
+    (heks-ert--write (expand-file-name "a/one.org" root) "#+title: One\n")
+    (heks/notes-regenerate-indexes)
+    (let* ((file (expand-file-name "a/index.org" root))
+           (text (heks-ert--read file)))
+      (heks-ert--write file (replace-regexp-in-string "\n\n# BEGIN" "\n\nWhat a is for.\n\n# BEGIN" text))
+      (should-not (heks/notes-index-update (expand-file-name "a" root)))
+      (should (string-match-p "What a is for\\." (heks-ert--read file))))))
+
+(ert-deftest heks/notes/an-index-written-by-hand-is-left-alone ()
+  (heks-ert--with-notes
+    (heks-ert--write (expand-file-name "a/one.org" root) "#+title: One\n")
+    (heks-ert--write (expand-file-name "a/index.org" root) "#+title: Mine\n\nMy own page.\n")
+    (heks/notes-regenerate-indexes)
+    (should (equal (heks-ert--read (expand-file-name "a/index.org" root))
+                   "#+title: Mine\n\nMy own page.\n"))))
+
+(ert-deftest heks/notes/moving-a-note-repairs-the-links-to-it-and-in-it ()
+  (heks-ert--with-notes
+    (let* ((from (expand-file-name "a/x.org" root))
+           (to (expand-file-name "b/c/x.org" root)))
+      (should (equal (heks/notes--relink-text "[[file:./x.org][X]] [[file:../a/y.org][Y]]"
+                                              (expand-file-name "a/" root) (expand-file-name "a/" root)
+                                              from to)
+                     "[[file:../b/c/x.org][X]] [[file:../a/y.org][Y]]"))
+      ;; the moved note's own links are made relative to where it now is
+      (should (equal (heks/notes--relink-text "[[file:./y.org][Y]] [[https://example.org][E]]"
+                                              (expand-file-name "a/" root) (expand-file-name "b/c/" root)
+                                              from to)
+                     "[[file:../../a/y.org][Y]] [[https://example.org][E]]")))))
+
+(ert-deftest heks/contacts/a-birthday-is-read-with-or-without-its-year ()
+  (should (equal (heks/contacts-parse-birthday "1992-11-23") '(1992 11 23)))
+  (should (equal (heks/contacts-parse-birthday "11-23") '(nil 11 23)))
+  (should (equal (heks/contacts-parse-birthday "--02-29") '(nil 2 29)))
+  (should-not (heks/contacts-parse-birthday "soon"))
+  (should-not (heks/contacts-parse-birthday "1992-13-01")))
+
+(ert-deftest heks/contacts/the-agenda-is-told-whose-birthday-it-is ()
+  (heks-ert--with-notes
+    (heks-ert--write (expand-file-name "contacts.org" root)
+                     "* Manon\n:PROPERTIES:\n:BIRTHDAY: 1992-11-23\n:END:\n* Joe\n:PROPERTIES:\n:BIRTHDAY: 03-04\n:END:\n* Nobody\n")
+    (let ((date '(11 23 2026)))
+      (should (equal (heks/contacts-birthdays) "🎂 Manon (34)")))
+    (let ((date '(3 4 2026)))
+      (should (equal (heks/contacts-birthdays) "🎂 Joe")))
+    (let ((date '(5 5 2026)))
+      (should-not (heks/contacts-birthdays)))))
+
+(ert-deftest heks/contacts/a-contact-is-added-with-only-the-details-given ()
+  (heks-ert--with-notes
+    (heks-ert--write (expand-file-name "contacts.org" root) "#+title: Contacts\n")
+    (heks/contact-new "Ada" "ada@example.org" "" "12-10")
+    (let ((contact (car (heks/contacts-all))))
+      (should (equal (plist-get contact :name) "Ada"))
+      (should (equal (plist-get contact :email) "ada@example.org"))
+      (should-not (plist-get contact :phone))
+      (should (equal (plist-get contact :birthday) "12-10")))
+    (should-error (heks/contact-new "Bad" "" "" "tomorrow") :type 'user-error)))
+
+(ert-deftest heks/bookmarks/the-links-under-a-heading-are-its-bookmarks ()
+  (heks-ert--with-notes
+    (heks-ert--write (expand-file-name "bookmarks.org" root)
+                     "* Dev\n- [[https://gnu.org/][GNU]]\n** Haskell\n- [[https://haskell.org/][Haskell]]\n")
+    (let ((all (heks/bookmarks-all)))
+      (should (equal (mapcar (lambda (b) (plist-get b :category)) all) '("Dev" "Dev / Haskell")))
+      (should (equal (plist-get (cadr all) :url) "https://haskell.org/")))))
+
+(ert-deftest heks/bookmarks/a-bookmark-is-filed-under-its-category-and-only-once ()
+  (heks-ert--with-notes
+    (heks-ert--write (expand-file-name "bookmarks.org" root)
+                     "* Dev\n- [[https://gnu.org/][GNU]]\n\n* Fun\n")
+    (heks/bookmark-add "https://example.org/a" "A" "Dev")
+    (heks/bookmark-add "https://example.org/b" "B" "Music / Guitar")
+    (let ((text (heks-ert--read (expand-file-name "bookmarks.org" root))))
+      (should (string-match-p "\\* Dev\n- \\[\\[https://gnu.org/\\]\\[GNU\\]\\]\n- \\[\\[https://example.org/a\\]\\[A\\]\\]\n" text))
+      (should (string-match-p "\\* Music\n\\*\\* Guitar\n- \\[\\[https://example.org/b\\]\\[B\\]\\]" text)))
+    (heks/bookmark-add "https://example.org/a" "A again" "Dev")
+    (should (= 1 (seq-count (lambda (b) (equal (plist-get b :url) "https://example.org/a"))
+                            (heks/bookmarks-all))))
+    (kill-matching-buffers "bookmarks.org" t t)))
 
 (unless (getenv "HEKS_ERT_NO_RUN")
   (ert-run-tests-batch-and-exit))

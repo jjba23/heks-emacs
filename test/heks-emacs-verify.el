@@ -119,15 +119,15 @@ configuration."
 (heks-verify--load-config)
 
 (heks-verify--section "every module is loaded")
-(heks-verify--check "the bridge module is loaded" (featurep 'heks-emacs/heks-emacs))
-(when (boundp 'heks-emacs-modules)
-  (dolist (module heks-emacs-modules)
+(heks-verify--check "the bridge module is loaded" (featurep 'heks/heks-emacs))
+(when (boundp 'heks/modules)
+  (dolist (module heks/modules)
     (let ((file (expand-file-name (format "modules/%s.el" module) heks-verify--dir)))
       (heks-verify--check (format "modules/%s.el is installed" module)
                           (file-exists-p file))
       ;; The feature a module provides is read out of the module rather than
       ;; guessed from its name, so a rename cannot make this check pass by
-      ;; accident: `emacs-core' provides `heks-emacs/emacs-self'.
+      ;; accident: `emacs-core' provides `heks/emacs-self'.
       (let ((feature (with-temp-buffer
                        (when (file-exists-p file)
                          (insert-file-contents file)
@@ -142,21 +142,17 @@ configuration."
 ;; The customization variables are defined by `heks-emacs.el', given their
 ;; values by the bridge installed next to this configuration, and read by
 ;; every module after that.  A module that read one while it was still nil is
-;; configured wrongly whatever the setting says a moment later, and org-roam
+;; configured wrongly whatever the setting says a moment later, and the notes
 ;; -- whose notes directory is nobody's default -- is where that showed: it
 ;; was named after a nil, which stopped the configuration where it loaded.
-(let ((notes (heks-emacs-notes-roam-directory)))
+(let ((notes (heks/notes-directory)))
   (if notes
       (heks-verify--check
-       "org-roam is pointed at the notes directory"
-       (and (boundp 'org-roam-directory)
-            (stringp org-roam-directory)
-            (equal (file-name-as-directory (file-truename org-roam-directory))
-                   (file-name-as-directory notes))))
+       "the notes commands are loaded"
+       (fboundp 'heks/notes-new))
     (heks-verify--check
-     "org-roam is not pointed at a directory built out of nothing"
-     (or (not (boundp 'org-roam-directory))
-         (stringp org-roam-directory)))))
+     "no notes directory is built out of nothing"
+     (null (heks/notes-directory)))))
 
 (heks-verify--section "the tree-sitter grammars are built before they are needed")
 
@@ -175,52 +171,52 @@ configuration."
    ;; search path and what a package adds to it arrive when it is: loading it
    ;; here is the state a session is in the moment it is needed.
    (require 'treesit)
-   (equal (car treesit-extra-load-path) heks-emacs-treesit-grammar-directory)))
+   (equal (car treesit-extra-load-path) heks/treesit-grammar-directory)))
 (heks-verify--check
  "a grammar Emacs fetches for itself is fetched without asking"
  (eq treesit-auto-install-grammar 'always))
 (heks-verify--check
  "the script that builds them is next to the installed configuration"
- (and (file-exists-p heks-emacs-treesit-script)
-      (string-suffix-p "treesit-grammars.el" heks-emacs-treesit-script)))
+ (and (file-exists-p heks/treesit-script)
+      (string-suffix-p "treesit-grammars.el" heks/treesit-script)))
 (heks-verify--check
  "what the child is handed reads as Lisp"
- (eq (car (read (nth 4 (heks-emacs-treesit--batch-command)))) 'setq))
+ (eq (car (read (nth 4 (heks/treesit--batch-command)))) 'setq))
 (heks-verify--check
  "and building them is what this configuration does at startup"
- (and (memq 'heks-emacs-treesit-install-grammars-in-background emacs-startup-hook)
-      heks-emacs-treesit-install-grammars))
+ (and (memq 'heks/treesit-install-grammars-in-background emacs-startup-hook)
+      heks/treesit-install-grammars))
 
 (heks-verify--section "reading what a tool says")
 (heks-verify--check
  "a warning is parsed into its parts"
- (heks-emacs-parse-diagnostics "src/a.scm:12:3: warning: unused variable `y'\n")
+ (heks/parse-diagnostics "src/a.scm:12:3: warning: unused variable `y'\n")
  '(("src/a.scm" 12 3 :warning "unused variable `y'")))
 (heks-verify--check
  "severities come from the message"
- (mapcar (lambda (line) (nth 3 (car (heks-emacs-parse-diagnostics line))))
+ (mapcar (lambda (line) (nth 3 (car (heks/parse-diagnostics line))))
          '("a.scm:1:1: error: no\n" "a.scm:1:1: note: hm\n" "a.scm:1:1: bare\n"))
  '(:error :note :warning))
 (heks-verify--check
  "a hyperlinked, coloured diagnostic is still read"
- (heks-emacs-parse-diagnostics
+ (heks/parse-diagnostics
   "\e]8;;file:///tmp/a.scm\a/tmp/a.scm\e]8;;\a:7:2: \e[31merror\e[0m: boom\n")
  '(("/tmp/a.scm" 7 2 :error "boom")))
 (heks-verify--check
  "a backtrace is not mistaken for a diagnostic"
- (heks-emacs-parse-diagnostics
+ (heks/parse-diagnostics
   "Backtrace:\nIn ice-9/boot-9.scm:\n  1705:22 0 (raise-exception _)\nno code for module\n")
  nil)
 (heks-verify--check
  "the reason for a hard failure is found below the backtrace"
- (heks-emacs-tool-error-line
+ (heks/tool-error-line
   "Backtrace:\nIn srfi/srfi-1.scm:\n  750:9 19 (for-each _)\nno code for module (nope)\n")
  "no code for module (nope)")
 (heks-verify--check "changed lines are found"
-                    (heks-emacs-tool-changed-lines "a\nb\nc\n" "a\nB\nc\n")
+                    (heks/tool-changed-lines "a\nb\nc\n" "a\nB\nc\n")
                     '(2))
 (heks-verify--check "neighbouring lines become one range"
-                    (heks-emacs-tool-number-ranges '(1 2 3 7))
+                    (heks/tool-number-ranges '(1 2 3 7))
                     '((1 . 3) (7 . 7)))
 
 ;; The shape of a diagnostic is the part of the Emacs API that changed under
@@ -230,7 +226,7 @@ configuration."
 (heks-verify--section "a diagnostic reads the way it should")
 (with-temp-buffer
   (insert "(define one 1)\n(define two 2)\n")
-  (let ((diags (heks-emacs-tool-diagnostic-list
+  (let ((diags (heks/tool-diagnostic-list
                 "/tmp/heks-verify.scm:2:1: warning: stand-in says no\n"
                 "/tmp/heks-verify.scm" "/tmp" "stand-in")))
     (heks-verify--check "a diagnostic is produced" (length diags) 1)
@@ -301,20 +297,20 @@ configuration."
 ;;;
 
 (heks-verify--section "the Guile module is wired up")
-(dolist (name '(heks-emacs-scheme-repl
-                heks-emacs-scheme-eval-definition
-                heks-emacs-scheme-debugger
-                heks-emacs-scheme-xref-backend
-                heks-emacs-scheme-definitions-in-files
-                heks-emacs-scheme-mentions-in-files
-                heks-emacs-scheme-defined-names
-                heks-emacs-scheme-callers
-                heks-emacs-scheme-test
-                heks-emacs-scheme-format-buffer
-                heks-emacs-guix-style-apply-rule
-                heks-emacs-guile-compile-backend
-                heks-emacs-guix-lint-backend
-                heks-emacs-guix-style-backend))
+(dolist (name '(heks/scheme-repl
+                heks/scheme-eval-definition
+                heks/scheme-debugger
+                heks/scheme-xref-backend
+                heks/scheme-definitions-in-files
+                heks/scheme-mentions-in-files
+                heks/scheme-defined-names
+                heks/scheme-callers
+                heks/scheme-test
+                heks/scheme-format-buffer
+                heks/guix-style-apply-rule
+                heks/guile-compile-backend
+                heks/guix-lint-backend
+                heks/guix-style-backend))
   (heks-verify--check (format "%s is defined" name) (fboundp name)))
 
 (heks-verify--section "the keys the key scheme promises")
@@ -339,15 +335,15 @@ configuration."
                  "C-c g C" "C-c g m" "C-c g t" "C-c g L" "C-c g f" "C-c g S"
                  "C-c g p" "C-c s p" "C-c s a" "C-c s h"))
     (heks-verify--check (format "a Scheme buffer has %s" key)
-                        (commandp (lookup-key heks-emacs-scheme-mode-map (kbd key))))))
+                        (commandp (lookup-key heks/scheme-mode-map (kbd key))))))
 
 ;; What the keys above are worth is that they are the ones that answer when
 ;; the key is pressed in a buffer, whichever mode the buffer is in.
 (heks-verify--with-scheme-buffer "(define (f x)\n  x)\n"
   (heks-verify--check "the fold key is the global one in a Scheme buffer"
-                      (key-binding (kbd "C-c v c")) 'heks-emacs-fold-close)
+                      (key-binding (kbd "C-c v c")) 'heks/fold-close)
   (heks-verify--check "the format key is the global one in a Scheme buffer"
-                      (key-binding (kbd "C-c i f")) 'heks-emacs-format-buffer))
+                      (key-binding (kbd "C-c i f")) 'heks/format-buffer))
 
 (dolist (key '("C-c ! n" "C-c ! N" "C-c ! b" "C-c ! a" "C-c ! m"
                "C-c a v" "C-c a l" "C-c a r" "C-c a b"
@@ -399,11 +395,11 @@ configuration."
   (heks-verify--check "a top-level form is what gets folded"
                       hs-block-start-regexp "^(")
   (heks-verify--check "the compiler checks the buffer"
-                      (and (memq 'heks-emacs-guile-compile-backend
+                      (and (memq 'heks/guile-compile-backend
                                  flymake-diagnostic-functions)
                            t))
   (heks-verify--check "the bad-practice checker runs beside it"
-                      (and (memq 'heks-emacs-scheme-lint-check
+                      (and (memq 'heks/scheme-lint-check
                                  flymake-diagnostic-functions)
                            t))
   (heks-verify--check "Flymake is on" flymake-mode)
@@ -436,23 +432,23 @@ configuration."
 ;; say -- is that it is still a complete Guile setup.  Guix's absence is
 ;; simulated rather than required, so the check runs everywhere.
 (heks-verify--section "without Guix, Guile is still checked")
-(cl-letf (((symbol-function 'heks-emacs-tool-available-p)
-           (lambda (program) (not (equal program heks-emacs-guix-program)))))
-  (heks-verify--check "Guix is seen as missing" (heks-emacs-guix-available-p) nil)
-  (heks-verify--check "Guile is still there" (heks-emacs-guile-available-p))
+(cl-letf (((symbol-function 'heks/tool-available-p)
+           (lambda (program) (not (equal program heks/guix-program)))))
+  (heks-verify--check "Guix is seen as missing" (heks/guix-available-p) nil)
+  (heks-verify--check "Guile is still there" (heks/guile-available-p))
   (heks-verify--with-scheme-buffer
       "(define-module (verify package))\n(define-public hello (package))\n"
     ;; The file *looks* like a Guix package, but nothing here can lint one,
     ;; so the compiler has to be the checker instead of nothing at all.
     (heks-verify--check "a Guix-looking file is checked by the Guile compiler"
-                        (heks-emacs-guile-compile-applies-p))
+                        (heks/guile-compile-applies-p))
     (heks-verify--check "the Guix checkers bow out"
-                        (and (not (memq 'heks-emacs-guix-lint-backend
+                        (and (not (memq 'heks/guix-lint-backend
                                         flymake-diagnostic-functions))
-                             (not (memq 'heks-emacs-guix-style-backend
+                             (not (memq 'heks/guix-style-backend
                                         flymake-diagnostic-functions))
                              t))
-    (heks-verify--check "a Guix REPL is not offered" (heks-emacs-scheme-guile-binary) nil)))
+    (heks-verify--check "a Guix REPL is not offered" (heks/scheme-guile-binary) nil)))
 
 ;;;
 ;;; Finding a definition
@@ -491,7 +487,7 @@ configuration."
                  (mapcar (lambda (item)
                            (file-name-nondirectory
                             (xref-file-location-file (xref-item-location item))))
-                         (heks-emacs-scheme-definitions-in-files "greet"))
+                         (heks/scheme-definitions-in-files "greet"))
                  '("utility.scm"))
                 (heks-verify--check
                  "defined in both files, and the one being read comes first"
@@ -500,7 +496,7 @@ configuration."
                              (list (file-name-nondirectory
                                     (xref-file-location-file location))
                                    (xref-file-location-line location))))
-                         (heks-emacs-scheme-definitions-in-files "pub-var"))
+                         (heks/scheme-definitions-in-files "pub-var"))
                  '(("main.scm" 3) ("utility.scm" 3)))
                 ;; The command is Emacs's own -- `xref-find-definitions',
                 ;; which is what `M-.' is everywhere -- and what answers it
@@ -513,7 +509,7 @@ configuration."
                 (heks-verify--check "and `C-c g g' is that same command"
                                     (key-binding (kbd "C-c g g")) 'xref-find-definitions)
                 (heks-verify--check "the backend a Scheme buffer is jumped with"
-                                    (xref-find-backend) 'heks-emacs-scheme)
+                                    (xref-find-backend) 'heks/scheme)
                 (goto-char (point-min))
                 (search-forward "(greet name)")
                 (goto-char (match-beginning 0))
@@ -583,7 +579,7 @@ configuration."
                      (xref-item-summary (car matches))
                      "(define-public pub-var 1)"))
                   (heks-verify--check "no REPL was started to answer"
-                                      (heks-emacs-scheme-repl-connected-p) nil)))
+                                      (heks/scheme-repl-connected-p) nil)))
             (set-buffer-modified-p nil)
             (kill-buffer buffer))))
     (ignore-errors (delete-directory root t))))
@@ -593,14 +589,14 @@ configuration."
 ;;;
 
 (heks-verify--section "the shell tools are wired up")
-(dolist (name '(heks-emacs-shfmt-backend
-                heks-emacs-shfmt-command
-                heks-emacs-shell-format-buffer))
+(dolist (name '(heks/shfmt-backend
+                heks/shfmt-command
+                heks/shell-format-buffer))
   (heks-verify--check (format "%s is defined" name) (fboundp name)))
 (heks-verify--check "sh-mode runs the shell setup"
-                    (and (memq #'heks-emacs-shell-setup-flymake sh-mode-hook) t))
+                    (and (memq #'heks/shell-setup-flymake sh-mode-hook) t))
 (heks-verify--check "and so does bash-ts-mode, the mode a `.sh' file opens in"
-                    (and (memq #'heks-emacs-shell-setup-flymake bash-ts-mode-hook) t))
+                    (and (memq #'heks/shell-setup-flymake bash-ts-mode-hook) t))
 
 ;; A real shell buffer is what the checks below run in, made the way a file
 ;; makes one, so that the mode hook of the configuration runs on it.
@@ -628,7 +624,7 @@ mode, so what BODY sees is what a `.sh' file gets."
   (heks-verify--check "and told to follow the sources a script names"
                       (and (member "--external-sources" sh-shellcheck-arguments) t))
   (heks-verify--check "shfmt reports the drift of the buffer"
-                      (and (memq 'heks-emacs-shfmt-backend
+                      (and (memq 'heks/shfmt-backend
                                  flymake-diagnostic-functions)
                            t))
   ;; The library registers a shellcheck backend of its own; Emacs's is the
@@ -714,7 +710,7 @@ the first of the two either way."
   (heks-verify--check "shellcheck is not installed, so nothing is followed" t))
 
 (heks-verify--section "shfmt really formats a script")
-(if (heks-emacs-shfmt-available-p)
+(if (heks/shfmt-available-p)
     (let ((file (make-temp-file "heks-verify-shfmt" nil ".sh")))
       (unwind-protect
           (progn
@@ -722,7 +718,7 @@ the first of the two either way."
             ;; has an opinion about: the body comes back indented.
             (write-region "#!/bin/bash\nif [ \"$x\" = 1 ]; then\necho hi\nfi\n"
                           nil file nil 'silent)
-            (let ((command (heks-emacs-shfmt-command file)))
+            (let ((command (heks/shfmt-command file)))
               (apply #'call-process (car command) nil nil nil (cdr command)))
             (heks-verify--check
              "the file is rewritten the way shfmt writes shell"
@@ -731,18 +727,18 @@ the first of the two either way."
                (and (string-match-p "^[ \t]+echo hi$" (buffer-string)) t))))
         (delete-file file)))
   (heks-verify--check "shfmt is not installed, so its backend bows out"
-                      (heks-emacs-shfmt-applies-p) nil))
+                      (heks/shfmt-applies-p) nil))
 
 ;; And the one format key reaches it, which is the part a user presses.
 (heks-verify--section "the format key reaches shfmt in a shell buffer")
-(if (heks-emacs-shfmt-available-p)
+(if (heks/shfmt-available-p)
     (heks-verify--with-shell-buffer "echo hi\n"
       (heks-verify--check "a shell buffer is claimed by the shell formatter"
                           (eq (cdr (seq-find (lambda (entry) (funcall (car entry)))
-                                             heks-emacs-format-dispatch))
-                              'heks-emacs-shell-format-buffer)))
+                                             heks/format-dispatch))
+                              'heks/shell-format-buffer)))
   (heks-verify--check "without shfmt the key falls through to another formatter"
-                      (heks-emacs-shell-format-applies-p) nil))
+                      (heks/shell-format-applies-p) nil))
 
 ;;;
 ;;; The shell language server
@@ -786,7 +782,7 @@ the first of the two either way."
 ;; Eglot's behaviour and not a list this file made up.
 (heks-verify--section "a language server does not take the checkers away")
 (heks-verify--check "one function answers for every language at once"
-                    (and (memq 'heks-emacs-flymake-keep-backends
+                    (and (memq 'heks/flymake-keep-backends
                                eglot-managed-mode-hook)
                          t))
 (heks-verify--with-shell-buffer "#!/bin/bash\necho $foo\n"
@@ -799,14 +795,14 @@ the first of the two either way."
   (let ((asked nil))
     (cl-letf (((symbol-function 'flymake-start)
                (lambda (&rest _) (setq asked t))))
-      (heks-emacs-flymake-keep-backends))
+      (heks/flymake-keep-backends))
     (heks-verify--check "Flymake is asked to check it again" asked))
   (heks-verify--check "the server's own backend stays where it is"
                       (and (memq 'eglot-flymake-backend flymake-diagnostic-functions) t))
   (heks-verify--check "and shellcheck is put back beside it"
                       (and (memq 'sh-shellcheck-flymake flymake-diagnostic-functions) t))
   (heks-verify--check "and so is the drift shfmt reports"
-                      (and (memq 'heks-emacs-shfmt-backend flymake-diagnostic-functions) t)))
+                      (and (memq 'heks/shfmt-backend flymake-diagnostic-functions) t)))
 
 ;; Nor is it a shell function.  A Python buffer is checked by whatever
 ;; registers its checkers -- `python-base-mode', the library's configuration
@@ -826,7 +822,7 @@ the first of the two either way."
                                  '(eglot-flymake-backend))
             t)
       (cl-letf (((symbol-function 'flymake-start) (lambda (&rest _) nil)))
-        (heks-emacs-flymake-keep-backends))
+        (heks/flymake-keep-backends))
       (heks-verify--check "and every one of its checkers survives a server"
                           (seq-difference before flymake-diagnostic-functions) nil)
       (heks-verify--check "with only the server's own backend added"
@@ -838,19 +834,19 @@ the first of the two either way."
 ;;;
 
 (heks-verify--section "the type scale and the separators")
-(heks-verify--check "the base type size is a size" (numberp heks-emacs-base-font-size))
+(heks-verify--check "the base type size is a size" (numberp heks/base-font-size))
 (heks-verify--check "a face height is an absolute number"
-                    (integerp (heks-emacs-font-height 1.0)))
+                    (integerp (heks/font-height 1.0)))
 (heks-verify--check "face sizes hold their ratio to the base size"
-                    (<= (abs (- (heks-emacs-font-height 2.0)
-                                (* 2 (heks-emacs-font-height 1.0))))
+                    (<= (abs (- (heks/font-height 2.0)
+                                (* 2 (heks/font-height 1.0))))
                         1))
 (heks-verify--check "a larger multiple is a larger size"
-                    (> (heks-emacs-font-height 1.5) (heks-emacs-font-height 1.0)))
-(let ((color (heks-emacs-window-divider-color)))
+                    (> (heks/font-height 1.5) (heks/font-height 1.0)))
+(let ((color (heks/window-divider-color)))
   (heks-verify--check "the separators between windows have a color"
                       (and (stringp color) (string-prefix-p "#" color)))
-  (heks-emacs-set-window-divider-faces)
+  (heks/set-window-divider-faces)
   (dolist (face '(window-divider window-divider-first-pixel
                   window-divider-last-pixel vertical-border))
     (heks-verify--check (format "%s is drawn with it" face)
@@ -868,15 +864,15 @@ the first of the two either way."
 (heks-verify--check "Scheme is in the format dispatch table"
                     (and (seq-find (lambda (entry)
                                      (and (functionp (cdr entry))
-                                          (eq (cdr entry) 'heks-emacs-scheme-format-buffer)))
-                                   (bound-and-true-p heks-emacs-format-dispatch))
+                                          (eq (cdr entry) 'heks/scheme-format-buffer)))
+                                   (bound-and-true-p heks/format-dispatch))
                          t))
 (heks-verify--with-scheme-buffer "(define-module (verify one))\n"
   (heks-verify--check "a Scheme buffer is claimed by the Scheme formatter"
                       (and (seq-find (lambda (entry) (funcall (car entry)))
-                                     heks-emacs-format-dispatch)
+                                     heks/format-dispatch)
                            t))
-(heks-verify--check "the format command exists" (commandp 'heks-emacs-format-buffer)))
+(heks-verify--check "the format command exists" (commandp 'heks/format-buffer)))
 
 (heks-verify--section "one fold key, whichever the mode")
 (heks-verify--with-scheme-buffer heks-verify--scheme-source
@@ -884,21 +880,21 @@ the first of the two either way."
   ;; that knows it: the keys the user has do not mention either.
   (goto-char (point-min))
   (search-forward "(two x)")
-  (heks-emacs-fold-toggle)
+  (heks/fold-toggle)
   (heks-verify--check "the fold key folds the definition at point"
                       (length (heks-verify--hs-overlays)) 1)
-  (heks-emacs-fold-open-all)
+  (heks/fold-open-all)
   (heks-verify--check "the reveal key brings everything back"
                       (heks-verify--hs-overlays) nil)
-  (heks-emacs-fold-close-all)
+  (heks/fold-close-all)
   ;; The source has three top-level forms: the `define-module' and the two
   ;; definitions, which is what hiding every block has to cover.
   (heks-verify--check "folding everything hides every form"
                       (length (heks-verify--hs-overlays)) 3)
-  (heks-emacs-fold-toggle)
+  (heks/fold-toggle)
   (heks-verify--check "and toggling still works with folds closed"
                       (>= (length (heks-verify--hs-overlays)) 1) t)
-  (heks-emacs-fold-open-all))
+  (heks/fold-open-all))
 
 ;;;
 ;;; Rendering what one reads
@@ -912,15 +908,15 @@ the first of the two either way."
           "```elisp\n(+ 1 2)\n```\n")
   (setq-local buffer-file-name (expand-file-name "HEKS-VERIFY.md" temporary-file-directory))
   (markdown-ts-mode)
-  (heks-verify--check "it is recognised as Markdown" (heks-emacs-render-markdown-p))
-  (let ((body (heks-emacs-render-body)))
+  (heks-verify--check "it is recognised as Markdown" (heks/render-markdown-p))
+  (let ((body (heks/render-body)))
     (heks-verify--check "the heading becomes a heading"
                         (and (string-match-p "<h1>Title</h1>" body) t))
     (heks-verify--check "the emphasis is rendered"
                         (and (string-match-p "<em>emphasis</em>" body) t))
     (heks-verify--check "the code block is kept"
                         (and (string-match-p "language-elisp" body) t)))
-  (let ((document (heks-emacs-render-document)))
+  (let ((document (heks/render-document)))
     (heks-verify--check "it is wrapped in a document"
                         (and (string-prefix-p "<!DOCTYPE html>" document) t))
     (heks-verify--check "the document names its renderer"
@@ -930,7 +926,7 @@ the first of the two either way."
   ;; The preview writes a document and shows it, which is the part a user
   ;; actually presses a key for.  It is run for real here: EWW renders
   ;; in batch as well as it does in a frame.
-  (let ((file (heks-emacs-render-file)))
+  (let ((file (heks/render-file)))
     (heks-verify--check "the preview file is written" (file-exists-p file))
     ;; What is written is a whole document, and a document's headings are
     ;; given ids, because that is what a link to one of them points at.
@@ -942,10 +938,10 @@ the first of the two either way."
   ;; asked to show the document in the preview buffer and then that buffer is
   ;; looked at: EWW kills the buffer it renders *from*, so a preview that
   ;; renders from its own destination is left holding a dead one.
-  (let ((preview (get-buffer heks-emacs-preview-buffer-name)))
+  (let ((preview (get-buffer heks/preview-buffer-name)))
     (when preview (kill-buffer preview)))
-  (heks-emacs-preview)
-  (let ((shown (get-buffer heks-emacs-preview-buffer-name)))
+  (heks/preview)
+  (let ((shown (get-buffer heks/preview-buffer-name)))
     (heks-verify--check "and the preview holds it, in a buffer that survives"
                         (and (buffer-live-p shown)
                              (with-current-buffer shown
@@ -989,12 +985,12 @@ the first of the two either way."
        (kill-buffer buffer))))
 
 (heks-verify--with-spec-buffer heks-verify--openapi-good "openapi.json"
-  (heks-verify--check "it is recognised as a specification" (heks-emacs-openapi-spec-p))
-  (heks-verify--check "it reads" (and (hash-table-p (heks-emacs-openapi-parse)) t))
+  (heks-verify--check "it is recognised as a specification" (heks/openapi-spec-p))
+  (heks-verify--check "it reads" (and (hash-table-p (heks/openapi-parse)) t))
   (heks-verify--check "it has one operation"
-                      (length (heks-emacs-openapi-operations (heks-emacs-openapi-parse))) 1)
-  (heks-verify--check "and no problems" (heks-emacs-openapi-diagnostics) nil)
-  (let ((page (heks-emacs-openapi-html)))
+                      (length (heks/openapi-operations (heks/openapi-parse))) 1)
+  (heks-verify--check "and no problems" (heks/openapi-diagnostics) nil)
+  (let ((page (heks/openapi-html)))
     (heks-verify--check "the page is titled after the API"
                         (and (string-match-p "<h1>Widgets" page) t))
     (heks-verify--check "the method is shown" (and (string-match-p "GET" page) t))
@@ -1007,11 +1003,11 @@ the first of the two either way."
     (heks-verify--check "the schemas are listed"
                         (and (string-match-p "<h2>Schemas</h2>" page) t)))
   (heks-verify--check "and it makes a document of its own"
-                      (and (string-match-p "<!DOCTYPE html>" (heks-emacs-render-document)) t))
+                      (and (string-match-p "<!DOCTYPE html>" (heks/render-document)) t))
   (heks-verify--check "the server to call comes from the specification"
-                      (heks-emacs-openapi-server-url) "https://api.example.com/v1")
+                      (heks/openapi-server-url) "https://api.example.com/v1")
   (heks-verify--check "the menu lists the operation under its tag"
-                      (and (assoc "widgets" (heks-emacs-openapi-imenu)) t)))
+                      (and (assoc "widgets" (heks/openapi-imenu)) t)))
 
 (heks-verify--section "and a specification written in YAML reads like one in JSON")
 
@@ -1060,20 +1056,20 @@ paths:
        (kill-buffer buffer))))
 
 (heks-verify--with-yaml-buffer heks-verify--openapi-yaml "openapi.yaml"
-  (heks-verify--check "it is recognised as a specification" (heks-emacs-openapi-spec-p))
-  (heks-verify--check "it reads" (let ((spec (heks-emacs-openapi-parse)))
+  (heks-verify--check "it is recognised as a specification" (heks/openapi-spec-p))
+  (heks-verify--check "it reads" (let ((spec (heks/openapi-parse)))
                              (and (hash-table-p spec) t)))
   (heks-verify--check "a response code is read as the text it is written as"
-                      (let* ((spec (heks-emacs-openapi-parse))
-                             (operation (car (heks-emacs-openapi-operations spec))))
-                        (and (heks-emacs-openapi-get
-                              (heks-emacs-openapi-get (plist-get operation :operation)
+                      (let* ((spec (heks/openapi-parse))
+                             (operation (car (heks/openapi-operations spec))))
+                        (and (heks/openapi-get
+                              (heks/openapi-get (plist-get operation :operation)
                                                       "responses")
                               "999")
                              t)))
   (heks-verify--check "and the checker names it as a code"
                       (let (said)
-                        (dolist (diagnostic (heks-emacs-openapi-diagnostics))
+                        (dolist (diagnostic (heks/openapi-diagnostics))
                           (when (string-match-p
                                  "is not a response code"
                                  (format "%s" (flymake-diagnostic-text diagnostic '(message))))
@@ -1087,7 +1083,7 @@ paths:
               (with-temp-buffer
                 (insert-file-contents (expand-file-name name heks-verify--fixtures))
                 (setq-local buffer-file-name (expand-file-name name heks-verify--fixtures))
-                (heks-emacs-openapi-html)))))
+                (heks/openapi-html)))))
   (let ((json (funcall page "render-petstore.json"))
         (yaml (funcall page "render-petstore.yaml")))
     (heks-verify--check "a YAML fixture is a specification"
@@ -1097,7 +1093,7 @@ paths:
                           (setq-local buffer-file-name
                                       (expand-file-name "render-petstore.yaml"
                                                         heks-verify--fixtures))
-                          (heks-emacs-openapi-spec-p)))
+                          (heks/openapi-spec-p)))
     (heks-verify--check "the same specification in two languages is the same page"
                         (equal json yaml) t)
     (heks-verify--check "and the page is the one kept beside it"
@@ -1140,7 +1136,7 @@ paths:
   "A specification that gets several things wrong.")
 
 (heks-verify--with-spec-buffer heks-verify--openapi-bad "broken-openapi.json"
-  (let* ((diagnostics (heks-emacs-openapi-diagnostics))
+  (let* ((diagnostics (heks/openapi-diagnostics))
          (messages (mapcar (lambda (diagnostic)
                              (format "%s" (flymake-diagnostic-text
                                            diagnostic '(message))))
@@ -1194,13 +1190,13 @@ paths:
                     which-key-popup-type 'custom)
 (heks-verify--check "which is asked how much of the frame it may take"
                     which-key-custom-popup-max-dimensions-function
-                    'heks-emacs-which-key-popup-dimensions)
+                    'heks/which-key-popup-dimensions)
 (heks-verify--check "and shows it"
                     which-key-custom-show-popup-function
-                    'heks-emacs-which-key-show-popup)
+                    'heks/which-key-show-popup)
 (heks-verify--check "and hides it"
                     which-key-custom-hide-popup-function
-                    'heks-emacs-which-key-hide-popup)
+                    'heks/which-key-hide-popup)
 (heks-verify--check "the window it asks for opens at the bottom"
                     which-key-side-window-location 'bottom)
 (heks-verify--check "it may take two fifths of the frame"
@@ -1211,13 +1207,13 @@ paths:
                     which-key-preserve-window-configuration t)
 (heks-verify--check "and the length it may cut to is the longest sentence"
                     which-key-max-description-length
-                    heks-emacs-which-key-description-length)
+                    heks/which-key-description-length)
 
 ;; Cutting is which-key's own function, given the same length, and the `+'
 ;; which-key puts in front of a key that opens a keymap is part of what it
 ;; cuts -- which is why every description is tried with one.
 (let ((cut '()))
-  (dolist (text (heks-emacs-key-description-texts))
+  (dolist (text (heks/key-description-texts))
     (let ((cell (concat which-key-prefix-prefix text)))
       (unless (equal (which-key--truncate-description cell 80) cell)
         (push text cut))))
@@ -1271,19 +1267,19 @@ paths:
       (progn
         (delete-other-windows)
         (heks-verify--check "one window of a frame this size can be split in two"
-                            (and (heks-emacs-which-key-side-window-p) t))
+                            (and (heks/which-key-side-window-p) t))
         (heks-verify--check "so the menu is the bottom window"
-                            (car (heks-emacs-which-key-popup-dimensions (window-width)))
+                            (car (heks/which-key-popup-dimensions (window-width)))
                             (car (which-key--side-window-max-dimensions)))
         (dotimes (_ 2) (ignore-errors (split-window-below)))
         (setq window-min-height 5)
         (heks-verify--check "windows too small to be split in two leave no room"
-                            (heks-emacs-which-key-side-window-p) nil)
+                            (heks/which-key-side-window-p) nil)
         (heks-verify--check "so the menu is the echo area's"
-                            (car (heks-emacs-which-key-popup-dimensions (window-width)))
+                            (car (heks/which-key-popup-dimensions (window-width)))
                             (1- (car (which-key--minibuffer-max-dimensions))))
         (heks-verify--check "one line less than the echo area has, for which-key's line"
-                            heks-emacs-which-key-echoing t))
+                            heks/which-key-echoing t))
     (setq window-min-height min-height)
     (set-window-configuration configuration)))
 
@@ -1312,7 +1308,7 @@ paths:
                                    (get-buffer-window which-key--buffer))
                               nil)
           (heks-verify--check "it is in the echo area"
-                              (and heks-emacs-which-key-echoing t))
+                              (and heks/which-key-echoing t))
           (heks-verify--check "with the line which-key says about it"
                               (and (string-match-p "(1 of [0-9]+)" (format "%s" echoed)) t))
           (heks-verify--check "and with keys of the scheme under it"
@@ -1342,7 +1338,7 @@ paths:
 
 (let* ((fixture (expand-file-name "import-note.md" heks-verify--fixtures))
        (text (with-temp-buffer (insert-file-contents fixture) (buffer-string)))
-       (org (heks-emacs-markdown-to-org text '(("ID" . "a-heks-verify-id")))))
+       (org (heks/markdown-to-org text '(("ID" . "a-heks-verify-id")))))
   (with-temp-buffer
     (insert org)
     (org-mode)
@@ -1402,13 +1398,12 @@ paths:
 (let ((root (make-temp-file "heks-verify-import-" t)))
   (unwind-protect
       (let ((source (expand-file-name "README.md" root))
-            ;; Nothing here is a note of the reader's own: org-roam is
-            ;; asked to index a file of the notes directory only, and there
-            ;; is none in this check.
-            (org-roam-directory nil))
+            ;; Nothing here is a note of the reader's own: only a file of
+            ;; the notes directory is registered, and there is none here.
+            (heks/notes-dir nil))
         (write-region "# Heks\n\nA **project** with a `maak` task.\n" nil source nil 'silent)
         (heks-verify--check "the Org is written beside the Markdown"
-                            (heks-emacs-import-markdown-file source)
+                            (heks/import-markdown-file source)
                             (expand-file-name "README.org" root))
         (heks-verify--check "and the Markdown is left exactly as it was"
                             (with-temp-buffer (insert-file-contents source)
@@ -1421,9 +1416,9 @@ paths:
                             "#+title: Heks\n\nA *project* with a =maak= task.\n")
         (let ((notes (expand-file-name "notes/" root)))
           (make-directory notes t)
-          (cl-letf (((symbol-function 'heks-emacs-notes-roam-directory)
+          (cl-letf (((symbol-function 'heks/notes-directory)
                      (lambda () notes)))
-            (let* ((note (heks-emacs-import-markdown-file source t))
+            (let* ((note (heks/import-markdown-file source t))
                    (text (with-temp-buffer (insert-file-contents note) (buffer-string))))
               (heks-verify--check "a note is written into the notes directory"
                                   note (expand-file-name "README.org" notes))

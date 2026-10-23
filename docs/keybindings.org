@@ -73,7 +73,7 @@ described only by a letter.
 | ~j~ | JVM: Maven, Gradle, Spring, Java and Kotlin |
 | ~l~ | Emacs itself: evaluating and debugging Elisp |
 | ~m~ | make-style tasks: maak |
-| ~n~ | notes: Org and roam |
+| ~n~ | notes: Org notes |
 | ~o~ | mail: Gnus |
 | ~p~ | completion at point: cape |
 | ~r~ | render, preview and present |
@@ -158,12 +158,27 @@ in every other topic.
 | ~l~ | ~l~ | a library, opened by name |
 | ~l~ | ~L~ | a library, loaded from disk |
 | ~l~ | ~p~ | the parentheses of this buffer |
-| ~n~ | ~c~ | capture a note |
-| ~n~ | ~d~ | today's entry, opened |
-| ~n~ | ~f~ | find a node |
-| ~n~ | ~g~ | the graph of the notes |
-| ~n~ | ~j~ | today's entry, captured |
-| ~n~ | ~l~ | the buffer that lists the links |
+| ~n~ | ~a~ | an archived note, opened |
+| ~n~ | ~b~ | a bookmark, opened |
+| ~n~ | ~B~ | a bookmark, filed under a category |
+| ~n~ | ~c~ | a note, captured from anywhere |
+| ~n~ | ~d~ | today: the agenda, its habits and the inbox |
+| ~n~ | ~e~ | text added to an existing note |
+| ~n~ | ~f~ | a note, found |
+| ~n~ | ~F~ | a note, found or created |
+| ~n~ | ~h~ | the habits, with their graphs |
+| ~n~ | ~i~ | a link to a note, inserted |
+| ~n~ | ~I~ | the index pages, regenerated |
+| ~n~ | ~k~ | a contact, found |
+| ~n~ | ~K~ | a contact, added |
+| ~n~ | ~l~ | the notes that link here |
+| ~n~ | ~n~ | a new note, opened for writing |
+| ~n~ | ~r~ | this note, moved to another topic |
+| ~n~ | ~s~ | the text of every note, searched |
+| ~n~ | ~t~ | a topic folder, opened |
+| ~n~ | ~u~ | the birthdays coming up |
+| ~n~ | ~x~ | a todo, captured into the inbox |
+| ~n~ | ~X~ | a habit, captured |
 | ~n~ | ~A~ | the agenda: every note's dates and TODOs, in one list |
 | ~n~ | ~m~ | a Markdown file, imported as an Org note |
 | ~n~ | ~M~ | a region of Markdown, converted to Org |
@@ -232,10 +247,10 @@ in every other topic.
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
 | ~C-c # e~ | ~sudo-edit~ | this file, edited as root | editor.el |
-| ~C-c # f~ | ~heks-emacs-full-reconfigure~ | everything: his configuration and the system | emacs-core.el |
-| ~C-c # j~ | ~heks-emacs-joe-reconfigure~ | his own configuration | emacs-core.el |
-| ~C-c # s~ | ~heks-emacs-sys-reconfigure~ | the system | emacs-core.el |
-| ~C-c # u~ | ~heks-emacs-sys-update~ | the packages of the system, updated | emacs-core.el |
+| ~C-c # f~ | ~heks/full-reconfigure~ | everything: his configuration and the system | emacs-core.el |
+| ~C-c # j~ | ~heks/joe-reconfigure~ | his own configuration | emacs-core.el |
+| ~C-c # s~ | ~heks/sys-reconfigure~ | the system | emacs-core.el |
+| ~C-c # u~ | ~heks/sys-update~ | the packages of the system, updated | emacs-core.el |
 
 ** ~C-c ;~ diary
 
@@ -301,11 +316,11 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c a b~ | ~heks-emacs-openapi-rest-block~ | the request written as a block to paste | openapi.el |
-| ~C-c a l~ | ~heks-emacs-openapi-check~ | the spec's problems, listed | openapi.el |
-| ~C-c a m~ | ~heks-emacs-openapi-mode~ | the spec, read as a spec | openapi.el |
-| ~C-c a r~ | ~heks-emacs-openapi-request~ | the operation, sent as a live request | openapi.el |
-| ~C-c a v~ | ~heks-emacs-openapi-view~ | the spec, rendered to read | openapi.el |
+| ~C-c a b~ | ~heks/openapi-rest-block~ | the request written as a block to paste | openapi.el |
+| ~C-c a l~ | ~heks/openapi-check~ | the spec's problems, listed | openapi.el |
+| ~C-c a m~ | ~heks/openapi-mode~ | the spec, read as a spec | openapi.el |
+| ~C-c a r~ | ~heks/openapi-request~ | the operation, sent as a live request | openapi.el |
+| ~C-c a v~ | ~heks/openapi-view~ | the spec, rendered to read | openapi.el |
 
 ** ~C-c b~ breakpoints and the debugger: dape
 
@@ -329,8 +344,8 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c d m~ | ~heks-emacs-mongosh~ | the MongoDB shell | emacs-core.el |
-| ~C-c d p~ | ~heks-emacs-sql-postgres~ | a PostgreSQL prompt | emacs-core.el |
+| ~C-c d m~ | ~heks/mongosh~ | the MongoDB shell | emacs-core.el |
+| ~C-c d p~ | ~heks/sql-postgres~ | a PostgreSQL prompt | emacs-core.el |
 
 ** ~C-c e~ environment: direnv
 
@@ -356,26 +371,26 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c g C~ | ~heks-emacs-scheme-callees~ | the callees of this definition | guile.el (a mode's own map) |
-| ~C-c g E~ | ~heks-emacs-scheme-eval-region-or-buffer~ | the region, or the whole buffer | guile.el (a mode's own map) |
-| ~C-c g L~ | ~heks-emacs-guix-lint-buffer~ | lint it with `guix lint' | guile.el (a mode's own map) |
-| ~C-c g R~ | ~heks-emacs-scheme-repl-restart~ | the REPL, restarted | guile.el (a mode's own map) |
-| ~C-c g S~ | ~heks-emacs-guix-style-apply-rule~ | apply one of `guix style''s rules | guile.el (a mode's own map) |
-| ~C-c g b~ | ~heks-emacs-scheme-load-buffer~ | the whole buffer, sent to the REPL | guile.el (a mode's own map) |
-| ~C-c g c~ | ~heks-emacs-scheme-callers~ | the callers of this definition | guile.el (a mode's own map) |
-| ~C-c g d~ | ~heks-emacs-scheme-debugger~ | the Guile debugger | guile.el (a mode's own map) |
-| ~C-c g e~ | ~heks-emacs-scheme-eval-definition~ | the definition at point | guile.el (a mode's own map) |
-| ~C-c g f~ | ~heks-emacs-scheme-format-buffer~ | the buffer, formatted with Guix style | guile.el (a mode's own map) |
+| ~C-c g C~ | ~heks/scheme-callees~ | the callees of this definition | guile.el (a mode's own map) |
+| ~C-c g E~ | ~heks/scheme-eval-region-or-buffer~ | the region, or the whole buffer | guile.el (a mode's own map) |
+| ~C-c g L~ | ~heks/guix-lint-buffer~ | lint it with `guix lint' | guile.el (a mode's own map) |
+| ~C-c g R~ | ~heks/scheme-repl-restart~ | the REPL, restarted | guile.el (a mode's own map) |
+| ~C-c g S~ | ~heks/guix-style-apply-rule~ | apply one of `guix style''s rules | guile.el (a mode's own map) |
+| ~C-c g b~ | ~heks/scheme-load-buffer~ | the whole buffer, sent to the REPL | guile.el (a mode's own map) |
+| ~C-c g c~ | ~heks/scheme-callers~ | the callers of this definition | guile.el (a mode's own map) |
+| ~C-c g d~ | ~heks/scheme-debugger~ | the Guile debugger | guile.el (a mode's own map) |
+| ~C-c g e~ | ~heks/scheme-eval-definition~ | the definition at point | guile.el (a mode's own map) |
+| ~C-c g f~ | ~heks/scheme-format-buffer~ | the buffer, formatted with Guix style | guile.el (a mode's own map) |
 | ~C-c g g~ | ~xref-find-definitions~ | the definition of the symbol at point | guile.el (a mode's own map) |
-| ~C-c g h~ | ~heks-emacs-scheme-documentation~ | the documentation of the symbol at point | guile.el (a mode's own map) |
-| ~C-c g k~ | ~heks-emacs-scheme-interrupt~ | the running Guile, interrupted | guile.el (a mode's own map) |
-| ~C-c g m~ | ~heks-emacs-scheme-generic-methods~ | the generic methods of this symbol | guile.el (a mode's own map) |
+| ~C-c g h~ | ~heks/scheme-documentation~ | the documentation of the symbol at point | guile.el (a mode's own map) |
+| ~C-c g k~ | ~heks/scheme-interrupt~ | the running Guile, interrupted | guile.el (a mode's own map) |
+| ~C-c g m~ | ~heks/scheme-generic-methods~ | the generic methods of this symbol | guile.el (a mode's own map) |
 | ~C-c g o~ | ~geiser-connect~ | a REPL that is already running | guile.el (a mode's own map) |
 | ~C-c g p~ | ~guix-package-location-on-mark~ | the package at the mark | guile.el (a mode's own map) |
-| ~C-c g r~ | ~heks-emacs-scheme-repl~ | a Geiser REPL for this project | guile.el (a mode's own map) |
-| ~C-c g s~ | ~heks-emacs-scheme-repl-switch-to-module~ | the REPL, in another module | guile.el (a mode's own map) |
-| ~C-c g t~ | ~heks-emacs-scheme-test~ | the tests of this file | guile.el (a mode's own map) |
-| ~C-c g x~ | ~heks-emacs-scheme-run-script~ | this file, run as a script | guile.el (a mode's own map) |
+| ~C-c g r~ | ~heks/scheme-repl~ | a Geiser REPL for this project | guile.el (a mode's own map) |
+| ~C-c g s~ | ~heks/scheme-repl-switch-to-module~ | the REPL, in another module | guile.el (a mode's own map) |
+| ~C-c g t~ | ~heks/scheme-test~ | the tests of this file | guile.el (a mode's own map) |
+| ~C-c g x~ | ~heks/scheme-run-script~ | this file, run as a script | guile.el (a mode's own map) |
 
 ** ~C-c h~ help and documentation
 
@@ -397,38 +412,38 @@ in every other topic.
 | ~C-c i R~ | ~eglot-reconnect~ | the language server, reconnected | eglot.el |
 | ~C-c i a~ | ~eglot-code-actions~ | the actions the server offers here | eglot.el |
 | ~C-c i e~ | ~eglot~ | the server, and what it is doing | eglot.el |
-| ~C-c i f~ | ~heks-emacs-format-buffer~ | the buffer, formatted by whoever knows how | emacs-core.el |
+| ~C-c i f~ | ~heks/format-buffer~ | the buffer, formatted by whoever knows how | emacs-core.el |
 | ~C-c i g~ | ~eglot-find-implementation~ | the implementation of the symbol at point | eglot.el |
 | ~C-c i h~ | ~eglot-inlay-hints-mode~ | the server's hints, inside the source | eglot.el |
 | ~C-c i k~ | ~eglot-shutdown-all~ | every language server, stopped | eglot.el |
 | ~C-c i m~ | ~eglot-menu~ | the Eglot menu | eglot.el |
 | ~C-c i r~ | ~eglot-rename~ | the symbol at point, renamed everywhere | eglot.el |
-| ~C-c i s~ | ~heks-emacs-yaml-insert-schema-modeline~ | the schema line, written into this file | eglot.el |
+| ~C-c i s~ | ~heks/yaml-insert-schema-modeline~ | the schema line, written into this file | eglot.el |
 
 ** ~C-c j~ JVM: Maven, Gradle, Spring, Java and Kotlin
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
 | ~C-c j B~ | ~eglot-java-project-build-refresh~ | the project, built again | eglot.el (a mode's own map) |
-| ~C-c j D~ | ~heks-emacs-jvm-dependencies~ | the dependencies of this project | emacs-core.el |
-| ~C-c j G~ | ~heks-emacs-gradle-menu~ | a Gradle task, chosen by what it does | emacs-core.el |
-| ~C-c j M~ | ~heks-emacs-maven-menu~ | a Maven goal, chosen by what it does | emacs-core.el |
+| ~C-c j D~ | ~heks/jvm-dependencies~ | the dependencies of this project | emacs-core.el |
+| ~C-c j G~ | ~heks/gradle-menu~ | a Gradle task, chosen by what it does | emacs-core.el |
+| ~C-c j M~ | ~heks/maven-menu~ | a Maven goal, chosen by what it does | emacs-core.el |
 | ~C-c j N~ | ~eglot-java-project-new~ | a Java project, created | eglot.el (a mode's own map) |
-| ~C-c j R~ | ~heks-emacs-jvm-refresh-project~ | the project, re-read by its tooling | emacs-core.el |
-| ~C-c j T~ | ~heks-emacs-maven-dependency-tree~ | the dependency tree of this Maven project | emacs-core.el |
+| ~C-c j R~ | ~heks/jvm-refresh-project~ | the project, re-read by its tooling | emacs-core.el |
+| ~C-c j T~ | ~heks/maven-dependency-tree~ | the dependency tree of this Maven project | emacs-core.el |
 | ~C-c j b~ | ~eglot-java-project-build-task~ | a build task of this project | eglot.el (a mode's own map) |
-| ~C-c j b~ | ~heks-emacs-jvm-build~ | a build task of this project | emacs-core.el |
-| ~C-c j c~ | ~heks-emacs-jvm-clean~ | the build output, deleted | emacs-core.el |
-| ~C-c j d~ | ~heks-emacs-jvm-debug~ | debugged, suspended until `dape' attaches | dev-formats.el |
-| ~C-c j g~ | ~heks-emacs-gradle-run~ | a Gradle task of this project | emacs-core.el |
-| ~C-c j m~ | ~heks-emacs-maven-run~ | a Maven goal of this project | emacs-core.el |
+| ~C-c j b~ | ~heks/jvm-build~ | a build task of this project | emacs-core.el |
+| ~C-c j c~ | ~heks/jvm-clean~ | the build output, deleted | emacs-core.el |
+| ~C-c j d~ | ~heks/jvm-debug~ | debugged, suspended until `dape' attaches | dev-formats.el |
+| ~C-c j g~ | ~heks/gradle-run~ | a Gradle task of this project | emacs-core.el |
+| ~C-c j m~ | ~heks/maven-run~ | a Maven goal of this project | emacs-core.el |
 | ~C-c j n~ | ~eglot-java-file-new~ | a Java file, created | eglot.el (a mode's own map) |
-| ~C-c j p~ | ~heks-emacs-jvm-package~ | the artefact of this project, built | emacs-core.el |
+| ~C-c j p~ | ~heks/jvm-package~ | the artefact of this project, built | emacs-core.el |
 | ~C-c j r~ | ~eglot-java-run-main~ | the main class, run | eglot.el (a mode's own map) |
-| ~C-c j s~ | ~heks-emacs-spring-boot-run~ | the Spring Boot application | emacs-core.el |
+| ~C-c j s~ | ~heks/spring-boot-run~ | the Spring Boot application | emacs-core.el |
 | ~C-c j t~ | ~eglot-java-run-test~ | the tests, run this project's way | eglot.el (a mode's own map) |
-| ~C-c j t~ | ~heks-emacs-jvm-test~ | the tests, run this project's way | emacs-core.el |
-| ~C-c j v~ | ~heks-emacs-jvm-verify~ | every check this project defines | emacs-core.el |
+| ~C-c j t~ | ~heks/jvm-test~ | the tests, run this project's way | emacs-core.el |
+| ~C-c j v~ | ~heks/jvm-verify~ | every check this project defines | emacs-core.el |
 
 ** ~C-c l~ Emacs itself: evaluating and debugging Elisp
 
@@ -446,21 +461,35 @@ in every other topic.
 |-----+---------+--------------+----|
 | ~C-c m r~ | ~maak-run-task~ | a maak task of this project | dev-project.el |
 
-** ~C-c n~ notes: Org and roam
+** ~C-c n~ notes: Org notes
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
 | ~C-c n A~ | ~org-agenda~ | the agenda: every note's dates and TODOs, in one list | org.el |
-| ~C-c n M~ | ~heks-emacs-markdown-region-to-org~ | the region of Markdown, converted to Org | import.el |
-| ~C-c n c~ | ~org-roam-capture~ | capture a note | org.el |
-| ~C-c n d~ | ~org-roam-dailies-goto-today~ | today's entry, opened | org.el |
-| ~C-c n f~ | ~org-roam-node-find~ | a node, found by title | org.el |
-| ~C-c n g~ | ~org-roam-graph~ | the graph of the notes | org.el |
-| ~C-c n i~ | ~org-roam-node-insert~ | a link to another node, inserted | org.el |
-| ~C-c n j~ | ~org-roam-dailies-capture-today~ | today's entry, captured | org.el |
-| ~C-c n l~ | ~org-roam-buffer-toggle~ | the buffer that lists the links | org.el |
-| ~C-c n m~ | ~heks-emacs-import-markdown~ | the Markdown file of this buffer, imported as an Org note | import.el |
+| ~C-c n B~ | ~heks/bookmark-add~ | a bookmark, filed under a category picked with completion | bookmarks.el |
+| ~C-c n F~ | ~heks/notes-find-or-create~ | a note by title, created when none has it | notes.el |
+| ~C-c n I~ | ~heks/notes-regenerate-indexes~ | every index page, regenerated from the notes | notes.el |
+| ~C-c n K~ | ~heks/contact-new~ | a contact, added to the contacts file | contacts.el |
+| ~C-c n M~ | ~heks/markdown-region-to-org~ | the region of Markdown, converted to Org | import.el |
+| ~C-c n X~ | ~heks/habit-capture~ | a habit, captured: a todo that repeats | agenda.el |
+| ~C-c n a~ | ~heks/notes-find-archived~ | an archived note, from a former employer | notes.el |
+| ~C-c n b~ | ~heks/bookmark-open~ | a bookmark, picked and opened (prefix: copied; twice: inserted as a link) | bookmarks.el |
+| ~C-c n c~ | ~heks/notes-capture~ | capture a note from anywhere: the region (or, with a prefix, the latest kill) filed under a topic you pick, with a link back | notes.el |
+| ~C-c n d~ | ~heks/agenda-today~ | today: the day's agenda with habits and birthdays, what is in progress, the inbox | agenda.el |
+| ~C-c n e~ | ~heks/notes-extend~ | text added to the end of an existing note | notes.el |
+| ~C-c n f~ | ~heks/notes-find~ | a note, found by title | notes.el |
+| ~C-c n h~ | ~heks/agenda-habits~ | the habits, with their consistency graphs | agenda.el |
+| ~C-c n i~ | ~heks/notes-insert~ | a link to another note, inserted | notes.el |
+| ~C-c n k~ | ~heks/contact-find~ | a contact, found by name (prefix: inserted as Name <email>) | contacts.el |
+| ~C-c n l~ | ~heks/notes-backlinks~ | the notes that link to this one | notes.el |
+| ~C-c n m~ | ~heks/import-markdown~ | the Markdown file of this buffer, imported as an Org note | import.el |
+| ~C-c n n~ | ~heks/notes-new~ | a new note, opened for writing, in a topic you pick | notes.el |
+| ~C-c n r~ | ~heks/notes-move~ | this note, moved to another topic, its links repaired | notes.el |
+| ~C-c n s~ | ~heks/notes-search~ | the text of every note, searched | notes.el |
+| ~C-c n t~ | ~heks/notes-topic~ | a topic folder, opened | notes.el |
+| ~C-c n u~ | ~heks/agenda-birthdays~ | the birthdays of the next 60 days | agenda.el |
 | ~C-c n v~ | ~org-toggle-link-display~ | links, shown as their text | org.el |
+| ~C-c n x~ | ~heks/todo-capture~ | a todo, captured into the inbox from anywhere, linked to where it came from | agenda.el |
 
 ** ~C-c o~ mail: Gnus
 
@@ -479,16 +508,16 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c r D~ | ~heks-emacs-present-deck-export~ | the deck, kept as a file | present.el |
-| ~C-c r P~ | ~heks-emacs-present~ | this buffer, presented | present.el |
-| ~C-c r b~ | ~heks-emacs-preview-browser~ | this document, in the browser | render.el |
-| ~C-c r d~ | ~heks-emacs-present-deck~ | the deck, in the browser | present.el |
-| ~C-c r e~ | ~heks-emacs-preview-export~ | this document, kept as an HTML file | render.el |
-| ~C-c r m~ | ~heks-emacs-preview-toggle-follow~ | follow the buffer, re-rendering on save | render.el |
-| ~C-c r n~ | ~heks-emacs-present-insert-slide~ | a slide boundary, inserted | present.el |
-| ~C-c r p~ | ~heks-emacs-preview~ | this buffer, rendered in Emacs | render.el |
-| ~C-c r r~ | ~heks-emacs-preview-refresh~ | the preview, rendered again | render.el |
-| ~C-c r s~ | ~heks-emacs-preview-sync~ | the preview, moved to the section point is in | render.el |
+| ~C-c r D~ | ~heks/present-deck-export~ | the deck, kept as a file | present.el |
+| ~C-c r P~ | ~heks/present~ | this buffer, presented | present.el |
+| ~C-c r b~ | ~heks/preview-browser~ | this document, in the browser | render.el |
+| ~C-c r d~ | ~heks/present-deck~ | the deck, in the browser | present.el |
+| ~C-c r e~ | ~heks/preview-export~ | this document, kept as an HTML file | render.el |
+| ~C-c r m~ | ~heks/preview-toggle-follow~ | follow the buffer, re-rendering on save | render.el |
+| ~C-c r n~ | ~heks/present-insert-slide~ | a slide boundary, inserted | present.el |
+| ~C-c r p~ | ~heks/preview~ | this buffer, rendered in Emacs | render.el |
+| ~C-c r r~ | ~heks/preview-refresh~ | the preview, rendered again | render.el |
+| ~C-c r s~ | ~heks/preview-sync~ | the preview, moved to the section point is in | render.el |
 
 ** ~C-c s~ snippets and recorded macros
 
@@ -508,7 +537,7 @@ in every other topic.
 | ~C-c t $~ | ~jinx-mode~ | spell checking, on and off | proofreading.el |
 | ~C-c t a~ | ~sort-lines~ | the lines, sorted | emacs-core.el |
 | ~C-c t c~ | ~display-fill-column-indicator-mode~ | the fill column indicator | emacs-core.el |
-| ~C-c t i~ | ~heks-emacs-uuidgen~ | a UUID, generated | emacs-core.el |
+| ~C-c t i~ | ~heks/uuidgen~ | a UUID, generated | emacs-core.el |
 | ~C-c t n~ | ~hl-todo-next~ | the next TODO or FIXME in this buffer | dev-tools.el |
 | ~C-c t o~ | ~olivetti-mode~ | writing in the middle of the window | ui.el |
 | ~C-c t p~ | ~hl-todo-previous~ | the previous one | dev-tools.el |
@@ -526,33 +555,33 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c v C~ | ~heks-emacs-fold-close-all~ | every fold | emacs-core.el |
-| ~C-c v D~ | ~heks-emacs-duplicates-report~ | the code this project writes more than once | emacs-core.el |
-| ~C-c v O~ | ~heks-emacs-fold-open-recursive~ | this fold and everything under it | emacs-core.el |
-| ~C-c v c~ | ~heks-emacs-fold-close~ | this fold | emacs-core.el |
+| ~C-c v C~ | ~heks/fold-close-all~ | every fold | emacs-core.el |
+| ~C-c v D~ | ~heks/duplicates-report~ | the code this project writes more than once | emacs-core.el |
+| ~C-c v O~ | ~heks/fold-open-recursive~ | this fold and everything under it | emacs-core.el |
+| ~C-c v c~ | ~heks/fold-close~ | this fold | emacs-core.el |
 | ~C-c v d~ | ~highlight-compare-buffers~ | two buffers, compared | emacs-core.el |
-| ~C-c v o~ | ~heks-emacs-fold-open~ | this fold, opened | emacs-core.el |
-| ~C-c v r~ | ~heks-emacs-fold-open-all~ | every fold, revealed | emacs-core.el |
-| ~C-c v t~ | ~heks-emacs-fold-toggle~ | the fold at point, toggled | emacs-core.el |
+| ~C-c v o~ | ~heks/fold-open~ | this fold, opened | emacs-core.el |
+| ~C-c v r~ | ~heks/fold-open-all~ | every fold, revealed | emacs-core.el |
+| ~C-c v t~ | ~heks/fold-toggle~ | the fold at point, toggled | emacs-core.el |
 
 ** ~C-c w~ workspace and project: running it, and Terraform
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c w D~ | ~heks-emacs-terraform-destroy~ | the infrastructure, destroyed | dev-project.el |
-| ~C-c w G~ | ~heks-emacs-project-git-stats~ | the Git history of the project, summarised | dev-project.el |
-| ~C-c w a~ | ~heks-emacs-terraform-apply~ | the plan, applied | dev-project.el |
+| ~C-c w D~ | ~heks/terraform-destroy~ | the infrastructure, destroyed | dev-project.el |
+| ~C-c w G~ | ~heks/project-git-stats~ | the Git history of the project, summarised | dev-project.el |
+| ~C-c w a~ | ~heks/terraform-apply~ | the plan, applied | dev-project.el |
 | ~C-c w c~ | ~magit-clone~ | a repository, cloned | emacs-core.el |
-| ~C-c w d~ | ~heks-emacs-project-start-dev~ | the development server | emacs-core.el |
-| ~C-c w f~ | ~heks-emacs-project-fmt~ | the project, formatted | emacs-core.el |
+| ~C-c w d~ | ~heks/project-start-dev~ | the development server | emacs-core.el |
+| ~C-c w f~ | ~heks/project-fmt~ | the project, formatted | emacs-core.el |
 | ~C-c w g~ | ~deadgrep~ | a search of the project | search.el |
-| ~C-c w i~ | ~heks-emacs-terraform-init~ | the providers and state, initialised | dev-project.el |
-| ~C-c w l~ | ~heks-emacs-project-languages~ | the languages of the project, measured | dev-project.el |
-| ~C-c w p~ | ~heks-emacs-terraform-plan~ | the change, previewed | dev-project.el |
-| ~C-c w r~ | ~heks-emacs-project-start-repl-process~ | a REPL process for this project | emacs-core.el |
-| ~C-c w s~ | ~heks-emacs-print-random-standup-order~ | a random order for the standup | emacs-core.el |
-| ~C-c w t~ | ~heks-emacs-project-start-test~ | the project's tests | emacs-core.el |
-| ~C-c w v~ | ~heks-emacs-terraform-validate~ | the Terraform configuration, validated | dev-project.el |
+| ~C-c w i~ | ~heks/terraform-init~ | the providers and state, initialised | dev-project.el |
+| ~C-c w l~ | ~heks/project-languages~ | the languages of the project, measured | dev-project.el |
+| ~C-c w p~ | ~heks/terraform-plan~ | the change, previewed | dev-project.el |
+| ~C-c w r~ | ~heks/project-start-repl-process~ | a REPL process for this project | emacs-core.el |
+| ~C-c w s~ | ~heks/print-random-standup-order~ | a random order for the standup | emacs-core.el |
+| ~C-c w t~ | ~heks/project-start-test~ | the project's tests | emacs-core.el |
+| ~C-c w v~ | ~heks/terraform-validate~ | the Terraform configuration, validated | dev-project.el |
 
 ** ~C-c x~ eca: the AI coding assistant
 
@@ -562,7 +591,7 @@ in every other topic.
 | ~C-c x k~ | ~eca-chat-stop-prompt~ | the running prompt, stopped | ai.el |
 | ~C-c x m~ | ~eca-chat-select-model~ | the model, chosen | ai.el |
 | ~C-c x n~ | ~eca-chat-new~ | a new chat | ai.el |
-| ~C-c x p~ | ~heks-emacs-ai-use-provider~ | the provider, chosen | ai.el |
+| ~C-c x p~ | ~heks/ai-use-provider~ | the provider, chosen | ai.el |
 | ~C-c x s~ | ~eca-chat-select~ | a chat, switched to by name | ai.el |
 | ~C-c x t~ | ~eca-chat-toggle-window~ | the chat window, shown or hidden | ai.el |
 

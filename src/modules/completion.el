@@ -58,6 +58,6 @@
   (completion-category-defaults nil)
   (completion-pcm-leading-wildcard t))
 
-(provide 'heks-emacs/completion)
+(provide 'heks/completion)
 
 ;;; completion.el ends here

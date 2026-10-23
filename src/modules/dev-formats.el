@@ -72,7 +72,7 @@
 ;; `pom.xml' already opens in nxml-mode (XML files carrying a declaration
 ;; are detected through `magic-mode-alist'), so what is left is Maven's own
 ;; four-space indentation, applied buffer-locally.
-(defun heks-emacs-pom-xml-setup ()
+(defun heks/pom-xml-setup ()
   "Apply Maven conventions when visiting a `pom.xml' file.
 
 Besides the indentation this folds elements with Hideshow, shows a
@@ -92,7 +92,7 @@ against the Maven schema."
       (eglot-ensure))))
 
 (add-to-list 'auto-mode-alist '("pom\\.xml\\'" . nxml-mode))
-(add-hook 'nxml-mode-hook #'heks-emacs-pom-xml-setup)
+(add-hook 'nxml-mode-hook #'heks/pom-xml-setup)
 
 ;; Spring Boot configuration lives either in `application*.properties'
 ;; (already handled by `conf-javaprop-mode') or in `application*.yml',
@@ -101,17 +101,17 @@ against the Maven schema."
 (use-package pandoc-mode :ensure t)
 
 ;; `dape' is the client; it needs a real DAP server to drive, which for a
-;; JVM project is the `java-debug' adapter that `heks-emacs-jvm-debug'
+;; JVM project is the `java-debug' adapter that `heks/jvm-debug'
 ;; (see `heks-emacs.el') runs and attaches to -- see
-;; `heks-emacs-java-debug-jar' for where that jar comes from.
+;; `heks/java-debug-jar' for where that jar comes from.
 (use-package dape
   :ensure t
   :init (setq dape-buffer-window-arrangement 'right)
   ;; `C-c j d' starts and attaches a JVM project's debugger
-  ;; (`heks-emacs-jvm-debug'); `C-c b' is `dape''s own commands once
+  ;; (`heks/jvm-debug'); `C-c b' is `dape''s own commands once
   ;; attached -- to any debuggee, JVM or otherwise, which is why it is its
   ;; own topic rather than folded into `j'.
-  :bind (("C-c j d" . heks-emacs-jvm-debug)
+  :bind (("C-c j d" . heks/jvm-debug)
          ("C-c b b" . dape-breakpoint-toggle)
          ("C-c b c" . dape-continue)
          ("C-c b n" . dape-next)
@@ -124,6 +124,6 @@ against the Maven schema."
   :ensure t
   :mode ("\\.graphql\\'" "\\.graphqls\\'"))
 
-(provide 'heks-emacs/dev-formats)
+(provide 'heks/dev-formats)
 
 ;;; dev-formats.el ends here

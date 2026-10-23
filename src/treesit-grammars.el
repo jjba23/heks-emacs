@@ -48,21 +48,21 @@
 (require 'subr-x)
 (require 'treesit)
 
-(defvar heks-emacs-treesit-grammar-directory
+(defvar heks/treesit-grammar-directory
   (expand-file-name "tree-sitter" user-emacs-directory)
   "The directory the grammars are installed into.")
 
-(defvar heks-emacs-treesit-own-recipes nil
+(defvar heks/treesit-own-recipes nil
   "The recipes of the grammars Emacs itself ships no mode for.")
 
-(defvar heks-emacs-treesit-attempts 2
+(defvar heks/treesit-attempts 2
   "How many times a grammar is built before it is given up on.
 
 Building one is a clone and a compilation, and either step can fail for a
 reason that is not about the grammar at all, so a second attempt is worth
 far more than the line it costs.")
 
-(defun heks-emacs-treesit--mode-libraries ()
+(defun heks/treesit--mode-libraries ()
   "Return the libraries that define this Emacs's tree-sitter modes.
 
 A mode is not the library it lives in -- `python-ts-mode' is in `python',
@@ -71,7 +71,7 @@ was defined in, and the two are not the same name."
   (delq nil (mapcar (lambda (pair) (symbol-file (cdr pair) 'defun))
                     (bound-and-true-p treesit-major-mode-remap-alist))))
 
-(defun heks-emacs-treesit-recipes ()
+(defun heks/treesit-recipes ()
   "Return the recipes of every grammar this Emacs can be asked for.
 
 The recipes of the languages Emacs has modes for are not a list to keep
@@ -79,39 +79,39 @@ anywhere: each of its mode files adds the recipe of the language its mode
 parses to `treesit-language-source-alist' as it is loaded, so the list is
 Emacs's own and stays right as Emacs changes.  What this configuration adds
 to it is the languages Emacs ships no mode for."
-  (dolist (library (heks-emacs-treesit--mode-libraries))
+  (dolist (library (heks/treesit--mode-libraries))
     (load library nil t))
-  (append heks-emacs-treesit-own-recipes
+  (append heks/treesit-own-recipes
           (seq-remove (lambda (recipe)
-                        (assq (car recipe) heks-emacs-treesit-own-recipes))
+                        (assq (car recipe) heks/treesit-own-recipes))
                       treesit-language-source-alist)))
 
-(defun heks-emacs-treesit-build (language)
+(defun heks/treesit-build (language)
   "Build LANGUAGE's grammar, answering whether it can be loaded here now.
 
 A build that returns is not a grammar that arrived: Emacs reports a library
 it cannot locate or load as a warning rather than as an error, so what this
 answers is what `treesit-language-available-p' says afterwards.  A language
 that fails, or that is built but does not arrive, is tried
-`heks-emacs-treesit-attempts' times before it is given up on, and only the
+`heks/treesit-attempts' times before it is given up on, and only the
 last failure is reported as the verdict: what the earlier line says is that
 an attempt did not work, which is a different thing."
   (let ((attempt 0)
         (built nil)
         (why nil))
-    (while (and (not built) (< attempt heks-emacs-treesit-attempts))
+    (while (and (not built) (< attempt heks/treesit-attempts))
       (setq attempt (1+ attempt)
             why nil)
       (condition-case err
           (treesit-install-language-grammar
-           language heks-emacs-treesit-grammar-directory)
+           language heks/treesit-grammar-directory)
         (error (setq why (error-message-string err))))
       (cond
        ((and (null why) (treesit-language-available-p language))
         (setq built t)
         (when (> attempt 1)
           (message "the %s grammar was built on attempt %d" language attempt)))
-       ((< attempt heks-emacs-treesit-attempts)
+       ((< attempt heks/treesit-attempts)
         (message "the %s grammar did not build on attempt %d (%s); trying once more"
                  language attempt (or why "no library could be loaded")))
        (t
@@ -119,7 +119,7 @@ an attempt did not work, which is a different thing."
                  language (or why "it was built, but no library can be loaded")))))
     built))
 
-(defun heks-emacs-treesit-install-grammars ()
+(defun heks/treesit-install-grammars ()
   "Build every grammar whose recipe is known and whose library is not here.
 
 Each one is given its attempts before it is reported, and a grammar that is
@@ -128,9 +128,9 @@ it: one language's repository having moved, or its compiler having gone
 missing, is no reason for the others to stay unbuilt."
   (let ((built 0)
         (missing nil))
-    (dolist (recipe (heks-emacs-treesit-recipes))
+    (dolist (recipe (heks/treesit-recipes))
       (unless (treesit-language-available-p (car recipe))
-        (if (heks-emacs-treesit-build (car recipe))
+        (if (heks/treesit-build (car recipe))
             (setq built (1+ built))
           (push (car recipe) missing))))
     (message "heks-emacs: %d tree-sitter grammar%s built%s"
@@ -141,8 +141,8 @@ missing, is no reason for the others to stay unbuilt."
                          (mapconcat #'symbol-name (nreverse missing) ", "))
                ""))))
 
-(heks-emacs-treesit-install-grammars)
+(heks/treesit-install-grammars)
 
-(provide 'heks-emacs/treesit-grammars)
+(provide 'heks/treesit-grammars)
 
 ;;; treesit-grammars.el ends here

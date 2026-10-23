@@ -102,7 +102,7 @@ position of the error is what makes a mistake findable."
   "Return the module names `init.el' claims to load."
   (let* ((form (cl-find-if (lambda (form)
                              (and (eq (car-safe form) 'setq)
-                                  (eq (nth 1 form) 'heks-emacs-modules)))
+                                  (eq (nth 1 form) 'heks/modules)))
                            (heks-lint--forms (expand-file-name "src/init.el" heks-lint--dir))))
          (value (nth 2 form)))
     (when (and (consp value) (eq (car value) 'quote))

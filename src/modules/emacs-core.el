@@ -48,18 +48,18 @@
 ;; the letter is then the first letter of what it names: the font sizes
 ;; (`C-c f t' is tiny, `C-c f c' colossal), what the system topic
 ;; reconfigures (`C-c # j' is his own configuration, `C-c # s' the
-;; system), what the notes topic opens (`C-c n f' finds a node, `C-c n j'
+;; system), what the notes topic opens (`C-c n f' finds a note, `C-c n c'
 ;; the journal entry for today).  Those letters are written down per
-;; topic in `heks-emacs-key-letters' rather than being pushed into the
+;; topic in `heks/key-letters' rather than being pushed into the
 ;; action alphabet until it means everything and nothing -- which is what
 ;; `i' had come to mean, with a key for the implementation and a key for
 ;; an interrupt under it.
 ;;
 ;; The tables below are the scheme: what each topic is for
-;; (`heks-emacs-key-topics'), what each action letter means everywhere
-;; (`heks-emacs-key-actions'), what a topic means by a letter of its own
-;; (`heks-emacs-key-letters'), and what each individual key does in its
-;; own words (`heks-emacs-key-descriptions').
+;; (`heks/key-topics'), what each action letter means everywhere
+;; (`heks/key-actions'), what a topic means by a letter of its own
+;; (`heks/key-letters'), and what each individual key does in its
+;; own words (`heks/key-descriptions').
 ;;
 ;; The last table exists because a letter can only say so much: `C-c i f'
 ;; and `C-c j f' both format, but `C-c i f' is "the buffer, formatted by
@@ -75,7 +75,7 @@
 ;; whose command does not exist, whose letters are in no table, or that
 ;; has no description of its own.
 
-(defconst heks-emacs-key-topics
+(defconst heks/key-topics
   '(("!"     . "diagnostics: Flymake")
     ("#"     . "system: this machine and the Guix system")
     ("C-#"   . "Org statistics cookies, kept off `C-c #'")
@@ -94,7 +94,7 @@
     ("j"     . "JVM: Maven, Gradle, Spring, Java and Kotlin")
     ("l"     . "Emacs itself: evaluating and debugging Elisp")
     ("m"     . "make-style tasks: maak")
-    ("n"     . "notes: Org and roam")
+    ("n"     . "notes: Org notes")
     ("o"     . "mail: Gnus")
     ("p"     . "completion at point: cape")
     ("r"     . "render, preview and present")
@@ -118,7 +118,7 @@ one: `C-c C-d' is the diagrams where `C-c d' is the databases.
 Read by `test/heks-emacs-keys.el', which fails when a key uses a topic
 that is not described here.")
 
-(defconst heks-emacs-key-actions
+(defconst heks/key-actions
   '(("a" . "apply an action, or add something")
     ("b" . "build")
     ("c" . "show the callers of this definition")
@@ -145,12 +145,12 @@ that is not described here.")
 
 An action letter is one meaning in every topic that uses it.  A topic
 that keys something other than an action says so in
-`heks-emacs-key-letters', and the two together are what every key under
+`heks/key-letters', and the two together are what every key under
 `C-c' is held to; an uppercase letter is the further one of a pair (`C-c
 g E' evaluates more than `C-c g e', `C-c v C' closes everything where
 `C-c v c' closes one fold).")
 
-(defconst heks-emacs-key-letters
+(defconst heks/key-letters
   '(("!" ("n" . "the next diagnostic")
          ("N" . "the previous diagnostic")
          ("b" . "the diagnostics of this buffer")
@@ -213,12 +213,27 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
     ("l" ("l" . "a library, opened by name")
          ("L" . "a library, loaded from disk")
          ("p" . "the parentheses of this buffer"))
-    ("n" ("c" . "capture a note")
-         ("d" . "today's entry, opened")
-         ("f" . "find a node")
-         ("g" . "the graph of the notes")
-         ("j" . "today's entry, captured")
-         ("l" . "the buffer that lists the links")
+    ("n" ("a" . "an archived note, opened")
+         ("b" . "a bookmark, opened")
+         ("B" . "a bookmark, filed under a category")
+         ("c" . "a note, captured from anywhere")
+         ("d" . "today: the agenda, its habits and the inbox")
+         ("e" . "text added to an existing note")
+         ("f" . "a note, found")
+         ("F" . "a note, found or created")
+         ("h" . "the habits, with their graphs")
+         ("i" . "a link to a note, inserted")
+         ("I" . "the index pages, regenerated")
+         ("k" . "a contact, found")
+         ("K" . "a contact, added")
+         ("l" . "the notes that link here")
+         ("n" . "a new note, opened for writing")
+         ("r" . "this note, moved to another topic")
+         ("s" . "the text of every note, searched")
+         ("t" . "a topic folder, opened")
+         ("u" . "the birthdays coming up")
+         ("x" . "a todo, captured into the inbox")
+         ("X" . "a habit, captured")
          ("A" . "the agenda: every note's dates and TODOs, in one list")
          ;; `m' is the Markdown a note is made from rather than a menu:
          ;; an import is not a mode to turn on and off.
@@ -274,16 +289,16 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
   "What the letters of a topic mean, topic by topic.
 
 These are the topics whose keys do not perform one of the actions in
-`heks-emacs-key-actions': the letter is the first letter of what the key
+`heks/key-actions': the letter is the first letter of what the key
 names.  A topic can also say here that it means something of its own by
 an action letter -- `C-c w i' initialises Terraform where `i' inserts
 everywhere else -- and the four tables together are what every key under
-`C-c' is held to: an entry in `heks-emacs-key-descriptions' first, then
+`C-c' is held to: an entry in `heks/key-descriptions' first, then
 this table, then the action alphabet.  Both tables are read by
 `test/heks-emacs-keys.el', which fails on a key that has no description
 of its own and prints, for every key, what this scheme calls it.")
 
-(defconst heks-emacs-key-descriptions
+(defconst heks/key-descriptions
   '(("C-c ! N" . "the previous diagnostic")
     ("C-c ! a" . "all the diagnostics of the project")
     ("C-c ! b" . "the diagnostics of this buffer")
@@ -391,13 +406,27 @@ of its own and prints, for every key, what this scheme calls it.")
     ("C-c l l" . "a library, opened by name")
     ("C-c l p" . "the parentheses of this buffer, checked")
     ("C-c m r" . "a maak task of this project")
-    ("C-c n c" . "capture a note")
-    ("C-c n d" . "today's entry, opened")
-    ("C-c n f" . "a node, found by title")
-    ("C-c n g" . "the graph of the notes")
-    ("C-c n i" . "a link to another node, inserted")
-    ("C-c n j" . "today's entry, captured")
-    ("C-c n l" . "the buffer that lists the links")
+    ("C-c n F" . "a note by title, created when none has it")
+    ("C-c n I" . "every index page, regenerated from the notes")
+    ("C-c n K" . "a contact, added to the contacts file")
+    ("C-c n B" . "a bookmark, filed under a category picked with completion")
+    ("C-c n X" . "a habit, captured: a todo that repeats")
+    ("C-c n a" . "an archived note, from a former employer")
+    ("C-c n b" . "a bookmark, picked and opened (prefix: copied; twice: inserted as a link)")
+    ("C-c n c" . "capture a note from anywhere: the region (or, with a prefix, the latest kill) filed under a topic you pick, with a link back")
+    ("C-c n d" . "today: the day's agenda with habits and birthdays, what is in progress, the inbox")
+    ("C-c n e" . "text added to the end of an existing note")
+    ("C-c n f" . "a note, found by title")
+    ("C-c n h" . "the habits, with their consistency graphs")
+    ("C-c n i" . "a link to another note, inserted")
+    ("C-c n k" . "a contact, found by name (prefix: inserted as Name <email>)")
+    ("C-c n l" . "the notes that link to this one")
+    ("C-c n n" . "a new note, opened for writing, in a topic you pick")
+    ("C-c n r" . "this note, moved to another topic, its links repaired")
+    ("C-c n s" . "the text of every note, searched")
+    ("C-c n t" . "a topic folder, opened")
+    ("C-c n u" . "the birthdays of the next 60 days")
+    ("C-c n x" . "a todo, captured into the inbox from anywhere, linked to where it came from")
     ("C-c n M" . "the region of Markdown, converted to Org")
     ("C-c n m" . "the Markdown file of this buffer, imported as an Org note")
     ("C-c n v" . "links, shown as their text")
@@ -489,7 +518,7 @@ Every key under `C-c' has an entry; `test/heks-emacs-keys.el' fails on a
 binding that does not, so a key added without one cannot quietly fall
 back to its letter's meaning.")
 
-(defconst heks-emacs-key-major-mode-descriptions
+(defconst heks/key-major-mode-descriptions
   '((java-mode ("C-c j b" . "a JDT build task for this project")
                ("C-c j n" . "a Java file, through the language server")
                ("C-c j r" . "the main class, through the language server")
@@ -502,12 +531,12 @@ back to its letter's meaning.")
 
 Four keys are deliberately two things at once: in a Java buffer the
 language server can run and test the program itself, which is more
-accurate than asking Maven to do it.  `heks-emacs-key-descriptions' says
+accurate than asking Maven to do it.  `heks/key-descriptions' says
 what such a key does everywhere; this table says what it does in the
 buffer where the mode's own map answers first, and `which-key' shows the
 right one while the key is being typed.")
 
-(defun heks-emacs-key-description (key)
+(defun heks/key-description (key)
   "Return what KEY does, in the words of the scheme.
 
 This is the one place the four tables are read in order, so that the
@@ -517,43 +546,43 @@ letter means everywhere."
   (let* ((topic (and (string-match "\\`C-c \\([^ ]+\\)" key) (match-string 1 key)))
          (letter (and (string-match "\\`C-c [^ ]+ \\([a-zA-Z]\\)\\'" key)
                       (match-string 1 key))))
-    (or (cdr (assoc key heks-emacs-key-descriptions #'equal))
+    (or (cdr (assoc key heks/key-descriptions #'equal))
         (and topic letter
              (cdr (assoc letter
-                         (cdr (assoc topic heks-emacs-key-letters #'equal)) #'equal)))
-        (and letter (cdr (assoc letter heks-emacs-key-actions #'equal)))
-        (and topic (cdr (assoc topic heks-emacs-key-topics #'equal))))))
+                         (cdr (assoc topic heks/key-letters #'equal)) #'equal)))
+        (and letter (cdr (assoc letter heks/key-actions #'equal)))
+        (and topic (cdr (assoc topic heks/key-topics #'equal))))))
 
-(defconst heks-emacs-key-root-description
+(defconst heks/key-root-description
   "this configuration: a letter for the topic, then one for the action"
   "What `C-c' itself says, above the topics of the scheme.
 
 Every other description is a row of a table -- what a key does in its own
 words, or what a letter means under a topic -- and this is the one the
 scheme has for the root of it, written next to the tables rather than
-inside `heks-emacs-which-key-setup' so that the length which-key is told
-(see `heks-emacs-which-key-description-length') measures it too: it is the
+inside `heks/which-key-setup' so that the length which-key is told
+(see `heks/which-key-description-length') measures it too: it is the
 longest sentence of them all, and it was the one that arrived cut.")
 
-(defun heks-emacs-key-description-texts ()
+(defun heks/key-description-texts ()
   "Return every description the scheme has, in one list.
 
-The four tables are read the way `heks-emacs-key-description' reads them:
+The four tables are read the way `heks/key-description' reads them:
 what a topic is for, what an action letter means under a topic that keys
 something of its own, what an action letter means everywhere, and what each
-key does in its own words -- and `heks-emacs-key-root-description', which
+key does in its own words -- and `heks/key-root-description', which
 is what the tables hang under rather than a row of one."
-  (let ((texts (list heks-emacs-key-root-description)))
-    (dolist (table (list heks-emacs-key-topics heks-emacs-key-actions
-                         heks-emacs-key-descriptions))
+  (let ((texts (list heks/key-root-description)))
+    (dolist (table (list heks/key-topics heks/key-actions
+                         heks/key-descriptions))
       (dolist (entry table) (push (cdr entry) texts)))
-    (dolist (table (list heks-emacs-key-letters heks-emacs-key-major-mode-descriptions))
+    (dolist (table (list heks/key-letters heks/key-major-mode-descriptions))
       (dolist (entry table)
         (dolist (inner (cdr entry)) (push (cdr inner) texts))))
     (nreverse texts)))
 
-(defconst heks-emacs-which-key-description-length
-  (1+ (apply #'max (mapcar #'length (heks-emacs-key-description-texts))))
+(defconst heks/which-key-description-length
+  (1+ (apply #'max (mapcar #'length (heks/key-description-texts))))
   "The length `which-key' is told the scheme's descriptions have.
 
 `which-key' cuts a description longer than it is allowed to be, with
@@ -565,7 +594,7 @@ than the description in it: a key that is a prefix is shown with the `+'
 of `which-key-prefix-prefix' in front of it, so that character is counted
 here too.  The length of the longest sentence is what is measured rather
 than a round number, and the longest of them all is the one the scheme has
-for `C-c' itself -- see `heks-emacs-key-root-description', the row that
+for `C-c' itself -- see `heks/key-root-description', the row that
 was missing from this count when the round number was written.
 
 The setting is the one in the `which-key' setup below, and
@@ -574,7 +603,7 @@ this configuration; `test/heks-emacs-ert.el' checks the rule instead, with
 `which-key's own truncation: no description the scheme has is touched at
 this length.")
 
-(defun heks-emacs-which-key-setup ()
+(defun heks/which-key-setup ()
   "Teach `which-key' what the key scheme means.
 
 Every prefix in the scheme gets the name of its topic, and every key gets
@@ -586,12 +615,12 @@ declared first.
 
 The four keys that mean something else inside a Java buffer are declared
 for those modes instead, with `which-key's own mode-scoped table."
-  (which-key-add-key-based-replacements "C-c" heks-emacs-key-root-description)
-  (dolist (topic heks-emacs-key-topics)
+  (which-key-add-key-based-replacements "C-c" heks/key-root-description)
+  (dolist (topic heks/key-topics)
     (which-key-add-key-based-replacements (concat "C-c " (car topic)) (cdr topic)))
-  (dolist (entry heks-emacs-key-descriptions)
+  (dolist (entry heks/key-descriptions)
     (which-key-add-key-based-replacements (car entry) (cdr entry)))
-  (dolist (mode-entry heks-emacs-key-major-mode-descriptions)
+  (dolist (mode-entry heks/key-major-mode-descriptions)
     (dolist (entry (cdr mode-entry))
       (which-key-add-major-mode-key-based-replacements
        (car mode-entry) (car entry) (cdr entry)))))
@@ -609,10 +638,10 @@ for those modes instead, with `which-key's own mode-scoped table."
 ;; on screen is the line the echo area has about the menu -- its title, the
 ;; page it is on and `C-h' -- with no keys under it.
 
-(defvar heks-emacs-which-key-echoing nil
+(defvar heks/which-key-echoing nil
   "Non-nil while the menu is in the echo area rather than in a window.")
 
-(defun heks-emacs-which-key-side-window-p ()
+(defun heks/which-key-side-window-p ()
   "Non-nil when Emacs will make the menu the bottom window it asks for.
 
 `split-window' refuses when the window it is asked to split is smaller
@@ -629,23 +658,23 @@ split."
          (>= (window-size root nil t)
              (* 2 (window-min-size root nil nil t))))))
 
-(defun heks-emacs-which-key-popup-dimensions (_width)
+(defun heks/which-key-popup-dimensions (_width)
   "How much of the frame the menu may take, and where it will go.
 
 `which-key' asks for this before it makes its pages, so the place is
 chosen here -- once -- and the pages are made to fit it: the window when
 the frame can give the menu one, the echo area when it cannot (see
-`heks-emacs-which-key-side-window-p').  There the line which-key says
+`heks/which-key-side-window-p').  There the line which-key says
 about the menu is part of the menu (see
-`heks-emacs-which-key-show-popup'), so the keys are given one line less
+`heks/which-key-show-popup'), so the keys are given one line less
 than the echo area has."
-  (setq heks-emacs-which-key-echoing (not (heks-emacs-which-key-side-window-p)))
-  (if heks-emacs-which-key-echoing
+  (setq heks/which-key-echoing (not (heks/which-key-side-window-p)))
+  (if heks/which-key-echoing
       (let ((dims (which-key--minibuffer-max-dimensions)))
         (cons (max 1 (1- (car dims))) (cdr dims)))
     (which-key--side-window-max-dimensions)))
 
-(defun heks-emacs-which-key-show-popup (dimensions)
+(defun heks/which-key-show-popup (dimensions)
   "Show the menu in the window which-key asked for, or in the echo area.
 
 `which-key--show-buffer-side-window' answers nil, without a word, when
@@ -653,13 +682,13 @@ Emacs will not make the window -- and it is `which-key' that asks, so the
 answer has to be read here.  A menu nobody can see is worse than a small
 menu: when there is no window, the keys and the line which-key says about
 them go to the echo area."
-  (unless (and (not heks-emacs-which-key-echoing)
+  (unless (and (not heks/which-key-echoing)
                (condition-case nil
                    (which-key--show-buffer-side-window dimensions)
                  (error nil)))
-    (which-key--echo (heks-emacs-which-key-echoed-menu))))
+    (which-key--echo (heks/which-key-echoed-menu))))
 
-(defun heks-emacs-which-key-echoed-menu ()
+(defun heks/which-key-echoed-menu ()
   "Return the menu as one message, with the line which-key says about it.
 
 That line -- the prefix, the page of how many, and `C-h' -- is composed
@@ -677,20 +706,20 @@ alone rather than putting a `nil' in front of them."
          (status (when (cdr echoed) (funcall (cdr echoed)))))
     (if (stringp status) (concat status "\n" page) page)))
 
-(defun heks-emacs-which-key-hide-popup ()
+(defun heks/which-key-hide-popup ()
   "Hide the menu, from wherever it was shown."
   (which-key--hide-buffer-side-window)
-  (when heks-emacs-which-key-echoing
+  (when heks/which-key-echoing
     (message nil)))
 
-(defun heks-emacs-which-key-popup-visible-p (original)
+(defun heks/which-key-popup-visible-p (original)
   "Say that the menu is on screen when it is in the echo area.
 
 `which-key' looks for its buffer in a window to know whether its menu is
 showing, which the echo area is not: without this, `C-h' in the echo area
 would ask for the menu again instead of opening the dispatch menu it opens
 in the window."
-  (or (funcall original) heks-emacs-which-key-echoing))
+  (or (funcall original) heks/which-key-echoing))
 
 ;; Configure Flymake (built-in linter).
 ;;
@@ -715,9 +744,9 @@ in the window."
   (setq which-key-sort-order 'which-key-key-order-alpha
         ;; Long enough for every sentence the scheme has, so that none of
         ;; them is shown with its end replaced by `..' -- see
-        ;; `heks-emacs-which-key-description-length', which is what the
+        ;; `heks/which-key-description-length', which is what the
         ;; longest of them measures.
-        which-key-max-description-length heks-emacs-which-key-description-length)
+        which-key-max-description-length heks/which-key-description-length)
   ;; Fast enough to be useful, slow enough not to flash
   (setq-default which-key-idle-delay 0.4)
   ;; `C-h' after a prefix asks for the menu at once, for when the 0.4s
@@ -759,19 +788,19 @@ in the window."
         which-key-show-remaining-keys t
         which-key-preserve-window-configuration t)
   ;; Which of the two places the menu goes in is decided per popup, in
-  ;; `heks-emacs-which-key-popup-dimensions', and shown in
-  ;; `heks-emacs-which-key-show-popup': `which-key' has no fallback of its
+  ;; `heks/which-key-popup-dimensions', and shown in
+  ;; `heks/which-key-show-popup': `which-key' has no fallback of its
   ;; own, so this configuration shows the menu itself (the `custom' popup
   ;; is which-key's own way of being told that).
   (setq which-key-popup-type 'custom
         which-key-custom-popup-max-dimensions-function
-        #'heks-emacs-which-key-popup-dimensions
-        which-key-custom-show-popup-function #'heks-emacs-which-key-show-popup
-        which-key-custom-hide-popup-function #'heks-emacs-which-key-hide-popup)
+        #'heks/which-key-popup-dimensions
+        which-key-custom-show-popup-function #'heks/which-key-show-popup
+        which-key-custom-hide-popup-function #'heks/which-key-hide-popup)
   (advice-add 'which-key--popup-showing-p :around
-              #'heks-emacs-which-key-popup-visible-p)
+              #'heks/which-key-popup-visible-p)
   ;; Every topic and every key, in the words the scheme gives them.
-  (heks-emacs-which-key-setup)
+  (heks/which-key-setup)
   (which-key-mode))
 
 ;; (use-package nyan-mode
@@ -920,15 +949,15 @@ in the window."
   :bind (("C-x C-b" . ibuffer) ; Use the superior interactive buffer menu
          ;; View: folding and comparisons.  The fold keys dispatch, so they
          ;; work in every buffer whichever folding engine it uses.
-         ("C-c v o" . heks-emacs-fold-open)
-         ("C-c v O" . heks-emacs-fold-open-recursive)
-         ("C-c v c" . heks-emacs-fold-close)
-         ("C-c v C" . heks-emacs-fold-close-all)
-         ("C-c v r" . heks-emacs-fold-open-all)
-         ("C-c v t" . heks-emacs-fold-toggle)
+         ("C-c v o" . heks/fold-open)
+         ("C-c v O" . heks/fold-open-recursive)
+         ("C-c v c" . heks/fold-close)
+         ("C-c v C" . heks/fold-close-all)
+         ("C-c v r" . heks/fold-open-all)
+         ("C-c v t" . heks/fold-toggle)
          ("C-c v d" . highlight-compare-buffers)
          ;; A comparison of a project with itself: what it writes twice.
-         ("C-c v D" . heks-emacs-duplicates-report)
+         ("C-c v D" . heks/duplicates-report)
          ;; Emacs itself: the libraries it is made of, and the parentheses
          ;; that hold a file together.
          ("C-c l d" . toggle-debug-on-error)
@@ -939,17 +968,17 @@ in the window."
          ;; Help: the four things one asks about whatever is at point.  `F'
          ;; is the face, where `f' is the function.
          ("C-c h F" . describe-face)
-         ("C-c # j" . heks-emacs-joe-reconfigure)
-         ("C-c # s" . heks-emacs-sys-reconfigure)
-         ("C-c # u" . heks-emacs-sys-update)
-         ("C-c # f" . heks-emacs-full-reconfigure)
-         ("C-c w r" . heks-emacs-project-start-repl-process)
-         ("C-c w f" . heks-emacs-project-fmt)
+         ("C-c # j" . heks/joe-reconfigure)
+         ("C-c # s" . heks/sys-reconfigure)
+         ("C-c # u" . heks/sys-update)
+         ("C-c # f" . heks/full-reconfigure)
+         ("C-c w r" . heks/project-start-repl-process)
+         ("C-c w f" . heks/project-fmt)
          ("C-=" . text-scale-increase)
          ("C--" . text-scale-decrease)
-         ("C-c w t" . heks-emacs-project-start-test)
-         ("C-c w d" . heks-emacs-project-start-dev)
-         ("C-c w s" . heks-emacs-print-random-standup-order)
+         ("C-c w t" . heks/project-start-test)
+         ("C-c w d" . heks/project-start-dev)
+         ("C-c w s" . heks/print-random-standup-order)
          ;; A repository is cloned into a directory before anything else
          ;; happens in it, so cloning lives with the project.
          ("C-c w c" . magit-clone)
@@ -963,31 +992,31 @@ in the window."
          ;; to `kubed-prefix-map', so `u' means kubed and these moved here
          ;; instead, as the generic action letters they already were:
          ;; `i' inserts, same as everywhere else.
-         ("C-c t i" . heks-emacs-uuidgen)
+         ("C-c t i" . heks/uuidgen)
          ("C-c t y" . heks/dired-copy-marked-files-content)
          ;; Formatting: one key, and the language decides who formats.
-         ("C-c i f" . heks-emacs-format-buffer)
+         ("C-c i f" . heks/format-buffer)
          ;; JVM build tooling (Maven, Gradle, Spring Boot).  The capital
          ;; letters open the menus, which name the goals by what they do.
-         ("C-c j m" . heks-emacs-maven-run)
-         ("C-c j M" . heks-emacs-maven-menu)
-         ("C-c j T" . heks-emacs-maven-dependency-tree)
-         ("C-c j g" . heks-emacs-gradle-run)
-         ("C-c j G" . heks-emacs-gradle-menu)
-         ("C-c j s" . heks-emacs-spring-boot-run)
-         ("C-c j R" . heks-emacs-jvm-refresh-project)
+         ("C-c j m" . heks/maven-run)
+         ("C-c j M" . heks/maven-menu)
+         ("C-c j T" . heks/maven-dependency-tree)
+         ("C-c j g" . heks/gradle-run)
+         ("C-c j G" . heks/gradle-menu)
+         ("C-c j s" . heks/spring-boot-run)
+         ("C-c j R" . heks/jvm-refresh-project)
          ;; The goals a project is actually built with, one key each,
-         ;; whatever the build tool is: `heks-emacs-jvm-run' knows that
+         ;; whatever the build tool is: `heks/jvm-run' knows that
          ;; Maven calls it `package' and Gradle `assemble'.
-         ("C-c j t" . heks-emacs-jvm-test)
-         ("C-c j b" . heks-emacs-jvm-build)
-         ("C-c j p" . heks-emacs-jvm-package)
-         ("C-c j v" . heks-emacs-jvm-verify)
-         ("C-c j c" . heks-emacs-jvm-clean)
-         ("C-c j D" . heks-emacs-jvm-dependencies)
+         ("C-c j t" . heks/jvm-test)
+         ("C-c j b" . heks/jvm-build)
+         ("C-c j p" . heks/jvm-package)
+         ("C-c j v" . heks/jvm-verify)
+         ("C-c j c" . heks/jvm-clean)
+         ("C-c j D" . heks/jvm-dependencies)
          ;; Databases (PostgreSQL, MongoDB)
-         ("C-c d p" . heks-emacs-sql-postgres)
-         ("C-c d m" . heks-emacs-mongosh))
+         ("C-c d p" . heks/sql-postgres)
+         ("C-c d m" . heks/mongosh))
 
   :hook ((text-mode . visual-line-mode)
          (prog-mode . heks-activate-prettify)
@@ -1044,7 +1073,7 @@ in the window."
           sentence-end-double-space t
           compile-command "maak --list")
 
-  (defun heks-emacs/project-compilation-buffer-name (mode)
+  (defun heks/project-compilation-buffer-name (mode)
     "Create a compilation buffer name based on the current project."
     (let* ((project (project-current))
            ;; Extract the folder name if in a project, otherwise use "global"
@@ -1055,7 +1084,7 @@ in the window."
       (format "*%s-%s*" (downcase mode) project-name)))
 
   ;; Tell Emacs to use your custom function
-  (setq compilation-buffer-name-function #'heks-emacs/project-compilation-buffer-name)
+  (setq compilation-buffer-name-function #'heks/project-compilation-buffer-name)
 
   (setq-default indent-tabs-mode nil)         ; Always use spaces instead of tabs
 
@@ -1307,10 +1336,10 @@ in the window."
 ;; a question instead.  So every grammar this Emacs can be asked for is built
 ;; once, by `treesit-grammars.el' in a batch Emacs of its own, in the
 ;; background -- after which the file-opening path has nothing left to fetch.
-;; `M-x heks-emacs-treesit-install-grammars' runs the same script in front of
+;; `M-x heks/treesit-install-grammars' runs the same script in front of
 ;; you, for when one wants to wait and watch it.
 
-(defcustom heks-emacs-treesit-grammar-directory
+(defcustom heks/treesit-grammar-directory
   (expand-file-name "tree-sitter" user-emacs-directory)
   "The directory tree-sitter grammar libraries are installed into.
 
@@ -1320,7 +1349,7 @@ the first entry that can be written to -- the one a grammar Emacs fetches
 for itself is written to."
   :type 'directory)
 
-(defcustom heks-emacs-treesit-install-grammars t
+(defcustom heks/treesit-install-grammars t
   "Whether the missing grammars are built at startup, in the background.
 
 The script builds only what has no library here, so a machine whose
@@ -1331,7 +1360,7 @@ it needs while a file is opened -- it just does it then, in front of the
 person who opened the file."
   :type 'boolean)
 
-(defconst heks-emacs-treesit-own-recipes
+(defconst heks/treesit-own-recipes
   '((kotlin "https://github.com/fwcd/tree-sitter-kotlin")
     (scala "https://github.com/tree-sitter/tree-sitter-scala")
     (nix "https://github.com/nix-community/tree-sitter-nix"))
@@ -1342,11 +1371,11 @@ mode files add to `treesit-language-source-alist' as they load, so there is
 no list of those to keep here: a grammar whose recipe comes from Emacs is a
 grammar whose recipe is right, and stays right as Emacs changes.")
 
-(defconst heks-emacs-treesit-grammars-buffer-name
+(defconst heks/treesit-grammars-buffer-name
   "*heks-emacs tree-sitter grammars*"
   "Where the batch Emacs that builds grammars writes what it says.")
 
-(defconst heks-emacs-treesit-script
+(defconst heks/treesit-script
   (expand-file-name "treesit-grammars.el" user-emacs-directory)
   "The script a batch Emacs runs to build the grammars.
 
@@ -1354,7 +1383,7 @@ It sits next to the installed configuration, the way `batch-indent.el'
 does, because what it is loaded by is an Emacs with no configuration of its
 own.")
 
-(defun heks-emacs-treesit--batch-command ()
+(defun heks/treesit--batch-command ()
   "Return the command line of the batch Emacs that builds the grammars.
 
 The script is handed the directory to install into, the recipes this
@@ -1363,53 +1392,53 @@ built in, as Lisp it is told before it is loaded: what it needs is given to
 it rather than looked for, which is what keeps the child a batch Emacs and
 nothing else -- no Elpaca, no modules, no packages to install first."
   (list (car command-line-args) "-Q" "--batch"
-        "--eval" (format "(setq heks-emacs-treesit-grammar-directory %S \
-heks-emacs-treesit-own-recipes '%S \
+        "--eval" (format "(setq heks/treesit-grammar-directory %S \
+heks/treesit-own-recipes '%S \
 treesit-extra-load-path '%S)"
-                         heks-emacs-treesit-grammar-directory
-                         heks-emacs-treesit-own-recipes
+                         heks/treesit-grammar-directory
+                         heks/treesit-own-recipes
                          (bound-and-true-p treesit-extra-load-path))
-        "-l" heks-emacs-treesit-script))
+        "-l" heks/treesit-script))
 
-(defun heks-emacs-treesit--grammars-built (process event)
+(defun heks/treesit--grammars-built (process event)
   "Report what became of PROCESS, the batch Emacs that builds grammars."
   (when (memq (process-status process) '(exit signal))
     (message "heks-emacs: %s (see %s)"
-             (string-trim event) heks-emacs-treesit-grammars-buffer-name)))
+             (string-trim event) heks/treesit-grammars-buffer-name)))
 
-(defun heks-emacs-treesit-install-grammars ()
+(defun heks/treesit-install-grammars ()
   "Build every tree-sitter grammar that has no library here, and wait.
 
 This is the work the background build does at startup, in front of you:
 cloning and compiling a grammar takes a few seconds, and there are as many
 of them as this Emacs has languages."
   (interactive)
-  (let ((command (heks-emacs-treesit--batch-command))
-        (buffer (get-buffer-create heks-emacs-treesit-grammars-buffer-name)))
+  (let ((command (heks/treesit--batch-command))
+        (buffer (get-buffer-create heks/treesit-grammars-buffer-name)))
     (message "heks-emacs: building tree-sitter grammars (see %s)"
-             heks-emacs-treesit-grammars-buffer-name)
+             heks/treesit-grammars-buffer-name)
     (apply #'call-process (car command) nil buffer t (cdr command))
     (message "heks-emacs: tree-sitter grammars built (see %s)"
-             heks-emacs-treesit-grammars-buffer-name)))
+             heks/treesit-grammars-buffer-name)))
 
-(defun heks-emacs-treesit-install-grammars-in-background (&rest _)
+(defun heks/treesit-install-grammars-in-background (&rest _)
   "Build the missing tree-sitter grammars in a batch Emacs of its own.
 
 Nothing here waits for the work: the child is named after what it is doing,
-keeps what it says in `heks-emacs-treesit-grammars-buffer-name', and its end
+keeps what it says in `heks/treesit-grammars-buffer-name', and its end
 is reported in the echo area.  This is what runs at startup, after the rest
 of the configuration, because it is the one thing here that finishes long
 after the configuration does."
-  (when heks-emacs-treesit-install-grammars
+  (when heks/treesit-install-grammars
     (make-process
      :name "heks-emacs tree-sitter grammars"
-     :buffer (get-buffer-create heks-emacs-treesit-grammars-buffer-name)
-     :command (heks-emacs-treesit--batch-command)
-     :sentinel #'heks-emacs-treesit--grammars-built)))
+     :buffer (get-buffer-create heks/treesit-grammars-buffer-name)
+     :command (heks/treesit--batch-command)
+     :sentinel #'heks/treesit--grammars-built)))
 
-(add-hook 'emacs-startup-hook #'heks-emacs-treesit-install-grammars-in-background)
+(add-hook 'emacs-startup-hook #'heks/treesit-install-grammars-in-background)
 
-(defun heks-emacs-treesit--own-directory-first (&rest _)
+(defun heks/treesit--own-directory-first (&rest _)
   "Put this configuration's grammar directory first, whoever added another.
 
 A grammar Emacs fetches for itself is written to the first entry of
@@ -1419,20 +1448,20 @@ the two comes first is settled here -- after a library load, which is after
 the handlers that do the pushing -- rather than left to the order in which
 two configurations happened to be loaded."
   (when (boundp 'treesit-extra-load-path)
-    (let ((wanted (cons heks-emacs-treesit-grammar-directory
-                        (remove heks-emacs-treesit-grammar-directory
+    (let ((wanted (cons heks/treesit-grammar-directory
+                        (remove heks/treesit-grammar-directory
                                 treesit-extra-load-path))))
       (unless (equal treesit-extra-load-path wanted)
         (setq treesit-extra-load-path wanted)))))
 
-(add-hook 'after-load-functions #'heks-emacs-treesit--own-directory-first)
+(add-hook 'after-load-functions #'heks/treesit--own-directory-first)
 
 (with-eval-after-load 'treesit
   ;; The recipes of the languages Emacs has no tree-sitter mode for go into
   ;; the alist here, so that fetching one of those by hand -- or by whatever
   ;; reads the alist next -- knows where to get it.
-  (heks-emacs-treesit--own-directory-first)
-  (dolist (recipe heks-emacs-treesit-own-recipes)
+  (heks/treesit--own-directory-first)
+  (dolist (recipe heks/treesit-own-recipes)
     (setf (alist-get (car recipe) treesit-language-source-alist nil nil #'eq)
           (cdr recipe))))
 
@@ -1444,7 +1473,7 @@ two configurations happened to be loaded."
   ;; Essential for Nix/Guix/direnv workflows so project.el knows where the project starts.
   (setq project-vc-extra-root-markers '(".envrc")))
 
-(defconst heks-emacs-markdown-marker-regexp
+(defconst heks/markdown-marker-regexp
   (rx (or (seq (group "`") (+ (not (any "`\n"))) (group "`"))
           (seq (group (or "***" "**" "__" "~~"))
                (+? (not (any "\n"))) (group (backref 3)))
@@ -1452,12 +1481,12 @@ two configurations happened to be loaded."
                (*? (not (any "\n"))) (not (any "*_ \n")) (backref 5))))
   "Inline Markdown markup whose delimiters are hidden, as in Org.")
 
-(defun heks-emacs-markdown-hide-markers (beg end)
+(defun heks/markdown-hide-markers (beg end)
   "Hide the delimiters of inline Markdown markup between BEG and END.
 The delimiters show again while point is inside the markup."
   (save-excursion
     (goto-char beg)
-    (while (re-search-forward heks-emacs-markdown-marker-regexp end t)
+    (while (re-search-forward heks/markdown-marker-regexp end t)
       (let* ((mb (match-beginning 0)) (me (match-end 0))
              (open (cond ((match-beginning 1) 1)
                          ((match-beginning 3) (length (match-string 3)))
@@ -1467,15 +1496,15 @@ The delimiters show again while point is inside the markup."
 
 (require 'org-faces)
 
-(defface heks-emacs-markdown-code-block
+(defface heks/markdown-code-block
   '((t :inherit org-block :extend t))
   "Face for the lines of a fenced code block, like `org-block'.")
 
-(defface heks-emacs-markdown-code-fence
+(defface heks/markdown-code-fence
   '((t :inherit (org-block-begin-line) :extend t))
   "Face for the fence lines of a fenced code block.")
 
-(defun heks-emacs-markdown-prettify-blocks (beg end)
+(defun heks/markdown-prettify-blocks (beg end)
   "Give the fenced code blocks overlapping BEG..END an Org-like look.
 The fence lines become a rule, labelled with the language, and the body
 gets a background."
@@ -1499,52 +1528,52 @@ gets a background."
         (add-text-properties
          open-beg open-end
          `(display ,(concat (propertize (if (string-empty-p lang) "───" (concat "─── " lang))
-                                        'face 'heks-emacs-markdown-code-fence))
+                                        'face 'heks/markdown-code-fence))
            font-lock-multiline t))
         (font-lock-append-text-property
-         body-beg body-end 'face 'heks-emacs-markdown-code-block)
+         body-beg body-end 'face 'heks/markdown-code-block)
         (add-text-properties
          close-beg close-end
-         `(display ,(propertize "───" 'face 'heks-emacs-markdown-code-fence)
+         `(display ,(propertize "───" 'face 'heks/markdown-code-fence)
            font-lock-multiline t))
         (when (> (point) end) (goto-char (point-max)))))))
 
-(defun heks-emacs-markdown-prettify ()
+(defun heks/markdown-prettify ()
   "Make a Markdown buffer look like an Org one: hide inline markup."
   (add-to-invisibility-spec 'heks-md)
-  (jit-lock-register #'heks-emacs-markdown-hide-markers)
-  (jit-lock-register #'heks-emacs-markdown-prettify-blocks)
+  (jit-lock-register #'heks/markdown-hide-markers)
+  (jit-lock-register #'heks/markdown-prettify-blocks)
   ;; Reveal markup under point like `org-appear'.
-  (add-hook 'post-command-hook #'heks-emacs-markdown-reveal nil t))
+  (add-hook 'post-command-hook #'heks/markdown-reveal nil t))
 
-(defvar-local heks-emacs-markdown--revealed nil)
+(defvar-local heks/markdown--revealed nil)
 
-(defun heks-emacs-markdown-reveal ()
+(defun heks/markdown-reveal ()
   "Show the delimiters of the markup around point, hide the rest."
   (let ((inhibit-modification-hooks t)
         (inhibit-read-only t))
-    (when heks-emacs-markdown--revealed
+    (when heks/markdown--revealed
       (remove-from-invisibility-spec 'heks-md)
       (add-to-invisibility-spec 'heks-md)
-      (setq heks-emacs-markdown--revealed nil))
+      (setq heks/markdown--revealed nil))
     (when (and (get-text-property (point) 'invisible)
                (eq (get-text-property (point) 'invisible) 'heks-md))
       (remove-from-invisibility-spec 'heks-md)
-      (setq heks-emacs-markdown--revealed t))))
+      (setq heks/markdown--revealed t))))
 
 (use-package markdown-ts-mode
   :ensure nil
-  :hook ((markdown-ts-mode . heks-emacs-markdown-ts-mode))
+  :hook ((markdown-ts-mode . heks/markdown-ts-mode))
   :config
-  (defun heks-emacs-markdown-ts-mode ()
-    (heks-emacs-markdown-prettify)
+  (defun heks/markdown-ts-mode ()
+    (heks/markdown-prettify)
     (variable-pitch-mode 1)
     (auto-fill-mode 0)
     (visual-line-mode 1)
     ;; Only the prose faces, so opening a Markdown buffer never resets
-    ;; the global text scale (see `heks-emacs-org-mode').
-    (ignore-errors (heks-emacs-set-markdown-faces))))
+    ;; the global text scale (see `heks/org-mode').
+    (ignore-errors (heks/set-markdown-faces))))
 
-(provide 'heks-emacs/emacs-self)
+(provide 'heks/emacs-self)
 
 ;;; emacs-core.el ends here

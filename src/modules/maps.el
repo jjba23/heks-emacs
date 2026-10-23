@@ -28,6 +28,6 @@
   (osm-server 'default)
   (osm-copyright t))
 
-(provide 'heks-emacs/maps)
+(provide 'heks/maps)
 
 ;;; maps.el ends here

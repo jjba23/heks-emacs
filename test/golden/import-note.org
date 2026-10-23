@@ -1,6 +1,6 @@
 :PROPERTIES:
 :ID:       9e2c5b1a-4d3f-4a7e-8b60-3f2c7d5e9a41
-:ROAM_ALIASES: Importing, The one-way door
+:ALIASES:  Importing, The one-way door
 :END:
 
 #+title: A note about importing notes

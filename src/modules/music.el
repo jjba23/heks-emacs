@@ -36,6 +36,6 @@
   (setq ready-player-set-global-bindings nil)
   (ready-player-mode +1))
 
-(provide 'heks-emacs/music)
+(provide 'heks/music)
 
 ;;; music.el ends here

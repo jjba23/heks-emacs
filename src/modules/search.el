@@ -55,6 +55,6 @@
         avy-background t))
 
 
-(provide 'heks-emacs/search)
+(provide 'heks/search)
 
 ;;; search.el ends here

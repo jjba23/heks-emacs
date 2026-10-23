@@ -76,8 +76,8 @@
   "The scheme's own tables, as read from the source: (NAME . VALUE).")
 
 (defconst heks-keys--table-names
-  '(heks-emacs-key-topics heks-emacs-key-actions heks-emacs-key-letters
-    heks-emacs-key-descriptions)
+  '(heks/key-topics heks/key-actions heks/key-letters
+    heks/key-descriptions)
   "The tables the scheme is written in.")
 
 (defconst heks-keys--reference-file "docs/keybindings.org"
@@ -238,7 +238,7 @@ binding that is not there."
     ("j" . "JVM: Maven, Gradle, Spring")
     ("l" . "Emacs itself")
     ("m" . "make-style tasks")
-    ("n" . "notes: Org and roam")
+    ("n" . "notes: Org notes")
     ("o" . "mail")
     ("p" . "completion at point")
     ("r" . "render and preview")
@@ -300,9 +300,9 @@ of the dashboard, a digit -- is not an action letter."
 The topic's own letters come first: a topic that names things is the one
 that knows what its letters name."
   (or (cdr (assoc letter
-                  (cdr (assoc topic (heks-keys--table 'heks-emacs-key-letters) #'equal))
+                  (cdr (assoc topic (heks-keys--table 'heks/key-letters) #'equal))
                   #'equal))
-      (cdr (assoc letter (heks-keys--table 'heks-emacs-key-actions) #'equal))))
+      (cdr (assoc letter (heks-keys--table 'heks/key-actions) #'equal))))
 
 (defun heks-keys--placement (entry)
   "Return where ENTRY's key lives, as the report and the reference show it.
@@ -325,17 +325,17 @@ The key's own description comes first, then what its topic means by its
 letter, then what the letter means everywhere, and finally what the topic
 is for -- which is what a key whose last stroke is not a letter at all,
 the dashboard's `C-c SPC SPC', is left with."
-  (or (cdr (assoc key (heks-keys--table 'heks-emacs-key-descriptions) #'equal))
+  (or (cdr (assoc key (heks-keys--table 'heks/key-descriptions) #'equal))
       (let ((letter (heks-keys--letter-of key)))
         (or (and letter (heks-keys--letter-meaning topic letter))
-            (cdr (assoc topic (or (heks-keys--table 'heks-emacs-key-topics)
+            (cdr (assoc topic (or (heks-keys--table 'heks/key-topics)
                                   heks-keys--fallback-topics)
                         #'equal))))))
 
 (defun heks-keys--report ()
   "Print the key tree and the problems found in it."
   (let* ((entries (reverse heks-keys--entries))
-         (topics (or (heks-keys--table 'heks-emacs-key-topics)
+         (topics (or (heks-keys--table 'heks/key-topics)
                      heks-keys--fallback-topics))
          (by-topic (make-hash-table :test #'equal)))
     (dolist (entry entries)
@@ -429,8 +429,8 @@ the dashboard's `C-c SPC SPC', is left with."
   ;; under one topic and an interrupt under another -- so it fails here.
   (message "\n== letters the scheme does not describe ==")
   (let ((found 0)
-        (letters (heks-keys--table 'heks-emacs-key-letters)))
-    (if (not (and letters (heks-keys--table 'heks-emacs-key-actions)))
+        (letters (heks-keys--table 'heks/key-letters)))
+    (if (not (and letters (heks-keys--table 'heks/key-actions)))
         (message "  none (the scheme's tables were not read, so this was not checked)")
       (dolist (entry (reverse heks-keys--entries))
         (let* ((key (car entry))
@@ -452,7 +452,7 @@ the dashboard's `C-c SPC SPC', is left with."
   ;; that rather than to the reader's patience.
   (message "\n== keys with no description of their own ==")
   (let ((found 0)
-        (descriptions (heks-keys--table 'heks-emacs-key-descriptions)))
+        (descriptions (heks-keys--table 'heks/key-descriptions)))
     (if (not descriptions)
         (message "  none (the scheme's tables were not read, so this was not checked)")
       (dolist (entry (reverse heks-keys--entries))
@@ -471,7 +471,7 @@ the dashboard's `C-c SPC SPC', is left with."
   ;; because it reads like an answer.
   (message "\n== descriptions of keys that are not bound ==")
   (let ((found 0)
-        (descriptions (heks-keys--table 'heks-emacs-key-descriptions)))
+        (descriptions (heks-keys--table 'heks/key-descriptions)))
     (if (not descriptions)
         (message "  none (the scheme's tables were not read, so this was not checked)")
       (dolist (description descriptions)
@@ -488,7 +488,7 @@ the dashboard's `C-c SPC SPC', is left with."
   ;; rather than from the tables, so this is a note and not a failure.
   (message "\n== letters the scheme describes and no key uses ==")
   (let ((unused nil))
-    (dolist (topic-entry (heks-keys--table 'heks-emacs-key-letters))
+    (dolist (topic-entry (heks-keys--table 'heks/key-letters))
       (dolist (letter-entry (cdr topic-entry))
         (unless (seq-find (lambda (entry)
                             (and (equal (heks-keys--top (car entry)) (car topic-entry))
@@ -536,11 +536,11 @@ It is written from the same three tables the audit judges the
 configuration by, and from the bindings it read, so it says what the keys
 are rather than what they were when somebody last edited it."
   (let ((entries (reverse heks-keys--entries))
-        (topics (or (heks-keys--table 'heks-emacs-key-topics)
+        (topics (or (heks-keys--table 'heks/key-topics)
                     heks-keys--fallback-topics))
-        (actions (sort (copy-sequence (heks-keys--table 'heks-emacs-key-actions))
+        (actions (sort (copy-sequence (heks-keys--table 'heks/key-actions))
                        (lambda (a b) (string< (car a) (car b)))))
-        (letters (heks-keys--table 'heks-emacs-key-letters))
+        (letters (heks-keys--table 'heks/key-letters))
         (by-topic (make-hash-table :test #'equal))
         (out nil))
     (dolist (entry entries)

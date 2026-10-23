@@ -73,6 +73,6 @@
   (global-set-key [f6] 'consult-recent-file)
   )
 
-(provide 'heks-emacs/consult)
+(provide 'heks/consult)
 
 ;;; consult.el ends here

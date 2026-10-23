@@ -49,8 +49,8 @@
       '((("*scratch*" . (lambda(btn) (switch-to-buffer "*scratch*")))
          ("*Messages*" . (lambda(btn) (switch-to-buffer "*Messages*")))
          ("re-render me" . (lambda(btn) (welkomscherm))))
-        ;; (("system-rebuild  (sr)" . (lambda(btn) (heks-emacs-sys-reconfigure)))
-        ;;  ("joe-rebuild (jr)" . (lambda(btn) (heks-emacs-joe-reconfigure))))
+        ;; (("system-rebuild  (sr)" . (lambda(btn) (heks/sys-reconfigure)))
+        ;;  ("joe-rebuild (jr)" . (lambda(btn) (heks/joe-reconfigure))))
         ))
 
 (use-package welkomscherm
@@ -73,6 +73,6 @@
              (get-buffer welkomscherm/buffer-name))
            (get-buffer-create "*scratch*")))))
 
-(provide 'heks-emacs/dashboard)
+(provide 'heks/dashboard)
 
 ;;; dashboard.el ends here

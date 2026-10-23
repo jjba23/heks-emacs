@@ -40,7 +40,7 @@
 ;; is the page one wanted, and read the diff before committing it.
 ;;
 ;; What is compared is the *body* of the rendering, not the document
-;; around it: `heks-emacs-html-document' carries a stylesheet built from
+;; around it: `heks/html-document' carries a stylesheet built from
 ;; the colours of the current theme, so a document-sized golden file would
 ;; fail whenever a palette changed and would say nothing about rendering.
 ;; The wrapper is checked by `maak verify' on an installed configuration.
@@ -174,7 +174,7 @@ against nothing.")
 (defun heks-golden--import (fixture)
   "Return the Org the Markdown of FIXTURE becomes, as an import makes it.
 
-The note is made the way `heks-emacs-import-markdown-file' makes one --
+The note is made the way `heks/import-markdown-file' makes one --
 the front matter, the identifier and the aliases it asks for, then the
 body -- rather than by converting the text alone: the property drawer is
 part of the note a person gets, and it is the part most easily written in
@@ -187,12 +187,12 @@ a place Org does not read, which is what a golden file is for noticing."
     (with-temp-buffer
       (insert-file-contents file)
       (let* ((text (buffer-string))
-             (metadata (heks-emacs-markdown-metadata text))
-             (heks-emacs-markdown-base-directory heks-golden--import-base-directory))
-        (cl-letf (((symbol-function 'heks-emacs-import--id)
+             (metadata (heks/markdown-metadata text))
+             (heks/markdown-base-directory heks-golden--import-base-directory))
+        (cl-letf (((symbol-function 'heks/import--id)
                    (lambda () heks-golden--import-id)))
-          (heks-emacs-markdown-to-org
-           text (heks-emacs-import--properties metadata target t)))))))
+          (heks/markdown-to-org
+           text (heks/import--properties metadata target t)))))))
 
 (defun heks-golden--render (fixture)
   "Return the HTML body FIXTURE renders to, through the real dispatcher.
@@ -209,7 +209,7 @@ anything this file says."
       (when (and (string-match-p "\\.ya?ml\\'" file)
                  (require 'yaml-mode nil t))
         (yaml-mode))
-      (heks-emacs-render-body))))
+      (heks/render-body))))
 
 (defun heks-golden--check (fixture page &optional org)
   "Check that FIXTURE still renders as PAGE, and return the rendering.

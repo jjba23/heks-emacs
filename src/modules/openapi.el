@@ -45,9 +45,9 @@
 ;; a bare key comes back as a symbol, `200' as a number, `true' as the
 ;; symbol `t' -- and it does that even for a quoted `"200"'.  A key is
 ;; always text in a specification, so every mapping is read once through
-;; `heks-emacs-openapi--key-text' when the document is parsed, and every
+;; `heks/openapi--key-text' when the document is parsed, and every
 ;; value that is shown or searched for goes through
-;; `heks-emacs-openapi-text'.  Without that, a YAML specification reads as
+;; `heks/openapi-text'.  Without that, a YAML specification reads as
 ;; an empty document (every lookup of `paths' misses) and its response
 ;; codes crash the page instead of appearing in it.
 
@@ -59,19 +59,19 @@
 (require 'json)
 (require 'flymake)
 
-(defgroup heks-emacs-openapi nil
+(defgroup heks/openapi nil
   "Checking and reading OpenAPI specifications."
   :group 'tools)
 
-(defconst heks-emacs-openapi-methods
+(defconst heks/openapi-methods
   '("get" "put" "post" "delete" "options" "head" "patch" "trace")
   "The HTTP methods an operation can be written under.")
 
-(defconst heks-emacs-openapi-path-item-keys
+(defconst heks/openapi-path-item-keys
   '("$ref" "summary" "description" "servers" "parameters")
   "The keys of a path item that are not operations.")
 
-(defconst heks-emacs-openapi-file-regexp
+(defconst heks/openapi-file-regexp
   "\\(?:\\`openapi\\|\\`swagger\\|[-_.]openapi\\|[-_.]swagger\\)"
   "Regexp matching the file names a specification is usually given.")
 
@@ -83,22 +83,22 @@
 ;; position and `memq' with the rest of a list, and a predicate whose
 ;; answer depends on where a pattern matched is one no caller can trust.
 
-(defun heks-emacs-openapi-json-p (&optional buffer)
+(defun heks/openapi-json-p (&optional buffer)
   "Return whether BUFFER, defaulting to the current one, holds JSON."
   (with-current-buffer (or buffer (current-buffer))
     (and (or (memq major-mode '(json-mode js-json-mode json-ts-mode))
              (and buffer-file-name (string-match-p "\\.json\\'" buffer-file-name)))
          t)))
 
-(defun heks-emacs-openapi-data-mode-p (&optional buffer)
+(defun heks/openapi-data-mode-p (&optional buffer)
   "Return whether BUFFER holds one of the two languages a spec is written in."
   (with-current-buffer (or buffer (current-buffer))
-    (and (or (heks-emacs-openapi-json-p)
+    (and (or (heks/openapi-json-p)
              (memq major-mode '(yaml-mode yaml-ts-mode conf-mode))
              (and buffer-file-name (string-match-p "\\.ya?ml\\'" buffer-file-name)))
          t)))
 
-(defun heks-emacs-openapi-version-key-p (&optional buffer)
+(defun heks/openapi-version-key-p (&optional buffer)
   "Return whether BUFFER opens with a specification version key.
 
 That key -- `openapi:' or `swagger:' -- is what makes a YAML file a
@@ -110,17 +110,17 @@ specification and a JSON file a configuration."
                               (min (point-max) 4000) t))
          t)))
 
-(defun heks-emacs-openapi-spec-p (&optional buffer)
+(defun heks/openapi-spec-p (&optional buffer)
   "Return whether BUFFER, defaulting to the current one, is a specification."
   (with-current-buffer (or buffer (current-buffer))
-    (and (heks-emacs-openapi-data-mode-p)
+    (and (heks/openapi-data-mode-p)
          (or (and buffer-file-name
-                  (string-match-p heks-emacs-openapi-file-regexp
+                  (string-match-p heks/openapi-file-regexp
                                   (file-name-nondirectory buffer-file-name)))
-             (heks-emacs-openapi-version-key-p))
+             (heks/openapi-version-key-p))
          t)))
 
-(defun heks-emacs-openapi-get (mapping key &optional default)
+(defun heks/openapi-get (mapping key &optional default)
   "Return the value of KEY in MAPPING, or DEFAULT.
 
 Both parsers are in play here: `json-parse-buffer' gives hash tables keyed
@@ -136,14 +136,14 @@ from somewhere else can be read with the same functions."
                    default))))
         (t default)))
 
-(defun heks-emacs-openapi-seq (value)
+(defun heks/openapi-seq (value)
   "Return VALUE as a list, whether it is a list or a vector or neither."
   (cond ((null value) nil)
         ((listp value) value)
         ((vectorp value) (append value nil))
         (t nil)))
 
-(defun heks-emacs-openapi-text (value)
+(defun heks/openapi-text (value)
   "Return VALUE as the text a document says, or nil when it says nothing.
 
 A scalar is whatever the parser made of it: a string in JSON, but a
@@ -161,7 +161,7 @@ read through here first."
            (string-remove-prefix ":" (symbol-name value))))
         (t nil)))
 
-(defun heks-emacs-openapi-yes-p (value)
+(defun heks/openapi-yes-p (value)
   "Return whether VALUE is a document's yes rather than its no.
 
 Both parsers are asked for the symbol `:false' where a document says
@@ -170,11 +170,11 @@ a true value in Elisp, so a `required: false' read on its own would answer
 yes to every question asked about it."
   (and value (not (eq value :false)) (not (eq value 'false)) t))
 
-(defun heks-emacs-openapi--key-text (key)
+(defun heks/openapi--key-text (key)
   "Return KEY as the text a mapping writes it with."
-  (or (heks-emacs-openapi-text key) ""))
+  (or (heks/openapi-text key) ""))
 
-(defun heks-emacs-openapi--string-keys (value)
+(defun heks/openapi--string-keys (value)
   "Return VALUE with every mapping key turned into the text it is written as.
 
 This is what makes a YAML document and a JSON one the same thing to every
@@ -184,15 +184,15 @@ response is keyed by "200" rather than by the number 200."
    ((hash-table-p value)
     (let ((table (make-hash-table :test #'equal)))
       (maphash (lambda (key item)
-                 (puthash (heks-emacs-openapi--key-text key)
-                          (heks-emacs-openapi--string-keys item)
+                 (puthash (heks/openapi--key-text key)
+                          (heks/openapi--string-keys item)
                           table))
                value)
       table))
-   ((consp value) (mapcar #'heks-emacs-openapi--string-keys value))
+   ((consp value) (mapcar #'heks/openapi--string-keys value))
    (t value)))
 
-(defun heks-emacs-openapi--sorted-keys (mapping)
+(defun heks/openapi--sorted-keys (mapping)
   "Return the keys of MAPPING, sorted, so that reading it is reproducible.
 
 A mapping has no order of its own, and the one a hash table iterates in
@@ -200,15 +200,15 @@ is not the document's, so anything that is shown -- or compared with a
 file, as the golden renderings are -- is read in a defined order."
   (sort (if (hash-table-p mapping) (hash-table-keys mapping) nil) #'string<))
 
-(defun heks-emacs-openapi-parse (&optional buffer)
+(defun heks/openapi-parse (&optional buffer)
   "Return BUFFER's specification as a table, or nil when it cannot be read.
 
 The table is keyed by string, and holds lists where the document writes
 sequences, whichever of the two languages it is written in."
   (with-current-buffer (or buffer (current-buffer))
     (condition-case err
-        (heks-emacs-openapi--string-keys
-         (if (heks-emacs-openapi-json-p)
+        (heks/openapi--string-keys
+         (if (heks/openapi-json-p)
              (save-excursion
                (goto-char (point-min))
                (json-parse-buffer :object-type 'hash-table
@@ -228,11 +228,11 @@ sequences, whichever of the two languages it is written in."
                               :false-object :false)))
       (error
        (message "This is not readable as %s: %s"
-                (if (heks-emacs-openapi-json-p) "JSON" "YAML")
+                (if (heks/openapi-json-p) "JSON" "YAML")
                 (error-message-string err))
        nil))))
 
-(defun heks-emacs-openapi--ref-get (spec reference)
+(defun heks/openapi--ref-get (spec reference)
   "Return what the JSON REFERENCE (`#/components/schemas/Name') points at."
   (when (and (stringp reference) (string-prefix-p "#/" reference))
     (let ((parts (mapcar (lambda (part)
@@ -245,15 +245,15 @@ sequences, whichever of the two languages it is written in."
         (let ((key (pop parts)))
           (if (hash-table-p value)
               (if (gethash key value) (setq value (gethash key value)) (setq found nil))
-            (setq value (heks-emacs-openapi-get value key :missing))
+            (setq value (heks/openapi-get value key :missing))
             (when (eq value :missing) (setq found nil)))))
       (when found value))))
 
-(defun heks-emacs-openapi--resolve (spec object)
+(defun heks/openapi--resolve (spec object)
   "Return OBJECT, following it through a leading `$ref' when it has one."
   (let ((seen 0))
-    (while (and (heks-emacs-openapi-get object "$ref") (< seen 10))
-      (setq object (heks-emacs-openapi--ref-get spec (heks-emacs-openapi-get object "$ref")))
+    (while (and (heks/openapi-get object "$ref") (< seen 10))
+      (setq object (heks/openapi--ref-get spec (heks/openapi-get object "$ref")))
       (setq seen (1+ seen)))
     object))
 
@@ -261,7 +261,7 @@ sequences, whichever of the two languages it is written in."
 ;; ====== The operations ======
 ;;;
 
-(defun heks-emacs-openapi-operations (spec)
+(defun heks/openapi-operations (spec)
   "Return the operations of SPEC.
 
 Each one is a plist: :path, :method, :operation, :item (the path item it
@@ -269,17 +269,17 @@ was written under) and :tags."
   (let ((operations nil))
     (maphash
      (lambda (path item)
-       (let ((item (heks-emacs-openapi--resolve spec item)))
+       (let ((item (heks/openapi--resolve spec item)))
          (when (hash-table-p item)
            (maphash
             (lambda (key value)
-              (when (member key heks-emacs-openapi-methods)
+              (when (member key heks/openapi-methods)
                 (push (list :path path :method key :operation value :item item
-                            :tags (heks-emacs-openapi-seq
-                                   (heks-emacs-openapi-get value "tags")))
+                            :tags (heks/openapi-seq
+                                   (heks/openapi-get value "tags")))
                       operations)))
             item))))
-     (or (heks-emacs-openapi-get spec "paths") (make-hash-table :test #'equal)))
+     (or (heks/openapi-get spec "paths") (make-hash-table :test #'equal)))
     ;; A mapping has no order, so the document's own is imposed here: by
     ;; path, and by the order the methods are written above.  The page and
     ;; the menu are then the same on every run, which is what lets their
@@ -289,24 +289,24 @@ was written under) and :tags."
             (let ((path-a (plist-get a :path))
                   (path-b (plist-get b :path)))
               (if (equal path-a path-b)
-                  (< (seq-position heks-emacs-openapi-methods (plist-get a :method))
-                     (seq-position heks-emacs-openapi-methods (plist-get b :method)))
+                  (< (seq-position heks/openapi-methods (plist-get a :method))
+                     (seq-position heks/openapi-methods (plist-get b :method)))
                 (string< path-a path-b)))))))
 
-(defun heks-emacs-openapi--template-parameters (path)
+(defun heks/openapi--template-parameters (path)
   "Return the names of the variables written in the PATH template."
-  (let ((path (or (heks-emacs-openapi-text path) ""))
+  (let ((path (or (heks/openapi-text path) ""))
         (names nil) (start 0))
     (while (string-match "{\\([^}/]+\\)}" path start)
       (push (match-string 1 path) names)
       (setq start (match-end 0)))
     (nreverse names)))
 
-(defun heks-emacs-openapi--declared-parameters (spec operation item)
+(defun heks/openapi--declared-parameters (spec operation item)
   "Return the parameters declared for OPERATION and its ITEM, resolved."
-  (let ((from-item (heks-emacs-openapi-seq (heks-emacs-openapi-get item "parameters")))
-        (from-operation (heks-emacs-openapi-seq (heks-emacs-openapi-get operation "parameters"))))
-    (mapcar (lambda (parameter) (heks-emacs-openapi--resolve spec parameter))
+  (let ((from-item (heks/openapi-seq (heks/openapi-get item "parameters")))
+        (from-operation (heks/openapi-seq (heks/openapi-get operation "parameters"))))
+    (mapcar (lambda (parameter) (heks/openapi--resolve spec parameter))
             (append from-item from-operation))))
 
 ;;;
@@ -322,20 +322,20 @@ was written under) and :tags."
 ;; return its findings through five levels of `mapcar' is a checker nobody
 ;; will add a rule to.
 
-(defvar heks-emacs-openapi--problems nil
-  "The problems found by the current run of `heks-emacs-openapi-problems'.")
+(defvar heks/openapi--problems nil
+  "The problems found by the current run of `heks/openapi-problems'.")
 
-(defvar heks-emacs-openapi--refs nil
+(defvar heks/openapi--refs nil
   "Every `$ref' in the document being checked.")
 
-(defvar heks-emacs-openapi--identifiers nil
+(defvar heks/openapi--identifiers nil
   "The `operationId's seen so far, so that a repeated one is caught.")
 
-(defun heks-emacs-openapi--problem (severity needle message)
+(defun heks/openapi--problem (severity needle message)
   "Record a problem: what a reader should see, and where."
-  (push (list severity needle message) heks-emacs-openapi--problems))
+  (push (list severity needle message) heks/openapi--problems))
 
-(defun heks-emacs-openapi--collect-refs (value)
+(defun heks/openapi--collect-refs (value)
   "Record every `$ref' in VALUE, so that a dangling one is found.
 
 A `$ref' that is not a reference at all is recorded as a problem of its
@@ -343,168 +343,168 @@ own: it is what an editor leaves behind when a schema is deleted, and
 nothing else would report it."
   (cond
    ((hash-table-p value)
-    (dolist (key (heks-emacs-openapi--sorted-keys value))
+    (dolist (key (heks/openapi--sorted-keys value))
       (let ((item (gethash key value)))
         (if (equal key "$ref")
             (if (stringp item)
-                (push item heks-emacs-openapi--refs)
-              (heks-emacs-openapi--problem
+                (push item heks/openapi--refs)
+              (heks/openapi--problem
                :error nil "`$ref' has to name a reference such as `#/components/schemas/Name'"))
-          (heks-emacs-openapi--collect-refs item)))))
+          (heks/openapi--collect-refs item)))))
    ((consp value)
-    (mapc #'heks-emacs-openapi--collect-refs value))))
+    (mapc #'heks/openapi--collect-refs value))))
 
-(defun heks-emacs-openapi--check-content (spec content operation)
+(defun heks/openapi--check-content (spec content operation)
   "Report bodies of OPERATION in SPEC that do not say what shape they have.
 
 A schema with no type, no `$ref' and no properties is the most common way
 a specification stops being useful: a generator can only guess, and so can
 a reader."
-  (dolist (media-type (heks-emacs-openapi--sorted-keys content))
-    (let ((schema (heks-emacs-openapi--resolve
-                   spec (heks-emacs-openapi-get (gethash media-type content) "schema"))))
+  (dolist (media-type (heks/openapi--sorted-keys content))
+    (let ((schema (heks/openapi--resolve
+                   spec (heks/openapi-get (gethash media-type content) "schema"))))
       (when (and (hash-table-p schema)
-                 (not (heks-emacs-openapi-get schema "type"))
-                 (not (heks-emacs-openapi-get schema "$ref"))
-                 (not (heks-emacs-openapi-get schema "properties")))
-        (heks-emacs-openapi--problem
-         :warning (heks-emacs-openapi-text (heks-emacs-openapi-get operation "operationId"))
+                 (not (heks/openapi-get schema "type"))
+                 (not (heks/openapi-get schema "$ref"))
+                 (not (heks/openapi-get schema "properties")))
+        (heks/openapi--problem
+         :warning (heks/openapi-text (heks/openapi-get operation "operationId"))
          (format "the schema of %s is untyped, so a generator can only guess"
                  media-type))))))
 
-(defun heks-emacs-openapi--check-responses (method path responses)
+(defun heks/openapi--check-responses (method path responses)
   "Report the problems of the RESPONSES of METHOD on PATH."
   (if (not (hash-table-p responses))
-      (heks-emacs-openapi--problem
+      (heks/openapi--problem
        :error nil (format "%s %s has no responses" method path))
     (maphash
      (lambda (code response)
-       (setq code (or (heks-emacs-openapi-text code) ""))
+       (setq code (or (heks/openapi-text code) ""))
        (unless (or (string-match-p "\\`[1-5][0-9][0-9]\\'" code)
                    (string-match-p "\\`[1-5]XX\\'" code)
                    (equal code "default"))
-         (heks-emacs-openapi--problem :warning code
+         (heks/openapi--problem :warning code
                                       (format "`%s' is not a response code" code)))
        (when (and (hash-table-p response)
-                  (not (heks-emacs-openapi-get response "description")))
-         (heks-emacs-openapi--problem
+                  (not (heks/openapi-get response "description")))
+         (heks/openapi--problem
           :warning code
           (format "the %s response of %s %s has no description"
                   code method path))))
      responses)))
 
-(defun heks-emacs-openapi--check-parameters (spec path item operation)
+(defun heks/openapi--check-parameters (spec path item operation)
   "Report the parameters of OPERATION that do not agree with PATH.
 
 A variable written in the path and never declared is a request the server
 will reject; one declared and not written in the path is a parameter no
 request can ever give a value to."
-  (let* ((declared (heks-emacs-openapi--declared-parameters spec operation item))
+  (let* ((declared (heks/openapi--declared-parameters spec operation item))
          (names (delq nil (mapcar (lambda (parameter)
-                                    (heks-emacs-openapi-text
-                                     (heks-emacs-openapi-get parameter "name")))
+                                    (heks/openapi-text
+                                     (heks/openapi-get parameter "name")))
                                   declared)))
-         (template (heks-emacs-openapi--template-parameters path)))
+         (template (heks/openapi--template-parameters path)))
     (dolist (variable template)
       (unless (member variable names)
-        (heks-emacs-openapi--problem
+        (heks/openapi--problem
          :error path
          (format "`%s' in the path is never declared as a parameter" variable))))
     (dolist (parameter declared)
-      (when (and (equal "path" (heks-emacs-openapi-text
-                                (heks-emacs-openapi-get parameter "in")))
-                 (not (member (heks-emacs-openapi-text
-                               (heks-emacs-openapi-get parameter "name"))
+      (when (and (equal "path" (heks/openapi-text
+                                (heks/openapi-get parameter "in")))
+                 (not (member (heks/openapi-text
+                               (heks/openapi-get parameter "name"))
                               template)))
-        (heks-emacs-openapi--problem
-         :warning (heks-emacs-openapi-text (heks-emacs-openapi-get parameter "name"))
+        (heks/openapi--problem
+         :warning (heks/openapi-text (heks/openapi-get parameter "name"))
          (format "`%s' is declared as a path parameter but is not in `%s'"
-                 (heks-emacs-openapi-text (heks-emacs-openapi-get parameter "name"))
+                 (heks/openapi-text (heks/openapi-get parameter "name"))
                  path))))))
 
-(defun heks-emacs-openapi--check-operation (spec path method item operation)
+(defun heks/openapi--check-operation (spec path method item operation)
   "Report the problems of one OPERATION of PATH in SPEC."
-  (let ((identifier (heks-emacs-openapi-text
-                     (heks-emacs-openapi-get operation "operationId"))))
+  (let ((identifier (heks/openapi-text
+                     (heks/openapi-get operation "operationId"))))
     (when identifier
-      (if (gethash identifier heks-emacs-openapi--identifiers)
-          (heks-emacs-openapi--problem
+      (if (gethash identifier heks/openapi--identifiers)
+          (heks/openapi--problem
            :error identifier
            (format "`%s' is already the identifier of another operation" identifier))
-        (puthash identifier t heks-emacs-openapi--identifiers))))
-  (heks-emacs-openapi--check-parameters spec path item operation)
-  (heks-emacs-openapi--check-responses method path
-                                       (heks-emacs-openapi-get operation "responses"))
-  (let ((body (heks-emacs-openapi--resolve
-               spec (heks-emacs-openapi-get operation "requestBody"))))
+        (puthash identifier t heks/openapi--identifiers))))
+  (heks/openapi--check-parameters spec path item operation)
+  (heks/openapi--check-responses method path
+                                       (heks/openapi-get operation "responses"))
+  (let ((body (heks/openapi--resolve
+               spec (heks/openapi-get operation "requestBody"))))
     (when (hash-table-p body)
-      (heks-emacs-openapi--check-content spec
-                                         (heks-emacs-openapi-get body "content")
+      (heks/openapi--check-content spec
+                                         (heks/openapi-get body "content")
                                          operation))))
 
-(defun heks-emacs-openapi--check-paths (spec)
+(defun heks/openapi--check-paths (spec)
   "Report the problems of the paths of SPEC."
-  (let ((paths (heks-emacs-openapi-get spec "paths")))
+  (let ((paths (heks/openapi-get spec "paths")))
     (cond ((null paths)
-           (heks-emacs-openapi--problem
+           (heks/openapi--problem
             :warning nil "there are no `paths', so this describes no endpoints"))
           ((not (hash-table-p paths))
-           (heks-emacs-openapi--problem
+           (heks/openapi--problem
             :error "paths" "`paths' has to be a mapping of paths")))
     (when (hash-table-p paths)
       (maphash
        (lambda (path item)
          (unless (string-prefix-p "/" path)
-           (heks-emacs-openapi--problem
+           (heks/openapi--problem
             :error path (format "`%s' is not a path: it has to start with '/'" path)))
-         (let ((item (heks-emacs-openapi--resolve spec item)))
+         (let ((item (heks/openapi--resolve spec item)))
            (when (hash-table-p item)
              (maphash
               (lambda (key value)
                 (cond
-                 ((member key heks-emacs-openapi-methods)
+                 ((member key heks/openapi-methods)
                   ;; A `parameters' array belongs to the whole path item, so
                   ;; it is checked once per operation rather than here.
-                  (heks-emacs-openapi--check-operation
+                  (heks/openapi--check-operation
                    spec path (upcase key) item value))
-                 ((not (member key heks-emacs-openapi-path-item-keys))
-                  (heks-emacs-openapi--problem
+                 ((not (member key heks/openapi-path-item-keys))
+                  (heks/openapi--problem
                    :warning key
                    (format "`%s' under `%s' is not an operation; the methods are %s"
-                           key path (string-join heks-emacs-openapi-methods "/"))))))
+                           key path (string-join heks/openapi-methods "/"))))))
               item))))
        paths))))
 
-(defun heks-emacs-openapi-problems (spec)
+(defun heks/openapi-problems (spec)
   "Return the problems of SPEC as a list of (SEVERITY NEEDLE MESSAGE)."
-  (let ((heks-emacs-openapi--problems nil)
-        (heks-emacs-openapi--refs nil)
-        (heks-emacs-openapi--identifiers (make-hash-table :test #'equal)))
-    (unless (or (heks-emacs-openapi-get spec "openapi")
-                (heks-emacs-openapi-get spec "swagger"))
-      (heks-emacs-openapi--problem
+  (let ((heks/openapi--problems nil)
+        (heks/openapi--refs nil)
+        (heks/openapi--identifiers (make-hash-table :test #'equal)))
+    (unless (or (heks/openapi-get spec "openapi")
+                (heks/openapi-get spec "swagger"))
+      (heks/openapi--problem
        :error nil "no `openapi' version, so this is not a specification"))
-    (let ((info (heks-emacs-openapi-get spec "info")))
+    (let ((info (heks/openapi-get spec "info")))
       (if (not (hash-table-p info))
-          (heks-emacs-openapi--problem
+          (heks/openapi--problem
            :error "info" "`info' is required and describes the API")
         (dolist (key '("title" "version"))
-          (unless (heks-emacs-openapi-get info key)
-            (heks-emacs-openapi--problem
+          (unless (heks/openapi-get info key)
+            (heks/openapi--problem
              :error key (format "`info.%s' is required" key))))))
-    (heks-emacs-openapi--check-paths spec)
-    (heks-emacs-openapi--collect-refs spec)
-    (dolist (reference heks-emacs-openapi--refs)
-      (unless (heks-emacs-openapi--ref-get spec reference)
-        (heks-emacs-openapi--problem
+    (heks/openapi--check-paths spec)
+    (heks/openapi--collect-refs spec)
+    (dolist (reference heks/openapi--refs)
+      (unless (heks/openapi--ref-get spec reference)
+        (heks/openapi--problem
          :error reference
          (format "`%s' points at nothing in this document" reference))))
-    (dolist (server (heks-emacs-openapi-seq (heks-emacs-openapi-get spec "servers")))
-      (unless (and (hash-table-p server) (heks-emacs-openapi-get server "url"))
-        (heks-emacs-openapi--problem :warning "servers" "a server needs a `url'")))
-    (nreverse heks-emacs-openapi--problems)))
+    (dolist (server (heks/openapi-seq (heks/openapi-get spec "servers")))
+      (unless (and (hash-table-p server) (heks/openapi-get server "url"))
+        (heks/openapi--problem :warning "servers" "a server needs a `url'")))
+    (nreverse heks/openapi--problems)))
 
-(defun heks-emacs-openapi--position (needle)
+(defun heks/openapi--position (needle)
   "Return the buffer position of NEEDLE, or the start of the buffer."
   (save-excursion
     (goto-char (point-min))
@@ -512,7 +512,7 @@ request can ever give a value to."
         (match-beginning 0)
       (point-min))))
 
-(defun heks-emacs-openapi--diagnostic (severity position message)
+(defun heks/openapi--diagnostic (severity position message)
   "Return a diagnostic on the line holding POSITION.
 
 The text is the (origin code message) list Emacs builds what the user
@@ -522,42 +522,42 @@ it, so the checker always names itself."
                            (save-excursion (goto-char position) (line-end-position))
                            severity (list "OpenAPI" nil message)))
 
-(defun heks-emacs-openapi-diagnostics (&optional buffer)
+(defun heks/openapi-diagnostics (&optional buffer)
   "Return the specification problems in BUFFER as Flymake diagnostics.
 
 A document that cannot be read at all -- a YAML file with a stray tab,
 most often -- is itself the problem, and it is reported as one rather
 than as a checker that found nothing."
   (with-current-buffer (or buffer (current-buffer))
-    (let ((spec (heks-emacs-openapi-parse)))
+    (let ((spec (heks/openapi-parse)))
       (if (not spec)
-          (list (heks-emacs-openapi--diagnostic
+          (list (heks/openapi--diagnostic
                  :error (point-min)
-                 (if (heks-emacs-openapi-json-p)
+                 (if (heks/openapi-json-p)
                      "This is not valid JSON, so it cannot be checked"
                    "This is not valid YAML, so it cannot be checked")))
         (mapcar (lambda (problem)
-                  (heks-emacs-openapi--diagnostic
+                  (heks/openapi--diagnostic
                    (nth 0 problem)
-                   (heks-emacs-openapi--position (nth 1 problem))
+                   (heks/openapi--position (nth 1 problem))
                    (nth 2 problem)))
-                (heks-emacs-openapi-problems spec))))))
+                (heks/openapi-problems spec))))))
 
-(defun heks-emacs-openapi-flymake (report-fn &rest _)
+(defun heks/openapi-flymake (report-fn &rest _)
   "Report the problems of the specification in the current buffer.
 
 This is a Flymake backend, so Flymake calls it; a buffer that is not a
 specification reports nothing rather than complaining."
   (funcall report-fn
-           (when (heks-emacs-openapi-spec-p)
-             (heks-emacs-openapi-diagnostics))))
+           (when (heks/openapi-spec-p)
+             (heks/openapi-diagnostics))))
 
-(defun heks-emacs-openapi-check ()
+(defun heks/openapi-check ()
   "Check the specification in this buffer and show what is wrong."
   (interactive)
-  (unless (heks-emacs-openapi-spec-p)
+  (unless (heks/openapi-spec-p)
     (user-error "This buffer is not an OpenAPI specification"))
-  (let ((diagnostics (heks-emacs-openapi-diagnostics)))
+  (let ((diagnostics (heks/openapi-diagnostics)))
     (if (null diagnostics)
         (message "The specification has no problems this checks for")
       (flymake-show-buffer-diagnostics)
@@ -568,10 +568,10 @@ specification reports nothing rather than complaining."
 ;; ====== Folding the operations into the menu ======
 ;;;
 
-(defun heks-emacs-openapi-imenu ()
+(defun heks/openapi-imenu ()
   "Return the operations of this buffer for `imenu'."
-  (when-let* ((spec (heks-emacs-openapi-parse))
-              (operations (heks-emacs-openapi-operations spec)))
+  (when-let* ((spec (heks/openapi-parse))
+              (operations (heks/openapi-operations spec)))
     (let ((by-tag nil))
       (dolist (operation operations)
         (let* ((tags (or (plist-get operation :tags) '("untagged")))
@@ -583,7 +583,7 @@ specification reports nothing rather than complaining."
                 (setq entry (cons tag nil))
                 (push entry by-tag))
               (setcdr entry (append (cdr entry)
-                                    (list (cons name (heks-emacs-openapi--position
+                                    (list (cons name (heks/openapi--position
                                                       (plist-get operation :path))))))))))
       (nreverse by-tag))))
 
@@ -591,40 +591,40 @@ specification reports nothing rather than complaining."
 ;; ====== Reading it: the Swagger page ======
 ;;;
 
-(defconst heks-emacs-openapi-method-colors
+(defconst heks/openapi-method-colors
   '(("get" . "#1f8b4c") ("post" . "#1f6feb") ("put" . "#b7791f")
     ("patch" . "#8957e5") ("delete" . "#c4342a") ("head" . "#57606a")
     ("options" . "#57606a") ("trace" . "#57606a"))
   "What each method is painted with in the rendered page.")
 
-(defun heks-emacs-openapi--html-text (value)
+(defun heks/openapi--html-text (value)
   "Return VALUE as text escaped for the page, or the empty string.
 
 Everything the page says about a specification comes through here, so
 that a scalar YAML made of a number, a symbol or nothing at all is shown
 as the text the document means rather than stopping the rendering."
-  (heks-emacs-render--escape (or (heks-emacs-openapi-text value) "")))
+  (heks/render--escape (or (heks/openapi-text value) "")))
 
-(defun heks-emacs-openapi--badge (text color)
+(defun heks/openapi--badge (text color)
   "Return a filled label saying TEXT in COLOR."
   (format "<span style=\"background:%s;color:#fff;font-weight:700;font-size:0.78em;\
 padding:0.2em 0.55em;border-radius:5px;letter-spacing:0.04em\">%s</span>"
-          color (heks-emacs-openapi--html-text text)))
+          color (heks/openapi--html-text text)))
 
-(defun heks-emacs-openapi--media-entries (spec content)
+(defun heks/openapi--media-entries (spec content)
   "Return the media types of the CONTENT of a body, paired with their schema.
 
 A body is written one way most of the time, but a document that offers
 JSON and one other serialisation has to show both, in a defined order."
   (mapcar (lambda (media-type)
             (list media-type
-                  (heks-emacs-openapi--schema-html
-                   spec (heks-emacs-openapi-get (gethash media-type content) "schema"))
-                  (heks-emacs-openapi--content-example
+                  (heks/openapi--schema-html
+                   spec (heks/openapi-get (gethash media-type content) "schema"))
+                  (heks/openapi--content-example
                    spec (gethash media-type content))))
-          (heks-emacs-openapi--sorted-keys content)))
+          (heks/openapi--sorted-keys content)))
 
-(defun heks-emacs-openapi--schema-html (spec schema &optional depth)
+(defun heks/openapi--schema-html (spec schema &optional depth)
   "Return a short description of SCHEMA, resolved through SPEC.
 
 DEPTH stops a schema that describes itself from describing itself
@@ -636,27 +636,27 @@ as an example."
   (let ((depth (or depth 0)))
     (if (> depth 4)
         "<code>…</code>"
-      (let* ((reference (and (hash-table-p schema) (heks-emacs-openapi-get schema "$ref")))
+      (let* ((reference (and (hash-table-p schema) (heks/openapi-get schema "$ref")))
              (resolved (if reference
-                           (heks-emacs-openapi--resolve spec schema)
+                           (heks/openapi--resolve spec schema)
                          schema))
              (get (lambda (key)
-                    (and (hash-table-p resolved) (heks-emacs-openapi-get resolved key))))
+                    (and (hash-table-p resolved) (heks/openapi-get resolved key))))
              (type (funcall get "type"))
              (schema-format (funcall get "format"))
              (items (funcall get "items"))
              (properties (funcall get "properties"))
-             (enum (heks-emacs-openapi-seq (funcall get "enum")))
-             (alternatives (or (heks-emacs-openapi-seq (funcall get "oneOf"))
-                               (heks-emacs-openapi-seq (funcall get "anyOf"))))
-             (all-of (heks-emacs-openapi-seq (funcall get "allOf")))
+             (enum (heks/openapi-seq (funcall get "enum")))
+             (alternatives (or (heks/openapi-seq (funcall get "oneOf"))
+                               (heks/openapi-seq (funcall get "anyOf"))))
+             (all-of (heks/openapi-seq (funcall get "allOf")))
              (default (funcall get "default"))
              (example (funcall get "example")))
         (concat
          (cond
           (reference
-           (format "<code>%s</code>" (heks-emacs-openapi--html-text
-                                      (car (last (split-string (heks-emacs-openapi--key-text
+           (format "<code>%s</code>" (heks/openapi--html-text
+                                      (car (last (split-string (heks/openapi--key-text
                                                                 reference)
                                                                "/"))))))
           (alternatives
@@ -664,52 +664,52 @@ as an example."
                    (if (funcall get "oneOf") "one of" "any of")
                    (string-join
                     (mapcar (lambda (alternative)
-                              (heks-emacs-openapi--schema-html spec alternative (1+ depth)))
+                              (heks/openapi--schema-html spec alternative (1+ depth)))
                             alternatives)
                     ", ")))
           (all-of
            (format "<code>all of</code> %s"
                    (string-join
                     (mapcar (lambda (part)
-                              (heks-emacs-openapi--schema-html spec part (1+ depth)))
+                              (heks/openapi--schema-html spec part (1+ depth)))
                             all-of)
                     " and ")))
           ((equal type "array")
-           (format "<code>array</code> of %s" (heks-emacs-openapi--schema-html
+           (format "<code>array</code> of %s" (heks/openapi--schema-html
                                                spec items (1+ depth))))
           (properties
            (format "<code>object</code> with %s"
                    (string-join
                     (mapcar (lambda (name)
-                              (format "<code>%s</code>" (heks-emacs-openapi--html-text name)))
-                            (heks-emacs-openapi--sorted-keys properties))
+                              (format "<code>%s</code>" (heks/openapi--html-text name)))
+                            (heks/openapi--sorted-keys properties))
                     ", ")))
-          (type (format "<code>%s</code>%s" (heks-emacs-openapi--html-text type)
+          (type (format "<code>%s</code>%s" (heks/openapi--html-text type)
                         (if schema-format
-                            (format " (%s)" (heks-emacs-openapi--html-text schema-format))
+                            (format " (%s)" (heks/openapi--html-text schema-format))
                           "")))
           (t "<code>any</code>"))
          (if enum
              (format " — one of %s"
                      (string-join (mapcar (lambda (value)
                                             (format "<code>%s</code>"
-                                                    (heks-emacs-openapi--html-text value)))
+                                                    (heks/openapi--html-text value)))
                                           enum)
                                   ", "))
            "")
          (if (null default) ""
            (format " (default: <code>%s</code>)"
-                   (heks-emacs-openapi--html-text default)))
+                   (heks/openapi--html-text default)))
          (if (null example) ""
-           (format " (example: <code>%s</code>)" (heks-emacs-openapi--html-text example))))))))
+           (format " (example: <code>%s</code>)" (heks/openapi--html-text example))))))))
 
-(defun heks-emacs-openapi--required-names (schema)
+(defun heks/openapi--required-names (schema)
   "Return the properties SCHEMA says are required, as text."
-  (mapcar (lambda (name) (heks-emacs-openapi--key-text name))
-          (heks-emacs-openapi-seq
-           (and (hash-table-p schema) (heks-emacs-openapi-get schema "required")))))
+  (mapcar (lambda (name) (heks/openapi--key-text name))
+          (heks/openapi-seq
+           (and (hash-table-p schema) (heks/openapi-get schema "required")))))
 
-(defun heks-emacs-openapi--properties-html (spec schema &optional depth)
+(defun heks/openapi--properties-html (spec schema &optional depth)
   "Return a table of the properties SCHEMA describes, or the empty string.
 
 A reader who is shown `object with a, b, c' asks what `a' is; this is the
@@ -717,10 +717,10 @@ answer, one row per property, with its type, whether the document requires
 it, and what it is for.  DEPTH stops an object that holds itself from
 holding itself forever."
   (let* ((depth (or depth 0))
-         (resolved (heks-emacs-openapi--resolve spec schema))
+         (resolved (heks/openapi--resolve spec schema))
          (properties (and (hash-table-p resolved)
-                          (heks-emacs-openapi-get resolved "properties")))
-         (required (heks-emacs-openapi--required-names resolved)))
+                          (heks/openapi-get resolved "properties")))
+         (required (heks/openapi--required-names resolved)))
     (if (or (not (hash-table-p properties))
             (> depth 2)
             (zerop (hash-table-count properties)))
@@ -730,19 +730,19 @@ holding itself forever."
        "<th>Required</th><th>What it is</th></tr></thead><tbody>\n"
        (mapconcat
         (lambda (name)
-          (let ((property (heks-emacs-openapi--resolve spec (gethash name properties))))
+          (let ((property (heks/openapi--resolve spec (gethash name properties))))
             (format "<tr><td><code>%s</code></td><td>%s</td><td>%s</td><td>%s</td></tr>"
-                    (heks-emacs-openapi--html-text name)
-                    (heks-emacs-openapi--schema-html spec property (1+ depth))
-                    (if (member (heks-emacs-openapi--key-text name) required) "yes" "")
-                    (heks-emacs-openapi--html-text
+                    (heks/openapi--html-text name)
+                    (heks/openapi--schema-html spec property (1+ depth))
+                    (if (member (heks/openapi--key-text name) required) "yes" "")
+                    (heks/openapi--html-text
                      (and (hash-table-p property)
-                          (heks-emacs-openapi-get property "description"))))))
-        (heks-emacs-openapi--sorted-keys properties)
+                          (heks/openapi-get property "description"))))))
+        (heks/openapi--sorted-keys properties)
         "\n")
        "\n</tbody></table>"))))
 
-(defun heks-emacs-openapi--json (value &optional indent)
+(defun heks/openapi--json (value &optional indent)
   "Return VALUE as the JSON text of it, with INDENT spaces in front.
 
 The keys of a mapping are written in the order this configuration reads
@@ -761,8 +761,8 @@ different order would make them two."
                  (lambda (key)
                    (format "%s  %s: %s"
                            pad (json-encode key)
-                           (heks-emacs-openapi--json (gethash key value) (+ indent 2))))
-                 (heks-emacs-openapi--sorted-keys value)
+                           (heks/openapi--json (gethash key value) (+ indent 2))))
+                 (heks/openapi--sorted-keys value)
                  ",\n")
                 pad)))
      ((or (and (listp value) value) (vectorp value))
@@ -772,7 +772,7 @@ different order would make them two."
           (format "[\n%s\n%s]"
                   (mapconcat (lambda (item)
                                (format "%s  %s" pad
-                                       (heks-emacs-openapi--json item (+ indent 2))))
+                                       (heks/openapi--json item (+ indent 2))))
                              items ",\n")
                   pad))))
      ((eq value :error) "null")
@@ -780,9 +780,9 @@ different order would make them two."
      ((null value) "null")
      ((numberp value) (number-to-string value))
      ((stringp value) (json-encode value))
-     (t (json-encode (heks-emacs-openapi-text value))))))
+     (t (json-encode (heks/openapi-text value))))))
 
-(defun heks-emacs-openapi--example-html (value)
+(defun heks/openapi--example-html (value)
   "Return VALUE, an example in a document, as the block a reader expects.
 
 An example is what a call returns, and it is written as the JSON it is:
@@ -792,27 +792,27 @@ the shape of the thing, because an example that has to be read as
    ((null value) "")
    ((or (hash-table-p value) (and (listp value) value) (vectorp value))
     (format "<pre class=\"example\">%s</pre>"
-            (heks-emacs-render--escape (heks-emacs-openapi--json value))))
+            (heks/render--escape (heks/openapi--json value))))
    ((stringp value)
     (format "<pre class=\"example\">%s</pre>"
-            (heks-emacs-render--escape value)))
-   (t (format "<code>%s</code>" (heks-emacs-openapi--html-text value)))))
+            (heks/render--escape value)))
+   (t (format "<code>%s</code>" (heks/openapi--html-text value)))))
 
-(defun heks-emacs-openapi--content-example (spec media)
+(defun heks/openapi--content-example (spec media)
   "Return the example the MEDIA entry of a body or a response shows."
-  (let* ((media (heks-emacs-openapi--resolve spec media))
-         (example (and (hash-table-p media) (heks-emacs-openapi-get media "example")))
-         (examples (and (hash-table-p media) (heks-emacs-openapi-get media "examples")))
-         (schema (and (hash-table-p media) (heks-emacs-openapi-get media "schema")))
+  (let* ((media (heks/openapi--resolve spec media))
+         (example (and (hash-table-p media) (heks/openapi-get media "example")))
+         (examples (and (hash-table-p media) (heks/openapi-get media "examples")))
+         (schema (and (hash-table-p media) (heks/openapi-get media "schema")))
          (value (or example
-                    (and (hash-table-p examples) (heks-emacs-openapi-get examples "default"))
-                    (and (hash-table-p schema) (heks-emacs-openapi-get schema "example")))))
+                    (and (hash-table-p examples) (heks/openapi-get examples "default"))
+                    (and (hash-table-p schema) (heks/openapi-get schema "example")))))
     (when (hash-table-p value)
       ;; An `examples' entry is an object with a value of its own.
-      (setq value (or (heks-emacs-openapi-get value "value") value)))
-    (heks-emacs-openapi--example-html value)))
+      (setq value (or (heks/openapi-get value "value") value)))
+    (heks/openapi--example-html value)))
 
-(defun heks-emacs-openapi--parameters-html (spec parameters)
+(defun heks/openapi--parameters-html (spec parameters)
   "Return a table of the PARAMETERS of an operation of SPEC."
   (let ((parameters (delq nil parameters)))
     (if (null parameters)
@@ -823,21 +823,21 @@ the shape of the thing, because an example that has to be read as
               (mapcar
                (lambda (parameter)
                  (format "<tr><td><code>%s</code></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
-                         (heks-emacs-openapi--html-text
-                          (or (heks-emacs-openapi-get parameter "name") "?"))
-                         (heks-emacs-openapi--html-text
-                          (heks-emacs-openapi-get parameter "in"))
-                         (heks-emacs-openapi--schema-html
-                          spec (heks-emacs-openapi-get parameter "schema"))
-                         (if (heks-emacs-openapi-yes-p
-                              (heks-emacs-openapi-get parameter "required"))
+                         (heks/openapi--html-text
+                          (or (heks/openapi-get parameter "name") "?"))
+                         (heks/openapi--html-text
+                          (heks/openapi-get parameter "in"))
+                         (heks/openapi--schema-html
+                          spec (heks/openapi-get parameter "schema"))
+                         (if (heks/openapi-yes-p
+                              (heks/openapi-get parameter "required"))
                              "yes" "")
-                         (heks-emacs-openapi--html-text
-                          (heks-emacs-openapi-get parameter "description"))))
+                         (heks/openapi--html-text
+                          (heks/openapi-get parameter "description"))))
                parameters))
        "</tbody></table>"))))
 
-(defun heks-emacs-openapi--responses-html (spec responses)
+(defun heks/openapi--responses-html (spec responses)
   "Return a table of the RESPONSES of an operation of SPEC."
   (if (not (hash-table-p responses))
       ""
@@ -846,100 +846,100 @@ the shape of the thing, because an example that has to be read as
      (apply #'concat
             (mapcar
              (lambda (code)
-               (let* ((response (heks-emacs-openapi--resolve spec (gethash code responses)))
+               (let* ((response (heks/openapi--resolve spec (gethash code responses)))
                       (content (and (hash-table-p response)
-                                    (heks-emacs-openapi-get response "content"))))
+                                    (heks/openapi-get response "content"))))
                  (format "<tr><td><code>%s</code></td><td>%s</td><td>%s</td></tr>"
-                         (heks-emacs-openapi--html-text code)
-                         (heks-emacs-openapi--html-text
+                         (heks/openapi--html-text code)
+                         (heks/openapi--html-text
                           (and (hash-table-p response)
-                               (heks-emacs-openapi-get response "description")))
+                               (heks/openapi-get response "description")))
                          (string-join
                           (mapcar (lambda (entry)
                                     (concat
                                      (format "%s → %s"
-                                             (heks-emacs-openapi--html-text (nth 0 entry))
+                                             (heks/openapi--html-text (nth 0 entry))
                                              (nth 1 entry))
                                      (nth 2 entry)))
-                                  (heks-emacs-openapi--media-entries spec content))
+                                  (heks/openapi--media-entries spec content))
                           "<br>"))))
-             (heks-emacs-openapi--sorted-keys responses)))
+             (heks/openapi--sorted-keys responses)))
      "</tbody></table>")))
 
-(defun heks-emacs-openapi--body-schema (spec body)
+(defun heks/openapi--body-schema (spec body)
   "Return the schema of the first media type of BODY, resolved through SPEC."
-  (let* ((body (heks-emacs-openapi--resolve spec body))
-         (content (and (hash-table-p body) (heks-emacs-openapi-get body "content"))))
+  (let* ((body (heks/openapi--resolve spec body))
+         (content (and (hash-table-p body) (heks/openapi-get body "content"))))
     (when (hash-table-p content)
-      (let ((media-type (car (heks-emacs-openapi--sorted-keys content))))
-        (heks-emacs-openapi-get (gethash media-type content) "schema")))))
+      (let ((media-type (car (heks/openapi--sorted-keys content))))
+        (heks/openapi-get (gethash media-type content) "schema")))))
 
-(defun heks-emacs-openapi--body-html (spec body)
+(defun heks/openapi--body-html (spec body)
   "Return the request body of an operation of SPEC."
-  (let ((body (heks-emacs-openapi--resolve spec body)))
+  (let ((body (heks/openapi--resolve spec body)))
     (if (not (hash-table-p body))
         ""
-      (let ((content (heks-emacs-openapi-get body "content"))
-            (description (heks-emacs-openapi-get body "description"))
-            (required (heks-emacs-openapi-yes-p
-                       (heks-emacs-openapi-get body "required"))))
+      (let ((content (heks/openapi-get body "content"))
+            (description (heks/openapi-get body "description"))
+            (required (heks/openapi-yes-p
+                       (heks/openapi-get body "required"))))
         (concat
          (when description
-           (format "<p>%s</p>" (heks-emacs-openapi--html-text description)))
+           (format "<p>%s</p>" (heks/openapi--html-text description)))
          (when (hash-table-p content)
            (concat (format "<p class=\"headline\">Request body%s</p><ul>"
                            (if required " (required)" ""))
                    (string-join
                     (mapcar (lambda (entry)
                               (format "<li><code>%s</code> — %s%s</li>"
-                                      (heks-emacs-openapi--html-text (nth 0 entry))
+                                      (heks/openapi--html-text (nth 0 entry))
                                       (nth 1 entry)
                                       (nth 2 entry)))
-                            (heks-emacs-openapi--media-entries spec content))
+                            (heks/openapi--media-entries spec content))
                     "")
                    "</ul>"))
-         (heks-emacs-openapi--properties-html
-          spec (heks-emacs-openapi--body-schema spec body)))))))
+         (heks/openapi--properties-html
+          spec (heks/openapi--body-schema spec body)))))))
 
-(defun heks-emacs-openapi--operation-html (spec operation)
+(defun heks/openapi--operation-html (spec operation)
   "Return the rendered OPERATION of SPEC."
-  (let* ((method (heks-emacs-openapi--key-text (plist-get operation :method)))
-         (path (heks-emacs-openapi--key-text (plist-get operation :path)))
+  (let* ((method (heks/openapi--key-text (plist-get operation :method)))
+         (path (heks/openapi--key-text (plist-get operation :path)))
          (operation-value (plist-get operation :operation))
          (item (plist-get operation :item))
-         (summary (heks-emacs-openapi-text
-                   (heks-emacs-openapi-get operation-value "summary")))
-         (description (heks-emacs-openapi-text
-                       (heks-emacs-openapi-get operation-value "description")))
-         (identifier (heks-emacs-openapi-text
-                      (heks-emacs-openapi-get operation-value "operationId")))
-         (parameters (heks-emacs-openapi--declared-parameters spec operation-value item))
-         (deprecated (heks-emacs-openapi-yes-p
-                      (heks-emacs-openapi-get operation-value "deprecated"))))
+         (summary (heks/openapi-text
+                   (heks/openapi-get operation-value "summary")))
+         (description (heks/openapi-text
+                       (heks/openapi-get operation-value "description")))
+         (identifier (heks/openapi-text
+                      (heks/openapi-get operation-value "operationId")))
+         (parameters (heks/openapi--declared-parameters spec operation-value item))
+         (deprecated (heks/openapi-yes-p
+                      (heks/openapi-get operation-value "deprecated"))))
     (concat
      (format "<h3 id=\"%s\">%s <code>%s</code>%s</h3>\n"
-             (heks-emacs-render--escape (format "%s-%s" method path) t)
-             (heks-emacs-openapi--badge (upcase method)
-                                        (or (cdr (assoc method heks-emacs-openapi-method-colors))
+             (heks/render--escape (format "%s-%s" method path) t)
+             (heks/openapi--badge (upcase method)
+                                        (or (cdr (assoc method heks/openapi-method-colors))
                                             "#57606a"))
-             (heks-emacs-render--escape path)
+             (heks/render--escape path)
              (if deprecated " <em>(deprecated)</em>" ""))
-     (when summary (format "<p><strong>%s</strong></p>\n" (heks-emacs-render--escape summary)))
-     (when description (format "<p>%s</p>\n" (heks-emacs-render--escape description)))
+     (when summary (format "<p><strong>%s</strong></p>\n" (heks/render--escape summary)))
+     (when description (format "<p>%s</p>\n" (heks/render--escape description)))
      (when identifier
-       (format "<p class=\"headline\">operationId: %s</p>\n" (heks-emacs-render--escape identifier)))
+       (format "<p class=\"headline\">operationId: %s</p>\n" (heks/render--escape identifier)))
      (when parameters
-       (concat "<p class=\"headline\">Parameters</p>" (heks-emacs-openapi--parameters-html spec parameters)))
-     (heks-emacs-openapi--body-html spec (heks-emacs-openapi-get operation-value "requestBody"))
+       (concat "<p class=\"headline\">Parameters</p>" (heks/openapi--parameters-html spec parameters)))
+     (heks/openapi--body-html spec (heks/openapi-get operation-value "requestBody"))
      (concat "<p class=\"headline\">Responses</p>"
-             (heks-emacs-openapi--responses-html spec (heks-emacs-openapi-get operation-value "responses"))))))
+             (heks/openapi--responses-html spec (heks/openapi-get operation-value "responses"))))))
 
-(defun heks-emacs-openapi--schemas-html (spec)
+(defun heks/openapi--schemas-html (spec)
   "Return the schemas SPEC defines, as a section."
-  (let ((components (heks-emacs-openapi-get spec "components")))
+  (let ((components (heks/openapi-get spec "components")))
     (if (not (hash-table-p components))
         ""
-      (let ((schemas (heks-emacs-openapi-get components "schemas")))
+      (let ((schemas (heks/openapi-get components "schemas")))
         (if (not (hash-table-p schemas))
             ""
           (concat
@@ -947,28 +947,28 @@ the shape of the thing, because an example that has to be read as
            (apply #'concat
                   (mapcar
                    (lambda (name)
-                     (let ((schema (heks-emacs-openapi--resolve spec (gethash name schemas))))
+                     (let ((schema (heks/openapi--resolve spec (gethash name schemas))))
                        (concat
-                        (format "<h3><code>%s</code></h3>\n" (heks-emacs-openapi--html-text name))
+                        (format "<h3><code>%s</code></h3>\n" (heks/openapi--html-text name))
                         (when (and (hash-table-p schema)
-                                   (heks-emacs-openapi-get schema "description"))
+                                   (heks/openapi-get schema "description"))
                           (format "<p>%s</p>\n"
-                                  (heks-emacs-openapi--html-text
-                                   (heks-emacs-openapi-get schema "description"))))
+                                  (heks/openapi--html-text
+                                   (heks/openapi-get schema "description"))))
                         (format "<p>%s</p>\n"
-                                (heks-emacs-openapi--schema-html spec schema))
-                        (heks-emacs-openapi--properties-html spec schema))))
-                   (heks-emacs-openapi--sorted-keys schemas)))))))))
+                                (heks/openapi--schema-html spec schema))
+                        (heks/openapi--properties-html spec schema))))
+                   (heks/openapi--sorted-keys schemas)))))))))
 
-(defun heks-emacs-openapi--security-html (spec)
+(defun heks/openapi--security-html (spec)
   "Return the ways a caller can be allowed in, as a section.
 
 Swagger puts an `Authorize' button at the top of the page; what it opens
 is this -- the schemes the document declares, what kind of credential each
 one takes, and where it goes."
-  (let* ((components (heks-emacs-openapi-get spec "components"))
+  (let* ((components (heks/openapi-get spec "components"))
          (schemes (and (hash-table-p components)
-                       (heks-emacs-openapi-get components "securitySchemes"))))
+                       (heks/openapi-get components "securitySchemes"))))
     (if (not (hash-table-p schemes))
         ""
       (concat
@@ -977,71 +977,71 @@ one takes, and where it goes."
        "<th>Where</th><th>What it says</th></tr></thead><tbody>\n"
        (mapconcat
         (lambda (name)
-          (let* ((scheme (heks-emacs-openapi--resolve spec (gethash name schemes)))
-                 (type (and (hash-table-p scheme) (heks-emacs-openapi-get scheme "type")))
+          (let* ((scheme (heks/openapi--resolve spec (gethash name schemes)))
+                 (type (and (hash-table-p scheme) (heks/openapi-get scheme "type")))
                  (detail (and (hash-table-p scheme)
-                              (or (heks-emacs-openapi-get scheme "scheme")
-                                  (heks-emacs-openapi-get scheme "bearerFormat")
-                                  (heks-emacs-openapi-get scheme "flow"))))
+                              (or (heks/openapi-get scheme "scheme")
+                                  (heks/openapi-get scheme "bearerFormat")
+                                  (heks/openapi-get scheme "flow"))))
                  (where (and (hash-table-p scheme)
-                             (or (heks-emacs-openapi-get scheme "in")
-                                 (heks-emacs-openapi-get scheme "name")))))
+                             (or (heks/openapi-get scheme "in")
+                                 (heks/openapi-get scheme "name")))))
             (format "<tr><td><code>%s</code></td><td>%s%s</td><td>%s</td><td>%s</td></tr>"
-                    (heks-emacs-openapi--html-text name)
-                    (heks-emacs-openapi--html-text type)
+                    (heks/openapi--html-text name)
+                    (heks/openapi--html-text type)
                     (if detail
-                        (format " (%s)" (heks-emacs-openapi--html-text detail))
+                        (format " (%s)" (heks/openapi--html-text detail))
                       "")
-                    (heks-emacs-openapi--html-text where)
-                    (heks-emacs-openapi--html-text
+                    (heks/openapi--html-text where)
+                    (heks/openapi--html-text
                      (and (hash-table-p scheme)
-                          (heks-emacs-openapi-get scheme "description"))))))
-        (heks-emacs-openapi--sorted-keys schemes)
+                          (heks/openapi-get scheme "description"))))))
+        (heks/openapi--sorted-keys schemes)
         "\n")
        "\n</tbody></table>\n"))))
 
-(defun heks-emacs-openapi--tag-description (spec tag)
+(defun heks/openapi--tag-description (spec tag)
   "Return the description SPEC gives TAG, or nil."
-  (let ((tags (heks-emacs-openapi-seq (heks-emacs-openapi-get spec "tags"))))
+  (let ((tags (heks/openapi-seq (heks/openapi-get spec "tags"))))
     (seq-some (lambda (entry)
                 (when (and (hash-table-p entry)
-                           (equal (heks-emacs-openapi-text
-                                   (heks-emacs-openapi-get entry "name"))
+                           (equal (heks/openapi-text
+                                   (heks/openapi-get entry "name"))
                                   tag))
-                  (heks-emacs-openapi-text (heks-emacs-openapi-get entry "description"))))
+                  (heks/openapi-text (heks/openapi-get entry "description"))))
               tags)))
 
-(defun heks-emacs-openapi--tag-documentation (spec tag)
+(defun heks/openapi--tag-documentation (spec tag)
   "Return TAG's own documentation -- its description and its links.
 
 It is written under the tag's heading, because what a tag is for is the
 first thing a reader of a page full of operations wants to know, and
 `externalDocs' is where a document keeps the guide it does not hold."
-  (let* ((tags (heks-emacs-openapi-seq (heks-emacs-openapi-get spec "tags")))
+  (let* ((tags (heks/openapi-seq (heks/openapi-get spec "tags")))
          (entry (seq-some (lambda (candidate)
                             (when (and (hash-table-p candidate)
-                                       (equal (heks-emacs-openapi-text
-                                               (heks-emacs-openapi-get candidate "name"))
+                                       (equal (heks/openapi-text
+                                               (heks/openapi-get candidate "name"))
                                               tag))
                               candidate))
                           tags))
-         (docs (and (hash-table-p entry) (heks-emacs-openapi-get entry "externalDocs")))
-         (url (and (hash-table-p docs) (heks-emacs-openapi-get docs "url"))))
+         (docs (and (hash-table-p entry) (heks/openapi-get entry "externalDocs")))
+         (url (and (hash-table-p docs) (heks/openapi-get docs "url"))))
     (concat
-     (if (heks-emacs-openapi--tag-description spec tag)
+     (if (heks/openapi--tag-description spec tag)
          (format "<p class=\"tag-description\">%s</p>\n"
-                 (heks-emacs-openapi--html-text
-                  (heks-emacs-openapi--tag-description spec tag)))
+                 (heks/openapi--html-text
+                  (heks/openapi--tag-description spec tag)))
        "")
      (if url
          (format "<p class=\"tag-docs\"><a href=\"%s\">%s</a></p>\n"
-                 (heks-emacs-render--escape (heks-emacs-openapi-text url) t)
-                 (heks-emacs-openapi--html-text
-                  (or (and (hash-table-p docs) (heks-emacs-openapi-get docs "description"))
+                 (heks/render--escape (heks/openapi-text url) t)
+                 (heks/openapi--html-text
+                  (or (and (hash-table-p docs) (heks/openapi-get docs "description"))
                       "Further documentation")))
        ""))))
 
-(defun heks-emacs-openapi--summary-html (spec operations tags)
+(defun heks/openapi--summary-html (spec operations tags)
   "Return the line that says how much there is to read, before reading it.
 
 A page of fifty operations is a page to search; one of five is a page to
@@ -1049,16 +1049,16 @@ read, and the count is what says which one you have opened."
   (format "<p class=\"headline\">%d operation%s · %d tag%s%s</p>\n"
           (length operations) (if (= (length operations) 1) "" "s")
           (length tags) (if (= (length tags) 1) "" "s")
-          (let ((docs (heks-emacs-openapi-get spec "externalDocs")))
-            (if (and (hash-table-p docs) (heks-emacs-openapi-get docs "url"))
+          (let ((docs (heks/openapi-get spec "externalDocs")))
+            (if (and (hash-table-p docs) (heks/openapi-get docs "url"))
                 (format " · <a href=\"%s\">%s</a>"
-                        (heks-emacs-render--escape
-                         (heks-emacs-openapi-text (heks-emacs-openapi-get docs "url")) t)
-                        (heks-emacs-openapi--html-text
-                         (or (heks-emacs-openapi-get docs "description") "Documentation")))
+                        (heks/render--escape
+                         (heks/openapi-text (heks/openapi-get docs "url")) t)
+                        (heks/openapi--html-text
+                         (or (heks/openapi-get docs "description") "Documentation")))
               ""))))
 
-(defun heks-emacs-openapi-html (&optional buffer)
+(defun heks/openapi-html (&optional buffer)
   "Return the specification in BUFFER rendered as a page of HTML.
 
 The shape is the one Swagger UI has made familiar -- operations grouped
@@ -1068,19 +1068,19 @@ reader of a specification asks before that is answered at the top as well:
 how many operations there are, what the servers are, and how a caller is
 let in."
   (with-current-buffer (or buffer (current-buffer))
-    (let* ((spec (heks-emacs-openapi-parse))
-           (info (and spec (heks-emacs-openapi-get spec "info")))
+    (let* ((spec (heks/openapi-parse))
+           (info (and spec (heks/openapi-get spec "info")))
            (title (or (and (hash-table-p info)
-                           (heks-emacs-openapi-text (heks-emacs-openapi-get info "title")))
-                      (heks-emacs-render-title)))
-           (version (and (hash-table-p info) (heks-emacs-openapi-get info "version")))
-           (description (and (hash-table-p info) (heks-emacs-openapi-get info "description")))
-           (operations (and spec (heks-emacs-openapi-operations spec)))
+                           (heks/openapi-text (heks/openapi-get info "title")))
+                      (heks/render-title)))
+           (version (and (hash-table-p info) (heks/openapi-get info "version")))
+           (description (and (hash-table-p info) (heks/openapi-get info "description")))
+           (operations (and spec (heks/openapi-operations spec)))
            (tags nil))
       (cond
        ((not spec)
         (format "<pre class=\"plain\">%s</pre>"
-                (heks-emacs-render--escape (buffer-string))))
+                (heks/render--escape (buffer-string))))
        (t
         ;; Operations come out grouped by their first tag, which is what
         ;; the specification's `tags' list is for.
@@ -1093,74 +1093,74 @@ let in."
               (setcdr entry (append (cdr entry) (list operation))))))
         (setq tags (nreverse tags))
         (concat
-         (format "<h1>%s %s</h1>\n" (heks-emacs-openapi--html-text title)
+         (format "<h1>%s %s</h1>\n" (heks/openapi--html-text title)
                  (if version
-                     (heks-emacs-openapi--badge (format "v%s" version) "#57606a")
+                     (heks/openapi--badge (format "v%s" version) "#57606a")
                    ""))
          (when description
-           (format "<p>%s</p>\n" (heks-emacs-openapi--html-text description)))
-         (heks-emacs-openapi--summary-html spec operations tags)
-         (let ((servers (heks-emacs-openapi-seq (heks-emacs-openapi-get spec "servers"))))
+           (format "<p>%s</p>\n" (heks/openapi--html-text description)))
+         (heks/openapi--summary-html spec operations tags)
+         (let ((servers (heks/openapi-seq (heks/openapi-get spec "servers"))))
            (if servers
                (concat "<p class=\"headline\">Servers</p><ul>"
                        (string-join
                         (mapcar (lambda (server)
-                                  (let ((text (heks-emacs-openapi-text
-                                               (heks-emacs-openapi-get server "description"))))
+                                  (let ((text (heks/openapi-text
+                                               (heks/openapi-get server "description"))))
                                     (format "<li><code>%s</code>%s</li>"
-                                            (heks-emacs-openapi--html-text
-                                             (heks-emacs-openapi-get server "url"))
+                                            (heks/openapi--html-text
+                                             (heks/openapi-get server "url"))
                                             (if text
                                                 (format " — %s"
-                                                        (heks-emacs-openapi--html-text text))
+                                                        (heks/openapi--html-text text))
                                               ""))))
                                 servers)
                         "")
                        "</ul>")
              ""))
-         (heks-emacs-openapi--security-html spec)
+         (heks/openapi--security-html spec)
          (apply #'concat
                 (mapcar (lambda (entry)
                           (concat
                            (format "<h2>%s</h2>\n"
-                                   (heks-emacs-openapi--html-text (car entry)))
-                           (heks-emacs-openapi--tag-documentation spec (car entry))
+                                   (heks/openapi--html-text (car entry)))
+                           (heks/openapi--tag-documentation spec (car entry))
                            (apply #'concat
                                   (mapcar (lambda (operation)
-                                            (heks-emacs-openapi--operation-html spec operation))
+                                            (heks/openapi--operation-html spec operation))
                                           (cdr entry)))))
                         tags))
-         (heks-emacs-openapi--schemas-html spec)))))))
+         (heks/openapi--schemas-html spec)))))))
 
-(defun heks-emacs-openapi-view ()
+(defun heks/openapi-view ()
   "Render this specification the way Swagger UI would and show it."
   (interactive)
-  (unless (heks-emacs-openapi-spec-p)
+  (unless (heks/openapi-spec-p)
     (user-error "This buffer is not an OpenAPI specification"))
-  (heks-emacs-preview))
+  (heks/preview))
 
 ;;
 ;; ====== Calling it ======
 ;;;
 
-(defun heks-emacs-openapi-server-url (&optional buffer)
+(defun heks/openapi-server-url (&optional buffer)
   "Return the first server URL of BUFFER's specification."
   (with-current-buffer (or buffer (current-buffer))
-    (when-let* ((spec (heks-emacs-openapi-parse)))
-      (or (let ((servers (heks-emacs-openapi-seq (heks-emacs-openapi-get spec "servers"))))
-            (and servers (heks-emacs-openapi-text
-                          (heks-emacs-openapi-get (car servers) "url"))))
+    (when-let* ((spec (heks/openapi-parse)))
+      (or (let ((servers (heks/openapi-seq (heks/openapi-get spec "servers"))))
+            (and servers (heks/openapi-text
+                          (heks/openapi-get (car servers) "url"))))
           ;; OpenAPI 2.0 says the same thing in three keys.
-          (let ((host (heks-emacs-openapi-text (heks-emacs-openapi-get spec "host")))
-                (base (or (heks-emacs-openapi-text
-                           (heks-emacs-openapi-get spec "basePath"))
+          (let ((host (heks/openapi-text (heks/openapi-get spec "host")))
+                (base (or (heks/openapi-text
+                           (heks/openapi-get spec "basePath"))
                           "/"))
-                (schemes (heks-emacs-openapi-seq (heks-emacs-openapi-get spec "schemes"))))
+                (schemes (heks/openapi-seq (heks/openapi-get spec "schemes"))))
             (when host
               (format "%s://%s%s"
-                      (or (heks-emacs-openapi-text (car schemes)) "https") host base)))))))
+                      (or (heks/openapi-text (car schemes)) "https") host base)))))))
 
-(defun heks-emacs-openapi-definition (&optional buffer)
+(defun heks/openapi-definition (&optional buffer)
   "Return the `swagg' definition for BUFFER's specification.
 
 `swagg' wants a name, a base URL and the file it should read the
@@ -1169,46 +1169,46 @@ edited, which is what this adds."
   (with-current-buffer (or buffer (current-buffer))
     (unless buffer-file-name
       (user-error "Save the specification first: a definition names a file"))
-    (let ((base (heks-emacs-openapi-server-url)))
+    (let ((base (heks/openapi-server-url)))
       (unless base
         (user-error "This specification declares no server to call"))
       (list :name (file-name-nondirectory buffer-file-name)
-            :base (replace-regexp-in-string "/+\\'" "" (heks-emacs-openapi-text base))
-            (if (heks-emacs-openapi-json-p) :json :yaml)
+            :base (replace-regexp-in-string "/+\\'" "" (heks/openapi-text base))
+            (if (heks/openapi-json-p) :json :yaml)
             (buffer-file-name)))))
 
-(defun heks-emacs-openapi-request ()
+(defun heks/openapi-request ()
   "Call one of the operations of this specification, from the file itself.
 
 The path parameters are asked for, the URL is built from the operation
 and the answer is shown in its own buffer."
   (interactive)
   (require 'swagg)
-  (swagg-request (heks-emacs-openapi-definition)))
+  (swagg-request (heks/openapi-definition)))
 
-(defun heks-emacs-openapi-rest-block ()
+(defun heks/openapi-rest-block ()
   "Write one of the operations of this specification as a request block.
 
 The block goes to the `swagg' buffer, where a rest client can send it,
 which is what one wants for a request with a body or one worth keeping."
   (interactive)
   (require 'swagg)
-  (swagg-request-with-rest-block (heks-emacs-openapi-definition)))
+  (swagg-request-with-rest-block (heks/openapi-definition)))
 
 ;;
 ;; ====== Turning it on where it belongs ======
 ;;;
 
-(defun heks-emacs-openapi-imenu-setup ()
+(defun heks/openapi-imenu-setup ()
   "Make `imenu' list the operations of this buffer."
-  (setq-local imenu-create-index-function #'heks-emacs-openapi-imenu))
+  (setq-local imenu-create-index-function #'heks/openapi-imenu))
 
-(defun heks-emacs-openapi-check-setup ()
+(defun heks/openapi-check-setup ()
   "Check this buffer's specification with every Flymake run."
-  (add-hook 'flymake-diagnostic-functions #'heks-emacs-openapi-flymake nil t)
+  (add-hook 'flymake-diagnostic-functions #'heks/openapi-flymake nil t)
   (flymake-mode 1))
 
-(define-minor-mode heks-emacs-openapi-mode
+(define-minor-mode heks/openapi-mode
   "Check and navigate the OpenAPI specification in this buffer.
 
 It is turned on by the hooks below whenever a buffer turns out to hold a
@@ -1216,33 +1216,33 @@ specification, so there is nothing to remember to enable.  What it adds is
 a Flymake backend -- the problems of the document appear in the margin --
 and an `imenu' that lists the operations by tag."
   :lighter " OpenAPI"
-  (if heks-emacs-openapi-mode
-      (progn (heks-emacs-openapi-check-setup)
-             (heks-emacs-openapi-imenu-setup))
-    (remove-hook 'flymake-diagnostic-functions #'heks-emacs-openapi-flymake t)))
+  (if heks/openapi-mode
+      (progn (heks/openapi-check-setup)
+             (heks/openapi-imenu-setup))
+    (remove-hook 'flymake-diagnostic-functions #'heks/openapi-flymake t)))
 
-(defun heks-emacs-openapi--maybe-enable ()
-  "Turn `heks-emacs-openapi-mode' on when the buffer is a specification."
-  (when (heks-emacs-openapi-spec-p)
-    (heks-emacs-openapi-mode 1)))
+(defun heks/openapi--maybe-enable ()
+  "Turn `heks/openapi-mode' on when the buffer is a specification."
+  (when (heks/openapi-spec-p)
+    (heks/openapi-mode 1)))
 
 ;; JSON and YAML are where a specification lives; the check above decides
 ;; whether this particular file is one.
 (dolist (hook '(json-mode-hook js-json-mode-hook json-ts-mode-hook
                 yaml-mode-hook yaml-ts-mode-hook))
-  (add-hook hook #'heks-emacs-openapi--maybe-enable))
+  (add-hook hook #'heks/openapi--maybe-enable))
 
 (use-package emacs
   :ensure nil
-  :bind (("C-c a v" . heks-emacs-openapi-view)
-         ("C-c a l" . heks-emacs-openapi-check)
-         ("C-c a r" . heks-emacs-openapi-request)
-         ("C-c a b" . heks-emacs-openapi-rest-block)
+  :bind (("C-c a v" . heks/openapi-view)
+         ("C-c a l" . heks/openapi-check)
+         ("C-c a r" . heks/openapi-request)
+         ("C-c a b" . heks/openapi-rest-block)
          ;; The mode is turned on by the hooks above; the key is there for
          ;; the buffer the hooks do not reach -- a specification with an
          ;; extension nobody expects, or one being written from scratch.
-         ("C-c a m" . heks-emacs-openapi-mode)))
+         ("C-c a m" . heks/openapi-mode)))
 
-(provide 'heks-emacs/openapi)
+(provide 'heks/openapi)
 
 ;;; openapi.el ends here

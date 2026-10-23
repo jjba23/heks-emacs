@@ -68,7 +68,7 @@
 
 (message "== the Markdown renderer ==")
 
-(let ((html (heks-emacs-markdown-to-html
+(let ((html (heks/markdown-to-html
              (concat "# Title\n"
                      "\n"
                      "Some *emphasis*, some **strong**, some `code`, a [link](docs/a.md)\n"
@@ -121,7 +121,7 @@
   (heks-render--matches "the ordered list is closed before the blockquote"
                         html "<li>two</li>\n</ol>")
   (heks-render--check "a list at the end of a document is closed"
-                      (heks-emacs-markdown-to-html "- one\n- two\n")
+                      (heks/markdown-to-html "- one\n- two\n")
                       "<ul>\n<li>one</li>\n<li>two</li>\n</ul>\n")
   (heks-render--matches "a blockquote" html "<blockquote><p>quoted <em>text</em></p></blockquote>")
   (heks-render--matches "a fence keeps its language" html "class=\"language-elisp\"")
@@ -136,32 +136,32 @@
   (heks-render--matches "two trailing spaces break the line" html "break<br>after")
   (heks-render--matches "a raw block passes through" html "<details>a raw block</details>")
   ;; A paragraph with a rule under it is a heading, not a one-column table.
-  (let ((setext (heks-emacs-markdown-to-html "Title\n=====\n\nText\n---\n")))
+  (let ((setext (heks/markdown-to-html "Title\n=====\n\nText\n---\n")))
     (heks-render--matches "a setext heading" setext "<h1>Title</h1>")
     (heks-render--matches "a rule under a paragraph is still a heading"
                           setext "<h2>Text</h2>")))
 
 (message "\n== escaping and links ==")
-(heks-render--check "escaping" (heks-emacs-render--escape "<a & b>") "&lt;a &amp; b&gt;")
-(heks-render--check "escaping a quote" (heks-emacs-render--escape "a\"b" t) "a&quot;b")
+(heks-render--check "escaping" (heks/render--escape "<a & b>") "&lt;a &amp; b&gt;")
+(heks-render--check "escaping a quote" (heks/render--escape "a\"b" t) "a&quot;b")
 ;; A relative link in a document resolves against the document's own
 ;; directory, not against the preview, which lives in a temporary one.
-(let ((heks-emacs-markdown-base-directory "/home/someone/docs/"))
+(let ((heks/markdown-base-directory "/home/someone/docs/"))
   (heks-render--matches "a relative image resolves against the document"
-                        (heks-emacs-markdown-to-html "![d](img/a.png)")
+                        (heks/markdown-to-html "![d](img/a.png)")
                         "src=\"file:///home/someone/docs/img/a.png\"")
   (heks-render--matches "an absolute URL is left alone"
-                        (heks-emacs-markdown-to-html "[a](https://example.com/x)")
+                        (heks/markdown-to-html "[a](https://example.com/x)")
                         "href=\"https://example.com/x\""))
 
 (message "\n== the document around it ==")
-(let ((document (heks-emacs-html-document "Title" "<p>body</p>" "Markdown")))
+(let ((document (heks/html-document "Title" "<p>body</p>" "Markdown")))
   (heks-render--matches "it is a document" document "<!DOCTYPE html>")
   (heks-render--matches "it carries a stylesheet" document "<style>")
   (heks-render--matches "the title is in the head" document "<title>Title</title>")
   (heks-render--matches "the renderer names itself" document "class=\"headline\">Markdown")
   (heks-render--check "the stylesheet fills every placeholder"
-                      (and (string-match-p "%s" (heks-emacs-render-stylesheet)) nil)
+                      (and (string-match-p "%s" (heks/render-stylesheet)) nil)
                       nil))
 
 (message "\n== %d passed, %d failed ==" heks-render--passed heks-render--failed)

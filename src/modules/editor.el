@@ -51,6 +51,6 @@
   :ensure t
   :bind (("C-c # e" . sudo-edit)))
 
-(provide 'heks-emacs/editor)
+(provide 'heks/editor)
 
 ;;; editor.el ends here

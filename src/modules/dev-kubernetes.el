@@ -215,6 +215,6 @@ originally printed -- the right tool for apps that do not log JSON."
   (transient-append-suffix 'kubed-transient "l"
     '("f" "Filter log buffer" json-log-view-transient)))
 
-(provide 'heks-emacs/dev-kubernetes)
+(provide 'heks/dev-kubernetes)
 
 ;;; dev-kubernetes.el ends here

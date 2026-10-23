@@ -49,14 +49,14 @@
 ;;
 ;;   `C-c n m'   the Markdown file of this buffer, imported as an Org file
 ;;               next to it; with a prefix argument it is written into
-;;               `heks-emacs-notes-roam-directory' as an `org-roam' note
+;;               `heks/notes-directory' as a note
 ;;               instead, with the identifier, the title, the tags and the
 ;;               aliases it needs to be a node rather than a file.
 ;;               Nothing here is loaded from Org: the reading and the
 ;;               writing of a document are strings in and strings out, so
 ;;               the conversion works in an Emacs that has no Org at all
 ;;               -- which is what the tests that check it are.
-;;               `heks-emacs-import-into-roam' swaps which of the two the
+;;               `heks/import-into-notes' swaps which of the two the
 ;;               prefix asks for.
 ;;
 ;;   `C-c n M'   the region, Markdown converted to Org in place; with a
@@ -65,8 +65,8 @@
 ;;               rather than a note, so a heading keeps its level and no
 ;;               title or property drawer is made of it.
 ;;
-;;   `M-x heks-emacs-import-markdown-file' imports a file named at the
-;;   prompt, and `M-x heks-emacs-import-markdown-project' imports every
+;;   `M-x heks/import-markdown-file' imports a file named at the
+;;   prompt, and `M-x heks/import-markdown-project' imports every
 ;;   Markdown file the current project has -- its own file list, so what a
 ;;   repository carries and not what was built in it -- one Org file each,
 ;;   with one question before it writes over anything that is already
@@ -81,26 +81,26 @@
 ;; The reading of a Markdown document, and what the preview makes of one:
 ;; this module makes Org of the same reading, so a file previewed and a
 ;; file imported cannot disagree about the same lines.
-(declare-function heks-emacs-markdown-resolve-path "markdown" (url))
-(declare-function heks-emacs-markdown-split-code-spans "markdown" (text))
-(declare-function heks-emacs-markdown-indent-of "markdown" (line))
-(declare-function heks-emacs-markdown-cells "markdown" (line))
-(declare-function heks-emacs-markdown-link-definitions "markdown" (lines))
-(declare-function heks-emacs-markdown-normalize-label "markdown" (label))
-(declare-function heks-emacs-markdown-alert "markdown" (line))
-(declare-function heks-emacs-markdown-alert-remainder "markdown" (line))
-(declare-function heks-emacs-markdown-table-p "markdown" (line next))
-(declare-function heks-emacs-render-markdown-p "render" (&optional buffer))
+(declare-function heks/markdown-resolve-path "markdown" (url))
+(declare-function heks/markdown-split-code-spans "markdown" (text))
+(declare-function heks/markdown-indent-of "markdown" (line))
+(declare-function heks/markdown-cells "markdown" (line))
+(declare-function heks/markdown-link-definitions "markdown" (lines))
+(declare-function heks/markdown-normalize-label "markdown" (label))
+(declare-function heks/markdown-alert "markdown" (line))
+(declare-function heks/markdown-alert-remainder "markdown" (line))
+(declare-function heks/markdown-table-p "markdown" (line next))
+(declare-function heks/render-markdown-p "render" (&optional buffer))
 ;; The notes directory is this user's own, and `modules/heks-emacs.el' is
 ;; where it is known -- as a directory, or as nothing at all.
-(declare-function heks-emacs-notes-roam-directory "heks-emacs" ())
+(declare-function heks/notes-directory "heks-emacs" ())
 
 ;;;
 ;;; Customization
 ;;;
 
-(defcustom heks-emacs-import-into-roam nil
-  "Whether an import with no prefix argument becomes an Org roam note.
+(defcustom heks/import-into-notes nil
+  "Whether an import with no prefix argument becomes an Org notes note.
 
 The default is the other way round, and the one that leaves the note next
 to the source it was made from: the import then says where it came from,
@@ -110,9 +110,9 @@ notes in particular, so setting this to t makes plain `C-c n m' the note
 and `C-u C-c n m' the file next to the Markdown -- which is what a user
 who imports in order to write wants."
   :type 'boolean
-  :group 'heks-emacs)
+  :group 'heks)
 
-(defcustom heks-emacs-import-title-from-heading t
+(defcustom heks/import-title-from-heading t
   "Whether the first heading of a document names the note.
 
 A Markdown file usually says what it is in a heading at the top (`# My
@@ -120,15 +120,15 @@ project') rather than in front matter, and Org says the same thing in a
 `#+title:' keyword.  With this on, that heading becomes the title and is
 not repeated as a section under it; with it off, every heading stays a
 heading, and a document with no front matter has the name of its file as
-its title -- which is what `org-roam' does with a note that has none."
+its title -- which is what the notes do with a note that has none."
   :type 'boolean
-  :group 'heks-emacs)
+  :group 'heks)
 
 ;;;
 ;;; What a document says about itself
 ;;;
 
-(defconst heks-emacs-import--named-fields
+(defconst heks/import--named-fields
   '("title" "tags" "categories" "aliases" "alias" "date" "author"
     "authors" "description" "summary" "excerpt")
   "The front matter fields this module reads as its own.
@@ -137,7 +137,7 @@ What is left of the front matter is not dropped: a field only this
 document's tooling knows about is written to the note as an Org keyword of
 its own name, which is what Org keeps them for.")
 
-(defun heks-emacs-import--unquote (value)
+(defun heks/import--unquote (value)
   "Return VALUE, a front matter value, without the quotes it may wear."
   (let ((trimmed (string-trim value)))
     (if (and (>= (length trimmed) 2)
@@ -146,7 +146,7 @@ its own name, which is what Org keeps them for.")
         (substring trimmed 1 -1)
       trimmed)))
 
-(defun heks-emacs-import--front-matter-fields (lines)
+(defun heks/import--front-matter-fields (lines)
   "Read LINES, the lines of a front matter block, as an alist of KEY and value.
 
 A key whose value is written under it rather than after it -- YAML's
@@ -162,17 +162,17 @@ separated value, which is how a list is written elsewhere in the block."
       (dolist (line lines)
         (cond
          ((string-match "\\`[ \t]*-[ \t]+\\(.*\\)\\'" line)
-          (push (heks-emacs-import--unquote (match-string 1 line)) items))
+          (push (heks/import--unquote (match-string 1 line)) items))
          ((string-match "\\`\\([^:# \t]+\\):[ \t]*\\(.*\\)\\'" line)
           (close)
           (push (cons (downcase (match-string 1 line))
-                      (heks-emacs-import--unquote (match-string 2 line)))
+                      (heks/import--unquote (match-string 2 line)))
                 fields))
          (t nil)))
       (close))
     (nreverse fields)))
 
-(defun heks-emacs-import--front-matter (text)
+(defun heks/import--front-matter (text)
   "Return (FIELDS . BODY) for TEXT, a document that may open with front matter.
 
 Front matter is the block a static site generator reads: three dashes (or
@@ -187,14 +187,14 @@ neither is itself again, with no fields."  (if (not (string-match "\\`\\(---\\|\
            (after (when to (match-end 0))))
       (if (not to)
           (cons nil text)
-        (cons (heks-emacs-import--front-matter-fields
+        (cons (heks/import--front-matter-fields
                (split-string (substring text from to) "\n"))
               ;; The line that closed the block goes with the block, and
               ;; so does the newline that ended it: the body is what is
               ;; under the front matter.
               (substring text after))))))
 
-(defun heks-emacs-import--field (fields names)
+(defun heks/import--field (fields names)
   "Return the value FIELDS gives the first of NAMES that it has."
   (let ((found nil))
     (while (and names (not found))
@@ -202,7 +202,7 @@ neither is itself again, with no fields."  (if (not (string-match "\\`\\(---\\|\
       (setq names (cdr names)))
     found))
 
-(defun heks-emacs-import--items (value)
+(defun heks/import--items (value)
   "Return VALUE, a front matter value, as the list of items it holds.
 
 `[a, b]', `a, b' and a lone `a' all read as lists: the brackets a YAML
@@ -213,17 +213,17 @@ commas."
       (when (and (string-prefix-p "[" text) (string-suffix-p "]" text))
         (setq text (substring text 1 -1)))
       (delq nil (mapcar (lambda (item)
-                          (let ((item (heks-emacs-import--unquote item)))
+                          (let ((item (heks/import--unquote item)))
                             (unless (string-blank-p item) item)))
                         (split-string text ","))))))
 
-(defun heks-emacs-import--elsewhere (fields)
+(defun heks/import--elsewhere (fields)
   "Return the FIELDS this module does not name itself, as (KEY . VALUE) pairs."
   (cl-remove-if (lambda (field)
-                  (member (car field) heks-emacs-import--named-fields))
+                  (member (car field) heks/import--named-fields))
                 fields))
 
-(defun heks-emacs-import--plain (text)
+(defun heks/import--plain (text)
   "Return TEXT, a heading, with its inline markup taken off it.
 
 The title of an Org document is a string rather than a paragraph, so
@@ -242,7 +242,7 @@ The title of an Org document is a string rather than a paragraph, so
     (setq plain (replace-regexp-in-string "~~\\([^~]+\\)~~" "\\1" plain t))
     (string-trim plain)))
 
-(defun heks-emacs-import--first-heading (text)
+(defun heks/import--first-heading (text)
   "Return (TITLE BEGIN END) for the heading TEXT opens with, or nil.
 
 Only the heading a document opens with counts: that one names the document
@@ -250,11 +250,11 @@ rather than a section of it, and a `# ...' further down is a section like
 any other."
   (when (string-match
          "\\`\\(?:[ \t]*\n\\)*#[ \t]+\\(.*?\\)[ \t]*#*[ \t]*\\(\n\\|\\'\\)" text)
-    (let ((title (heks-emacs-import--plain (match-string 1 text))))
+    (let ((title (heks/import--plain (match-string 1 text))))
       (unless (string-blank-p title)
         (list title (match-beginning 0) (match-end 0))))))
 
-(defun heks-emacs-markdown-metadata (text)
+(defun heks/markdown-metadata (text)
   "Return a plist describing the Markdown document in TEXT.
 
 What it reads is what the file says about itself rather than what is in
@@ -263,39 +263,39 @@ heading, `:tags' and `:aliases' as lists, `:date', `:author' and
 `:description', `:keywords' as an alist of the front matter fields this
 module does not name itself, and `:body' -- the document without its front
 matter and without the heading the title was taken from."
-  (let* ((parts (heks-emacs-import--front-matter text))
+  (let* ((parts (heks/import--front-matter text))
          (fields (car parts))
          (body (cdr parts))
-         (title (heks-emacs-import--field fields '("title")))
-         (heading (heks-emacs-import--first-heading body)))
+         (title (heks/import--field fields '("title")))
+         (heading (heks/import--first-heading body)))
     ;; A document that says what it is in a heading says it in the heading
     ;; *and* in the front matter when both are there.  A title that is the
     ;; heading's own text is the same title said twice, so the heading goes
     ;; either way; and when the front matter says nothing, the heading is
     ;; the only thing that names the document.
     (when (and heading
-               heks-emacs-import-title-from-heading
+               heks/import-title-from-heading
                (or (null title) (equal title (car heading))))
       (setq title (car heading)
             body (concat (substring body 0 (nth 1 heading))
                          (substring body (nth 2 heading)))))
     (list :title title
-          :tags (heks-emacs-import--items
-                 (heks-emacs-import--field fields '("tags" "categories")))
-          :aliases (heks-emacs-import--items
-                    (heks-emacs-import--field fields '("aliases" "alias")))
-          :date (heks-emacs-import--field fields '("date"))
-          :author (heks-emacs-import--field fields '("author" "authors"))
-          :description (heks-emacs-import--field
+          :tags (heks/import--items
+                 (heks/import--field fields '("tags" "categories")))
+          :aliases (heks/import--items
+                    (heks/import--field fields '("aliases" "alias")))
+          :date (heks/import--field fields '("date"))
+          :author (heks/import--field fields '("author" "authors"))
+          :description (heks/import--field
                         fields '("description" "summary" "excerpt"))
-          :keywords (heks-emacs-import--elsewhere fields)
+          :keywords (heks/import--elsewhere fields)
           :body body)))
 
 ;;;
 ;;; Saying it in Org
 ;;;
 
-(defconst heks-emacs-import--bold-marker "\u0001"
+(defconst heks/import--bold-marker "\u0001"
   "The character a strong emphasis is held as until the emphasis pass is done.
 
 Org writes bold with the same character it writes a headline with, and the
@@ -303,7 +303,7 @@ pass that turns a single pair of asterisks into emphasis would read the
 result of the bold pass as one of its own pairs.  A character no document
 carries stands in for the pair until both passes have run.")
 
-(defun heks-emacs-import--code (text)
+(defun heks/import--code (text)
   "Return TEXT, a code span, as the Org code span with no ambiguity in it.
 
 Org writes a code span with `=' or with `~', and neither may hold the
@@ -314,7 +314,7 @@ written with the `=', which is the one that reads as code."
         ((not (string-match-p "~" text)) (format "~%s~" text))
         (t (format "=%s=" text))))
 
-(defvar heks-emacs-import--links nil
+(defvar heks/import--links nil
   "The link definitions of the document being imported.
 
 A Markdown document can write a link as `[text][label]' and give the
@@ -323,21 +323,21 @@ a definition and not a paragraph, and the reference is a link: both are
 read from `markdown.el', so that the note an import writes and the page a
 preview shows point at the same place.")
 
-(defun heks-emacs-import-definition (label)
+(defun heks/import-definition (label)
   "Return the link definition LABEL names, as (URL . TITLE), or nil."
-  (cdr (assoc (heks-emacs-markdown-normalize-label label)
-              heks-emacs-import--links)))
+  (cdr (assoc (heks/markdown-normalize-label label)
+              heks/import--links)))
 
-(defun heks-emacs-import--url (url)
+(defun heks/import--url (url)
   "Return URL, a link in a document, as the Org link it is written as.
 
 A link to a file next to the document becomes the full name of that file,
 because what the note is written next to is not what the document was
 written next to: the note may be written into a notes directory of its
 own, and a relative link would then point at nothing."
-  (or (heks-emacs-markdown-resolve-path url) url))
+  (or (heks/markdown-resolve-path url) url))
 
-(defun heks-emacs-import--link (url text)
+(defun heks/import--link (url text)
   "Return URL as an Org link, labelled with TEXT.
 
 Org shows the target itself for a link with no text of its own, so a
@@ -348,25 +348,25 @@ The match data is put back as it was found: this runs inside the
 replacement function of a `replace-regexp-in-string', which reads the
 match data again once that function has returned."
   (save-match-data
-    (let ((target (heks-emacs-import--url url)))
+    (let ((target (heks/import--url url)))
       (if (or (string-blank-p text) (equal (string-trim text) target))
           (format "[[%s]]" target)
-        (format "[[%s][%s]]" target (heks-emacs-import--inline text))))))
+        (format "[[%s][%s]]" target (heks/import--inline text))))))
 
-(defun heks-emacs-import--image (url alt)
+(defun heks/import--image (url alt)
   "Return URL, an image, as the Org link an image is, labelled with ALT."
   (save-match-data
-    (let ((target (heks-emacs-import--url url)))
+    (let ((target (heks/import--url url)))
       (if (string-blank-p alt)
           (format "[[%s]]" target)
-        (format "[[%s][%s]]" target (heks-emacs-import--plain alt))))))
+        (format "[[%s][%s]]" target (heks/import--plain alt))))))
 
-(defun heks-emacs-import--inline-markup (text)
+(defun heks/import--inline-markup (text)
   "Turn the emphasis, links and images of TEXT into Org markup.
 
 TEXT is not escaped on the way: Org has no characters to escape, and what
 it does have is the emphasis markers this writes -- which is why a bold
-pair is held as `heks-emacs-import--bold-marker' until the pass that reads
+pair is held as `heks/import--bold-marker' until the pass that reads
 a single pair of asterisks is behind it."
   (let ((result text))
     ;; A reference-style link and image are ones this document defines
@@ -377,10 +377,10 @@ a single pair of asterisks is behind it."
            (lambda (match)
              (let* ((alt (match-string 1 match))
                     (label (match-string 2 match))
-                    (definition (heks-emacs-import-definition
+                    (definition (heks/import-definition
                                  (if (string-empty-p label) alt label))))
                (if definition
-                   (heks-emacs-import--image (car definition) alt)
+                   (heks/import--image (car definition) alt)
                  match)))
            result t t))
     (setq result
@@ -389,10 +389,10 @@ a single pair of asterisks is behind it."
            (lambda (match)
              (let* ((text (match-string 1 match))
                     (label (match-string 2 match))
-                    (definition (heks-emacs-import-definition
+                    (definition (heks/import-definition
                                  (if (string-empty-p label) text label))))
                (if definition
-                   (heks-emacs-import--link (car definition) text)
+                   (heks/import--link (car definition) text)
                  match)))
            result t t))
     ;; Images before links: an image is a link with a bang in front of it.
@@ -400,14 +400,14 @@ a single pair of asterisks is behind it."
           (replace-regexp-in-string
            "!\\[\\([^]]*\\)\\](\\([^) \t]+\\)\\(?:[ \t]+\"[^\"]*\"\\)?)"
            (lambda (match)
-             (heks-emacs-import--image (match-string 2 match)
+             (heks/import--image (match-string 2 match)
                                        (match-string 1 match)))
            result t t))
     (setq result
           (replace-regexp-in-string
            "\\[\\([^]]*\\)\\](\\([^) \t]+\\)\\(?:[ \t]+\"[^\"]*\"\\)?)"
            (lambda (match)
-             (heks-emacs-import--link (match-string 2 match)
+             (heks/import--link (match-string 2 match)
                                       (match-string 1 match)))
            result t t))
     ;; An autolink: a link written as its own address, with no text of
@@ -421,54 +421,54 @@ a single pair of asterisks is behind it."
     (setq result
           (replace-regexp-in-string
            "\\*\\*\\([^*]+\\)\\*\\*"
-           (concat heks-emacs-import--bold-marker "\\1"
-                   heks-emacs-import--bold-marker)
+           (concat heks/import--bold-marker "\\1"
+                   heks/import--bold-marker)
            result t))
     (setq result
           (replace-regexp-in-string
            "__\\([^_]+\\)__"
-           (concat heks-emacs-import--bold-marker "\\1"
-                   heks-emacs-import--bold-marker)
+           (concat heks/import--bold-marker "\\1"
+                   heks/import--bold-marker)
            result t))
     (setq result (replace-regexp-in-string "\\*\\([^*\n]+\\)\\*"
                                            "/\\1/" result t))
     (setq result (replace-regexp-in-string
                   "\\(\\`\\|[^_a-zA-Z]\\)_\\([^_\n]+\\)_" "\\1/\\2/" result t))
     (setq result (replace-regexp-in-string "~~\\([^~]+\\)~~" "+\\1+" result t))
-    (replace-regexp-in-string (regexp-quote heks-emacs-import--bold-marker)
+    (replace-regexp-in-string (regexp-quote heks/import--bold-marker)
                               "*" result t)))
 
-(defun heks-emacs-import--inline (text)
+(defun heks/import--inline (text)
   "Return TEXT, with its inline Markdown turned into Org markup.
 
 Code spans first, as in the preview: inside one, an asterisk is an
 asterisk, and no pass of this may look at what is in there."
   (mapconcat (lambda (piece)
                (if (car piece)
-                   (heks-emacs-import--code (cdr piece))
-                 (heks-emacs-import--inline-markup (cdr piece))))
-             (heks-emacs-markdown-split-code-spans text)
+                   (heks/import--code (cdr piece))
+                 (heks/import--inline-markup (cdr piece))))
+             (heks/markdown-split-code-spans text)
              ""))
 
-(defun heks-emacs-import--line (line)
+(defun heks/import--line (line)
   "Return LINE, the inline Markdown in it turned into Org.
 
 A line that ends in two spaces ends in a hard break in Markdown, which is
 `\\\\' in Org: the spaces go with the break rather than staying behind as
 whitespace at the end of a line."
   (if (string-suffix-p "  " line)
-      (concat (heks-emacs-import--inline (string-trim-right line)) "\\\\")
-    (heks-emacs-import--inline line)))
+      (concat (heks/import--inline (string-trim-right line)) "\\\\")
+    (heks/import--inline line)))
 
-(defun heks-emacs-import--paragraph (lines)
+(defun heks/import--paragraph (lines)
   "Return LINES, the lines of one paragraph, as the Org for one paragraph.
 
 Every line stays the line it was: a line broken by the writer is a line
 broken in the note, which Org reads back as the one paragraph it is, and
 rewrapping somebody's prose is not what an import is for."
-  (mapconcat #'heks-emacs-import--line lines "\n"))
+  (mapconcat #'heks/import--line lines "\n"))
 
-(defun heks-emacs-import--widths (rows)
+(defun heks/import--widths (rows)
   "Return the width of every column of ROWS, a list of rows of cells."
   (let ((widths nil))
     (dotimes (index (apply #'max 1 (mapcar #'length rows)))
@@ -478,7 +478,7 @@ rewrapping somebody's prose is not what an import is for."
             widths))
     (nreverse widths)))
 
-(defun heks-emacs-import--row (cells widths)
+(defun heks/import--row (cells widths)
   "Return CELLS, one row of a table, as an Org table row of WIDTHS.
 
 A cell is padded to its column rather than written as it came: the widths
@@ -498,14 +498,14 @@ Org makes of it when it aligns the buffer."
                      " | ")
           " |"))
 
-(defun heks-emacs-import--rule (widths)
+(defun heks/import--rule (widths)
   "Return WIDTHS as the Org rule that closes a table's header row."
   (concat "|"
           (mapconcat (lambda (width) (make-string (+ width 2) ?-))
                      widths "+")
           "|"))
 
-(defun heks-emacs-import--checkbox (text)
+(defun heks/import--checkbox (text)
   "Return TEXT, a list item's text, with its box spelled as Org reads it.
 
 Markdown checks a box with `[x]' and Org reads `[X]': a lowercase one is
@@ -521,7 +521,7 @@ missing."
                 (substring text 3))
       text)))
 
-(defun heks-emacs-import--table (lines index)
+(defun heks/import--table (lines index)
   "Return the Org for the Markdown table that starts at INDEX in LINES.
 
 Return a cons of the table and the index just past it.  The alignment of a
@@ -532,39 +532,39 @@ Org aligns by and does not export.  Markdown's delimiter row is also what
 separates a table's header from its body, so the rule that does that in Org
 is written too: without it the first row would read as a row rather than as
 the header it was."
-  (let ((header (heks-emacs-markdown-cells (nth index lines)))
+  (let ((header (heks/markdown-cells (nth index lines)))
         (aligns (mapcar (lambda (cell)
                           (cond ((and (string-prefix-p ":" cell)
                                       (string-suffix-p ":" cell)) "<c>")
                                 ((string-suffix-p ":" cell) "<r>")
                                 (t "<l>")))
-                        (heks-emacs-markdown-cells (nth (1+ index) lines))))
+                        (heks/markdown-cells (nth (1+ index) lines))))
         (rows nil)
         (i (+ index 2))
         (n (length lines)))
     (while (and (< i n)
                 (string-match-p "|" (nth i lines))
                 (not (string-match-p "\\`[ \t]*\\'" (nth i lines))))
-      (push (heks-emacs-markdown-cells (nth i lines)) rows)
+      (push (heks/markdown-cells (nth i lines)) rows)
       (setq i (1+ i)))
     (let* ((cells (cons header (nreverse rows)))
            (converted (mapcar (lambda (row)
-                                (mapcar #'heks-emacs-import--inline row))
+                                (mapcar #'heks/import--inline row))
                               cells))
-           (widths (heks-emacs-import--widths
+           (widths (heks/import--widths
                     (cons aligns (append converted (list aligns))))))
       (cons (mapconcat #'identity
-                       (append (list (heks-emacs-import--row
+                       (append (list (heks/import--row
                                       (car converted) widths)
-                                     (heks-emacs-import--row aligns widths)
-                                     (heks-emacs-import--rule widths))
+                                     (heks/import--row aligns widths)
+                                     (heks/import--rule widths))
                                (mapcar (lambda (row)
-                                         (heks-emacs-import--row row widths))
+                                         (heks/import--row row widths))
                                        (cdr converted)))
                        "\n")
             i))))
 
-(defun heks-emacs-import--shift (org)
+(defun heks/import--shift (org)
   "Return ORG with its headings shifted up, so that none starts deeper than one.
 
 A note whose title went into `#+title:' has no first-level headline for
@@ -602,7 +602,7 @@ snippet with `* ' in it is a shell snippet."
                  lines)
          "\n")))))
 
-(defun heks-emacs-import--blocks (text)
+(defun heks/import--blocks (text)
   "Return the Org blocks the Markdown in TEXT makes.
 
 The branches are the preview's branches in the preview's order -- a
@@ -618,10 +618,10 @@ that lost the question would change the answer."
          ;; The link definitions are taken out of the document once, at
          ;; the top: they are not blocks, and a note that kept them would
          ;; keep the addresses as paragraphs of their own.
-         (parsed (if heks-emacs-import--links
+         (parsed (if heks/import--links
                      (cons split nil)
-                   (heks-emacs-markdown-link-definitions split)))
-         (heks-emacs-import--links (or (cdr parsed) heks-emacs-import--links))
+                   (heks/markdown-link-definitions split)))
+         (heks/import--links (or (cdr parsed) heks/import--links))
          (lines (car parsed))
          (n (length lines))
          (i 0)
@@ -637,7 +637,7 @@ that lost the question would change the answer."
                   (push org out))
                 (close-paragraph ()
                   (when paragraph
-                    (emit (heks-emacs-import--paragraph (nreverse paragraph)))
+                    (emit (heks/import--paragraph (nreverse paragraph)))
                     (setq paragraph nil))))
       (while (< i n)
         (let* ((line (nth i lines))
@@ -676,9 +676,9 @@ that lost the question would change the answer."
 
            ;; A table, before the list branch: a row of cells also starts
            ;; with a dash-and-space when it is `| - |'.
-           ((heks-emacs-markdown-table-p line (nth (1+ i) lines))
+           ((heks/markdown-table-p line (nth (1+ i) lines))
             (close-paragraph)
-            (let ((table (heks-emacs-import--table lines i)))
+            (let ((table (heks/import--table lines i)))
               (emit (car table))
               (setq consumed (- (cdr table) i))))
 
@@ -697,35 +697,35 @@ that lost the question would change the answer."
                 (setq j (1+ j)))
               (setq consumed (- j i))
               (setq quoted (nreverse quoted))
-              (when (heks-emacs-markdown-alert (car quoted))
+              (when (heks/markdown-alert (car quoted))
                 (let ((rest (cdr quoted))
-                      (remainder (heks-emacs-markdown-alert-remainder (car quoted))))
+                      (remainder (heks/markdown-alert-remainder (car quoted))))
                   (setq quoted (if remainder (cons remainder rest) rest))))
               (emit (concat "#+begin_quote\n"
                             (string-trim
-                             (heks-emacs-import--blocks
+                             (heks/import--blocks
                               (mapconcat #'identity quoted "\n")))
                             "\n#+end_quote"))))
 
            ;; A heading: the depth it says it is, for now; the shift takes
            ;; off the level a title would have been (see
-           ;; `heks-emacs-import--shift').
+           ;; `heks/import--shift').
            ((string-match "\\`\\(#\\{1,6\\}\\)[ \t]+\\(.*?\\)[ \t]*#*\\'"
                           trimmed)
             (close-paragraph)
             (emit (concat (make-string (length (match-string 1 trimmed)) ?*)
                           " "
-                          (heks-emacs-import--inline (match-string 2 trimmed)))))
+                          (heks/import--inline (match-string 2 trimmed)))))
 
            ;; A setext heading is a paragraph with a line under it, and it
            ;; is a level deeper for every dash it is underlined with.
            ((and paragraph (string-match "\\`=\\{2,\\}[ \t]*\\'" trimmed))
-            (let ((text (heks-emacs-import--inline
+            (let ((text (heks/import--inline
                          (mapconcat #'identity (nreverse paragraph) " "))))
               (setq paragraph nil)
               (emit (concat "* " text))))
            ((and paragraph (string-match "\\`-\\{2,\\}[ \t]*\\'" trimmed))
-            (let ((text (heks-emacs-import--inline
+            (let ((text (heks/import--inline
                          (mapconcat #'identity (nreverse paragraph) " "))))
               (setq paragraph nil)
               (emit (concat "** " text))))
@@ -747,7 +747,7 @@ that lost the question would change the answer."
                 (setq j (1+ j)))
               (setq consumed (- j i))
               (emit (format "[fn:%s] %s" (match-string 1 trimmed)
-                            (heks-emacs-import--inline
+                            (heks/import--inline
                              (mapconcat #'identity (nreverse body) " "))))))
 
            ;; A list item: the marker it has, and the depth it has it at.
@@ -756,7 +756,7 @@ that lost the question would change the answer."
            ;; no import may turn the second into the first.
            ((string-match "\\`\\([-*+]\\|[0-9]+[.)]\\)[ \t]+\\(.*\\)\\'"
                           trimmed)
-            (let* ((indent (heks-emacs-markdown-indent-of line))
+            (let* ((indent (heks/markdown-indent-of line))
                    (marker (if (string-match-p "\\`[0-9]" (match-string 1 trimmed))
                                (replace-regexp-in-string ")\\'" "." (match-string 1 trimmed))
                              "-")))
@@ -764,8 +764,8 @@ that lost the question would change the answer."
               (emit (concat (make-string indent ?\s)
                             marker
                             " "
-                            (heks-emacs-import--inline
-                             (heks-emacs-import--checkbox
+                            (heks/import--inline
+                             (heks/import--checkbox
                               (match-string 2 trimmed)))))))
 
            ;; A raw HTML block is passed through as what it is, because a
@@ -790,7 +790,7 @@ that lost the question would change the answer."
       (close-paragraph))
     (string-join (nreverse out) "\n")))
 
-(defun heks-emacs-import--filetags (items)
+(defun heks/import--filetags (items)
   "Return ITEMS, a list of tags, as the `:a:b:' Org writes tags with.
 
 A tag may not hold a space, so the spaces of a tag that has one become
@@ -800,7 +800,7 @@ underscores: what a tag is called is not something an import changes."
                                                         (string-trim tag)))
                             items ":")))
 
-(defun heks-emacs-import--keywords (metadata)
+(defun heks/import--keywords (metadata)
   "Return the Org keywords the METADATA of a Markdown document asks for.
 
 What the front matter says becomes what Org says about the note, and a
@@ -817,13 +817,13 @@ tool that wrote the field can find it again."
       (keyword "description" (plist-get metadata :description))
       (when (plist-get metadata :tags)
         (push (format "#+filetags: %s"
-                      (heks-emacs-import--filetags (plist-get metadata :tags)))
+                      (heks/import--filetags (plist-get metadata :tags)))
               lines))
       (dolist (field (plist-get metadata :keywords))
         (keyword (car field) (cdr field))))
     (mapconcat #'identity (nreverse lines) "\n")))
 
-(defun heks-emacs-import--drawer (properties)
+(defun heks/import--drawer (properties)
   "Return PROPERTIES, an alist of name to value, as an Org property drawer."
   (when properties
     (concat ":PROPERTIES:\n"
@@ -834,23 +834,23 @@ tool that wrote the field can find it again."
                        properties "\n")
             "\n:END:")))
 
-(defun heks-emacs-markdown-to-org (text &optional properties)
+(defun heks/markdown-to-org (text &optional properties)
   "Return the Org document that TEXT, a Markdown document, becomes.
 
 PROPERTIES, when given, is an alist of name to value written as the file's
 property drawer, which is where Org keeps what it knows about the whole
-note rather than about a place in it -- `org-roam' keeps a node's
+note rather than about a place in it -- Org keeps a note's
 identifier and its aliases there.
 
 The drawer comes before the keywords rather than after them, which is
 where Org reads one: a drawer is a property drawer when it is the first
 thing in the file (or the first thing after a headline), and one written
 further down is a drawer of text that `org-entry-get' will not find."
-  (let* ((metadata (heks-emacs-markdown-metadata text))
-         (blocks (list (heks-emacs-import--drawer properties)
-                       (heks-emacs-import--keywords metadata)
-                       (heks-emacs-import--shift
-                        (heks-emacs-import--blocks (plist-get metadata :body))))))
+  (let* ((metadata (heks/markdown-metadata text))
+         (blocks (list (heks/import--drawer properties)
+                       (heks/import--keywords metadata)
+                       (heks/import--shift
+                        (heks/import--blocks (plist-get metadata :body))))))
     (concat (string-trim-right             ;; A document with no front matter has no keywords and one
              ;; with no properties has no drawer, and neither leaves a
              ;; blank line behind it.
@@ -861,10 +861,10 @@ further down is a drawer of text that `org-entry-get' will not find."
                         "\n\n"))
             "\n")))
 
-(defun heks-emacs-markdown-fragment-to-org (text)
+(defun heks/markdown-fragment-to-org (text)
   "Return the Org that TEXT, a piece of a Markdown document, becomes.
 
-Unlike `heks-emacs-markdown-to-org' this is not a note: there is no front
+Unlike `heks/markdown-to-org' this is not a note: there is no front
 matter to read, no title to take out of a heading and no property drawer,
 and the headings keep the level they have -- a `## Install' is a `**
 Install' whatever else the piece holds, because a piece does not know
@@ -873,13 +873,13 @@ shares with the note is every rule about how a line is said in Org.
 
 The result has no newline at the end; the caller knows whether the text
 it replaces had one."
-  (string-trim-right (heks-emacs-import--blocks text)))
+  (string-trim-right (heks/import--blocks text)))
 
-(defun heks-emacs-markdown-region-to-org (beg end &optional copy)
+(defun heks/markdown-region-to-org (beg end &optional copy)
   "Convert the Markdown between BEG and END to Org, in place.
 
 The region is replaced by what it says in Org (see
-`heks-emacs-markdown-fragment-to-org').  With a prefix argument COPY, or
+`heks/markdown-fragment-to-org').  With a prefix argument COPY, or
 in a buffer that cannot be written to -- a chat, a help buffer -- the Org
 is put on the kill ring instead and the buffer is left as it is, which is
 the way to take Markdown from somewhere one cannot edit into a note.
@@ -889,12 +889,12 @@ directory of the buffer's file (or `default-directory' when it has none),
 the way an imported document's is."
   (interactive "r\nP")
   (let* ((text (buffer-substring-no-properties beg end))
-         (heks-emacs-markdown-base-directory
+         (heks/markdown-base-directory
           (file-name-as-directory
            (if buffer-file-name
                (file-name-directory buffer-file-name)
              default-directory)))
-         (org (concat (heks-emacs-markdown-fragment-to-org text)
+         (org (concat (heks/markdown-fragment-to-org text)
                       ;; A region that ended a line ends a line after it
                       ;; is converted, so that what follows it does not
                       ;; move up.
@@ -915,38 +915,38 @@ the way an imported document's is."
 ;;; Writing it where it belongs
 ;;;
 
-(defun heks-emacs-import-markdown-p (file)
+(defun heks/import-markdown-p (file)
   "Return whether FILE, a file name, is a Markdown document."
   (and (stringp file)
        (string-match-p "\\.\\(md\\|markdown\\|mkd\\|mdx\\)\\'" (downcase file))
        t))
 
-(defun heks-emacs-import--contents (file)
+(defun heks/import--contents (file)
   "Return the text of FILE."
   (with-temp-buffer
     (set-buffer-multibyte t)
     (insert-file-contents file)
     (buffer-substring-no-properties (point-min) (point-max))))
 
-(defun heks-emacs-import--target (source roam)
+(defun heks/import--target (source notes)
   "Return the Org file SOURCE, a Markdown file, is imported to.
 
-With ROAM it is a file of that name in the notes directory -- which is
+With NOTES it is a file of that name in the notes directory -- which is
 this user's own business, and named rather than guessed when it is not
 set -- and without it, a file of that name next to the Markdown."
-  (if roam
-      (let ((directory (heks-emacs-notes-roam-directory)))
+  (if notes
+      (let ((directory (heks/notes-directory)))
         (unless directory
           (user-error
-           "Set `heks-emacs-notes-roam-dir' to import into the notes, or import next to the file"))
+           "Set `heks/notes-dir' to import into the notes, or import next to the file"))
         (expand-file-name
          (concat (file-name-nondirectory (file-name-sans-extension source))
                  ".org")
          directory))
     (concat (file-name-sans-extension source) ".org")))
 
-(defun heks-emacs-import--existing-id (file)
-  "Return the `org-roam' identifier FILE already carries, or nil."
+(defun heks/import--existing-id (file)
+  "Return the `org-id' identifier FILE already carries, or nil."
   (when (file-exists-p file)
     (with-temp-buffer
       (insert-file-contents file)
@@ -954,14 +954,14 @@ set -- and without it, a file of that name next to the Markdown."
       (when (re-search-forward "^:ID:[ \t]+\\([^ \t\n]+\\)" nil t)
         (match-string 1)))))
 
-(defun heks-emacs-import--id ()
+(defun heks/import--id ()
   "Return an identifier for a note, as the UUID `org-id' writes.
 
 Made here rather than asked of `org-id' because an import may be the
 first thing a fresh Emacs is asked to do, and an identifier does not need
 Org loaded to be one: the hash of a time, a process and a number, with
 the version and variant bits set the way RFC 4122 says, which is the
-shape `org-id' writes and `org-roam' reads."
+shape `org-id' writes and reads."
   (let ((hex (substring (secure-hash 'sha256
                                      (format "%s-%s-%s"
                                              (float-time) (emacs-pid)
@@ -977,30 +977,30 @@ shape `org-id' writes and `org-roam' reads."
             (substring hex 17 20)
             (substring hex 20 32))))
 
-(defun heks-emacs-import--properties (metadata target roam)
+(defun heks/import--properties (metadata target notes)
   "Return the properties a note imported into TARGET should carry.
 
-An `org-roam' node is named by an identifier rather than by its file, so a
+A note is named by an identifier rather than by its file, so a
 note written into the notes directory gets one -- the one it already has,
 when it already has one, because importing a document again is meant to
 update the note rather than to make a second one -- and the aliases the
-front matter gives it, which is where `org-roam' looks for them."
-  (when roam
-    (let ((id (or (heks-emacs-import--existing-id target) (heks-emacs-import--id)))
+front matter gives it, which is where Org looks for them."
+  (when notes
+    (let ((id (or (heks/import--existing-id target) (heks/import--id)))
           (aliases (plist-get metadata :aliases)))
       (append (list (cons "ID" id))
               (when aliases
-                (list (cons "ROAM_ALIASES" (mapconcat #'identity aliases ", "))))))))
+                (list (cons "ALIASES" (mapconcat #'identity aliases ", "))))))))
 
-(defun heks-emacs-import--roam-p (argument)
+(defun heks/import--notes-p (argument)
   "Return whether an import with prefix ARGUMENT goes into the notes.
 
 A prefix asks for the other of the two places rather than for the notes in
 particular, so that the setting and one command agree about which of them
-is the usual one (see `heks-emacs-import-into-roam')."
-  (if heks-emacs-import-into-roam (not argument) (and argument t)))
+is the usual one (see `heks/import-into-notes')."
+  (if heks/import-into-notes (not argument) (and argument t)))
 
-(defun heks-emacs-import--write (target org &optional force)
+(defun heks/import--write (target org &optional force)
   "Write ORG to TARGET, unless TARGET holds another file and that is not wanted.
 
 Return TARGET when it was written and nil when what is there was kept.  A
@@ -1010,109 +1010,111 @@ says so or the reader says yes, because an import that quietly replaced a
 note somebody wrote is a worse import than one that asked."
   (cond
    ((and (file-exists-p target)
-         (not (equal (heks-emacs-import--contents target) org))
+         (not (equal (heks/import--contents target) org))
          (not force)
          (not (yes-or-no-p (format "%s is already there and differs; write over it? "
                                    target))))
     nil)
    ((eq force 'keep)
-    (if (equal (heks-emacs-import--contents target) org) target nil))
+    (if (equal (heks/import--contents target) org) target nil))
    (t
     (make-directory (file-name-directory target) t)
     (write-region org nil target nil 'silent)
     target)))
 
-(defun heks-emacs-import--index (file)
-  "Ask `org-roam' to index FILE, which an import has just written.
+(defun heks/import--index (file)
+  "Make FILE, which an import has just written, findable by its identifier.
 
-The database is what makes a note findable by `C-c n f' the moment it is
-written rather than the next time the note is opened; a note written
-outside the notes directory is no business of `org-roam''s, and is left
-for it to find on its own."
-  (when (and (fboundp 'org-roam-db-update-file)
-             (bound-and-true-p org-roam-directory)
-             (file-in-directory-p file org-roam-directory))
-    (ignore-errors (org-roam-db-update-file file))
-    t))
+A note is linked to by its `org-id' identifier, and `org-id' learns where an
+identifier lives from a scan; telling it about FILE now is what makes a link
+to the note work the moment it is written rather than after the next scan.
+A note written outside the notes directory is no business of the notes, and
+is left alone."
+  (let ((directory (heks/notes-directory)))
+    (when (and directory (file-in-directory-p file directory)
+               (require 'org-id nil t)
+               (fboundp 'org-id-update-id-locations))
+      (ignore-errors (org-id-update-id-locations (list file)))
+      t)))
 
-(defun heks-emacs-import-markdown-file (file &optional roam force)
+(defun heks/import-markdown-file (file &optional notes force)
   "Import FILE, a Markdown document, as an Org file, and return its name.
 
 The Markdown is read and left exactly as it was (see the commentary); the
-Org is written next to it, or into the notes directory as an `org-roam'
-note when ROAM is non-nil.  FORCE answers the question the writing would
+Org is written next to it, or into the notes directory as a
+note when NOTES is non-nil.  FORCE answers the question the writing would
 otherwise ask: t writes over what is there, `keep' keeps it, and nil asks
-whenever there is something that differs (see `heks-emacs-import--write')."
-  (interactive (list (heks-emacs-import--read-file) current-prefix-arg))
+whenever there is something that differs (see `heks/import--write')."
+  (interactive (list (heks/import--read-file) current-prefix-arg))
   (let* ((source (expand-file-name file))
-         (roam (heks-emacs-import--roam-p roam))
-         (text (heks-emacs-import--contents source))
-         (target (heks-emacs-import--target source roam))
-         (metadata (heks-emacs-markdown-metadata text))
+         (notes (heks/import--notes-p notes))
+         (text (heks/import--contents source))
+         (target (heks/import--target source notes))
+         (metadata (heks/markdown-metadata text))
          ;; The document's own directory, so that a relative link in it is
          ;; written as the file it names rather than as a path that means
          ;; something only from where the document used to be.
-         (heks-emacs-markdown-base-directory (file-name-directory source))
-         (org (heks-emacs-markdown-to-org
-               text (heks-emacs-import--properties metadata target roam))))
-    (when (heks-emacs-import--write target org force)
-      (heks-emacs-import--index target)
+         (heks/markdown-base-directory (file-name-directory source))
+         (org (heks/markdown-to-org
+               text (heks/import--properties metadata target notes))))
+    (when (heks/import--write target org force)
+      (heks/import--index target)
       target)))
 
-(defun heks-emacs-import--read-file ()
+(defun heks/import--read-file ()
   "Return the Markdown file to import: the one asked for."
   (let ((here (and buffer-file-name
-                   (or (heks-emacs-render-markdown-p (current-buffer))
-                       (heks-emacs-import-markdown-p buffer-file-name))
+                   (or (heks/render-markdown-p (current-buffer))
+                       (heks/import-markdown-p buffer-file-name))
                    buffer-file-name)))
     (expand-file-name (read-file-name "Import a Markdown file as Org: "
                                       nil here t))))
 
-(defun heks-emacs-import-markdown (&optional roam)
+(defun heks/import-markdown (&optional notes)
   "Import the Markdown file of this buffer as an Org file, and visit it.
 
 The Org file is written next to the Markdown, which is left as it was;
-with a prefix argument it is written into `heks-emacs-notes-roam-directory'
-instead, as an `org-roam' note that carries the identifier, the title, the
-tags and the aliases it needs (`heks-emacs-import-into-roam' swaps which
+with a prefix argument it is written into `heks/notes-directory'
+instead, as a note that carries the identifier, the title, the
+tags and the aliases it needs (`heks/import-into-notes' swaps which
 of the two the prefix asks for).  A buffer that visits no Markdown file
 asks for one."
   (interactive "P")
   (let* ((file (if (and buffer-file-name
-                        (or (heks-emacs-render-markdown-p (current-buffer))
-                            (heks-emacs-import-markdown-p buffer-file-name)))
+                        (or (heks/render-markdown-p (current-buffer))
+                            (heks/import-markdown-p buffer-file-name)))
                    buffer-file-name
-                 (heks-emacs-import--read-file)))
-         (target (heks-emacs-import-markdown-file file roam)))
+                 (heks/import--read-file)))
+         (target (heks/import-markdown-file file notes)))
     (if target
         (progn
           (find-file target)
           (message "Imported %s as %s"
                    (file-name-nondirectory file)
                    (file-name-nondirectory target)))
-      (message "Kept %s as it is" (heks-emacs-import--target
+      (message "Kept %s as it is" (heks/import--target
                                    (expand-file-name file)
-                                   (heks-emacs-import--roam-p roam))))))
+                                   (heks/import--notes-p notes))))))
 
-(defun heks-emacs-import--marked-files ()
+(defun heks/import--marked-files ()
   "Return the Markdown files of the current project."
   (let ((project (or (project-current)
                      (user-error "No project here; open a file that belongs to one"))))
-    (seq-filter #'heks-emacs-import-markdown-p (project-files project))))
+    (seq-filter #'heks/import-markdown-p (project-files project))))
 
-(defun heks-emacs-import-markdown-project (&optional roam)
+(defun heks/import-markdown-project (&optional notes)
   "Import every Markdown file the current project has, as Org files.
 
 What counts as the project's files is the project's own answer to that
 question, so what a repository carries is imported and what was built in
-it is not.  Each file is imported the way `heks-emacs-import-markdown-file'
+it is not.  Each file is imported the way `heks/import-markdown-file'
 imports one -- next to the Markdown, or into the notes with a prefix
 argument -- and the number of files written, kept and mentioned is
 reported.  One question is asked before a batch, rather than one per file."
   (interactive "P")
-  (let* ((roam (heks-emacs-import--roam-p roam))
-         (files (heks-emacs-import--marked-files))
-         (targets (mapcar (lambda (file) (heks-emacs-import--target file roam))
+  (let* ((notes (heks/import--notes-p notes))
+         (files (heks/import--marked-files))
+         (targets (mapcar (lambda (file) (heks/import--target file notes))
                           files))
          (force (when (seq-some #'file-exists-p targets)
                   (if (yes-or-no-p
@@ -1124,7 +1126,7 @@ reported.  One question is asked before a batch, rather than one per file."
     (if (null files)
         (message "No Markdown file in this project")
       (dolist (file files)
-        (if (heks-emacs-import-markdown-file file roam force)
+        (if (heks/import-markdown-file file notes force)
             (setq written (1+ written))
           (setq kept (1+ kept))))
       (message "Imported %d of %d Markdown files as Org%s"
@@ -1133,9 +1135,9 @@ reported.  One question is asked before a batch, rather than one per file."
 
 (use-package emacs
   :ensure nil
-  :bind (("C-c n m" . heks-emacs-import-markdown)
-         ("C-c n M" . heks-emacs-markdown-region-to-org)))
+  :bind (("C-c n m" . heks/import-markdown)
+         ("C-c n M" . heks/markdown-region-to-org)))
 
-(provide 'heks-emacs/import)
+(provide 'heks/import)
 
 ;;; import.el ends here

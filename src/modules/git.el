@@ -44,6 +44,6 @@
 (use-package git-link
   :ensure t)
 
-(provide 'heks-emacs/git)
+(provide 'heks/git)
 
 ;;; git.el ends here

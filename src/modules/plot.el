@@ -53,6 +53,6 @@
           (define-key map (kbd "C-c C-d h") 'mermaid-open-doc)
           map)))
 
-(provide 'heks-emacs/plot)
+(provide 'heks/plot)
 
 ;;; plot.el ends here

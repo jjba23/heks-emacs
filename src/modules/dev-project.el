@@ -69,7 +69,7 @@
   :ensure t
   :mode (("\\.tf\\'" . terraform-mode)
          ("\\.tfvars\\'" . terraform-mode))
-  :hook ((terraform-mode . heks-emacs-terraform-setup))
+  :hook ((terraform-mode . heks/terraform-setup))
   :custom
   (terraform-indent-level 2)
   ;; The workflow, in the order it is run: `init' once, then `validate' and
@@ -77,23 +77,23 @@
   ;; was wanted.  They live under the workspace topic because a Terraform
   ;; run is a project task, and they take the letters they take everywhere
   ;; else: `v' validates, `p' previews, `a' applies.
-  :bind (("C-c w i" . heks-emacs-terraform-init)
-         ("C-c w v" . heks-emacs-terraform-validate)
-         ("C-c w p" . heks-emacs-terraform-plan)
-         ("C-c w a" . heks-emacs-terraform-apply)
-         ("C-c w D" . heks-emacs-terraform-destroy))
+  :bind (("C-c w i" . heks/terraform-init)
+         ("C-c w v" . heks/terraform-validate)
+         ("C-c w p" . heks/terraform-plan)
+         ("C-c w a" . heks/terraform-apply)
+         ("C-c w D" . heks/terraform-destroy))
   :config
   ;; `terraform fmt' on save and `terraform-ls' over Eglot, both guarded on
   ;; the executable being available so that visiting a .tf file never
   ;; fails on a machine without the Terraform toolchain.
-  (defun heks-emacs-terraform-setup ()
+  (defun heks/terraform-setup ()
     "Enable Terraform formatter and language server when available."
     (when (executable-find terraform-command)
       (terraform-format-on-save-mode 1))
     (when (executable-find "terraform-ls")
       (heks/eglot-ensure))))
 
-(defun heks-emacs-terraform-root ()
+(defun heks/terraform-root ()
   "Return the directory the Terraform configuration lives in.
 
 That is the project root when the file being edited is in one, and the
@@ -104,52 +104,52 @@ Emacs does not recognise as well."
       (and buffer-file-name (file-name-directory buffer-file-name))
       default-directory))
 
-(defun heks-emacs-terraform-run (subcommand)
+(defun heks/terraform-run (subcommand)
   "Run `terraform SUBCOMMAND' in the configuration being edited.
 
 Run through `compile', so its output is a compilation buffer like every
 other build: `g' reruns it, `M-n' and `M-p' walk the errors."
-  (let ((root (heks-emacs-terraform-root)))
+  (let ((root (heks/terraform-root)))
     (unless (executable-find terraform-command)
       (user-error "%s is not installed, so there is nothing to run" terraform-command))
     (let ((default-directory root))
       (compile (concat (shell-quote-argument terraform-command) " " subcommand)))))
 
-(defun heks-emacs-terraform-init ()
+(defun heks/terraform-init ()
   "Initialise the providers and the state of this configuration."
   (interactive)
-  (heks-emacs-terraform-run "init"))
+  (heks/terraform-run "init"))
 
-(defun heks-emacs-terraform-validate ()
+(defun heks/terraform-validate ()
   "Check that the configuration is internally consistent."
   (interactive)
-  (heks-emacs-terraform-run "validate"))
+  (heks/terraform-run "validate"))
 
-(defun heks-emacs-terraform-plan ()
+(defun heks/terraform-plan ()
   "Show what applying the configuration would change."
   (interactive)
-  (heks-emacs-terraform-run "plan"))
+  (heks/terraform-run "plan"))
 
-(defun heks-emacs-terraform-apply ()
+(defun heks/terraform-apply ()
   "Apply the configuration, which is what changes the infrastructure."
   (interactive)
-  (heks-emacs-terraform-run "apply"))
+  (heks/terraform-run "apply"))
 
-(defun heks-emacs-terraform-destroy ()
+(defun heks/terraform-destroy ()
   "Destroy the infrastructure this configuration created.
 
 Terraform asks for the name of the workspace to confirm this itself; the
 prompt here is the second one, in the vocabulary of the person asking."
   (interactive)
-  (unless (yes-or-no-p (format "Destroy the infrastructure in %s? " (heks-emacs-terraform-root)))
+  (unless (yes-or-no-p (format "Destroy the infrastructure in %s? " (heks/terraform-root)))
     (user-error "Nothing was destroyed"))
-  (heks-emacs-terraform-run "destroy"))
+  (heks/terraform-run "destroy"))
 
 ;;
 ;; ====== Language breakdown of a project ======
 ;;
 
-(defconst heks-emacs-language-by-extension
+(defconst heks/language-by-extension
   '(("tf" . "Terraform") ("tfvars" . "Terraform") ("hcl" . "HCL")
     ("yml" . "YAML") ("yaml" . "YAML") ("json" . "JSON")
     ("ts" . "TypeScript") ("tsx" . "TypeScript")
@@ -167,9 +167,9 @@ prompt here is the second one, in the vocabulary of the person asking."
   "Alist mapping file extensions to the language shown in the breakdown.
 Files with an extension that is not listed here are not counted.")
 
-(global-set-key (kbd "C-c w l") #'heks-emacs-project-languages)
+(global-set-key (kbd "C-c w l") #'heks/project-languages)
 
-(defun heks-emacs-git-output (root &rest args)
+(defun heks/git-output (root &rest args)
   "Return the trimmed output of `git ARGS' run in ROOT, or nil on failure."
   (let ((default-directory root))
     (with-temp-buffer
@@ -177,17 +177,17 @@ Files with an extension that is not listed here are not counted.")
         (string-trim (buffer-string))))))
 
 ;;;###autoload
-(defun heks-emacs-project-git-stats ()
+(defun heks/project-git-stats ()
   "Show a summary of the Git history of the current project.
 
 It covers when the project started, the latest commit, the number of
 commits and the top contributors, in a small window below the current one."
   (interactive)
-  (let ((root (heks-emacs-terraform-root)))
+  (let ((root (heks/terraform-root)))
     (unless (and (executable-find "git")
-                 (heks-emacs-git-output root "rev-parse" "--git-dir"))
+                 (heks/git-output root "rev-parse" "--git-dir"))
       (user-error "%s is not in a Git repository" (abbreviate-file-name root)))
-    (let* ((out (apply-partially #'heks-emacs-git-output root))
+    (let* ((out (apply-partially #'heks/git-output root))
            (count (string-to-number (or (funcall out "rev-list" "--count" "HEAD") "0")))
            (first (car (last (split-string
                               (or (funcall out "log" "--max-parents=0" "--format=%as") "")
@@ -221,9 +221,9 @@ commits and the top contributors, in a small window below the current one."
         (set-window-buffer win buf)
         (select-window win)))))
 
-(global-set-key (kbd "C-c w G") #'heks-emacs-project-git-stats)
+(global-set-key (kbd "C-c w G") #'heks/project-git-stats)
 
-(defun heks-emacs-language-files (root)
+(defun heks/language-files (root)
   "Return the files under ROOT, honouring `.gitignore' when in a git repo."
   (let ((default-directory root))
     (if (and (executable-find "git")
@@ -239,12 +239,12 @@ commits and the top contributors, in a small window below the current one."
        root "" nil
        (lambda (d) (not (string-match-p "/\\(\\.git\\|node_modules\\|\\.terraform\\)\\'" d)))))))
 
-(defun heks-emacs-language-stats (root)
+(defun heks/language-stats (root)
   "Return an alist of (LANGUAGE . LINES) for the files under ROOT, largest first."
   (let ((counts (make-hash-table :test #'equal)) result)
-    (dolist (file (heks-emacs-language-files root))
+    (dolist (file (heks/language-files root))
       (when-let* ((lang (cdr (assoc (downcase (or (file-name-extension file) ""))
-                                    heks-emacs-language-by-extension)))
+                                    heks/language-by-extension)))
                   ((file-regular-p file))
                   ((< (file-attribute-size (file-attributes file)) 1000000)))
         (with-temp-buffer
@@ -255,13 +255,13 @@ commits and the top contributors, in a small window below the current one."
     (sort result (lambda (a b) (> (cdr a) (cdr b))))))
 
 ;;;###autoload
-(defun heks-emacs-project-languages ()
+(defun heks/project-languages ()
   "Show a rough percentage of lines of code per language in the current project.
 
 The result is displayed in a small window split below the current one."
   (interactive)
-  (let* ((root (heks-emacs-terraform-root))
-         (stats (heks-emacs-language-stats root))
+  (let* ((root (heks/terraform-root))
+         (stats (heks/language-stats root))
          (total (apply #'+ (mapcar #'cdr stats)))
          (buf (get-buffer-create "*Project languages*")))
     (with-current-buffer buf
@@ -294,7 +294,7 @@ The result is displayed in a small window split below the current one."
   ;; Leave `sql-postgres-login-params' at its default: it already offers the
   ;; database names of the server for completion.  `sql.el' reads the
   ;; `sql-server', `sql-port', `sql-user' and `sql-database' variables when
-  ;; it connects, which `heks-emacs-sql-postgres' fills in from the
+  ;; it connects, which `heks/sql-postgres' fills in from the
   ;; environment.
   :custom
   (sql-product 'postgres))
@@ -303,11 +303,11 @@ The result is displayed in a small window split below the current one."
   :ensure t
   :hook (sql-mode . sqlup-mode))
 
-;; `mongosh' scripts are JavaScript; `C-c d m' (see `heks-emacs-mongosh')
+;; `mongosh' scripts are JavaScript; `C-c d m' (see `heks/mongosh')
 ;; opens an interactive shell in a real terminal buffer.
 (add-to-list 'auto-mode-alist '("\\.mongo\\(sh\\)?\\'" . js-mode))
 
-(provide 'heks-emacs/dev-project)
+(provide 'heks/dev-project)
 
 ;;; dev-project.el ends here
 

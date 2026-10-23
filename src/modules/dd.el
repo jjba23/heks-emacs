@@ -56,6 +56,6 @@
           (message "Burning ISO to %s... Monitor progress in the %s buffer." target-device buf-name))
       (message "Operation aborted."))))
 
-(provide 'heks-emacs/dd)
+(provide 'heks/dd)
 
 ;;; dd.el ends here

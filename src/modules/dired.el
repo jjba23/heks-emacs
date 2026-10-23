@@ -57,6 +57,6 @@
   :ensure t
   :hook ((dired-mode . nerd-icons-dired-mode)))
 
-(provide 'heks-emacs/dired)
+(provide 'heks/dired)
 
 ;;; dired.el ends here

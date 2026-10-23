@@ -45,6 +45,6 @@
   :ensure (:host github :repo "skeeto/emacs-aio" :branch "master")
   :demand t)
 
-(provide 'heks-emacs/libs)
+(provide 'heks/libs)
 
 ;;; libs.el ends here

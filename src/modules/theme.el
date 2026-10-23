@@ -23,15 +23,15 @@
 
 (use-package ef-themes
   :ensure (:host github :repo "protesilaos/ef-themes" :branch "main")
-  :if (and heks-emacs-theme
-           (string-match-p "\\`\\(ef-\\|modus-\\)" (symbol-name heks-emacs-theme)))
+  :if (and heks/theme
+           (string-match-p "\\`\\(ef-\\|modus-\\)" (symbol-name heks/theme)))
   :config
   (setq modus-themes-mixed-fonts t
         modus-themes-italic-constructs t)
   (modus-themes-include-derivatives-mode 1)
 
   ;; Handle theme-specific overrides dynamically
-  (pcase heks-emacs-theme
+  (pcase heks/theme
     ('modus-vivendi-tinted
      (setq modus-vivendi-tinted-palette-overrides '((comment "#928f8a"))))
     ('ef-bio
@@ -43,32 +43,32 @@
     ('ef-autumn
      (setq ef-autumn-palette-overrides '((variable fg-main) (bg-main bg-dim)))))
 
-  (load-theme heks-emacs-theme t))
+  (load-theme heks/theme t))
 
 (use-package everforest
   :ensure (:host github :repo "Theory-of-Everything/everforest-emacs" :branch "master2")
   :no-require t
-  :if (memq heks-emacs-theme '(everforest-dark everforest-light))
+  :if (memq heks/theme '(everforest-dark everforest-light))
   :config
-  (load-theme (if (eq heks-emacs-theme 'everforest-dark)
+  (load-theme (if (eq heks/theme 'everforest-dark)
                   'everforest-hard-dark
                 'everforest-hard-light)
               t))
 
 (use-package gruvbox-theme
   :ensure (:host github :repo "greduan/emacs-theme-gruvbox" :branch "master")
-  :if (memq heks-emacs-theme '(gruvbox-dark gruvbox-light))
+  :if (memq heks/theme '(gruvbox-dark gruvbox-light))
   :config
-  (load-theme (if (eq heks-emacs-theme 'gruvbox-dark)
+  (load-theme (if (eq heks/theme 'gruvbox-dark)
                   'gruvbox-dark-hard
                 'gruvbox-light-hard)
               t))
 
 (use-package dracula-theme
   :ensure t
-  :if (eq heks-emacs-theme 'dracula)
+  :if (eq heks/theme 'dracula)
   :config
-  (load-theme heks-emacs-theme t)
+  (load-theme heks/theme t)
   (setq dracula-enlarge-headings t
         dracula-height-title-1 1.25
         dracula-height-title-2 1.15
@@ -78,10 +78,10 @@
 
 (use-package catppuccin-theme
   :ensure t
-  :if (memq heks-emacs-theme '(catppuccin-latte catppuccin-mocha))
+  :if (memq heks/theme '(catppuccin-latte catppuccin-mocha))
   :config
   (setq catppuccin-italic-comments t)
-  (setopt catppuccin-flavor (if (eq heks-emacs-theme 'catppuccin-latte) 'latte 'mocha))
+  (setopt catppuccin-flavor (if (eq heks/theme 'catppuccin-latte) 'latte 'mocha))
   (load-theme 'catppuccin t))
 
 (use-package autothemer :ensure t)
@@ -90,13 +90,13 @@
   :ensure (:host github :repo "thongpv87/rose-pine-emacs" :branch "master" :main "rose-pine-color-theme.el")
   :after (autothemer)
   :no-require t
-  :if (memq heks-emacs-theme '(rose-pine-moon rose-pine-dawn))
+  :if (memq heks/theme '(rose-pine-moon rose-pine-dawn))
   :config
-  (load-theme heks-emacs-theme t))
+  (load-theme heks/theme t))
 
 (use-package kaolin-themes
   :ensure t
-  :if (eq heks-emacs-theme 'kaolin-dark)
+  :if (eq heks/theme 'kaolin-dark)
   :config
   (setq kaolin-themes-bold t
         kaolin-themes-italic t
@@ -112,11 +112,11 @@
 
 (use-package ayu-theme
   :ensure t
-  :if (memq heks-emacs-theme '(ayu-dark ayu-light ayu-mirage ayu-grey))
+  :if (memq heks/theme '(ayu-dark ayu-light ayu-mirage ayu-grey))
   :config
-  (if (eq heks-emacs-theme 'ayu-mirage)
+  (if (eq heks/theme 'ayu-mirage)
       (load-theme 'ayu-grey t)
-    (load-theme heks-emacs-theme t))
+    (load-theme heks/theme t))
   (set-face-attribute 'font-lock-string-face nil
                       :italic nil)
   (set-face-attribute 'font-lock-doc-face nil
@@ -124,7 +124,7 @@
                       :italic t)
   (set-face-attribute 'dired-directory nil
                       :inherit 'font-lock-keyword-face)
-  (if (eq heks-emacs-theme 'ayu-dark)
+  (if (eq heks/theme 'ayu-dark)
       (custom-theme-set-faces
        'ayu-dark
        '(cursor ((t (:background "#ffb07c"))))
@@ -145,18 +145,18 @@
 
 (use-package doom-themes
   :ensure t
-  :if (memq heks-emacs-theme '(doom-tomorrow-night doom-one nord tokyo-night solarized-light solarized-dark doom-one-light doom-molokai))
+  :if (memq heks/theme '(doom-tomorrow-night doom-one nord tokyo-night solarized-light solarized-dark doom-one-light doom-molokai))
   :custom
   (doom-themes-enable-bold t)
   (doom-themes-enable-italic t)
   :config
   ;; Dynamic mapping for mismatched theme names
-  (let ((theme (pcase heks-emacs-theme
+  (let ((theme (pcase heks/theme
                  ('nord 'doom-nord)
                  ('tokyo-night 'doom-tokyo-night)
                  ('solarized-light 'doom-solarized-light)
                  ('solarized-dark 'doom-solarized-dark)
-                 (_ heks-emacs-theme))))
+                 (_ heks/theme))))
     (load-theme theme t))
 
   (doom-themes-visual-bell-config)
@@ -166,10 +166,10 @@
 
 (use-package kanagawa-theme
   :ensure (:host github :repo "arouene/emacs-kanagawa-theme" :branch "main")
-  :if (memq heks-emacs-theme '(kanagawa))
+  :if (memq heks/theme '(kanagawa))
   :config
   (load-theme 'kanagawa t))
 
-(provide 'heks-emacs/theme)
+(provide 'heks/theme)
 
 ;;; theme.el ends here

@@ -32,6 +32,6 @@
               (setq indent-tabs-mode 1)
               (setq tab-width 4))))
 
-(provide 'heks-emacs/go)
+(provide 'heks/go)
 
 ;;; go.el ends here

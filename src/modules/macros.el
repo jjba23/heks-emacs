@@ -57,6 +57,6 @@ Useful for libraries where you want to allow users to redefine values."
   (forward-sexp 1 (point))
   (delete-char 1 nil))
 
-(provide 'heks-emacs/macros)
+(provide 'heks/macros)
 
 ;;; macros.el ends here

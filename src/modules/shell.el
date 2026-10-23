@@ -110,7 +110,7 @@ length of PATH (sans directory slashes) down to MAX-LEN."
             components (cdr components)))
     (concat str (cl-reduce (lambda (a b) (concat a "/" b)) components))))
 
-(defun heks-emacs-eshell-prompt ()
+(defun heks/eshell-prompt ()
   (defun with-face (str &rest face-plist)
     (propertize str 'face face-plist))
   (concat
@@ -133,13 +133,13 @@ length of PATH (sans directory slashes) down to MAX-LEN."
    " "))
 
 (setopt eshell-prompt-regexp "^[^#λ\n]*[#λ] ")
-(setopt eshell-prompt-function 'heks-emacs-eshell-prompt)
+(setopt eshell-prompt-function 'heks/eshell-prompt)
 (setopt eshell-highlight-prompt nil)
 (setopt eshell-banner-message "Welcome to HEKS-EMACS\n")
 
 ;;(global-set-key (kbd "C-!") 'eshell-here)
 
-(setq heks-emacs/eshell-aliases
+(setq heks/eshell-aliases
       '((g  . magit)
         (gl . magit-log)
         (d  . dired)
@@ -152,9 +152,9 @@ length of PATH (sans directory slashes) down to MAX-LEN."
 
 (mapc (lambda (alias)
         (defalias (car alias) (cdr alias)))
-      heks-emacs/eshell-aliases)
+      heks/eshell-aliases)
 
-(defun heks-emacs-ghostel (&optional arg)
+(defun heks/ghostel (&optional arg)
   "Open a Ghostel terminal named after the current project.
 
 The buffer is called `*PROJECT-ghostel*', so several terminals, in several
@@ -176,7 +176,7 @@ so on); a numeric ARG switches to, or creates, that numbered one instead."
   ;; `C-!' goes to the project's terminal (reusing it); `C-$' always opens
   ;; a new one, named after the project.
   :bind (("C-!" . ghostel-project)
-         ("C-$" . heks-emacs-ghostel))
+         ("C-$" . heks/ghostel))
   :custom
   (ghostel-module-auto-install 'download)
   :config
@@ -208,7 +208,7 @@ so on); a numeric ARG switches to, or creates, that numbered one instead."
 ;; ====== Where a shell script is ======
 ;;
 
-(defun heks-emacs-shell-buffer-p ()
+(defun heks/shell-buffer-p ()
   "Return non-nil when the current buffer holds a shell script.
 
 Both of the modes Emacs uses for one are meant: `bash-ts-mode' is what a
@@ -216,7 +216,7 @@ Both of the modes Emacs uses for one are meant: `bash-ts-mode' is what a
 it opens in when it is not, and what a `.zsh' or `.ksh' file opens in."
   (derived-mode-p 'sh-mode 'bash-ts-mode))
 
-(defun heks-emacs-shell-directory ()
+(defun heks/shell-directory ()
   "Return the directory of the file being edited.
 
 `shfmt' is given a copy of the buffer in a temporary directory, so this is
@@ -226,7 +226,7 @@ of the buffer's own project apply."
    (or (and buffer-file-name (file-name-directory buffer-file-name))
        default-directory)))
 
-(defun heks-emacs-shell-copy-suffix ()
+(defun heks/shell-copy-suffix ()
   "Return the file name suffix for a copy of the buffer.
 
 The buffer's own extension where it has one, so that `shfmt' reads the
@@ -237,17 +237,17 @@ dialect from the name as well as from the shebang the copy carries."
 ;; ====== Formatting shell scripts: shfmt ======
 ;;
 
-(defcustom heks-emacs-shfmt-program "shfmt"
+(defcustom heks/shfmt-program "shfmt"
   "Name of the `shfmt' executable, the formatter of shell scripts."
   :type 'string
-  :group 'heks-emacs)
+  :group 'heks)
 
-(defcustom heks-emacs-shfmt-flymake t
+(defcustom heks/shfmt-flymake t
   "Whether `shfmt' reports formatting drift as a Flymake backend."
   :type 'boolean
-  :group 'heks-emacs)
+  :group 'heks)
 
-(defcustom heks-emacs-shfmt-arguments nil
+(defcustom heks/shfmt-arguments nil
   "Extra arguments passed to `shfmt'.
 
 `shfmt' already reads the EditorConfig files of the project, which is
@@ -256,75 +256,75 @@ An indentation of two spaces is the usual one, which `-i' and `2' ask for
 by name.  The arguments are passed to the tool in the order they are
 written, before the file to format."
   :type '(repeat string)
-  :group 'heks-emacs)
+  :group 'heks)
 
-(defun heks-emacs-shfmt-available-p ()
+(defun heks/shfmt-available-p ()
   "Return non-nil when the `shfmt' command is installed."
-  (heks-emacs-tool-available-p heks-emacs-shfmt-program))
+  (heks/tool-available-p heks/shfmt-program))
 
-(defun heks-emacs-shfmt-applies-p ()
+(defun heks/shfmt-applies-p ()
   "Return non-nil when `shfmt' has something to say about this buffer."
-  (and heks-emacs-shfmt-flymake
-       (heks-emacs-shfmt-available-p)
-       (heks-emacs-shell-buffer-p)))
+  (and heks/shfmt-flymake
+       (heks/shfmt-available-p)
+       (heks/shell-buffer-p)))
 
-(defun heks-emacs-shfmt-command (file)
+(defun heks/shfmt-command (file)
   "Return the `shfmt' command that rewrites FILE in place.
 
 The formatter is handed a copy of the buffer to rewrite, which is what
-both the drift backend and `heks-emacs-tool-format-buffer' read the
+both the drift backend and `heks/tool-format-buffer' read the
 result from; `shfmt' takes the dialect, and the EditorConfig settings of
 the project, from the file it is given."
-  (append (list (heks-emacs-tool-path heks-emacs-shfmt-program) "-w")
-          heks-emacs-shfmt-arguments
+  (append (list (heks/tool-path heks/shfmt-program) "-w")
+          heks/shfmt-arguments
           (list file)))
 
-(defun heks-emacs-shfmt-backend (report-fn &rest _args)
+(defun heks/shfmt-backend (report-fn &rest _args)
   "Flymake backend reporting the lines `shfmt' would rewrite.
 
 `shfmt' rewrites files in place, so the check runs on a copy of the
 buffer: the drift is reported as the script is written rather than after
 it is saved, and the buffer is never touched."
-  (heks-emacs-tool-drift-backend
+  (heks/tool-drift-backend
    "shfmt" report-fn
    (list
     :what "shfmt"
-    :applies #'heks-emacs-shfmt-applies-p
-    :suffix (heks-emacs-shell-copy-suffix)
-    :root #'heks-emacs-shell-directory
-    :command #'heks-emacs-shfmt-command)))
+    :applies #'heks/shfmt-applies-p
+    :suffix (heks/shell-copy-suffix)
+    :root #'heks/shell-directory
+    :command #'heks/shfmt-command)))
 
-(defun heks-emacs-shell-format-buffer ()
+(defun heks/shell-format-buffer ()
   "Format the current buffer in place with `shfmt'."
   (interactive)
-  (unless (heks-emacs-shfmt-available-p)
+  (unless (heks/shfmt-available-p)
     (user-error "`%s' is not installed, so there is nothing to format with"
-                heks-emacs-shfmt-program))
-  (heks-emacs-tool-format-buffer
-   (list :what "shfmt" :command #'heks-emacs-shfmt-command)))
+                heks/shfmt-program))
+  (heks/tool-format-buffer
+   (list :what "shfmt" :command #'heks/shfmt-command)))
 
-(defun heks-emacs-shell-format-applies-p ()
+(defun heks/shell-format-applies-p ()
   "Return non-nil when `shfmt' is the formatter to use in this buffer.
 
-nil where it is not installed, so that `heks-emacs-format-buffer' asks
+nil where it is not installed, so that `heks/format-buffer' asks
 whoever else the buffer has -- the language server, `format-all' -- rather
 than refusing to format a script no shell formatter is known for."
-  (and (heks-emacs-shell-buffer-p) (heks-emacs-shfmt-available-p)))
+  (and (heks/shell-buffer-p) (heks/shfmt-available-p)))
 
 ;; `C-c i f' is the format key in every buffer, and it is a table the
 ;; buffer answers: in a shell one the answer is `shfmt', which is also what
 ;; reports the drift of the buffer.  Like the Scheme formatter, this is
 ;; added rather than bound, so that the key a user already knows keeps
 ;; working here.
-(add-to-list 'heks-emacs-format-dispatch
-             (cons #'heks-emacs-shell-format-applies-p
-                   #'heks-emacs-shell-format-buffer))
+(add-to-list 'heks/format-dispatch
+             (cons #'heks/shell-format-applies-p
+                   #'heks/shell-format-buffer))
 
 ;;
 ;; ====== Flymake setup ======
 ;;
 
-(defun heks-emacs-shell-setup-flymake ()
+(defun heks/shell-setup-flymake ()
   "Register the checkers of this shell buffer and start Flymake.
 
 `shellcheck' -- through Emacs's own `sh-shellcheck-flymake', which the
@@ -332,19 +332,19 @@ mode has already registered -- checks what the script says, and `shfmt'
 reports the lines it would rewrite.  `shfmt' stays quiet where it is not
 installed, and the run happens where Flymake runs it: when the buffer has
 been still for a moment, and when it is saved."
-  (when heks-emacs-shfmt-flymake
-    (add-hook 'flymake-diagnostic-functions #'heks-emacs-shfmt-backend nil t))
+  (when heks/shfmt-flymake
+    (add-hook 'flymake-diagnostic-functions #'heks/shfmt-backend nil t))
   (flymake-mode 1))
 
-(add-hook 'sh-mode-hook #'heks-emacs-shell-setup-flymake)
-(add-hook 'bash-ts-mode-hook #'heks-emacs-shell-setup-flymake)
+(add-hook 'sh-mode-hook #'heks/shell-setup-flymake)
+(add-hook 'bash-ts-mode-hook #'heks/shell-setup-flymake)
 
 ;; Nothing here has to be done about the language server, which is what the
 ;; mode above would otherwise have to say something about: Eglot replaces
 ;; `flymake-diagnostic-functions' with its own backend alone while it manages
-;; a buffer, and `heks-emacs-flymake-keep-backends' (see `dev-flymake.el') puts back
+;; a buffer, and `heks/flymake-keep-backends' (see `dev-flymake.el') puts back
 ;; what the buffer had -- whatever language it is -- so these two checkers
 ;; outlive the server without this module knowing a server exists.
-(provide 'heks-emacs/shell)
+(provide 'heks/shell)
 
 ;;; shell.el ends here

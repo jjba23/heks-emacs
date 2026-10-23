@@ -32,7 +32,7 @@
   ;; `- plain', which breaks folding for the whole buffer.  These fold any
   ;; mapping pair or sequence item that spans several lines, from the end of
   ;; its first line.
-  (defun heks-emacs-yaml-fold-range (node offset)
+  (defun heks/yaml-fold-range (node offset)
     "Fold range of NODE from the end of its first line, if it spans lines."
     (let ((beg (save-excursion
                  (goto-char (treesit-node-start node))
@@ -44,8 +44,8 @@
     (let ((rules `((comment
                     . (lambda (node offset)
                         (treesit-fold-range-line-comment node offset "#")))
-                   (block_sequence_item . heks-emacs-yaml-fold-range)
-                   (block_mapping_pair . heks-emacs-yaml-fold-range))))
+                   (block_sequence_item . heks/yaml-fold-range)
+                   (block_mapping_pair . heks/yaml-fold-range))))
       (dolist (mode '(yaml-ts-mode yaml-mode))
         (setf (alist-get mode treesit-fold-range-alist) rules))))
   (require 'smartparens-config))
@@ -192,6 +192,6 @@
   (when (eq (key-binding (kbd "M-i")) 'symbol-overlay-map)
     (global-unset-key (kbd "M-i"))))
 
-(provide 'heks-emacs/dev-tools)
+(provide 'heks/dev-tools)
 
 ;;; dev-tools.el ends here
