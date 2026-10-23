@@ -1,7 +1,7 @@
 #+title: heks-emacs
 #+author: Josep Bigorra
 #+email: jjbigorra@gmail.com
-#+options: toc:1
+#+options: toc:nil
 
 [[https://jointhefreeworld.org/ggg/dist/gnu-emacs.svg]] [[https://jointhefreeworld.org/ggg/dist/maak.svg]]  [[https://jointhefreeworld.org/ggg/dist/license-gpl3+.svg]]    [[https://jointhefreeworld.org/ggg/dist/license-fdl13+.svg]]
 
@@ -12,6 +12,8 @@ You could see heks-emacs as my temple to computing, almost an operating system u
 - Multi-theme setup with powerful customizations and adaptable, configurable UI theming
 - Dev setup for: Scheme, Scala, Haskell, Lisp, Kotlin, Rust, Python, Shell, Nix, JavaScript, HTML, CSS, Golang and more
 - Power user EShell configuration with many niceties
+
+#+TOC: headlines 1
 
 This Emacs config is made with compatibility, smoothness, portability and mind, and should work pretty much out-of the box on a multitude of environments.
 
@@ -228,6 +230,16 @@ Two things about the text at point are here rather than anywhere else, because t
 
 *** =completion.el=
 Provides the completion stack using CAPE, Corfu, and Orderless. Adds completion-at-point sources, popup completion, history, documentation, and flexible Orderless matching.
+
+- *Popup*: completion appears automatically after two characters. ~TAB~ / ~S-TAB~ move through candidates (and cycle), ~M-SPC~ inserts an Orderless separator so a query can have several components.
+- *Documentation*: a popup beside the candidate list shows its documentation (~M-h~ toggles it, ~M-d~ shows the documentation, ~M-l~ jumps to the source), and the echo area shows a one-line summary.
+- *Quick select*: ~M-q~ labels each candidate with a key and completes the one you press; ~C-q~ inserts it instead. Candidates are also numbered, and a prefix argument picks one, e.g. ~C-u 3 TAB~.
+- *History*: Corfu remembers what you picked and ranks it higher, persisted across sessions through ~savehist~.
+- *Minibuffer*: Corfu also works in minibuffer prompts that have no other completion UI (not under Vertico, never when reading a password). ~M-m~ moves the current completion into the minibuffer UI (needs Consult).
+- *Sources (CAPE)*: file paths, dabbrev words, keywords and Org/Elisp blocks. In Eglot-managed buffers the language server, dabbrev and keyword results are merged into one list rather than the first source hiding the rest. Eglot's results are cache-busted so a failing server does not break the popup. In text buffers emoji and TeX/Unicode symbols complete too. ~C-c p~ opens the CAPE prefix map to trigger a single source by hand.
+- *Snippets*: yasnippet snippets appear as candidates.
+- *Terminal*: ~corfu-terminal~ makes the popup work in ~emacs -nw~.
+- *Behaviour*: ~tab-always-indent~ is ~complete~, so ~TAB~ indents first and completes when already indented; ~M-x~ only lists commands relevant to the current mode.
 
 *** =consult.el=
 Configures =consult= for enhanced minibuffer navigation, buffer switching, searching, registers, bookmarks, project buffers, diagnostics, xrefs, and recent files.

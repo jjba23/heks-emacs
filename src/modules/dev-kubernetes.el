@@ -199,13 +199,16 @@ originally printed -- the right tool for apps that do not log JSON."
 ;; `json-log-view-mode' on -- i.e. a `kubed' log buffer, or any other log
 ;; buffer the mode was turned on in by hand -- which is also what its
 ;; `C-c C-t' binding in `json-log-view-mode-map' is for.
-(require 'transient)
-(transient-define-prefix json-log-view-transient ()
-  "Filter and reset the log view in the current buffer."
-  ["Log view"
-   ("f" "Filter by JSON field" json-log-view-filter)
-   ("g" "Filter by regexp" json-log-view-grep-filter)
-   ("c" "Clear filter" json-log-view-clear-filter)])
+;; Defined once transient has been activated by Elpaca; requiring it
+;; here at load time would pull in the built-in version too early.
+(eval-when-compile (require 'transient))
+(with-eval-after-load 'transient
+  (transient-define-prefix json-log-view-transient ()
+    "Filter and reset the log view in the current buffer."
+    ["Log view"
+     ("f" "Filter by JSON field" json-log-view-filter)
+     ("g" "Filter by regexp" json-log-view-grep-filter)
+     ("c" "Clear filter" json-log-view-clear-filter)]))
 
 ;; Folded into `kubed-transient' itself, right next to "Logs", so that
 ;; once you are looking at a log buffer that command opened, filtering it
