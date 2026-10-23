@@ -470,7 +470,7 @@ A folder tree tells you where a note /is/; links tell you what it is /about/.  N
 - *Hover* a note and its neighbours light up while the rest fades; *click* it for a panel with its path, tags, age, size and the notes it links to and is linked from (each a click away); *double-click* to open it in Emacs.  Double-clicking a topic opens its folder in Dired.
 - *Drag* a note to move it (the others rearrange around it and settle), *drag the background* to pan, *scroll* to zoom around the pointer.  Motion is animated, so zooming, centring and switching view glide instead of jumping.
 - *Search* (~/~) dims everything that does not match a title, topic or tag; ~Enter~ zooms to the match.  The legend at the bottom lists the top-level topics: click one to fit it on screen.
-- *Labels* appear as you zoom in: the big topics first, then notes that are hubs, then everything.  ~l~ toggles them, ~f~ fits the picture, ~Esc~ clears.
+- *Labels* follow the cursor: the notes near it are named, nearest and best-connected first, and a label that would overlap a better one is left out, so the picture stays readable.  The focused note, its neighbours and search hits are always named; the big topics (and hubs, when zoomed in) stay named without the cursor.  Labels, dimming, highlights and the detail panel all fade in and out rather than switch (and do not animate if the system asks for reduced motion).  ~l~ toggles them, ~f~ fits the picture, ~Esc~ clears.
 - *Reload* reads the notes again (keeping the positions of what was already there), and /archive/ adds the archive's notes, drawn dashed.
 - The *Tree* tab (~t~) is the same notes as a collapsible outline with counts, links in and out, and age; the search box filters it and opens the branches that match.
 
