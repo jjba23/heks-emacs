@@ -165,6 +165,8 @@ in every other topic.
 | ~n~ | ~d~ | today: the agenda, its habits and the inbox |
 | ~n~ | ~e~ | text added to an existing note |
 | ~n~ | ~f~ | a note, found |
+| ~n~ | ~g~ | the notes as a graph and a tree, in the browser |
+| ~n~ | ~G~ | the map of the notes, exported as one HTML page |
 | ~n~ | ~F~ | a note, found or created |
 | ~n~ | ~h~ | the habits, with their graphs |
 | ~n~ | ~i~ | a link to a note, inserted |
@@ -176,6 +178,7 @@ in every other topic.
 | ~n~ | ~r~ | this note, moved to another topic |
 | ~n~ | ~s~ | the text of every note, searched |
 | ~n~ | ~t~ | a topic folder, opened |
+| ~n~ | ~T~ | the topics as a folding outline |
 | ~n~ | ~u~ | the birthdays coming up |
 | ~n~ | ~x~ | a todo, captured into the inbox |
 | ~n~ | ~X~ | a habit, captured |
@@ -468,9 +471,11 @@ in every other topic.
 | ~C-c n A~ | ~org-agenda~ | the agenda: every note's dates and TODOs, in one list | org.el |
 | ~C-c n B~ | ~heks/bookmark-add~ | a bookmark, filed under a category picked with completion | bookmarks.el |
 | ~C-c n F~ | ~heks/notes-find-or-create~ | a note by title, created when none has it | notes.el |
+| ~C-c n G~ | ~heks/notes-graph-export~ | the map of the notes, exported as one self-contained HTML page | notes-graph.el |
 | ~C-c n I~ | ~heks/notes-regenerate-indexes~ | every index page, regenerated from the notes | notes.el |
 | ~C-c n K~ | ~heks/contact-new~ | a contact, added to the contacts file | contacts.el |
 | ~C-c n M~ | ~heks/markdown-region-to-org~ | the region of Markdown, converted to Org | import.el |
+| ~C-c n T~ | ~heks/notes-tree~ | the topics and notes as a folding outline in a buffer | notes-graph.el |
 | ~C-c n X~ | ~heks/habit-capture~ | a habit, captured: a todo that repeats | agenda.el |
 | ~C-c n a~ | ~heks/notes-find-archived~ | an archived note, from a former employer | notes.el |
 | ~C-c n b~ | ~heks/bookmark-open~ | a bookmark, picked and opened (prefix: copied; twice: inserted as a link) | bookmarks.el |
@@ -478,6 +483,7 @@ in every other topic.
 | ~C-c n d~ | ~heks/agenda-today~ | today: the day's agenda with habits and birthdays, what is in progress, the inbox | agenda.el |
 | ~C-c n e~ | ~heks/notes-extend~ | text added to the end of an existing note | notes.el |
 | ~C-c n f~ | ~heks/notes-find~ | a note, found by title | notes.el |
+| ~C-c n g~ | ~heks/notes-graph~ | the notes as a smooth graph (links, topics, or both) and a tree, in the browser; clicking a note opens it here | notes-graph.el |
 | ~C-c n h~ | ~heks/agenda-habits~ | the habits, with their consistency graphs | agenda.el |
 | ~C-c n i~ | ~heks/notes-insert~ | a link to another note, inserted | notes.el |
 | ~C-c n k~ | ~heks/contact-find~ | a contact, found by name (prefix: inserted as Name <email>) | contacts.el |

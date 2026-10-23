@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notes map</title>
+<style>
+:root {
+  --bg: #fbfbfa; --panel: #ffffff; --ink: #1d1f23; --dim: #6b7280; --line: #e3e5e8;
+  --edge: 120, 128, 140; --accent: #3b6ee0; --halo: #fbfbfa; --shadow: 0 6px 24px rgba(0,0,0,.08);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14161a; --panel: #1b1e23; --ink: #e6e8eb; --dim: #8b93a1; --line: #2a2e35;
+          --edge: 150, 160, 175; --accent: #7aa2ff; --halo: #14161a; --shadow: 0 6px 24px rgba(0,0,0,.4); }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; background: var(--bg); color: var(--ink);
+  font: 14px/1.4 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+header { display: flex; gap: 12px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line);
+  background: var(--panel); flex-wrap: wrap; position: relative; z-index: 3; }
+header h1 { font-size: 14px; margin: 0 8px 0 0; font-weight: 650; letter-spacing: .02em; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: transparent; color: var(--ink); padding: 5px 11px; cursor: pointer; font: inherit; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--accent); color: #fff; }
+input[type=search] { border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px;
+  padding: 5px 10px; min-width: 200px; font: inherit; outline: none; }
+input[type=search]:focus { border-color: var(--accent); }
+label.chk { display: inline-flex; gap: 5px; align-items: center; color: var(--dim); cursor: pointer; user-select: none; }
+button.plain { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 5px 10px; cursor: pointer; font: inherit; }
+button.plain:hover { border-color: var(--accent); }
+.spacer { flex: 1; }
+.stats { color: var(--dim); font-size: 12px; }
+main { position: absolute; inset: 49px 0 0 0; }
+#graphview, #treeview { position: absolute; inset: 0; }
+#treeview { overflow: auto; padding: 18px 24px 60px; display: none; }
+canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+canvas.dragging { cursor: grabbing; }
+canvas.pointer { cursor: pointer; }
+#panel { position: absolute; top: 12px; right: 12px; width: 300px; max-height: calc(100% - 24px); overflow: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+  padding: 14px 16px; display: none; z-index: 2; }
+#panel h2 { font-size: 15px; margin: 0 0 2px; word-break: break-word; }
+#panel .path { color: var(--dim); font-size: 12px; word-break: break-all; margin-bottom: 8px; }
+#panel h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 14px 0 4px; }
+#panel ul { list-style: none; margin: 0; padding: 0; }
+#panel li { padding: 2px 0; }
+#panel a, #treeview a { color: var(--accent); text-decoration: none; cursor: pointer; }
+#panel a:hover, #treeview a:hover { text-decoration: underline; }
+#panel .tags span { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; margin: 0 4px 4px 0; font-size: 12px; color: var(--dim); }
+#panel .row { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+#legend { position: absolute; left: 12px; bottom: 12px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; padding: 8px 10px; font-size: 12px; color: var(--dim); display: flex; gap: 10px; flex-wrap: wrap;
+  max-width: 70%; box-shadow: var(--shadow); z-index: 2; }
+#legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+#legend .item { cursor: pointer; }
+#legend .item:hover { color: var(--ink); }
+#hint { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 12px; color: var(--dim);
+  pointer-events: none; opacity: .85; }
+#toast { position: absolute; left: 50%; top: 14px; transform: translate(-50%, -20px); background: var(--ink); color: var(--bg);
+  padding: 6px 12px; border-radius: 8px; opacity: 0; transition: all .25s ease; pointer-events: none; z-index: 5; }
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+/* tree */
+#treeview ul { list-style: none; margin: 0; padding-left: 20px; }
+#treeview > ul { padding-left: 0; max-width: 900px; }
+#treeview details { margin: 1px 0; }
+#treeview summary { cursor: pointer; padding: 3px 6px; border-radius: 6px; list-style: none; display: flex; gap: 8px; align-items: baseline; }
+#treeview summary::-webkit-details-marker { display: none; }
+#treeview summary::before { content: "▸"; color: var(--dim); display: inline-block; transition: transform .15s ease; width: 12px; }
+#treeview details[open] > summary::before { transform: rotate(90deg); }
+#treeview summary:hover, #treeview li.note:hover { background: rgba(var(--edge), .12); }
+#treeview .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+#treeview .count { color: var(--dim); font-size: 12px; }
+#treeview li.note { padding: 2px 6px 2px 20px; border-radius: 6px; display: flex; gap: 8px; align-items: baseline; }
+#treeview .meta { color: var(--dim); font-size: 12px; margin-left: auto; white-space: nowrap; }
+#treeview .tname { font-weight: 600; }
+#treeview .empty { color: var(--dim); padding: 30px 0; }
+.fade { animation: fade .18s ease; }
+@keyframes fade { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Notes map</h1>
+  <span class="seg" id="views"><button data-v="graph" class="on">Graph</button><button data-v="tree">Tree</button></span>
+  <span class="seg" id="modes" title="What the graph connects (1 2 3)">
+    <button data-m="tree">Categories</button><button data-m="links">Links</button><button data-m="both" class="on">Both</button>
+  </span>
+  <input type="search" id="q" placeholder="Search titles, topics, tags  ( / )" autocomplete="off">
+  <label class="chk" id="orphlbl" style="display:none" title="Links view: show the notes nothing links to"><input type="checkbox" id="orph"> unlinked notes</label>
+  <label class="chk" id="archlbl"><input type="checkbox" id="arch"> archive</label>
+  <label class="chk"><input type="checkbox" id="lbl" checked> labels</label>
+  <span class="spacer"></span>
+  <span class="stats" id="stats"></span>
+  <button class="plain" id="fit" title="Fit everything (f)">Fit</button>
+  <button class="plain" id="reload" title="Read the notes again">Reload</button>
+</header>
+<main>
+  <div id="graphview">
+    <canvas id="cv"></canvas>
+    <div id="legend"></div>
+    <div id="hint">scroll to zoom · drag to pan · drag a note to move it · click to inspect · double-click to open</div>
+    <aside id="panel"></aside>
+  </div>
+  <div id="treeview"></div>
+</main>
+<div id="toast"></div>
+<script>
+(() => {
+"use strict";
+const CFG = /*@CONFIG@*/ {};
+const $ = (s, r = document) => r.querySelector(s);
+const el = (tag, props = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") e.className = v; else if (k === "text") e.textContent = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v);
+  }
+  for (const c of kids) if (c != null) e.append(c);
+  return e;
+};
+
+const S = { data: null, mode: "both", orphans: false, archive: false, labels: true,
+            sel: null, hover: null, q: "", view: "graph" };
+let all = [], allEdges = [], byId = new Map();
+let V = [], E = [], nbr = new Map();
+let alpha = 0, running = false;
+const cam = { x: 0, y: 0, k: 1 }, goal = { x: 0, y: 0, k: 1 };
+let W = 0, H = 0, dpr = 1, camAnimating = false;
+const cv = $("#cv"), ctx = cv.getContext("2d");
+
+// ---------------------------------------------------------------- data
+function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+const dark = () => matchMedia("(prefers-color-scheme: dark)").matches;
+function topOf(n) { return (n.t ? n.path : n.topic).split("/")[0]; }
+function colorOf(n) {
+  const top = topOf(n);
+  if (!top) return dark() ? "#aab2c0" : "#59606d";
+  const hue = hash(top) % 360;
+  const depth = n.t ? n.path.split("/").length : 0;
+  const l = dark() ? 64 + (n.t ? 4 : 0) : 48 - (n.t ? 6 : 0);
+  return `hsl(${hue} ${n.t ? 70 : 62}% ${l}%)`;
+}
+
+function ingest(data) {
+  const old = byId; byId = new Map();
+  all = data.nodes.map(d => {
+    const o = old.get(d.id);
+    const n = Object.assign(o || {}, d);
+    n.t = !!d.t; n.out = []; n.inn = []; n.deg = 0; n.kids = n.kids || 0;
+    if (!o) { n.x = n.y = undefined; n.vx = 0; n.vy = 0; }
+    byId.set(n.id, n);
+    return n;
+  });
+  allEdges = [];
+  for (const e of data.edges) {
+    const s = byId.get(e.s), t = byId.get(e.t);
+    if (!s || !t) continue;
+    const edge = { s, t, k: e.k };
+    allEdges.push(edge);
+    if (e.k === "link") { s.out.push(t); t.inn.push(s); s.deg++; t.deg++; }
+  }
+  for (const n of all) {
+    n.r = n.t ? 7 + Math.sqrt(n.count || 1) * 1.5 : 3.2 + Math.sqrt(n.deg) * 1.9;
+    n.color = colorOf(n);
+  }
+  for (const n of all) if (n.t) n.depth = n.path ? n.path.split("/").length : 0;
+  // seed: a radial tree -- each topic gets an angular slice in proportion to what it holds
+  const kids = new Map();
+  for (const n of all) if (n.t && n.parent != null && n.id !== "t:") (kids.get("t:" + n.parent) || kids.set("t:" + n.parent, []).get("t:" + n.parent)).push(n);
+  const rootT = byId.get("t:");
+  const rnd = (id, salt) => (hash(id + salt) % 10000) / 10000;
+  const place = (t, a0, a1) => {
+    if (t.x === undefined) {
+      const a = (a0 + a1) / 2, r = t.depth * 190;
+      t.x = Math.cos(a) * r; t.y = Math.sin(a) * r;
+    }
+    const cs = (kids.get(t.id) || []).sort((p, q) => p.path < q.path ? -1 : 1);
+    const sum = cs.reduce((m, c) => m + Math.sqrt(c.total + 1), 0) || 1;
+    let a = a0;
+    for (const c of cs) { const span = (a1 - a0) * Math.sqrt(c.total + 1) / sum; place(c, a, a + span); a += span; }
+  };
+  if (rootT) place(rootT, 0, Math.PI * 2);
+  for (const n of all) if (n.t && n.x === undefined) { n.x = (rnd(n.id, "a") - .5) * 600; n.y = (rnd(n.id, "b") - .5) * 600; }
+  for (const n of all) {
+    if (n.x !== undefined) continue;
+    const tp = byId.get("t:" + n.topic);
+    const bx = tp ? tp.x : 0, by = tp ? tp.y : 0;
+    const a = rnd(n.id, "a") * Math.PI * 2, r = 24 + rnd(n.id, "r") * 50;
+    n.x = bx + Math.cos(a) * r; n.y = by + Math.sin(a) * r;
+  }
+}
+
+function visible() {
+  const m = S.mode;
+  V = all.filter(n => {
+    if (m === "links" && n.t) return false;
+    if (m === "links" && !S.orphans && n.deg === 0) return false;
+    return true;
+  });
+  const vis = new Set(V);
+  E = allEdges.filter(e => vis.has(e.s) && vis.has(e.t) &&
+    ((m === "tree" && e.k === "tree") || (m === "links" && e.k === "link") || m === "both"));
+  nbr = new Map(V.map(n => [n, new Set()]));
+  for (const e of E) { nbr.get(e.s).add(e.t); nbr.get(e.t).add(e.s); }
+  if (S.sel && !vis.has(S.sel)) S.sel = null;
+  renderStats(); renderLegend();
+}
+
+function renderStats() {
+  const notes = V.filter(n => !n.t).length, topics = V.filter(n => n.t).length;
+  const links = E.filter(e => e.k === "link").length;
+  $("#stats").textContent = `${notes} notes · ${topics} topics · ${links} links`;
+}
+function renderLegend() {
+  const tops = [...new Set(V.map(topOf))].filter(Boolean).sort();
+  const box = $("#legend"); box.replaceChildren();
+  for (const t of tops) {
+    const probe = { t: true, path: t, topic: t };
+    const item = el("span", { class: "item", title: "Focus this topic", onclick: () => focusTopic(t) },
+      el("i", { style: `background:${colorOf(probe)}` }), t);
+    box.append(item);
+  }
+  box.style.display = tops.length ? "flex" : "none";
+}
+
+// ---------------------------------------------------------------- physics
+// run the layout ahead of the eye, so what is first drawn is already a picture
+function settle(iter, a0) {
+  for (let i = 0; i < iter; i++) { alpha = a0 * (1 - i / iter) + .02; tick(); }
+  alpha = .03;
+}
+function kick(a = 0.6) { alpha = Math.max(alpha, a); if (!running) { running = true; requestAnimationFrame(frame); } }
+
+function tick() {
+  const n = V.length;
+  for (let i = 0; i < n; i++) { const a = V[i]; a.ax = 0; a.ay = 0; }
+  // repulsion
+  for (let i = 0; i < n; i++) {
+    const a = V[i], qa = a.t ? 40 + Math.sqrt(a.total || 1) * 8 : 22;
+    for (let j = i + 1; j < n; j++) {
+      const b = V[j];
+      let dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy;
+      if (d2 > 360000) continue;
+      if (d2 < 1) { dx = Math.random() - .5; dy = Math.random() - .5; d2 = dx * dx + dy * dy + .01; }
+      const d = Math.sqrt(d2), minD = a.r + b.r + 4;
+      let f = (qa * (b.t ? 40 + Math.sqrt(b.total || 1) * 8 : 22)) / Math.max(d2, 36);
+      if (d < minD) f += (minD - d) * .6;
+      const fx = dx / d * f, fy = dy / d * f;
+      a.ax -= fx; a.ay -= fy; b.ax += fx; b.ay += fy;
+    }
+  }
+  // springs
+  for (const e of E) {
+    const a = e.s, b = e.t;
+    let dx = b.x - a.x, dy = b.y - a.y;
+    const d = Math.sqrt(dx * dx + dy * dy) || .01;
+    const tree = e.k === "tree";
+    const rest = tree ? (b.t ? 55 + Math.sqrt(b.total || 1) * 16 : 26 + Math.sqrt(a.count || 1) * 5) : 95;
+    const k = tree ? .07 : .03;
+    const f = (d - rest) * k;
+    const fx = dx / d * f, fy = dy / d * f;
+    if (!a.pinned) { a.ax += fx; a.ay += fy; }
+    if (!b.pinned) { b.ax -= fx; b.ay -= fy; }
+  }
+  // gravity keeps islands from drifting away
+  for (const a of V) {
+    const g = a.deg === 0 && !a.t && S.mode === "links" ? .03 : .006;
+    a.ax -= a.x * g; a.ay -= a.y * g;
+  }
+  for (const a of V) {
+    if (a.pinned) { a.vx = a.vy = 0; continue; }
+    a.vx = (a.vx + a.ax * alpha) * .6; a.vy = (a.vy + a.ay * alpha) * .6;
+    a.x += a.vx; a.y += a.vy;
+  }
+  alpha += (0 - alpha) * .026;
+}
+
+// ---------------------------------------------------------------- drawing
+const w2s = (x, y) => [x * cam.k + cam.x, y * cam.k + cam.y];
+const s2w = (x, y) => [(x - cam.x) / cam.k, (y - cam.y) / cam.k];
+
+function focusSet() {
+  const f = S.hover || S.sel;
+  const q = S.q.trim().toLowerCase();
+  if (q) {
+    const set = new Set(V.filter(n => match(n, q)));
+    return set;
+  }
+  if (!f || !nbr.has(f)) return null;
+  const set = new Set(nbr.get(f)); set.add(f); return set;
+}
+function match(n, q) {
+  return n.title.toLowerCase().includes(q) || (n.t ? n.path : n.topic).toLowerCase().includes(q) ||
+         (n.tags || []).some(t => t.toLowerCase().includes(q));
+}
+
+function draw() {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.setTransform(dpr * cam.k, 0, 0, dpr * cam.k, dpr * cam.x, dpr * cam.y);
+  const fs = focusSet(), inv = 1 / cam.k;
+  const edgeRGB = getComputedStyle(document.documentElement).getPropertyValue("--edge");
+  const hot = S.hover || S.sel;
+  // edges
+  for (const kind of ["tree", "link"]) {
+    ctx.beginPath();
+    for (const e of E) {
+      if (e.k !== kind) continue;
+      if (fs && !(fs.has(e.s) && fs.has(e.t))) continue;
+      ctx.moveTo(e.s.x, e.s.y); ctx.lineTo(e.t.x, e.t.y);
+    }
+    ctx.strokeStyle = `rgba(${edgeRGB}, ${kind === "tree" ? (S.mode === "both" ? .28 : .42) : .55})`;
+    ctx.lineWidth = (kind === "tree" ? 1 : 1.3) * inv;
+    ctx.stroke();
+  }
+  if (fs) { // dimmed edges
+    ctx.beginPath();
+    for (const e of E) { if (fs.has(e.s) && fs.has(e.t)) continue; ctx.moveTo(e.s.x, e.s.y); ctx.lineTo(e.t.x, e.t.y); }
+    ctx.strokeStyle = `rgba(${edgeRGB}, .06)`; ctx.lineWidth = inv; ctx.stroke();
+  }
+  if (hot && nbr.has(hot)) { // emphasised edges
+    ctx.beginPath();
+    for (const e of E) if (e.s === hot || e.t === hot) { ctx.moveTo(e.s.x, e.s.y); ctx.lineTo(e.t.x, e.t.y); }
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent");
+    ctx.lineWidth = 1.8 * inv; ctx.stroke();
+  }
+  // nodes
+  for (const n of V) {
+    const lit = !fs || fs.has(n);
+    ctx.globalAlpha = lit ? 1 : .13;
+    ctx.fillStyle = n.color;
+    ctx.beginPath();
+    if (n.t) {
+      const r = n.r, c = 3;
+      ctx.roundRect(n.x - r, n.y - r, r * 2, r * 2, c);
+    } else ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    ctx.fill();
+    if (n === S.sel || n === S.hover) {
+      ctx.lineWidth = 2 * inv; ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--ink"); ctx.stroke();
+    }
+    if (n.archived) { ctx.globalAlpha *= .6; ctx.lineWidth = inv; ctx.strokeStyle = "#999"; ctx.setLineDash([2 * inv, 2 * inv]); ctx.stroke(); ctx.setLineDash([]); }
+  }
+  ctx.globalAlpha = 1;
+  // labels
+  if (S.labels) {
+    const halo = getComputedStyle(document.documentElement).getPropertyValue("--halo");
+    const ink = getComputedStyle(document.documentElement).getPropertyValue("--ink");
+    ctx.textBaseline = "middle"; ctx.lineJoin = "round";
+    for (const n of V) {
+      const lit = !fs || fs.has(n);
+      const emph = n === S.sel || n === S.hover || (fs && lit && (S.q.trim() || nbr.get(hot || {})?.has(n)));
+      const show = n.t ? (n.depth <= 1 ? cam.k > .25 : cam.k > .45 + n.depth * .2 || emph) : (cam.k > 1.5 || emph || (n.deg >= 5 && cam.k > .8));
+      if (!show || (!lit && !n.t)) continue;
+      const size = (n.t ? 13 : 11) * inv;
+      ctx.font = `${n.t ? 600 : 400} ${size}px ui-sans-serif, -apple-system, sans-serif`;
+      ctx.globalAlpha = lit ? 1 : .25;
+      const x = n.x + n.r + 4 * inv;
+      ctx.strokeStyle = halo; ctx.lineWidth = 3.2 * inv; ctx.strokeText(n.title, x, n.y);
+      ctx.fillStyle = ink; ctx.fillText(n.title, x, n.y);
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+function frame() {
+  // glide the camera
+  const k = .18; camAnimating = false;
+  for (const p of ["x", "y", "k"]) {
+    const d = goal[p] - cam[p];
+    if (Math.abs(d) > (p === "k" ? 1e-4 : .05)) { cam[p] += d * k; camAnimating = true; } else cam[p] = goal[p];
+  }
+  if (alpha > .003) tick(); else alpha = 0;
+  draw();
+  if (alpha > 0 || camAnimating || dragging) requestAnimationFrame(frame); else running = false;
+}
+const redraw = () => { if (!running) { running = true; requestAnimationFrame(frame); } };
+
+function resize() {
+  const r = cv.getBoundingClientRect(); dpr = window.devicePixelRatio || 1;
+  W = r.width; H = r.height; cv.width = W * dpr; cv.height = H * dpr; redraw();
+}
+
+function fit(nodes = V, pad = 70) {
+  if (!nodes.length) return;
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  for (const n of nodes) { x0 = Math.min(x0, n.x - n.r); y0 = Math.min(y0, n.y - n.r); x1 = Math.max(x1, n.x + n.r); y1 = Math.max(y1, n.y + n.r); }
+  const k = Math.min((W - pad * 2) / Math.max(x1 - x0, 1), (H - pad * 2) / Math.max(y1 - y0, 1), 2.2);
+  goal.k = k; goal.x = W / 2 - (x0 + x1) / 2 * k; goal.y = H / 2 - (y0 + y1) / 2 * k; redraw();
+}
+function centerOn(n, k = Math.max(goal.k, 1.4)) { goal.k = k; goal.x = W / 2 - n.x * k - (S.sel ? 150 : 0); goal.y = H / 2 - n.y * k; redraw(); }
+function focusTopic(t) {
+  const set = V.filter(n => topOf(n) === t);
+  S.q = ""; $("#q").value = ""; fit(set, 90);
+}
+
+// ---------------------------------------------------------------- interaction
+let dragging = null, panning = null, moved = false, downAt = null;
+function pick(px, py) {
+  const [x, y] = s2w(px, py); let best = null, bd = 1e18;
+  for (let i = V.length - 1; i >= 0; i--) {
+    const n = V[i], dx = n.x - x, dy = n.y - y, d = dx * dx + dy * dy, r = n.r + 4 / cam.k;
+    if (d < r * r && d < bd) { best = n; bd = d; }
+  }
+  return best;
+}
+const pos = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+
+cv.addEventListener("pointerdown", e => {
+  cv.setPointerCapture(e.pointerId);
+  const [px, py] = pos(e), n = pick(px, py); moved = false; downAt = [px, py];
+  if (n) { dragging = n; n.pinned = true; cv.classList.add("dragging"); } else { panning = [px - goal.x, py - goal.y]; cv.classList.add("dragging"); }
+  redraw();
+});
+cv.addEventListener("pointermove", e => {
+  const [px, py] = pos(e);
+  if (downAt && Math.hypot(px - downAt[0], py - downAt[1]) > 3) moved = true;
+  if (dragging && moved) { const [x, y] = s2w(px, py); dragging.x = x; dragging.y = y; kick(.25); }
+  else if (panning) { goal.x = cam.x = px - panning[0]; goal.y = cam.y = py - panning[1]; redraw(); }
+  else {
+    const n = pick(px, py);
+    if (n !== S.hover) { S.hover = n; cv.classList.toggle("pointer", !!n); redraw(); }
+  }
+});
+cv.addEventListener("pointerup", e => {
+  const [px, py] = pos(e);
+  if (dragging) { if (!moved) select(dragging); dragging.pinned = false; dragging = null; kick(.15); }
+  else if (panning && !moved) { select(null); }
+  panning = null; downAt = null; cv.classList.remove("dragging"); redraw();
+});
+cv.addEventListener("dblclick", e => { const n = pick(...pos(e)); if (n) openNode(n); });
+cv.addEventListener("pointerleave", () => { if (S.hover) { S.hover = null; redraw(); } });
+cv.addEventListener("wheel", e => {
+  e.preventDefault();
+  const [px, py] = pos(e), f = Math.exp(-e.deltaY * (e.ctrlKey ? .01 : .0015));
+  const k = Math.min(8, Math.max(.05, goal.k * f));
+  const [wx, wy] = [(px - goal.x) / goal.k, (py - goal.y) / goal.k];
+  goal.k = k; goal.x = px - wx * k; goal.y = py - wy * k; redraw();
+}, { passive: false });
+
+function select(n) {
+  S.sel = n; renderPanel(); redraw();
+}
+
+function renderPanel() {
+  const p = $("#panel"), n = S.sel;
+  if (!n) { p.style.display = "none"; return; }
+  p.style.display = "block"; p.replaceChildren();
+  p.append(el("h2", { text: n.title }), el("div", { class: "path", text: n.t ? (n.path || "(all notes)") : n.rel }));
+  if (n.t) {
+    p.append(el("div", { text: `${n.count} notes here · ${n.total} in all subtopics` }));
+    const kids = (n.t ? V.filter(m => m.t && m.parent === n.path && m !== n) : []);
+    if (kids.length) { p.append(el("h3", { text: "Subtopics" })); p.append(listOf(kids)); }
+  } else {
+    if (n.tags && n.tags.length) p.append(el("div", { class: "tags" }, ...n.tags.map(t => el("span", { text: t }))));
+    p.append(el("div", { class: "path", text: `${n.topic || "(top level)"} · ${n.age}d ago · ${Math.max(1, Math.round(n.size / 1024))} kB` }));
+    if (n.out.length) { p.append(el("h3", { text: `Links to (${n.out.length})` })); p.append(listOf(n.out)); }
+    if (n.inn.length) { p.append(el("h3", { text: `Linked from (${n.inn.length})` })); p.append(listOf(n.inn)); }
+    if (!n.out.length && !n.inn.length) p.append(el("div", { class: "path", text: "No links to or from this note." }));
+  }
+  p.append(el("div", { class: "row" },
+    el("button", { class: "plain", text: CFG.serve ? "Open in Emacs" : "Copy path", onclick: () => openNode(n) }),
+    el("button", { class: "plain", text: "Center", onclick: () => centerOn(n) }),
+    el("button", { class: "plain", text: "Close", onclick: () => select(null) })));
+}
+function listOf(items) {
+  const ul = el("ul");
+  for (const m of items) ul.append(el("li", {}, el("a", { text: m.title, onclick: () => { if (byId.has(m.id) && V.includes(m)) { select(m); centerOn(m); } else openNode(m); } })));
+  return ul;
+}
+
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("show"), 1800); }
+async function openNode(n) {
+  const path = n.t ? n.path : n.rel;
+  if (CFG.serve) {
+    try {
+      const r = await fetch(`/open?t=${CFG.token}&k=${n.t ? "topic" : "note"}&p=${encodeURIComponent(path)}`);
+      toast(r.ok ? (n.t ? "Opened the folder in Emacs" : "Opened in Emacs") : "Emacs refused that");
+    } catch (_) { toast("Emacs is not answering"); }
+  } else {
+    try { await navigator.clipboard.writeText(path); toast("Path copied: " + path); } catch (_) { toast(path); }
+  }
+}
+
+// ---------------------------------------------------------------- tree view
+function buildTree() {
+  const root = $("#treeview"); root.replaceChildren();
+  const q = S.q.trim().toLowerCase();
+  const topics = all.filter(n => n.t && (S.archive || !n.archived));
+  const notes = all.filter(n => !n.t);
+  const byTopic = new Map(); for (const n of notes) { (byTopic.get(n.topic) || byTopic.set(n.topic, []).get(n.topic)).push(n); }
+  const kidsOf = new Map(); for (const t of topics) { if (t.path === "") continue; (kidsOf.get(t.parent) || kidsOf.set(t.parent, []).get(t.parent)).push(t); }
+  const sortT = (a, b) => a.title.toLowerCase().localeCompare(b.title.toLowerCase());
+  let shown = 0;
+  function nodeFor(t, depth) {
+    const subs = (kidsOf.get(t.path) || []).sort(sortT).map(k => nodeFor(k, depth + 1)).filter(Boolean);
+    const here = (byTopic.get(t.path) || []).filter(n => !q || match(n, q) || match(t, q)).sort(sortT);
+    if (q && !subs.length && !here.length && !match(t, q)) return null;
+    const d = el("details", {}), probe = { t: true, path: t.path, topic: t.path };
+    const sum = el("summary", {}, el("span", { class: "dot", style: `background:${colorOf(probe)}` }),
+      el("span", { class: "tname", text: t.title }), el("span", { class: "count", text: `${t.total}` }));
+    sum.addEventListener("dblclick", e => { e.preventDefault(); openNode(t); });
+    d.append(sum);
+    if (depth < 1 || q) d.open = true;
+    const ul = el("ul", { class: "fade" });
+    for (const k of subs) ul.append(el("li", {}, k));
+    for (const n of here) {
+      shown++;
+      const meta = n.deg ? `↗${n.out.length} ↙${n.inn.length}` : "";
+      ul.append(el("li", { class: "note" }, el("a", { text: n.title, onclick: () => openOrSelect(n) }),
+        el("span", { class: "meta", text: [ (n.tags || []).join(" "), meta, n.age + "d" ].filter(Boolean).join("  ·  ") })));
+    }
+    d.append(ul); return d;
+  }
+  const rootT = byId.get("t:") || { path: "", title: "Notes", total: notes.length, t: true };
+  const top = nodeFor(rootT, 0);
+  const wrap = el("ul"); if (top) wrap.append(el("li", {}, top));
+  const bar = el("div", { style: "margin-bottom:12px; display:flex; gap:8px" },
+    el("button", { class: "plain", text: "Expand all", onclick: () => root.querySelectorAll("details").forEach(d => d.open = true) }),
+    el("button", { class: "plain", text: "Collapse all", onclick: () => { root.querySelectorAll("details").forEach(d => d.open = false); root.querySelector("details").open = true; } }),
+    el("span", { class: "stats", style: "align-self:center", text: "double-click a topic to open its folder" }));
+  root.append(bar, wrap);
+  if (!shown && q) root.append(el("div", { class: "empty", text: "Nothing matches." }));
+}
+function openOrSelect(n) { if (CFG.serve) openNode(n); else { setView("graph"); select(n); centerOn(n); } }
+
+// ---------------------------------------------------------------- wiring
+function setView(v) {
+  S.view = v;
+  $("#graphview").style.display = v === "graph" ? "block" : "none";
+  $("#treeview").style.display = v === "tree" ? "block" : "none";
+  for (const b of document.querySelectorAll("#views button")) b.classList.toggle("on", b.dataset.v === v);
+  $("#modes").style.visibility = v === "graph" ? "visible" : "hidden";
+  $("#orphlbl").style.display = v === "graph" && S.mode === "links" ? "" : "none";
+  if (v === "tree") buildTree(); else { resize(); kick(.05); }
+}
+function setMode(m) {
+  S.mode = m;
+  for (const b of document.querySelectorAll("#modes button")) b.classList.toggle("on", b.dataset.m === m);
+  $("#orphlbl").style.display = m === "links" ? "" : "none";
+  visible(); settle(60, .5); kick(.15); fit();
+}
+document.querySelectorAll("#views button").forEach(b => b.onclick = () => setView(b.dataset.v));
+document.querySelectorAll("#modes button").forEach(b => b.onclick = () => setMode(b.dataset.m));
+$("#orph").onchange = e => { S.orphans = e.target.checked; visible(); settle(40, .4); kick(.15); };
+$("#lbl").onchange = e => { S.labels = e.target.checked; redraw(); };
+$("#arch").onchange = e => { S.archive = e.target.checked; load(); };
+$("#fit").onclick = () => fit();
+$("#reload").onclick = () => load();
+$("#q").addEventListener("input", e => {
+  S.q = e.target.value;
+  if (S.view === "tree") buildTree(); else redraw();
+});
+$("#q").addEventListener("keydown", e => {
+  if (e.key === "Enter" && S.view === "graph") {
+    const q = S.q.trim().toLowerCase(); const m = V.filter(n => match(n, q));
+    if (m.length === 1) { select(m[0]); centerOn(m[0]); } else if (m.length) fit(m);
+  }
+  if (e.key === "Escape") { e.target.value = ""; S.q = ""; e.target.blur(); if (S.view === "tree") buildTree(); else redraw(); }
+});
+addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT" && e.target.type === "search") return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  switch (e.key) {
+    case "/": e.preventDefault(); $("#q").focus(); break;
+    case "1": setMode("tree"); break; case "2": setMode("links"); break; case "3": setMode("both"); break;
+    case "t": setView(S.view === "graph" ? "tree" : "graph"); break;
+    case "f": fit(); break; case "l": S.labels = !S.labels; $("#lbl").checked = S.labels; redraw(); break;
+    case "Escape": select(null); break;
+  }
+});
+new ResizeObserver(resize).observe($("#graphview"));
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { all.forEach(n => n.color = colorOf(n)); renderLegend(); redraw(); });
+
+async function fetchData() {
+  if (CFG.data) return CFG.data;
+  const r = await fetch(`/data.json?t=${CFG.token}&archive=${S.archive ? 1 : 0}`);
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+async function load(first) {
+  try {
+    S.data = await fetchData();
+    const prevSel = S.sel && S.sel.id;
+    ingest(S.data); visible();
+    S.sel = prevSel ? byId.get(prevSel) || null : null;
+    if (CFG.data) $("#archlbl").style.display = "none";
+    renderPanel();
+    if (S.view === "tree") buildTree();
+    if (first) {
+      resize(); settle(320, 1); cam.x = goal.x; fit(); Object.assign(cam, goal); kick(.08); setTimeout(() => fit(), 1200);
+    } else { settle(80, .5); kick(.12); }
+  } catch (err) { toast("Could not read the notes: " + err.message); }
+}
+// the address can say how to start: #v=tree  #m=links  #q=haskell  #sel=<part of a title>
+const HASH = new URLSearchParams(location.hash.slice(1));
+if (HASH.get("m")) { S.mode = HASH.get("m"); document.querySelectorAll("#modes button").forEach(b => b.classList.toggle("on", b.dataset.m === S.mode)); }
+if (HASH.get("q")) { S.q = HASH.get("q"); $("#q").value = S.q; }
+setView(HASH.get("v") === "tree" ? "tree" : "graph");
+load(true).then(() => {
+  const want = HASH.get("sel");
+  if (want) { const n = all.find(x => x.title.toLowerCase().includes(want.toLowerCase())); if (n && V.includes(n)) { select(n); centerOn(n, 1.8); Object.assign(cam, goal); redraw(); } }
+});
+// test hook: lets a headless check read the state
+window.__notesMap = { S, get V() { return V; }, get E() { return E; }, cam, fit };
+})();
+</script>
+</body>
+</html>

@@ -149,6 +149,7 @@
                            import
                            libs
                            notes
+                           notes-graph
                            agenda
                            bookmarks
                            contacts

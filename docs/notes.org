@@ -7,7 +7,7 @@ This is how note taking works in this configuration, why it is built the way it 
 The short version: *a note is a plain Org file in a folder.  That is the whole database.*  Everything else -- finding, capturing, linking, indexes, a todo inbox, habits, contacts with birthdays, bookmarks -- is a thin layer of Emacs Lisp (and, from a terminal, of ZSH) over those files.  Nothing needs to be indexed, nothing needs to be synced except files, and nothing stops working if Emacs does.
 
 #+begin_quote
-Contents: [[#why][Why plain files]] · [[#tour][A tour in five minutes]] · [[#layout][The layout]] · [[#formats][The formats]] · [[#workflows][Workflows]] · [[#agenda][The personal agenda]] · [[#indexes][Index pages]] · [[#links][Links]] · [[#terminal][From the terminal]] · [[#sync][Syncing and backups]] · [[#setup][Setting it up]] · [[#tweak][Making it yours]] · [[#design][Design notes]] · [[#faq][FAQ]]
+Contents: [[#why][Why plain files]] · [[#tour][A tour in five minutes]] · [[#layout][The layout]] · [[#formats][The formats]] · [[#workflows][Workflows]] · [[#agenda][The personal agenda]] · [[#indexes][Index pages]] · [[#links][Links]] · [[#map][The map]] · [[#terminal][From the terminal]] · [[#sync][Syncing and backups]] · [[#setup][Setting it up]] · [[#tweak][Making it yours]] · [[#design][Design notes]] · [[#faq][FAQ]]
 #+end_quote
 
 * Why plain files
@@ -63,6 +63,11 @@ You have something to do:
   C-c n d              →  "today": the day's agenda, habits, birthdays, what is
                           in progress, the inbox
 
+You want to see how it all fits together:
+
+  C-c n g              →  a smooth, interactive map in the browser: how notes
+                          link to each other and how topics nest, plus a tree
+
 You want to file a URL or save an address:
 
   C-c n B              →  bookmark under a category
@@ -95,6 +100,9 @@ Everything above is explained in [[#workflows][Workflows]]; the full key list is
 | ~C-c n X~ | A habit, captured. |
 | ~C-c n h~ | The *habits*, with their consistency graphs. |
 | ~C-c n u~ | Birthdays *upcoming*. |
+| ~C-c n g~ | The *graph*: an interactive map of links and topics, and a tree, in the browser; a click opens the note here. |
+| ~C-c n T~ | The *tree*: topics and notes as a folding outline in an Emacs buffer. |
+| ~C-c n G~ | The map exported as one self-contained HTML *file*. |
 | ~C-c n A~ | The full agenda dispatcher (~org-agenda~). |
 | ~C-c n k~ / ~C-c n K~ | Find a *contact* / add one. |
 | ~C-c n b~ / ~C-c n B~ | Open a *bookmark* / file one. |
@@ -445,6 +453,58 @@ Between notes: =[[file:../sibling-topic/note.org][Title]]=, always relative, wri
 
 Plain Org links, =[[https://…][description]]=.  The bookmarks file and every note use the same syntax, so there is one thing to learn.  Dead links rot; a periodic pass that follows redirects and replaces dead links by an archive copy keeps a large collection healthy (the author's was a short script run against the whole tree, then reviewed as a diff).
 
+* The map: how notes connect
+:PROPERTIES:
+:CUSTOM_ID: map
+:END:
+
+A folder tree tells you where a note /is/; links tell you what it is /about/.  Neither shows the shape of the whole.  ~C-c n g~ opens a map that does: notes and topics drawn as a graph that you can pull around, with a tree beside it.  It is a live view of the files -- nothing is stored -- so it is always as current as the notes.
+
+** Reading the graph
+
+- *Dots are notes, squares are topics.*  A dot grows with the number of links to and from it; a square grows with what is under it.  The colour is the top-level topic, so a region of one colour is one area of your knowledge, and a thread between two colours is a link that crosses areas.
+- *Three views of the same notes* (the buttons at the top, or ~1~ ~2~ ~3~):
+  - *Categories*: only the folder structure -- every topic joined to its subtopics and notes.  It shows how the notes are /organised/ and where the big and the empty branches are.
+  - *Links*: only the links between notes.  It shows how they are /related/: clusters of notes that refer to each other, the hubs everything points to, and the bridges between areas.  Notes nothing links to are hidden unless you tick /unlinked notes/.
+  - *Both* (the default): structure and links together -- notes clustered by topic and tied across topics by their links.
+- *Hover* a note and its neighbours light up while the rest fades; *click* it for a panel with its path, tags, age, size and the notes it links to and is linked from (each a click away); *double-click* to open it in Emacs.  Double-clicking a topic opens its folder in Dired.
+- *Drag* a note to move it (the others rearrange around it and settle), *drag the background* to pan, *scroll* to zoom around the pointer.  Motion is animated, so zooming, centring and switching view glide instead of jumping.
+- *Search* (~/~) dims everything that does not match a title, topic or tag; ~Enter~ zooms to the match.  The legend at the bottom lists the top-level topics: click one to fit it on screen.
+- *Labels* appear as you zoom in: the big topics first, then notes that are hubs, then everything.  ~l~ toggles them, ~f~ fits the picture, ~Esc~ clears.
+- *Reload* reads the notes again (keeping the positions of what was already there), and /archive/ adds the archive's notes, drawn dashed.
+- The *Tree* tab (~t~) is the same notes as a collapsible outline with counts, links in and out, and age; the search box filters it and opens the branches that match.
+
+** What counts as a link
+
+A relative =[[file:...]]= link from a note to another note, written outside source and example blocks (so a note that /documents/ the syntax is not full of phantom links).  Index pages are left out -- they link to everything and would turn the graph into a hairball -- and so are the personal files, the diary and anything else matching ~heks/notes-graph-exclude~.
+
+** Reading the picture
+
+- *Hubs* (big dots with many threads) are your index-like notes: the places you start from.  Make sure they are good notes.
+- *Islands* (a cluster with no thread to the rest) are knowledge you have never connected: link the island to the area it belongs to.
+- *Orphans* (in the Links view, with /unlinked notes/ on) are notes nobody refers to: link them, merge them, or accept that they are reference.
+- *A topic whose square is large and whose dots do not link to each other* wants splitting, or its notes want linking.
+- *Long threads between different colours* are the interesting connections; a note that bridges two areas deserves a good title.
+
+** The tree in Emacs (~C-c n T~) and the file (~C-c n G~)
+
+~C-c n T~ shows the topics as headings, with the number of notes beneath each, and the notes as links; it is an ordinary Org buffer, so ~TAB~ and ~S-TAB~ fold, ~RET~ on a link opens the note, and Occur or Consult work on it.  ~C-c n G~ writes the map as /one/ self-contained HTML file (no network, no libraries) to keep, attach or put on a web page; on an exported page a click copies the note's path instead of opening it, because no Emacs is behind it.
+
+** How it works
+
+Emacs runs a tiny HTTP server, bound to =127.0.0.1= only, that serves the page (=notes-graph.html=, next to =notes-graph.el=), the notes' data as JSON, and one action -- "open this note".  Every request has to carry a random token that only the URL Emacs opens knows, and a loopback =Host= header, so a web page you happen to have open cannot drive it; the action refuses any path outside the notes directory.  The server lives while Emacs does (~M-x heks/notes-graph-stop~ ends it) and the data is read from the files each time the page asks.  The drawing is a force simulation on a canvas: topics and notes repel, links and folders are springs, and the layout is run ahead of the first frame so what you see first is already a picture; it then cools and stops, and moves again only when you touch it.
+
+Deep links: the address may say how to start -- =#v=tree=, =#m=links=, =#q=haskell=, =#sel=part of a title=.
+
+** Settings
+
+| Setting | What it does |
+|---------+--------------|
+| ~heks/notes-graph-exclude~ | Regexps, on the path inside the notes, of files left out of the map. |
+| ~heks/notes-graph-browser-function~ | The function that opens the URL (nil: the system browser). It needs JavaScript, so not ~eww~. |
+
+It was built and tried on about 650 nodes and 700 edges (the author's own notes with the archive on).  The simulation is quadratic in what is on screen, so a much larger collection will get heavier: the Links view with unlinked notes hidden is the lightest, Both the heaviest.
+
 * From the terminal
 :PROPERTIES:
 :CUSTOM_ID: terminal
@@ -549,7 +609,7 @@ For readers who want to build something similar, or disagree.
 
 *Why not ID links, so that moving is free?*  Because an ID is only meaningful to the tool that indexes it.  A relative path is meaningful to everything, and ~C-c n r~ makes moving as easy.
 
-*What about a graph view?*  Not provided.  If you want one, a script that walks the ~[[file:~/...]]~ links and emits Graphviz is thirty lines, and all the data is already in the files.
+*What about a graph view?*  ~C-c n g~: see [[#map][The map]].  It is built from the same relative links; nothing was added to the notes to make it possible.
 
 *Can I use this without the personal files?*  Yes: they are independent modules.  Drop ~contacts.el~, ~bookmarks.el~ and ~agenda.el~ from the module list in ~init.el~ and nothing else changes (the agenda commands of ~C-c n d~ etc. go with ~agenda.el~).
 

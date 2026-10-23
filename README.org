@@ -404,6 +404,9 @@ It checks the document as it is written, and ~C-c a l~ says what is wrong with t
 
 Notes as plain files: one Org file per note in topic folders under the notes directory (~heks/notes-dir~), linked by relative ~file:~ links, with no database. ~C-c n c~ captures from anywhere -- the region, or with a prefix the latest kill, filed under a topic picked from a completion list that shows how many notes each topic holds, when it last changed and what its index says it is for -- ~C-c n n~ writes a new note, ~C-c n f~ finds one, ~C-c n i~ links one, ~C-c n r~ moves one and repairs the links to it. Every topic folder's ~index.org~ is generated between markers from what is in it, and kept current on save (~C-c n I~ rebuilds them all). The archive of old employers is the dot-folder ~.archive~, kept out of search and the agenda; ~C-c n a~ opens from it.
 
+*** =notes-graph.el=
+The shape of the notes: ~C-c n g~ opens a smooth, interactive map in the browser -- notes and topics as a force-directed graph (the links between notes, the folder structure, or both), with a collapsible tree beside it; hovering lights up a note's neighbours, a click inspects it and opening one opens it in this Emacs. It is served by a tiny loopback-only server inside Emacs (token-protected) from =notes-graph.html=, which sits next to the module and needs no library or network. ~C-c n T~ is the tree as a folding Org outline and ~C-c n G~ exports the map as one self-contained HTML file. See [[file:docs/notes.org][docs/notes.org]].
+
 *** =contacts.el=, =bookmarks.el=, =agenda.el=
 The personal files at the top of the notes directory, integrated: contacts with their birthdays (in the agenda, and an address completed in a message), the bookmarks start page with a picker and a filing command, and the todo inbox, habits and the day's agenda. See the NEWS entry for the keys.
 

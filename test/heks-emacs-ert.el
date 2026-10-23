@@ -67,7 +67,7 @@
   (load (expand-file-name (format "modules/%s.el" name) heks-ert--source) nil t))
 
 (dolist (module '("markdown" "render" "import" "present" "heks-emacs" "emacs-core"
-                 "notes" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "openapi" "scheme-lint" "duplicates" "shell" "guile" "ui" "ai"))
+                 "notes" "notes-graph" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "openapi" "scheme-lint" "duplicates" "shell" "guile" "ui" "ai"))
   (heks-ert--module module))
 
 ;; `htmlize' is what Org colours the code in a note with, and the
@@ -2983,6 +2983,44 @@ line height can leave a gap in it."
     (should (= 1 (seq-count (lambda (b) (equal (plist-get b :url) "https://example.org/a"))
                             (heks/bookmarks-all))))
     (kill-matching-buffers "bookmarks.org" t t)))
+
+(ert-deftest heks/graph/notes-and-topics-are-nodes-and-links-and-folders-are-edges ()
+  (heks-ert--with-notes
+    (heks-ert--write (expand-file-name "eng/a.org" root)
+                     "#+title: A\n\nSee [[file:./b.org][B]] and [[file:../food/c.org][C]].\n#+begin_src org\n[[file:./hidden.org][not a link]]\n#+end_src\n")
+    (heks-ert--write (expand-file-name "eng/b.org" root) "#+title: B\n")
+    (heks-ert--write (expand-file-name "food/c.org" root) "#+title: C\n")
+    (heks-ert--write (expand-file-name "eng/hidden.org" root) "#+title: Hidden\n")
+    (heks-ert--write (expand-file-name "todo.org" root) "#+title: Todo\n[[file:eng/a.org][A]]\n")
+    (heks-ert--write (expand-file-name "eng/index.org" root) "#+title: Eng\n")
+    (let* ((data (heks/notes-graph-data))
+           (nodes (append (plist-get data :nodes) nil))
+           (edges (append (plist-get data :edges) nil))
+           (ids (mapcar (lambda (n) (plist-get n :id)) nodes))
+           (pairs (lambda (kind) (sort (mapcar (lambda (e) (cons (plist-get e :s) (plist-get e :t)))
+                                               (seq-filter (lambda (e) (equal (plist-get e :k) kind)) edges))
+                                       (lambda (a b) (string< (format "%S" a) (format "%S" b)))))))
+      (should (member "eng/a.org" ids))
+      (should (member "t:eng" ids))
+      (should (member "t:" ids))
+      ;; the personal file and the index page are not notes of the map
+      (should-not (member "todo.org" ids))
+      (should-not (member "eng/index.org" ids))
+      ;; a link in a source block is not a link
+      (should (equal (funcall pairs "link")
+                     '(("eng/a.org" . "eng/b.org") ("eng/a.org" . "food/c.org"))))
+      (should (member '("t:eng" . "eng/a.org") (funcall pairs "tree")))
+      (should (member '("t:" . "t:eng") (funcall pairs "tree")))
+      (should (= 3 (plist-get (seq-find (lambda (n) (equal (plist-get n :id) "t:eng")) nodes) :total))))))
+
+(ert-deftest heks/graph/the-page-carries-its-data-and-cannot-close-its-script ()
+  (heks-ert--with-notes
+    (heks-ert--write (expand-file-name "t/x.org" root) "#+title: </script><b>x\n")
+    (let ((page (heks/notes-graph--page (list :serve :false :data (heks/notes-graph-data)))))
+      (should (string-match-p "\"serve\":false" page))
+      (should (string-match-p "<\\\\/script><b>x" page))
+      (should-not (string-match-p "/\\*@CONFIG@\\*/ {}" page)))))
+
 
 (unless (getenv "HEKS_ERT_NO_RUN")
   (ert-run-tests-batch-and-exit))
