@@ -23,9 +23,11 @@
   "Default maak task."
   (list-tasks))
 
-;; Emacs configuration installation directory.
+;; Emacs configuration installation directory.  The path is resolved here
+;; rather than left to a shell, so `cp' writes into the home directory and not
+;; into a directory named `~'.
 (define emacs-config-install-dir
-  (~ "\"~a\"" "$HOME/.emacs.d/"))
+  (~ "~a/.emacs.d/" (home-dir)))
 
 (define (remake-emacs-config-dir)
   "Remake the Emacs configuration directory."
@@ -54,7 +56,7 @@ Fast and without installing anything: it reads each file form by form and
 compares the module list in `init.el' with the modules that are there.  A
 parenthesis that closed a macro too early, or a module that was renamed
 without its entry in the list, is caught here."
-  (syscall "emacs -Q --batch -l test/heks-emacs-lint.el"))
+  (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-lint.el")))
 
 (define (verify)
   "Install the configuration and check it in a batch Emacs.
@@ -66,7 +68,7 @@ output, that nothing breaks without Guix, that a Markdown file renders and
 an OpenAPI file is read and checked).  It installs first, because what
 gets checked is the copy Emacs actually runs."
   (install-emacs-config)
-  (syscall "emacs -Q --batch -l test/heks-emacs-verify.el"))
+  (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-verify.el")))
 
 (define (keys)
   "Check that no key means two things.
@@ -77,7 +79,7 @@ keymaps cannot see -- prints the whole key tree under its topic letters,
 and fails on a key that does two jobs, on a topic nobody documented and
 on a binding whose command does not exist."
   (install-emacs-config)
-  (syscall "emacs -Q --batch -l test/heks-emacs-keys.el"))
+  (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-keys.el")))
 
 (define (keys-update)
   "Write the keybindings reference from the configuration.
@@ -87,14 +89,15 @@ the keys against and from the bindings it reads, so it cannot say
 something the configuration does not; this is how it is made.  Read the
 diff before committing it."
   (install-emacs-config)
-  (syscall "HEKS_KEYS_WRITE=1 emacs -Q --batch -l test/heks-emacs-keys.el"))
+  (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-keys.el")
+       #:env '("HEKS_KEYS_WRITE=1")))
 
 (define (render)
   "Check the Markdown renderer on its own.
 
 Fast, and without loading any of the configuration: the renderer is a
 pure function from a string to HTML, so it is checked as one."
-  (syscall "emacs -Q --batch -l test/heks-emacs-render.el"))
+  (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-render.el")))
 
 (define (test)
   "Run the configuration's own test suite.
@@ -103,7 +106,7 @@ The other checks read this configuration and judge what it says; this one
 loads the modules and calls the code, which is the only way to find out
 that a function does what its docstring says.  It needs nothing installed:
 the modules are loaded from `src' by name, with `use-package' stubbed out."
-  (syscall "emacs -Q --batch -l test/heks-emacs-ert.el"))
+  (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-ert.el")))
 
 (define (golden)
   "Check that the renderers still produce the pages they produced last time.
@@ -111,14 +114,15 @@ the modules are loaded from `src' by name, with `use-package' stubbed out."
 The documents in `test/fixtures/' are rendered and compared, line by line,
 with the pages kept in `test/golden/', so that a change in what a preview
 shows arrives as a diff rather than as a page one has to read and judge."
-  (syscall "emacs -Q --batch -l test/heks-emacs-golden.el"))
+  (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-golden.el")))
 
 (define (golden-update)
   "Write the pages the renderers produce now over the golden ones.
 
 Run this when the change is the one that was wanted, then read the diff it
 leaves in `test/golden/' before committing it."
-  (syscall "HEKS_GOLDEN_UPDATE=1 emacs -Q --batch -l test/heks-emacs-golden.el"))
+  (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-golden.el")
+       #:env '("HEKS_GOLDEN_UPDATE=1")))
 
 (define (stats)
   "Print the configuration's line and decision counts.
@@ -128,7 +132,7 @@ configuration files, the tests and the snippets have, how many of those
 lines are blank or comments, and how many decision points the top-level
 definitions of the modules contain.  This is what refreshes the numbers
 in the README."
-  (syscall "emacs -Q --batch -l test/heks-emacs-stats.el"))
+  (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-stats.el")))
 
 (define (check)
   "Everything: parse the source, then check the installed configuration."
