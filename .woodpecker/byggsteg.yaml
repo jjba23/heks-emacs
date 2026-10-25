@@ -29,11 +29,10 @@ steps:
   get-byggsteg-token:
     name: "🔒 Get token @ Byggsteg"
     image: *byggsteg_image
-    commands:
-      - /bin/byggsteg-woodpecker get-token
     when:
       - event: [push]
     settings:
+      BYGGSTEG_STEP: get-token
       BYGGSTEG_EMAIL:
         from_secret: BYGGSTEG_EMAIL
       BYGGSTEG_PASSWORD:
@@ -43,11 +42,10 @@ steps:
   submit-byggsteg-job:
     name: "💼 Submit job @ Byggsteg"
     image: *byggsteg_image
-    commands:
-      - /bin/byggsteg-woodpecker submit-job
     when:
       - event: [push]
     settings:
+      BYGGSTEG_STEP: submit-job
       BYGGSTEG_URL: *jointhefreeworld_byggsteg_url
       BYGGSTEG_JOB_CODE: |
         (lambda()
@@ -59,9 +57,8 @@ steps:
   poll-byggsteg-job:
     name: "🔄 Poll job status @ Byggsteg"
     image: *byggsteg_image
-    commands:
-      - /bin/byggsteg-woodpecker poll-job
     when:
       - event: [push]
     settings:
+      BYGGSTEG_STEP: poll-job
       BYGGSTEG_URL: *jointhefreeworld_byggsteg_url
