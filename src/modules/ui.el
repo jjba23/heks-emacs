@@ -254,9 +254,9 @@ configured later, from the `with-eval-after-load' calls below."
     (heks//set-face 'markdown-ts-heading-5 :font heks/font-sans :weight 'bold :height 1.0)
     (heks//set-face 'markdown-ts-heading-6 :font heks/font-sans :weight 'bold :height 0.98)
     (heks//set-face 'markdown-ts-setext-heading :font heks/font-sans :weight 'bold :height 1.35)
-    (heks//set-face 'markdown-ts-code-block :font heks/font-mono :height 0.9)
-    (heks//set-face 'markdown-ts-indented-code-block :font heks/font-mono :height 0.9)
-    (heks//set-face 'markdown-ts-code-span :font heks/font-mono :height 0.9)
+    (heks//set-face 'markdown-ts-code-block :font heks/font-mono :height 1.0)
+    (heks//set-face 'markdown-ts-indented-code-block :font heks/font-mono :height 1.0)
+    (heks//set-face 'markdown-ts-code-span :font heks/font-mono :height 1.0)
     (heks//set-face 'markdown-ts-block-quote :font heks/font-serif :slant 'italic))
   ;; --- markdown-mode (third-party) ---
   (when (facep 'markdown-header-face-1)
@@ -266,9 +266,24 @@ configured later, from the `with-eval-after-load' calls below."
     (heks//set-face 'markdown-header-face-4 :font heks/font-sans :weight 'bold :height 1.06)
     (heks//set-face 'markdown-header-face-5 :font heks/font-sans :weight 'bold :height 1.0)
     (heks//set-face 'markdown-header-face-6 :font heks/font-sans :weight 'bold :height 0.98)
-    (heks//set-face 'markdown-pre-face :font heks/font-mono :height 0.9)
-    (heks//set-face 'markdown-code-face :font heks/font-mono :height 0.9)
-    (heks//set-face 'markdown-inline-code-face :font heks/font-mono :height 0.9)
+    ;; Monospace at 1.0: a smaller mono looks tiny next to the sans body.
+    ;; The faces below are the ones markdown-mode shrinks or leaves in
+    ;; the fixed-pitch default (tables, fences, list markers, metadata).
+    (dolist (face '(markdown-pre-face markdown-code-face
+                    markdown-inline-code-face markdown-table-face
+                    markdown-language-keyword-face
+                    markdown-language-info-face
+                    markdown-markup-face markdown-list-face
+                    markdown-metadata-key-face
+                    markdown-metadata-value-face
+                    markdown-url-face markdown-link-url-face))
+      (when (facep face)
+        (heks//set-face face :height 1.0)))
+    (dolist (face '(markdown-pre-face markdown-code-face
+                    markdown-inline-code-face markdown-table-face
+                    markdown-language-keyword-face))
+      (when (facep face)
+        (heks//set-face face :font heks/font-mono)))
     (heks//set-face 'markdown-blockquote-face :font heks/font-serif :slant 'italic)))
 
 ;;
