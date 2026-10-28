@@ -131,6 +131,7 @@
                            dev-langs
                            dev-tools
                            dev-flymake
+                           dev-hover
                            dev-formats
                            dev-kubernetes
                            dev-folding
