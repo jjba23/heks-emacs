@@ -1479,26 +1479,113 @@ two configurations happened to be loaded."
   ;; Essential for Nix/Guix/direnv workflows so project.el knows where the project starts.
   (setq project-vc-extra-root-markers '(".envrc")))
 
+(require 'cl-lib)
+
 (defconst heks/markdown-marker-regexp
   (rx (or (seq (group "`") (+ (not (any "`\n"))) (group "`"))
           (seq (group (or "***" "**" "__" "~~"))
                (+? (not (any "\n"))) (group (backref 3)))
           (seq (group-n 5 (any "*_")) (not (any "*_ \n"))
-               (*? (not (any "\n"))) (not (any "*_ \n")) (backref 5))))
+               (? (*? (not (any "\n"))) (not (any "*_ \n"))) (backref 5))))
   "Inline Markdown markup whose delimiters are hidden, as in Org.")
+
+(defconst heks/markdown-max-size 2000000
+  "Buffers larger than this many characters are left as plain text.")
+
+(defconst heks/markdown-fence-open-regexp
+  "^[ \t]*\\(`\\{3,\\}\\|~\\{3,\\}\\)\\(.*\\)$"
+  "A line that may open a fenced block: three or more backticks or tildes.")
+
+(defvar-local heks/markdown--blocks-cache nil
+  "(TICK . BLOCKS) of `heks/markdown--blocks', valid while TICK is current.")
+
+(defun heks/markdown--blocks ()
+  "Return the fenced code blocks of the buffer, as a list in buffer order.
+Each is (OPEN-BEG OPEN-EOL BODY-BEG BODY-END CLOSE-BEG CLOSE-END LANG).
+A block opens with three or more backticks or tildes and closes with a
+line of the same character, at least as long and with nothing after it.
+An unclosed block runs to the end of the buffer; its CLOSE-BEG and
+CLOSE-END are nil."
+  (let ((tick (buffer-chars-modified-tick)))
+    (if (eq (car heks/markdown--blocks-cache) tick)
+        (cdr heks/markdown--blocks-cache)
+      (let (blocks)
+        (save-excursion
+          (save-restriction
+            (widen)
+            (goto-char (point-min))
+            (while (re-search-forward heks/markdown-fence-open-regexp nil t)
+              (let ((obeg (match-beginning 0))
+                    (oeol (match-end 0))
+                    (fence (match-string 1))
+                    (info (string-trim (match-string 2))))
+                ;; "```a`" is inline code, not a fence.
+                (unless (and (eq (aref fence 0) ?`) (string-search "`" info))
+                  (let ((lang (if (string-match "\\`[^ \t{}]+" info)
+                                  (match-string 0 info) ""))
+                        (closer (format "^[ \t]*%s\\{%d,\\}[ \t]*$"
+                                        (regexp-quote (string (aref fence 0)))
+                                        (length fence))))
+                    (forward-line 1)
+                    (let ((bbeg (point)))
+                      (if (re-search-forward closer nil t)
+                          (push (list obeg oeol bbeg (match-beginning 0)
+                                      (match-beginning 0) (match-end 0) lang)
+                                blocks)
+                        (push (list obeg oeol bbeg (point-max) nil nil lang)
+                              blocks)
+                        (goto-char (point-max))))))))))
+        (setq blocks (nreverse blocks))
+        (setq heks/markdown--blocks-cache (cons tick blocks))
+        blocks))))
+
+(defun heks/markdown--block-end (block)
+  "Return where BLOCK ends."
+  (or (nth 5 block) (point-max)))
+
+(defun heks/markdown--block-at (pos)
+  "Return the fenced block containing POS, fences included, or nil."
+  (seq-find (lambda (b) (and (<= (nth 0 b) pos)
+                             (<= pos (heks/markdown--block-end b))))
+            (heks/markdown--blocks)))
+
+(defun heks/markdown--markers (beg end fn)
+  "Call FN with (MB ME OPEN) for each inline markup between BEG and END.
+MB..ME is the whole markup and OPEN the length of each delimiter.  Fenced
+code blocks (fences included) are skipped, and so is an intraword `_', as
+in snake_case."
+  (save-excursion
+    (goto-char beg)
+    (beginning-of-line)
+    (while (re-search-forward heks/markdown-marker-regexp end t)
+      (let* ((mb (match-beginning 0)) (me (match-end 0))
+             (block (heks/markdown--block-at mb)))
+        (cond
+         (block
+          (goto-char (max (point) (heks/markdown--block-end block))))
+         ((and (eq (char-after mb) ?_)
+               (> mb (point-min))
+               (memq (char-syntax (char-before mb)) '(?w ?_)))
+          (goto-char (1+ mb)))
+         (t
+          (funcall fn mb me
+                   (if (match-beginning 3) (length (match-string 3)) 1))))))))
 
 (defun heks/markdown-hide-markers (beg end)
   "Hide the delimiters of inline Markdown markup between BEG and END.
 The delimiters show again while point is inside the markup."
-  (save-excursion
-    (goto-char beg)
-    (while (re-search-forward heks/markdown-marker-regexp end t)
-      (let* ((mb (match-beginning 0)) (me (match-end 0))
-             (open (cond ((match-beginning 1) 1)
-                         ((match-beginning 3) (length (match-string 3)))
-                         (t 1))))
-        (put-text-property mb (+ mb open) 'invisible 'heks-md)
-        (put-text-property (- me open) me 'invisible 'heks-md)))))
+  (when (< (buffer-size) heks/markdown-max-size)
+    (with-silent-modifications
+      (save-excursion
+        (goto-char beg) (setq beg (line-beginning-position))
+        (goto-char end) (setq end (line-end-position)))
+      ;; Start clean, so that a delimiter that stopped being one is shown.
+      (remove-text-properties beg end '(invisible nil))
+      (heks/markdown--markers
+       beg end
+       (lambda (mb me open)
+         (put-text-property mb (+ mb open) 'invisible 'heks-md)
+         (put-text-property (- me open) me 'invisible 'heks-md))))))
 
 (require 'org-faces)
 
@@ -1514,35 +1601,53 @@ The delimiters show again while point is inside the markup."
   "Give the fenced code blocks overlapping BEG..END an Org-like look.
 The fence lines become a rule, labelled with the language, and the body
 gets a background."
-  (save-excursion
-    (goto-char beg)
-    (when (re-search-backward "^[ \t]*```" nil t)
-      (setq beg (line-beginning-position)))
-    (goto-char beg)
-    (while (re-search-forward
-            "^\\([ \t]*\\)```[ \t]*\\([^ \t\n`{}]*\\).*\n\\(\\(?:.*\n\\)*?\\)[ \t]*```[ \t]*$"
-            nil t)
-      (let ((open-end (save-excursion (goto-char (match-beginning 3))
-                                      (1- (point))))
-            (body-beg (match-beginning 3))
-            (body-end (match-end 3))
-            (close-beg (save-excursion (goto-char (match-end 0))
-                                       (line-beginning-position)))
-            (close-end (match-end 0))
-            (open-beg (match-beginning 0))
-            (lang (match-string 2)))
-        (add-text-properties
-         open-beg open-end
-         `(display ,(concat (propertize (if (string-empty-p lang) "───" (concat "─── " lang))
-                                        'face 'heks/markdown-code-fence))
-           font-lock-multiline t))
-        (font-lock-append-text-property
-         body-beg body-end 'face 'heks/markdown-code-block)
-        (add-text-properties
-         close-beg close-end
-         `(display ,(propertize "───" 'face 'heks/markdown-code-fence)
-           font-lock-multiline t))
-        (when (> (point) end) (goto-char (point-max)))))))
+  (when (< (buffer-size) heks/markdown-max-size)
+    (with-silent-modifications
+      (let* ((hit (seq-filter (lambda (b)
+                                (and (<= (nth 0 b) end)
+                                     (>= (heks/markdown--block-end b) beg)))
+                              (heks/markdown--blocks)))
+             (start (apply #'min beg (mapcar (lambda (b) (nth 0 b)) hit)))
+             (stop (apply #'max end (mapcar #'heks/markdown--block-end hit))))
+        (remove-text-properties start (min stop (point-max))
+                                '(display nil font-lock-multiline nil))
+        (pcase-dolist (`(,obeg ,oeol ,bbeg ,bend ,cbeg ,cend ,lang) hit)
+          (when cbeg                    ; an unclosed block is left alone
+            (add-text-properties
+             obeg oeol
+             `(display ,(propertize (if (string-empty-p lang)
+                                        "───" (concat "─── " lang))
+                                    'face 'heks/markdown-code-fence)
+               font-lock-multiline t))
+            (font-lock-append-text-property
+             bbeg bend 'face 'heks/markdown-code-block)
+            (add-text-properties
+             cbeg cend
+             `(display ,(propertize "───" 'face 'heks/markdown-code-fence)
+               font-lock-multiline t))))))))
+
+(defvar-local heks/markdown--revealed nil
+  "The (BEG . END) of the markup whose delimiters are showing, or nil.")
+
+(defun heks/markdown-reveal ()
+  "Show the delimiters of the markup around point, hide the rest."
+  (let ((inhibit-modification-hooks t))
+    (unless (and heks/markdown--revealed
+                 (<= (car heks/markdown--revealed) (point))
+                 (<= (point) (cdr heks/markdown--revealed)))
+      (when heks/markdown--revealed
+        (let ((r heks/markdown--revealed))
+          (setq heks/markdown--revealed nil)
+          (when (<= (cdr r) (point-max))
+            (heks/markdown-hide-markers (car r) (cdr r)))))
+      (let ((pt (point)))
+        (heks/markdown--markers
+         (line-beginning-position) (line-end-position)
+         (lambda (mb me _open)
+           (when (and (<= mb pt) (<= pt me) (not heks/markdown--revealed))
+             (with-silent-modifications
+               (remove-text-properties mb me '(invisible nil)))
+             (setq heks/markdown--revealed (cons mb me)))))))))
 
 (defun heks/markdown-prettify ()
   "Make a Markdown buffer look like an Org one: hide inline markup."
@@ -1551,21 +1656,6 @@ gets a background."
   (jit-lock-register #'heks/markdown-prettify-blocks)
   ;; Reveal markup under point like `org-appear'.
   (add-hook 'post-command-hook #'heks/markdown-reveal nil t))
-
-(defvar-local heks/markdown--revealed nil)
-
-(defun heks/markdown-reveal ()
-  "Show the delimiters of the markup around point, hide the rest."
-  (let ((inhibit-modification-hooks t)
-        (inhibit-read-only t))
-    (when heks/markdown--revealed
-      (remove-from-invisibility-spec 'heks-md)
-      (add-to-invisibility-spec 'heks-md)
-      (setq heks/markdown--revealed nil))
-    (when (and (get-text-property (point) 'invisible)
-               (eq (get-text-property (point) 'invisible) 'heks-md))
-      (remove-from-invisibility-spec 'heks-md)
-      (setq heks/markdown--revealed t))))
 
 (use-package markdown-ts-mode
   :ensure nil

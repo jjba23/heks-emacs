@@ -588,10 +588,10 @@ This is what naming the notes directory after nothing used to do:
         (progn
           (write-region "#!/bin/sh\n" nil wrapper nil 'silent)
           (set-file-modes wrapper #o755)
-          (should (equal (heks//jvm-build-program root "mvnw" "mvn") wrapper))
+          (should (equal (heks/jvm-build-program root "mvnw" "mvn") wrapper))
           (set-file-modes wrapper #o644)
           ;; Not executable, so not the wrapper.
-          (should (equal (heks//jvm-build-program root "mvnw" "mvn") "mvn")))
+          (should (equal (heks/jvm-build-program root "mvnw" "mvn") "mvn")))
       (delete-directory root t))))
 
 (ert-deftest heks/jvm/the-build-file-is-found-above-the-buffer ()
@@ -602,11 +602,11 @@ This is what naming the notes directory after nothing used to do:
           (make-directory inner t)
           (write-region "" nil (expand-file-name "pom.xml" root) nil 'silent)
           (heks-ert--in inner
-            (should (equal (file-name-as-directory (heks//locate-project-file "pom.xml"))
+            (should (equal (file-name-as-directory (heks/locate-project-file "pom.xml"))
                            (file-name-as-directory root))))
           ;; Above the directory holding it there is nothing.
           (heks-ert--in "/"
-            (should-not (heks//locate-project-file "heks/no-such-file"))))
+            (should-not (heks/locate-project-file "heks/no-such-file"))))
       (delete-directory root t))))
 
 ;;
@@ -1889,7 +1889,7 @@ failing test rather than a menu that disappears again."
 (ert-deftest heks/ui/an-eca-face-gets-the-family-of-what-it-prints ()
   "A chat is read, and what a reader copies out of it is not."
   (let ((given nil))
-    (cl-letf (((symbol-function 'heks//set-face)
+    (cl-letf (((symbol-function 'heks/set-face)
                (lambda (face &rest attributes)
                  (push (cons face attributes) given))))
       (heks/set-eca-faces))
@@ -1915,7 +1915,7 @@ failing test rather than a menu that disappears again."
 (ert-deftest heks/ui/a-face-that-is-not-there-yet-is-skipped ()
   "ECA defines its faces when it is loaded, which is after this module runs."
   (should-not (facep 'heks/no-such-face))
-  (heks//set-face 'heks/no-such-face :font heks/font-sans)
+  (heks/set-face 'heks/no-such-face :font heks/font-sans)
   (should-not (facep 'heks/no-such-face)))
 
 ;;
@@ -3020,6 +3020,146 @@ line height can leave a gap in it."
       (should (string-match-p "\"serve\":false" page))
       (should (string-match-p "<\\\\/script><b>x" page))
       (should-not (string-match-p "/\\*@CONFIG@\\*/ {}" page)))))
+
+;;
+;; ====== Markdown prettifying ======
+;;
+
+(defmacro heks-ert--with-markdown (text &rest body)
+  "Run BODY in a text buffer holding TEXT, with the Markdown hiding applied."
+  (declare (indent 1))
+  `(with-temp-buffer
+     (insert ,text)
+     (heks/markdown-hide-markers (point-min) (point-max))
+     (heks/markdown-prettify-blocks (point-min) (point-max))
+     ,@body))
+
+(defun heks-ert--has-face (pos face)
+  "Return non-nil when FACE is among the faces at POS."
+  (let ((f (get-text-property pos 'face)))
+    (if (listp f) (memq face f) (eq face f))))
+
+(defun heks-ert--hidden (string)
+  "Return the text of the buffer without what is invisible, given STRING is in it."
+  (let ((out ""))
+    (dotimes (i (- (point-max) (point-min)))
+      (let ((pos (+ (point-min) i)))
+        (unless (get-text-property pos 'invisible)
+          (setq out (concat out (string (char-after pos)))))))
+    (ignore string)
+    out))
+
+(ert-deftest heks/markdown/inline-delimiters-are-hidden ()
+  (heks-ert--with-markdown "a `code` **bold** *it* ~~gone~~ z\n"
+    (should (equal (heks-ert--hidden nil) "a code bold it gone z\n"))))
+
+(ert-deftest heks/markdown/code-blocks-keep-their-characters ()
+  "Nothing inside a fenced block, nor its fences, is hidden."
+  (let ((text "x\n```bash\nls *.md `a` **b** _c_ snake_case_name\n```\ny *z*\n"))
+    (heks-ert--with-markdown text
+      (should (equal (heks-ert--hidden nil)
+                     "x\n```bash\nls *.md `a` **b** _c_ snake_case_name\n```\ny z\n")))))
+
+(ert-deftest heks/markdown/intraword-underscores-are-not-emphasis ()
+  (heks-ert--with-markdown "use snake_case_name and _this_\n"
+    (should (equal (heks-ert--hidden nil) "use snake_case_name and this\n"))))
+
+(ert-deftest heks/markdown/an-unclosed-fence-hides-nothing-after-it ()
+  (let ((text "```\n*a* `b`\n"))
+    (heks-ert--with-markdown text
+      (should (equal (heks-ert--hidden nil) text)))))
+
+(ert-deftest heks/markdown/blocks-get-a-label-and-a-body-face ()
+  (heks-ert--with-markdown "```elisp\n(+ 1 2)\n```\n"
+    (should (string-match-p "elisp" (get-text-property 1 'display)))
+    (should (heks-ert--has-face 10 'heks/markdown-code-block))
+    (should (get-text-property (- (point-max) 4) 'display))))
+
+(ert-deftest heks/markdown/two-blocks-are-paired-correctly ()
+  "A refontify starting between two blocks must not pair a closing fence with the next opening one."
+  (let ((text "```a\nx\n```\nprose\n```b\ny\n```\n"))
+    (with-temp-buffer
+      (insert text)
+      (heks/markdown-prettify-blocks (point-min) (point-max))
+      ;; Refontify only the prose between them.
+      (heks/markdown-prettify-blocks 12 18)
+      (should (string-match-p "a" (get-text-property 1 'display)))
+      (should-not (get-text-property 12 'display))
+      (should-not (heks-ert--has-face 19 'heks/markdown-code-fence))
+      (goto-char (point-min))
+      (search-forward "y")
+      (should (heks-ert--has-face (1- (point)) 'heks/markdown-code-block)))))
+
+(ert-deftest heks/markdown/removing-a-fence-removes-its-look ()
+  (with-temp-buffer
+    (insert "```\nx\n```\n")
+    (heks/markdown-prettify-blocks (point-min) (point-max))
+    (should (get-text-property 1 'display))
+    (goto-char (point-min))
+    (delete-char 3)
+    (heks/markdown-prettify-blocks (point-min) (point-max))
+    (should-not (get-text-property 1 'display))))
+
+(ert-deftest heks/markdown/rehiding-is-idempotent-and-refreshes ()
+  (with-temp-buffer
+    (insert "*a*\n")
+    (heks/markdown-hide-markers (point-min) (point-max))
+    (heks/markdown-hide-markers (point-min) (point-max))
+    (should (equal (heks-ert--hidden nil) "a\n"))
+    (goto-char 3) (delete-char 1)
+    (heks/markdown-hide-markers (point-min) (point-max))
+    (should (equal (heks-ert--hidden nil) "*a\n"))))
+
+(ert-deftest heks/markdown/markup-shows-while-point-is-in-it ()
+  (with-temp-buffer
+    (insert "a *b* c\n*d*\n")
+    (heks/markdown-hide-markers (point-min) (point-max))
+    (goto-char 4)
+    (heks/markdown-reveal)
+    (should (equal (heks-ert--hidden nil) "a *b* c\nd\n"))
+    (goto-char 10)
+    (heks/markdown-reveal)
+    (should (equal (heks-ert--hidden nil) "a b c\n*d*\n"))))
+
+(ert-deftest heks/markdown/huge-buffers-are-left-alone ()
+  (let ((heks/markdown-max-size 5))
+    (heks-ert--with-markdown "*abc* *def*\n"
+      (should (equal (heks-ert--hidden nil) "*abc* *def*\n")))))
+
+(ert-deftest heks/markdown/the-readme-style-document-has-balanced-hiding ()
+  "Sanity: across a realistic document, hiding never removes a code character."
+  (let ((text (concat "# T\n\n| a | b |\n|---|---|\n| `x` | y |\n\n"
+                      "```bash\nmvn test -Dtest=A#b\n# *not* hidden\n```\n\n"
+                      "- **Port:** 8087\n")))
+    (heks-ert--with-markdown text
+      (let ((shown (heks-ert--hidden nil)))
+        (should (string-match-p "mvn test -Dtest=A#b\n# \\*not\\* hidden" shown))
+        (should (string-match-p "- Port: 8087" shown))))))
+(ert-deftest heks/markdown/tilde-fences-are-fences ()
+  (let ((text "~~~sh\n*a* `b` _c_\n~~~\n*d*\n"))
+    (heks-ert--with-markdown text
+      (should (equal (heks-ert--hidden nil) "~~~sh\n*a* `b` _c_\n~~~\nd\n"))
+      (should (string-match-p "sh" (get-text-property 1 'display))))))
+
+(ert-deftest heks/markdown/a-longer-fence-holds-a-shorter-one ()
+  "Four backticks are closed by four or more, not by three."
+  (let ((text "````md\n```\n*a*\n```\n````\n*b*\n"))
+    (heks-ert--with-markdown text
+      (should (equal (heks-ert--hidden nil) "````md\n```\n*a*\n```\n````\nb\n"))
+      (should (= 1 (length (heks/markdown--blocks)))))))
+
+(ert-deftest heks/markdown/a-tilde-fence-is-not-closed-by-backticks ()
+  (let ((text "~~~\n```\n*a*\n~~~\n*b*\n"))
+    (heks-ert--with-markdown text
+      (should (equal (heks-ert--hidden nil) "~~~\n```\n*a*\n~~~\nb\n")))))
+
+(ert-deftest heks/markdown/a-backtick-line-with-backticks-after-is-inline-code ()
+  (heks-ert--with-markdown "```a`` and *b*\n"
+    (should (null (heks/markdown--blocks)))))
+
+(ert-deftest heks/markdown/an-indented-fence-works ()
+  (heks-ert--with-markdown "- item\n  ```go\n  *a*\n  ```\n"
+    (should (equal (heks-ert--hidden nil) "- item\n  ```go\n  *a*\n  ```\n"))))
 
 
 (unless (getenv "HEKS_ERT_NO_RUN")
