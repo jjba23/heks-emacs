@@ -4,7 +4,7 @@
 #+email: jjbigorra@gmail.com
 #+options: toc:nil
 
-[[https://jointhefreeworld.org/ggg/dist/gnu-emacs.svg]] [[https://jointhefreeworld.org/ggg/dist/maak.svg]] [[https://jointhefreeworld.org/ggg/dist/license-gpl3+.svg]] [[https://jointhefreeworld.org/ggg/dist/license-fdl13+.svg]]
+[[https://jointhefreeworld.org/ggg/dist/gnu-emacs.svg]] [[https://jointhefreeworld.org/ggg/dist/maak.svg]] [[https://img.shields.io/badge/license-MIT-blue.svg]]
 
 *Emacs configuration of the warlock*: a modular, delightful, reproducible Emacs
 setup built with Emacs Lisp and [[https://github.com/progfolio/elpaca][Elpaca]], for GNU/Linux and macOS — many
@@ -798,18 +798,10 @@ respect is essential to creating excellent free software.
 
 * License
 
-heks-emacs and all of its source code are free software, licensed under the
-*GNU General Public License v3.0 or later* (~GPL-3.0-or-later~). The full text is
-in [[file:COPYING][COPYING]], and it is also here:
-https://www.gnu.org/licenses/gpl-3.0.html
+heks-emacs, its source code and its documentation are licensed under the
+*MIT License* (~MIT~). The full text is in [[file:LICENSE][LICENSE]].
 
-The documentation and examples, including this document, which are provided with
-heks-emacs, are all licensed under the *GNU Free Documentation License v1.3 or
-later* (~GFDL-1.3-or-later~):
-https://www.gnu.org/licenses/fdl-1.3.html
-
-In short: use it, read it, change it, share it -- and if you share it back, keep
-it free.
+In short: use it, read it, change it, share it.
 
 * Supporting the project
 

@@ -1,19 +1,7 @@
 ;;; emacs-core.el --- Configuring Emacs core -*- lexical-binding: t -*-
 
+;; SPDX-License-Identifier: MIT
 ;; Copyright © Josep Bigorra <jjbigorra@gmail.com>
-
-;; heks-emacs is free software: you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation, either version 3 of the License, or
-;; (at your option) any later version.
-
-;; heks-emacs is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; You should have received a copy of the GNU General Public License
-;; along with heks-emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -824,23 +812,8 @@ in the window."
   "Append custom symbols to the buffer-local prettify-symbols-alist."
   (setq prettify-symbols-alist
         (append '(
-                  ;; --- Functional Programming & Lambdas ---
+                  ;; --- Lambda: only the literal word is replaced ---
                   ("lambda" . ?λ)
-                  ;; ("fn"    . ?Λ)
-                  ;; ("fun"   . ?Λ)
-                  ("defun"    . ?Λ)
-                  ("define*"    . ?Λ)
-                  ("func"    . ?Λ)
-                  ;; ("function" . ?Λ)
-                  ("compose" . ?∘)
-                  ("define-syntax" . ?μ)
-                  ("define-syntax-rule" . ?μ)
-                  ("define-macro" . ?μ)
-                  ("define-module" . ?⬡)
-                  ("define-record-type" . ?✦)
-                  ("define-record-with-kw" . ?✦)
-                  ("use-package" . ?ρ)
-                  ("defmacro" . ?μ)
 
                   ;; --- Types & Optionals ---
                   ;; ("None"    . ?Ø)

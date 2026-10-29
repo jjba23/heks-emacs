@@ -1,19 +1,7 @@
 ;;; shell.el --- Shell configuration for Emacs -*- lexical-binding: t -*-
 
+;; SPDX-License-Identifier: MIT
 ;; Copyright © Josep Bigorra <jjbigorra@gmail.com>
-
-;; heks-emacs is free software: you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation, either version 3 of the License, or
-;; (at your option) any later version.
-
-;; heks-emacs is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; You should have received a copy of the GNU General Public License
-;; along with heks-emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -82,6 +70,7 @@ directory to make multiple eshell windows easier."
     (rename-buffer (concat "*eshell: " name "*"))))
 
 (defun eshell/x ()
+  "Exit the current eshell session and delete its window."
   (insert "exit")
   (eshell-send-input)
   (delete-window))
@@ -111,6 +100,7 @@ length of PATH (sans directory slashes) down to MAX-LEN."
     (concat str (cl-reduce (lambda (a b) (concat a "/" b)) components))))
 
 (defun heks/eshell-prompt ()
+  "Build the eshell prompt string (fish-style path, git branch, user)."
   (defun with-face (str &rest face-plist)
     (propertize str 'face face-plist))
   (concat

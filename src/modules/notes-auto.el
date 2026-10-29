@@ -1,19 +1,7 @@
 ;;; notes-auto.el --- Relations between notes that maintain themselves -*- lexical-binding: t -*-
 
+;; SPDX-License-Identifier: MIT
 ;; Copyright © Josep Bigorra <jjbigorra@gmail.com>
-
-;; heks-emacs is free software: you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation, either version 3 of the License, or
-;; (at your option) any later version.
-
-;; heks-emacs is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; You should have received a copy of the GNU General Public License
-;; along with heks-emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -53,8 +41,10 @@
 (declare-function heks/notes-directory "heks-emacs" ())
 (declare-function heks/notes-graph--links "notes-graph" (file))
 
-(defconst heks/notes-related-begin "# BEGIN GENERATED RELATED")
-(defconst heks/notes-related-end "# END GENERATED RELATED")
+(defconst heks/notes-related-begin "# BEGIN GENERATED RELATED"
+  "Marker line opening the generated backlinks/related block.")
+(defconst heks/notes-related-end "# END GENERATED RELATED"
+  "Marker line closing the generated backlinks/related block.")
 
 (defcustom heks/notes-related-exclude
   '("\\`\\(?:todo\\|habits\\|birthdays\\|contacts\\|bookmarks\\)\\.org\\'"
@@ -121,7 +111,8 @@ index pages link to everything, which says nothing."
 
 (defconst heks/notes-related--block-regexp
   (concat "\n*" (regexp-quote heks/notes-related-begin)
-          "\n\\(?:.\\|\n\\)*?" (regexp-quote heks/notes-related-end) "\n?"))
+          "\n\\(?:.\\|\n\\)*?" (regexp-quote heks/notes-related-end) "\n?")
+  "Regexp matching a whole generated related block, with surrounding newlines.")
 
 (defun heks/notes-related--rewrite (text block)
   "Return TEXT with its generated block replaced by BLOCK (nil removes it)."

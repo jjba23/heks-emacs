@@ -1,33 +1,26 @@
 ;;; init.el --- Custom Emacs configuration for heks-emacs -*- lexical-binding: t -*-
 
+;; SPDX-License-Identifier: MIT
 ;; Copyright © Josep Bigorra <jjbigorra@gmail.com>
-
-;; heks-emacs is free software: you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation, either version 3 of the License, or
-;; (at your option) any later version.
-
-;; heks-emacs is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; You should have received a copy of the GNU General Public License
-;; along with heks-emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Code:
 
 ;; ====== Package manager ======
 
 ;; Install the Elpaca package manager
-(defvar elpaca-installer-version 0.12)
-(defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
-(defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
-(defvar elpaca-sources-directory (expand-file-name "sources/" elpaca-directory))
+(defvar elpaca-installer-version 0.12
+  "Version of the Elpaca installer snippet this file is based on.")
+(defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory)
+  "Root directory of the Elpaca package manager data.")
+(defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory)
+  "Directory holding Elpaca package builds.")
+(defvar elpaca-sources-directory (expand-file-name "sources/" elpaca-directory)
+  "Directory holding Elpaca package sources.")
 (defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
                               :ref nil :depth 1 :inherit ignore
                               :files (:defaults "elpaca-test.el" (:exclude "extensions"))
-                              :build (:not elpaca-activate)))
+                              :build (:not elpaca-activate))
+  "Elpaca recipe used to bootstrap Elpaca itself.")
 (let* ((repo  (expand-file-name "elpaca/" elpaca-sources-directory))
        (build (expand-file-name "elpaca/" elpaca-builds-directory))
        (order (cdr elpaca-order))
@@ -121,7 +114,8 @@
     (load-user-file "cask-and-cons-bridge.el")))
 
 ;; Load more user modules
-(defvar heks/modules '())
+(defvar heks/modules '()
+  "List of module symbols under src/modules/ loaded at startup, in order.")
 (setq heks/modules '(
                            ai
                            common-lisp

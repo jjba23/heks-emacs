@@ -1,19 +1,7 @@
 ;;; completion.el --- Completion configuration for Emacs -*- lexical-binding: t -*-
 
+;; SPDX-License-Identifier: MIT
 ;; Copyright © Josep Bigorra <jjbigorra@gmail.com>
-
-;; heks-emacs is free software: you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation, either version 3 of the License, or
-;; (at your option) any later version.
-
-;; heks-emacs is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; You should have received a copy of the GNU General Public License
-;; along with heks-emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -120,6 +108,7 @@
 ;; Merge sources in code buffers so Eglot results and dabbrev words
 ;; appear in one list instead of the first capf shadowing the others.
 (defun heks/prog-capf-setup ()
+  "Set buffer-local capfs merging Eglot, dabbrev and keywords, then files."
   (setq-local completion-at-point-functions
               (list (cape-capf-super
                      (cape-capf-properties #'eglot-completion-at-point
@@ -131,6 +120,7 @@
 
 ;; Emoji / symbol completion in prose.
 (defun heks/text-capf-setup ()
+  "Add buffer-local emoji and TeX completion at the front of the capfs."
   (add-hook 'completion-at-point-functions #'cape-emoji -10 t)
   (add-hook 'completion-at-point-functions #'cape-tex -10 t))
 (add-hook 'text-mode-hook #'heks/text-capf-setup)

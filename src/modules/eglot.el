@@ -1,19 +1,7 @@
 ;;; eglot.el --- Eglot configuration for Emacs -*- lexical-binding: t -*-
 
+;; SPDX-License-Identifier: MIT
 ;; Copyright © Josep Bigorra <jjbigorra@gmail.com>
-
-;; heks-emacs is free software: you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation, either version 3 of the License, or
-;; (at your option) any later version.
-
-;; heks-emacs is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; You should have received a copy of the GNU General Public License
-;; along with heks-emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -25,13 +13,16 @@
 (setopt eglot-enabled-p t)
 
 (defun heks/eglot-enable ()
+  "Allow Eglot to start servers in new buffers."
   (interactive)
   (setopt eglot-enabled-p t))
 (defun heks/eglot-disable ()
+  "Stop allowing Eglot to start servers and shut down all running ones."
   (interactive)
   (setopt eglot-enabled-p nil)
   (eglot-shutdown-all))
 (defun heks/eglot-ensure ()
+  "Call `eglot-ensure' when `eglot-enabled-p' is non-nil, else do nothing."
   (if eglot-enabled-p (eglot-ensure) nil))
 
 (defun heks/eglot-format-before-save ()

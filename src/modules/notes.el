@@ -1,19 +1,7 @@
 ;;; notes.el --- Notes: one Org file per note, in topic folders -*- lexical-binding: t -*-
 
+;; SPDX-License-Identifier: MIT
 ;; Copyright © Josep Bigorra <jjbigorra@gmail.com>
-
-;; heks-emacs is free software: you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation, either version 3 of the License, or
-;; (at your option) any later version.
-
-;; heks-emacs is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; You should have received a copy of the GNU General Public License
-;; along with heks-emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -768,8 +756,10 @@ point at its new place, and the links inside it are made relative to it."
 ;; index without the markers, or the old generated comment, is somebody's
 ;; own page and is never touched.
 
-(defconst heks/notes-index-begin "# BEGIN GENERATED INDEX")
-(defconst heks/notes-index-end "# END GENERATED INDEX")
+(defconst heks/notes-index-begin "# BEGIN GENERATED INDEX"
+  "Marker line opening the generated index block in a notes file.")
+(defconst heks/notes-index-end "# END GENERATED INDEX"
+  "Marker line closing the generated index block in a notes file.")
 
 (defcustom heks/notes-index-acronyms
   '(("ah" . "AH") ("ctms" . "CTMS") ("boms" . "BOMS") ("boap" . "BOAP")

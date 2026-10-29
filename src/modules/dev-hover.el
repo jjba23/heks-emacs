@@ -1,19 +1,7 @@
 ;;; dev-hover.el --- Mouse hover documentation for Eglot and Geiser -*- lexical-binding: t -*-
 
+;; SPDX-License-Identifier: MIT
 ;; Copyright © Josep Bigorra <jjbigorra@gmail.com>
-
-;; heks-emacs is free software: you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation, either version 3 of the License, or
-;; (at your option) any later version.
-
-;; heks-emacs is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; You should have received a copy of the GNU General Public License
-;; along with heks-emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -190,8 +178,9 @@ that is installed so that code fences and emphasis read properly."
                   cursor-type nil
                   truncate-lines nil
                   word-wrap t
-                  line-spacing 0.15
-                  left-margin-width 0
+                  line-spacing 0.1
+                  left-margin-width 1
+                  right-margin-width 1
                   show-trailing-whitespace nil)
       (visual-line-mode 1)
       (face-remap-add-relative 'default :inherit 'tooltip)
@@ -222,7 +211,7 @@ that is installed so that code fences and emphasis read properly."
                           (skip-taskbar . t)
                           (no-other-frame . t)
                           (unsplittable . t)
-                          (internal-border-width . 10)
+                          (internal-border-width . 6)
                           (child-frame-border-width . 1)
                           (left-fringe . 0) (right-fringe . 0)
                           (menu-bar-lines . 0) (tool-bar-lines . 0)
@@ -233,16 +222,15 @@ that is installed so that code fences and emphasis read properly."
                           (width . 40) (height . 4)
                           ,@(and bg `((background-color . ,bg)))
                           ,@(and fg `((foreground-color . ,fg))))))
-      (set-face-background 'internal-border
-                           (or (face-foreground 'shadow nil t) "gray50")
-                           heks/hover--frame)
-      (set-face-background 'child-frame-border
-                           (or (face-foreground 'shadow nil t) "gray50")
-                           heks/hover--frame)))
+      (let ((edge (or (face-foreground 'shadow nil t) "gray50")))
+        (dolist (face '(internal-border child-frame-border))
+          (set-face-background face edge heks/hover--frame)))))
   heks/hover--frame)
 
 (defun heks/hover--hide ()
   "Hide the popup."
+  (when (eq (heks/hover--backend) 'tooltip)
+    (tooltip-hide))
   (when (and (frame-live-p heks/hover--frame)
              (frame-visible-p heks/hover--frame))
     (make-frame-invisible heks/hover--frame)))
@@ -254,13 +242,19 @@ window has: measuring before that would measure one very long line."
   (set-window-buffer window (heks/hover--render text))
   (set-window-dedicated-p window t)
   (set-frame-size frame max-w max-h t)
-  (let ((size (window-text-pixel-size window nil nil max-w max-h t))
-        (char-w (frame-char-width (frame-parent frame))))
-    (cons (min max-w (+ (car size) char-w))
+  (let ((size (window-text-pixel-size window nil nil max-w max-h t)))
+    (cons (min max-w (+ (car size) 2))
           (min max-h (cdr size)))))
 
 (defun heks/hover--show (text)
-  "Show TEXT in a bounded popup just below the mouse pointer."
+  "Show TEXT in a popup just below the mouse pointer, per the backend."
+  (if (eq (heks/hover--backend) 'tooltip)
+      (let ((tooltip-hide-delay 30))
+        (tooltip-show (string-trim text)))
+    (heks/hover--show-frame text)))
+
+(defun heks/hover--show-frame (text)
+  "Show TEXT in a bounded child frame just below the mouse pointer."
   (let* ((parent (selected-frame))
          (pointer (cdr (mouse-pixel-position)))
          (frame (heks/hover--ensure-frame parent))
@@ -275,7 +269,7 @@ window has: measuring before that would measure one very long line."
          (known (and (equal text (car-safe heks/hover--shown))
                      (cdr heks/hover--shown)))
          (size (or known (heks/hover--measure frame window text max-w max-h)))
-         (border (* 2 (+ 10 1)))
+         (border (* 2 (+ 6 1)))
          (fw (+ (car size) border))
          (fh (+ (cdr size) border))
          (x (if pointer (car pointer) 0))
@@ -365,7 +359,13 @@ unless the window beneath it scrolled.")
                     (buffer-list)))
       (heks/hover--stop-polling)
     ;; Unfocused frame (workspace switch, another WM-managed window): no popup.
-    (if (not (frame-focus-state))
+    (cond
+     ;; Pointer is on the popup itself (to read or scroll it): leave it alone.
+     ((and (frame-live-p heks/hover--frame)
+           (frame-visible-p heks/hover--frame)
+           (eq (car (mouse-pixel-position)) heks/hover--frame))
+      nil)
+     ((not (or (frame-focus-state) (frame-focus-state heks/hover--frame)))
         (progn (when heks/hover--anchor
                  (heks/hover--cancel-dwell)
                  (heks/hover--hide)
@@ -392,7 +392,7 @@ unless the window beneath it scrolled.")
             (when target
               (setq heks/hover--dwell-timer
                     (run-with-timer heks/hover-delay nil
-                                    #'heks/hover--ask target))))))))))
+                                    #'heks/hover--ask target)))))))))))
 
 (defun heks/hover--start-polling ()
   (unless (timerp heks/hover--poll-timer)

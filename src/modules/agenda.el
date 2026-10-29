@@ -1,19 +1,7 @@
 ;;; agenda.el --- Todos, habits and the day's agenda over the notes -*- lexical-binding: t -*-
 
+;; SPDX-License-Identifier: MIT
 ;; Copyright © Josep Bigorra <jjbigorra@gmail.com>
-
-;; heks-emacs is free software: you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation, either version 3 of the License, or
-;; (at your option) any later version.
-
-;; heks-emacs is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; You should have received a copy of the GNU General Public License
-;; along with heks-emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -38,7 +26,8 @@
 (declare-function org-agenda "org-agenda")
 (declare-function org-capture "org-capture")
 
-(defconst heks/agenda-inbox-heading "Inbox")
+(defconst heks/agenda-inbox-heading "Inbox"
+  "Heading under which capture templates file new todo entries.")
 
 (defun heks/agenda--file (name)
   "Return the file NAME at the top of the notes directory."
