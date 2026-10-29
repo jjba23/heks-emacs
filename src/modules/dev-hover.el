@@ -158,18 +158,108 @@ whenever the server or the REPL sends them."
 ;; ====== The popup ======
 ;;
 
+(defconst heks/hover--texinfo-re
+  "@\\(?:code\\|var\\|samp\\|example\\|lisp\\|deffnx?\\|defun\\|defvr\\|emph\\|strong\\|file\\|command\\|option\\|xref\\|ref\\|pxref\\|dots\\|table\\|itemize\\|item\\)\\b"
+  "Texinfo commands that mark a docstring as Texinfo (Guile, Guix, Geiser).")
+
+(defun heks/hover--texinfo-to-markdown (text)
+  "Turn the Texinfo in TEXT into Markdown, which `gfm-view-mode' can show."
+  (with-temp-buffer
+    (insert (substring-no-properties text))
+    (let ((case-fold-search nil))
+      (dolist (rule
+               '(("^@\\(?:example\\|lisp\\|smallexample\\|smalllisp\\)[ \t]*$" . "```scheme")
+                 ("^@end \\(?:example\\|lisp\\|smallexample\\|smalllisp\\)[ \t]*$" . "```")
+                 ("^@end [a-z]+[ \t]*$" . "")
+                 ("^@\\(?:itemize\\|enumerate\\|table\\)\\b.*$" . "")
+                 ("^@itemx?[ \t]+" . "- ")
+                 ("^@def[a-z]*x?[ \t]+\\(?:{[^}]*}\\|[^ \t\n]+\\)[ \t]+\\(\\S-+\\)\\(.*\\)$"
+                  . "**\\1**\\2")
+                 ("@\\(?:code\\|samp\\|command\\|file\\|option\\|env\\|kbd\\){\\([^{}]*\\)}" . "`\\1`")
+                 ("@\\(?:var\\|emph\\|dfn\\|cite\\){\\([^{}]*\\)}" . "*\\1*")
+                 ("@strong{\\([^{}]*\\)}" . "**\\1**")
+                 ("@\\(?:p?x?ref\\|uref\\|url\\){\\([^{},]*\\)[^{}]*}" . "`\\1`")
+                 ("@dots{}" . "…")
+                 ("@result{}" . "⇒")
+                 ("@print{}" . "⊣")
+                 ("@error{}" . "error→")
+                 ("@\\([{}@]\\)" . "\\1")))
+        (goto-char (point-min))
+        (while (re-search-forward (car rule) nil t)
+          (replace-match (cdr rule)))))
+    (buffer-string)))
+
+(defun heks/hover--break-signature (line)
+  "Break LINE, a long signature, after its top-level parameter commas."
+  (if (or (<= (length line) heks/hover-max-width)
+          (not (string-match-p "(" line)))
+      line
+    (let ((depth 0) (out '()) (start 0) (i 0) (n (length line)) (opened nil))
+      (while (< i n)
+        (let ((c (aref line i)))
+          (cond
+           ((memq c '(?\( ?\[ ?\{))
+            (when (and (= depth 0) (not opened) (eq c ?\())
+              (setq opened t)
+              (push (substring line start (1+ i)) out)
+              (setq start (1+ i)))
+            (cl-incf depth))
+           ((and (eq c ?<) (> depth 0)) (cl-incf depth))
+           ((and (eq c ?>) (> depth 1) (not (eq (and (> i 0) (aref line (1- i))) ?-)))
+            (cl-decf depth))
+           ((memq c '(?\) ?\] ?\}))
+            (cl-decf depth)
+            (when (and (= depth 0) (eq opened t) (eq c ?\)))
+              (push (substring line start i) out)
+              (setq start i opened 'done)))
+           ((and (eq c ?,) (= depth 1) (eq opened t))
+            (push (substring line start (1+ i)) out)
+            (setq start (1+ i)))))
+        (cl-incf i))
+      (push (substring line start) out)
+      (let ((parts (nreverse out)))
+        (if (< (length parts) 3)
+            line
+          (concat (car parts) "\n"
+                  (mapconcat (lambda (p) (concat "    " (string-trim p)))
+                             (butlast (cdr parts)) "\n")
+                  "\n" (car (last parts))))))))
+
+(defun heks/hover--break-code (text)
+  "Break the long signature lines of the fenced code blocks in TEXT."
+  (let ((in nil))
+    (mapconcat
+     (lambda (line)
+       (cond ((string-match-p "\\`[ \t]*```" line) (setq in (not in)) line)
+             (in (heks/hover--break-signature line))
+             (t line)))
+     (split-string text "\n") "\n")))
+
 (defun heks/hover--render (text)
   "Fill the popup buffer with TEXT, rendering it as Markdown if it is raw.
 
 Eglot hands over text that is already rendered (it carries faces); what
 Geiser and Elisp give is plain, and is run through `gfm-view-mode' when
-that is installed so that code fences and emphasis read properly."
+that is installed so that code fences and emphasis read properly.  A
+Texinfo docstring is first converted to Markdown, whatever faces it has.
+Text Eglot has already run through Markdown (it carries `markdown-*'
+properties and invisible fences, tied to a buffer that is gone) is
+stripped and rendered afresh."
   (with-current-buffer (get-buffer-create heks/hover--buffer)
-    (let ((inhibit-read-only t))
+    (let* ((inhibit-read-only t)
+           (texinfo (let ((case-fold-search nil))
+                      (string-match-p heks/hover--texinfo-re text)))
+           (fenced (string-match-p "^[ \t]*```" text))
+           (text (cond (texinfo (heks/hover--texinfo-to-markdown text))
+                       (fenced (substring-no-properties text))
+                       (t text)))
+           (text (if (or texinfo fenced) (heks/hover--break-code text) text))
+           (texinfo (or texinfo fenced)))
       (erase-buffer)
       (kill-all-local-variables)
       (insert (string-trim text))
-      (let ((rendered (text-property-not-all (point-min) (point-max) 'face nil)))
+      (let ((rendered (and (not texinfo)
+                           (text-property-not-all (point-min) (point-max) 'face nil))))
         (when (and (not rendered) (fboundp 'gfm-view-mode))
           (delay-mode-hooks (gfm-view-mode))
           (font-lock-ensure)))
@@ -246,11 +336,50 @@ window has: measuring before that would measure one very long line."
     (cons (min max-w (+ (car size) 2))
           (min max-h (cdr size)))))
 
+(defun heks/hover--clean (text)
+  "Drop what no popup can use from TEXT: `command:' links and HTML entities.
+A server's `[`Name`](command:...)' link is a long URL that does nothing
+here, so only its label stays."
+  (let ((s (replace-regexp-in-string
+            "\\[\\([^]\n]*\\)\\]([a-z]+:[^)\n]*)" "\\1" text)))
+    (dolist (e '(("&ndash;" . "–") ("&mdash;" . "—") ("&amp;" . "&")
+                 ("&lt;" . "<") ("&gt;" . ">") ("&nbsp;" . " ")
+                 ("&quot;" . "\"")))
+      (setq s (string-replace (car e) (cdr e) s)))
+    s))
+
+(defun heks/hover--plain (text)
+  "Return TEXT as readable plain text, wrapped, for the native tooltip.
+Fences, rules, emphasis and code ticks go; long prose lines are wrapped at
+`heks/hover-max-width' and long signatures are broken at their parameters."
+  (let ((in nil) (out '()))
+    (dolist (line (split-string (substring-no-properties text) "\n"))
+      (cond
+       ((string-match-p "\\`[ \t]*```" line) (setq in (not in)))
+       (in (push (heks/hover--break-signature line) out))
+       ((string-match-p "\\`[ \t]*\\(?:---+\\|\\*\\*\\*+\\)[ \t]*\\'" line)
+        (push "" out))
+       (t
+        (let ((l (replace-regexp-in-string
+                  "\\*\\*\\([^*\n]+\\)\\*\\*" "\\1"
+                  (replace-regexp-in-string "`\\([^`\n]+\\)`" "\\1" line))))
+          (push (if (> (length l) heks/hover-max-width)
+                    (with-temp-buffer
+                      (insert l)
+                      (let ((fill-column heks/hover-max-width))
+                        (fill-region (point-min) (point-max)))
+                      (buffer-string))
+                  l)
+                out)))))
+    (string-trim
+     (replace-regexp-in-string "\n\\{3,\\}" "\n\n"
+                               (string-join (nreverse out) "\n")))))
+
 (defun heks/hover--show (text)
   "Show TEXT in a popup just below the mouse pointer, per the backend."
   (if (eq (heks/hover--backend) 'tooltip)
       (let ((tooltip-hide-delay 30))
-        (tooltip-show (string-trim text)))
+        (tooltip-show (heks/hover--plain text)))
     (heks/hover--show-frame text)))
 
 (defun heks/hover--show-frame (text)
@@ -342,7 +471,7 @@ unless the window beneath it scrolled.")
   "Show TEXT if the pointer is still on ANCHOR."
   (when (and text (equal anchor heks/hover--anchor)
              (equal anchor (heks/hover--target)))
-    (heks/hover--show (heks/hover--truncate text))))
+    (heks/hover--show (heks/hover--truncate (heks/hover--clean text)))))
 
 (defun heks/hover--ask (anchor)
   "Start the asynchronous request for ANCHOR, a (WINDOW . POS)."
