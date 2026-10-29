@@ -119,13 +119,13 @@ which is the one colour in the theme that is meant to be quiet.  A theme
 that names no `shadow', and the frameless Emacs of a daemon before its
 first frame, leave nil: the markers are then `shadow', as they were."
   (when (and (> heks/fold-indicator-fade 0)
-             (fboundp 'heks//blend-colors))
+             (fboundp 'heks/blend-colors))
     (let ((shadow (ignore-errors (face-attribute 'shadow :foreground nil t)))
           (background (ignore-errors (face-attribute 'default :background nil t))))
       (when (and (stringp shadow) (stringp background)
                  (not (string-prefix-p "unspecified" shadow))
                  (not (string-prefix-p "unspecified" background)))
-        (heks//blend-colors shadow background
+        (heks/blend-colors shadow background
                                   (/ (float heks/fold-indicator-fade)
                                      100))))))
 

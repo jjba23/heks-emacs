@@ -63,7 +63,7 @@
                         :height 0.7
                         :font heks/font-sans)))
 
-(defun heks//set-face (face &rest attributes)
+(defun heks/set-face (face &rest attributes)
   "Set ATTRIBUTES on FACE, but only when FACE actually exists.
 
 Faces that belong to a library which has not been loaded yet are simply
@@ -84,7 +84,7 @@ calls below."
 ;; visible whatever theme is selected.
 ;;
 
-(defun heks//window-color (attribute fallback)
+(defun heks/window-color (attribute fallback)
   "Return the color currently used for ATTRIBUTE, or FALLBACK.
 
 ATTRIBUTE is a `default' face attribute such as :background.  The
@@ -103,7 +103,7 @@ frame's own color is used when the face does not specify one."
            frame-color)
           (t fallback))))
 
-(defun heks//color-components (color)
+(defun heks/color-components (color)
   "Return COLOR as a list of three 16-bit integers, or nil when unknown.
 
 Hex colors are parsed here rather than through `color-values' because on
@@ -126,13 +126,13 @@ which would make the separator color unpredictable."
             (* #x1111 (logand n #xf)))))
    (t (ignore-errors (color-values color)))))
 
-(defun heks//blend-colors (first second weight)
+(defun heks/blend-colors (first second weight)
   "Blend FIRST and SECOND, WEIGHT being the pull toward SECOND.
 
 WEIGHT is clamped to the 0.0-1.0 range.  Colors are accepted in any
 Emacs color format and a 16-bit hex string is returned."
-  (let ((one (heks//color-components first))
-        (two (heks//color-components second))
+  (let ((one (heks/color-components first))
+        (two (heks/color-components second))
         (weight (max 0.0 (min 1.0 (float weight)))))
     (if (and one two)
         (format "#%04x%04x%04x"
@@ -141,7 +141,7 @@ Emacs color format and a 16-bit hex string is returned."
                 (round (+ (* (nth 2 one) (- 1.0 weight)) (* (nth 2 two) weight))))
       second)))
 
-(defun heks//divider-color-for (themes)
+(defun heks/divider-color-for (themes)
   "Return the first explicit separator color listed for THEMES."
   (seq-some (lambda (theme) (alist-get theme heks/window-divider-colors))
             themes))
@@ -155,11 +155,11 @@ is actually enabled -- switching theme at runtime must not leave the
 separators painted with a color belonging to the previous one.  Every
 other theme gets a blend of its own background and foreground, so the
 separator always stands out."
-  (or (heks//divider-color-for
+  (or (heks/divider-color-for
        (cons heks/theme custom-enabled-themes))
-      (heks//blend-colors
-       (heks//window-color :background "#000000")
-       (heks//window-color :foreground "#ffffff")
+      (heks/blend-colors
+       (heks/window-color :background "#000000")
+       (heks/window-color :foreground "#ffffff")
        heks/window-divider-contrast)))
 
 (defun heks/set-window-divider-faces (&rest _)
@@ -217,25 +217,25 @@ text scale keeps the typographic hierarchy between body text, headings
 and code blocks intact."
   (interactive)
   (when (facep 'org-level-1)
-    (heks//set-face 'org-table :height 0.92 :font heks/font-mono)
-    (heks//set-face 'org-block :font heks/font-mono :height 0.9)
-    (heks//set-face 'org-block-end-line :font heks/font-mono :height 0.9)
-    (heks//set-face 'org-block-begin-line :font heks/font-mono :height 0.9)
-    (heks//set-face 'org-code :font heks/font-mono :height 0.85)
-    (heks//set-face 'org-verbatim :font heks/font-mono :height 1.0)
-    (heks//set-face 'org-document-title :font heks/font-sans :weight 'bold :height 1.5)
-    (heks//set-face 'org-document-info :font heks/font-sans :height 1.05)
-    (heks//set-face 'org-document-info-keyword :inherit '(font-lock-comment-face))
-    (heks//set-face 'org-quote :font heks/font-serif :slant 'italic)
-    (heks//set-face 'org-verse :font heks/font-serif :slant 'italic)
-    (heks//set-face 'org-level-1 :font heks/font-sans :weight 'bold :height 1.35)
-    (heks//set-face 'org-level-2 :font heks/font-sans :weight 'bold :height 1.22)
-    (heks//set-face 'org-level-3 :font heks/font-sans :weight 'bold :height 1.12)
-    (heks//set-face 'org-level-4 :font heks/font-sans :weight 'bold :height 1.06)
-    (heks//set-face 'org-level-5 :font heks/font-sans :weight 'bold :height 1.0)
-    (heks//set-face 'org-level-6 :font heks/font-sans :weight 'bold :height 0.98)
-    (heks//set-face 'org-level-7 :font heks/font-sans :weight 'bold :height 0.96)
-    (heks//set-face 'org-level-8 :font heks/font-sans :weight 'bold :height 0.94)))
+    (heks/set-face 'org-table :height 0.92 :font heks/font-mono)
+    (heks/set-face 'org-block :font heks/font-mono :height 0.9)
+    (heks/set-face 'org-block-end-line :font heks/font-mono :height 0.9)
+    (heks/set-face 'org-block-begin-line :font heks/font-mono :height 0.9)
+    (heks/set-face 'org-code :font heks/font-mono :height 0.85)
+    (heks/set-face 'org-verbatim :font heks/font-mono :height 1.0)
+    (heks/set-face 'org-document-title :font heks/font-sans :weight 'bold :height 1.5)
+    (heks/set-face 'org-document-info :font heks/font-sans :height 1.05)
+    (heks/set-face 'org-document-info-keyword :inherit '(font-lock-comment-face))
+    (heks/set-face 'org-quote :font heks/font-serif :slant 'italic)
+    (heks/set-face 'org-verse :font heks/font-serif :slant 'italic)
+    (heks/set-face 'org-level-1 :font heks/font-sans :weight 'bold :height 1.35)
+    (heks/set-face 'org-level-2 :font heks/font-sans :weight 'bold :height 1.22)
+    (heks/set-face 'org-level-3 :font heks/font-sans :weight 'bold :height 1.12)
+    (heks/set-face 'org-level-4 :font heks/font-sans :weight 'bold :height 1.06)
+    (heks/set-face 'org-level-5 :font heks/font-sans :weight 'bold :height 1.0)
+    (heks/set-face 'org-level-6 :font heks/font-sans :weight 'bold :height 0.98)
+    (heks/set-face 'org-level-7 :font heks/font-sans :weight 'bold :height 0.96)
+    (heks/set-face 'org-level-8 :font heks/font-sans :weight 'bold :height 0.94)))
 
 (defun heks/set-markdown-faces ()
   "Size and fontify the Markdown faces relative to the base size.
@@ -247,29 +247,44 @@ configured later, from the `with-eval-after-load' calls below."
   (interactive)
   ;; --- markdown-ts-mode (built-in) ---
   (when (facep 'markdown-ts-heading-1)
-    (heks//set-face 'markdown-ts-heading-1 :font heks/font-sans :weight 'bold :height 1.35)
-    (heks//set-face 'markdown-ts-heading-2 :font heks/font-sans :weight 'bold :height 1.22)
-    (heks//set-face 'markdown-ts-heading-3 :font heks/font-sans :weight 'bold :height 1.12)
-    (heks//set-face 'markdown-ts-heading-4 :font heks/font-sans :weight 'bold :height 1.06)
-    (heks//set-face 'markdown-ts-heading-5 :font heks/font-sans :weight 'bold :height 1.0)
-    (heks//set-face 'markdown-ts-heading-6 :font heks/font-sans :weight 'bold :height 0.98)
-    (heks//set-face 'markdown-ts-setext-heading :font heks/font-sans :weight 'bold :height 1.35)
-    (heks//set-face 'markdown-ts-code-block :font heks/font-mono :height 0.9)
-    (heks//set-face 'markdown-ts-indented-code-block :font heks/font-mono :height 0.9)
-    (heks//set-face 'markdown-ts-code-span :font heks/font-mono :height 0.9)
-    (heks//set-face 'markdown-ts-block-quote :font heks/font-serif :slant 'italic))
+    (heks/set-face 'markdown-ts-heading-1 :font heks/font-sans :weight 'bold :height 1.35)
+    (heks/set-face 'markdown-ts-heading-2 :font heks/font-sans :weight 'bold :height 1.22)
+    (heks/set-face 'markdown-ts-heading-3 :font heks/font-sans :weight 'bold :height 1.12)
+    (heks/set-face 'markdown-ts-heading-4 :font heks/font-sans :weight 'bold :height 1.06)
+    (heks/set-face 'markdown-ts-heading-5 :font heks/font-sans :weight 'bold :height 1.0)
+    (heks/set-face 'markdown-ts-heading-6 :font heks/font-sans :weight 'bold :height 0.98)
+    (heks/set-face 'markdown-ts-setext-heading :font heks/font-sans :weight 'bold :height 1.35)
+    (heks/set-face 'markdown-ts-code-block :font heks/font-mono :height 1.0)
+    (heks/set-face 'markdown-ts-indented-code-block :font heks/font-mono :height 1.0)
+    (heks/set-face 'markdown-ts-code-span :font heks/font-mono :height 1.0)
+    (heks/set-face 'markdown-ts-block-quote :font heks/font-serif :slant 'italic))
   ;; --- markdown-mode (third-party) ---
   (when (facep 'markdown-header-face-1)
-    (heks//set-face 'markdown-header-face-1 :font heks/font-sans :weight 'bold :height 1.35)
-    (heks//set-face 'markdown-header-face-2 :font heks/font-sans :weight 'bold :height 1.22)
-    (heks//set-face 'markdown-header-face-3 :font heks/font-sans :weight 'bold :height 1.12)
-    (heks//set-face 'markdown-header-face-4 :font heks/font-sans :weight 'bold :height 1.06)
-    (heks//set-face 'markdown-header-face-5 :font heks/font-sans :weight 'bold :height 1.0)
-    (heks//set-face 'markdown-header-face-6 :font heks/font-sans :weight 'bold :height 0.98)
-    (heks//set-face 'markdown-pre-face :font heks/font-mono :height 0.9)
-    (heks//set-face 'markdown-code-face :font heks/font-mono :height 0.9)
-    (heks//set-face 'markdown-inline-code-face :font heks/font-mono :height 0.9)
-    (heks//set-face 'markdown-blockquote-face :font heks/font-serif :slant 'italic)))
+    (heks/set-face 'markdown-header-face-1 :font heks/font-sans :weight 'bold :height 1.35)
+    (heks/set-face 'markdown-header-face-2 :font heks/font-sans :weight 'bold :height 1.22)
+    (heks/set-face 'markdown-header-face-3 :font heks/font-sans :weight 'bold :height 1.12)
+    (heks/set-face 'markdown-header-face-4 :font heks/font-sans :weight 'bold :height 1.06)
+    (heks/set-face 'markdown-header-face-5 :font heks/font-sans :weight 'bold :height 1.0)
+    (heks/set-face 'markdown-header-face-6 :font heks/font-sans :weight 'bold :height 0.98)
+    ;; Monospace at 1.0: a smaller mono looks tiny next to the sans body.
+    ;; The faces below are the ones markdown-mode shrinks or leaves in
+    ;; the fixed-pitch default (tables, fences, list markers, metadata).
+    (dolist (face '(markdown-pre-face markdown-code-face
+                    markdown-inline-code-face markdown-table-face
+                    markdown-language-keyword-face
+                    markdown-language-info-face
+                    markdown-markup-face markdown-list-face
+                    markdown-metadata-key-face
+                    markdown-metadata-value-face
+                    markdown-url-face markdown-link-url-face))
+      (when (facep face)
+        (heks/set-face face :height 1.0)))
+    (dolist (face '(markdown-pre-face markdown-code-face
+                    markdown-inline-code-face markdown-table-face
+                    markdown-language-keyword-face))
+      (when (facep face)
+        (heks/set-face face :font heks/font-mono)))
+    (heks/set-face 'markdown-blockquote-face :font heks/font-serif :slant 'italic)))
 
 ;;
 ;; ====== ECA faces ======
@@ -440,9 +455,9 @@ why `heks/set-base-faces' can call it on every theme change and the
 `with-eval-after-load' below repeats it once the package is there."
   (interactive)
   (dolist (face heks/eca-sans-faces)
-    (heks//set-face face :font heks/font-sans))
+    (heks/set-face face :font heks/font-sans))
   (dolist (face heks/eca-mono-faces)
-    (heks//set-face face :font heks/font-mono)))
+    (heks/set-face face :font heks/font-mono)))
 
 (defun heks/set-base-faces ()
   "Adjust the base Emacs faces to my preferences.

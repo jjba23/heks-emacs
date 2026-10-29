@@ -17,7 +17,7 @@ This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic 
 
 *** Changed
 - Notes carry no identifiers any more: a note is ~#+title:~ and ~#+date:~, and links between notes are relative ~file:~ links. Moving a note with ~C-c n r~ rewrites the links that pointed at it and makes the links inside it relative to where it now is.
-- Renamed every function, variable, face, group and feature from ~heks-emacs-NAME~ to ~heks/NAME~ (and private ~heks-emacs--NAME~ to ~heks//NAME~), through the modules, tests, README and the key reference. The settings are still accepted under their old ~heks-emacs-~ names, as obsolete aliases, so a bridge written before the rename keeps working until it is regenerated. File names (~heks-emacs.el~, the ~test/heks-emacs-*.el~ files) and the project name are unchanged.
+- Renamed every function, variable, face, group and feature from ~heks-emacs-NAME~ to ~heks/NAME~ (and private ~heks-emacs--NAME~ to ~heks/NAME~), through the modules, tests, README and the key reference. The settings are still accepted under their old ~heks-emacs-~ names, as obsolete aliases, so a bridge written before the rename keeps working until it is regenerated. File names (~heks-emacs.el~, the ~test/heks-emacs-*.el~ files) and the project name are unchanged.
 
 *** Removed
 - Removed ~org-roam~ and ~org-roam-ui~ altogether. Notes are now one Org file each in topic folders, with no database (see ~notes.el~): ~heks-emacs-notes-roam-dir~ is now ~heks-emacs-notes-dir~ (the old name still works as an obsolete alias), ~heks-emacs-import-into-roam~ is ~heks-emacs-import-into-notes~, an import writes the standard ~:ALIASES:~ property rather than ~:ROAM_ALIASES:~, and the daily-note and graph keys are gone.

@@ -452,7 +452,7 @@ Operates on the selected region, or from point to the end of the buffer."
 
 (require 'cl-lib)
 
-(defun heks//locate-project-file (names &optional start-dir)
+(defun heks/locate-project-file (names &optional start-dir)
   "Return the closest directory at or above START-DIR that holds one of NAMES.
 
 NAMES is a file name or a list of file names, such as a `pom.xml' or a
@@ -468,7 +468,7 @@ Return nil when no such directory exists."
           (setq dir (unless (equal parent dir) parent))))
       nil)))
 
-(defun heks//jvm-build-program (root wrapper default)
+(defun heks/jvm-build-program (root wrapper default)
   "Return the build program to run in ROOT.
 
 Wants the project WRAPPER script (e.g. mvnw) when it is executable,
@@ -476,7 +476,7 @@ otherwise falls back to DEFAULT (e.g. mvn)."
   (let ((wrapper (expand-file-name wrapper root)))
     (if (file-executable-p wrapper) wrapper default)))
 
-(defun heks//jvm-build (root program &rest arguments)
+(defun heks/jvm-run-build (root program &rest arguments)
   "Compile the build command for ROOT using PROGRAM and ARGUMENTS."
   (let ((default-directory root)
         (command (mapconcat #'identity (cons (shell-quote-argument program) arguments) " ")))
@@ -528,7 +528,7 @@ otherwise falls back to DEFAULT (e.g. mvn)."
     ("jib"          . "Build a container image from the application"))
   "Common Gradle tasks, with what they do.")
 
-(defun heks//jvm-read (what table history default)
+(defun heks/jvm-read (what table history default)
   "Read a WHAT from TABLE, mentioning what each one does.
 
 HISTORY is where the answers are remembered and DEFAULT is what an empty
@@ -545,13 +545,13 @@ restriction, because a build always has goals that are its own."
 Prefers the project's `mvnw' wrapper over a system-wide `mvn' and reuses
 the compilation buffer, so a second run of the same goal reuses the
 window instead of opening another one."
-  (interactive (list (heks//jvm-read "Maven goal" heks/maven-goals
+  (interactive (list (heks/jvm-read "Maven goal" heks/maven-goals
                                            'heks/maven-goal-history "test")))
-  (let ((root (heks//locate-project-file "pom.xml")))
+  (let ((root (heks/locate-project-file "pom.xml")))
     (unless root
       (user-error "No pom.xml found above %s" default-directory))
-    (heks//jvm-build root
-                           (heks//jvm-build-program root "mvnw" "mvn")
+    (heks/jvm-run-build root
+                           (heks/jvm-build-program root "mvnw" "mvn")
                            goal)))
 
 (defun heks/maven-dependency-tree ()
@@ -563,7 +563,7 @@ window instead of opening another one."
   "Choose a Maven goal by what it does instead of by its name."
   (interactive)
   (heks/maven-run
-   (heks//jvm-read "Maven goal" heks/maven-goals
+   (heks/jvm-read "Maven goal" heks/maven-goals
                          'heks/maven-goal-history "test")))
 
 (defun heks/gradle-run (task)
@@ -571,20 +571,20 @@ window instead of opening another one."
 
 Understands both Groovy (`build.gradle') and Kotlin (`build.gradle.kts')
 projects, and prefers the `gradlew' wrapper."
-  (interactive (list (heks//jvm-read "Gradle task" heks/gradle-tasks
+  (interactive (list (heks/jvm-read "Gradle task" heks/gradle-tasks
                                            'heks/gradle-task-history "test")))
-  (let ((root (heks//locate-project-file '("build.gradle" "build.gradle.kts"))))
+  (let ((root (heks/locate-project-file '("build.gradle" "build.gradle.kts"))))
     (unless root
       (user-error "No build.gradle or build.gradle.kts found above %s" default-directory))
-    (heks//jvm-build root
-                           (heks//jvm-build-program root "gradlew" "gradle")
+    (heks/jvm-run-build root
+                           (heks/jvm-build-program root "gradlew" "gradle")
                            task)))
 
 (defun heks/gradle-menu ()
   "Choose a Gradle task by what it does instead of by its name."
   (interactive)
   (heks/gradle-run
-   (heks//jvm-read "Gradle task" heks/gradle-tasks
+   (heks/jvm-read "Gradle task" heks/gradle-tasks
                          'heks/gradle-task-history "test")))
 
 (defun heks/spring-boot-run ()
@@ -593,9 +593,9 @@ projects, and prefers the `gradlew' wrapper."
 Uses Maven (`spring-boot:run') for Maven projects and Gradle (`bootRun')
 for Gradle projects."
   (interactive)
-  (cond ((heks//locate-project-file "pom.xml")
+  (cond ((heks/locate-project-file "pom.xml")
          (heks/maven-run "spring-boot:run"))
-        ((heks//locate-project-file '("build.gradle" "build.gradle.kts"))
+        ((heks/locate-project-file '("build.gradle" "build.gradle.kts"))
          (heks/gradle-run "bootRun"))
         (t (user-error "No pom.xml or Gradle build found above %s" default-directory))))
 
@@ -620,9 +620,9 @@ which is what reports a broken POM or a missing plugin."
   (cond ((and (bound-and-true-p eglot-java-mode)
               (fboundp 'eglot-java-project-build-refresh))
          (call-interactively #'eglot-java-project-build-refresh))
-        ((heks//locate-project-file "pom.xml")
+        ((heks/locate-project-file "pom.xml")
          (heks/maven-run "validate"))
-        ((heks//locate-project-file '("build.gradle" "build.gradle.kts"))
+        ((heks/locate-project-file '("build.gradle" "build.gradle.kts"))
          (heks/gradle-run "tasks"))
         (t (user-error "No Maven or Gradle project above %s" default-directory))))
 
@@ -672,8 +672,8 @@ annotation beside it."
 A directory can hold both a `pom.xml' and a `build.gradle' -- a Maven
 project being migrated, most often -- and the one nearer to the file
 being edited is the one its author is working with."
-  (let ((maven (heks//locate-project-file "pom.xml"))
-        (gradle (heks//locate-project-file '("build.gradle" "build.gradle.kts"))))
+  (let ((maven (heks/locate-project-file "pom.xml"))
+        (gradle (heks/locate-project-file '("build.gradle" "build.gradle.kts"))))
     (cond ((and maven (or (null gradle) (>= (length maven) (length gradle))))
            (cons 'maven maven))
           (gradle (cons 'gradle gradle))
@@ -685,7 +685,7 @@ being edited is the one its author is working with."
 WHAT is what the goal is for -- `test', `package', `verify', `clean' or
 `dependencies' -- and which build tool runs it is decided by the project
 itself, `pom.xml' or a Gradle build."
-  (interactive (list (heks//jvm-read "Goal" (heks/jvm--read-table)
+  (interactive (list (heks/jvm-read "Goal" (heks/jvm--read-table)
                                            'heks/jvm-goal-history "test")))
   (let ((project (heks/jvm--project)))
     (unless project
@@ -727,7 +727,7 @@ alike: it offers what a build is for, and the project answers with its
 own goal."
   (interactive)
   (heks/jvm-run
-   (heks//jvm-read "Goal" (heks/jvm--read-table)
+   (heks/jvm-read "Goal" (heks/jvm--read-table)
                          'heks/jvm-goal-history "test")))
 
 ;;
@@ -784,13 +784,13 @@ attaches `dape' to it through `heks/java-debug-jar'."
   :type 'integer
   :group 'heks)
 
-(defun heks//java-debug-cached-jar ()
+(defun heks/java-debug-cached-jar ()
   "Return a `java-debug' jar already sitting in the cache dir, or nil."
   (car (file-expand-wildcards
         (expand-file-name "com.microsoft.java.debug.plugin-*.jar"
                            heks/java-debug-cache-dir))))
 
-(defun heks//java-debug-latest-asset-url ()
+(defun heks/java-debug-latest-asset-url ()
   "Return the download URL of the latest `java-debug' adapter jar, or nil.
 
 Asks GitHub's release API for the project's latest release and picks out
@@ -824,8 +824,8 @@ place that reports not having a debugger to run.  With FORCE (or a
 prefix argument), fetches a new one even over a cached jar."
   (interactive "P")
   (or (and (not force) heks/java-debug-jar)
-      (and (not force) (heks//java-debug-cached-jar))
-      (let ((url (heks//java-debug-latest-asset-url)))
+      (and (not force) (heks/java-debug-cached-jar))
+      (let ((url (heks/java-debug-latest-asset-url)))
         (when url
           (make-directory heks/java-debug-cache-dir t)
           (let ((target (expand-file-name (file-name-nondirectory url)
@@ -840,7 +840,7 @@ prefix argument), fetches a new one even over a cached jar."
                         (error-message-string err))
                nil)))))))
 
-(defun heks//jvm-debug-agent (port)
+(defun heks/jvm-debug-agent (port)
   "Return the JVM argument that suspends a JVM for a debugger on PORT.
 
 `suspend=y' is what makes this reliable rather than a race: the JVM does
@@ -867,18 +867,18 @@ yourself and run `M-x heks/java-debug-ensure-jar'"))
   (require 'dape)
   (let* ((project (heks/jvm--project))
          (root (cdr project))
-         (agent (heks//jvm-debug-agent heks/java-debug-port)))
+         (agent (heks/jvm-debug-agent heks/java-debug-port)))
     (unless project
       (user-error "No pom.xml or Gradle build found above %s" default-directory))
     (pcase (car project)
       ('maven
-       (heks//jvm-build root
-                              (heks//jvm-build-program root "mvnw" "mvn")
+       (heks/jvm-run-build root
+                              (heks/jvm-build-program root "mvnw" "mvn")
                               "spring-boot:run"
                               (shell-quote-argument (format "-Dspring-boot.run.jvmArguments=%s" agent))))
       ('gradle
-       (heks//jvm-build root
-                              (heks//jvm-build-program root "gradlew" "gradle")
+       (heks/jvm-run-build root
+                              (heks/jvm-build-program root "gradlew" "gradle")
                               "bootRun"
                               (format "-Dorg.gradle.jvmargs=%s" (shell-quote-argument agent)))))
     (message "Waiting for %s to listen on %d before attaching `dape'..."
@@ -1108,7 +1108,7 @@ the reading work even when something still decorates it."
   "\\`\\(warning\\|error\\|note\\|fatal[^:]*\\): \\(.*\\)\\'"
   "Regexp matching the severity prefix some tools put before a message.")
 
-(defun heks//tool-severity (message)
+(defun heks/tool-severity (message)
   "Return (SEVERITY . MESSAGE) for the raw diagnostic MESSAGE.
 
 Most tools prefix theirs with `warning:', `error:' or `note:'; the prefix
@@ -1131,13 +1131,13 @@ backtrace into diagnostics."
     (dolist (line (split-string (heks/strip-escapes text) "\n" t))
       (when (string-match heks/tool-diagnostic-regexp line)
         ;; Every piece is taken out of the match data before anything else
-        ;; looks at a string: `heks//tool-severity' matches a regexp of
+        ;; looks at a string: `heks/tool-severity' matches a regexp of
         ;; its own, and that would overwrite the line, column and file name
         ;; read here.
         (let* ((file (match-string 1 line))
                (number (string-to-number (match-string 2 line)))
                (column (string-to-number (match-string 3 line)))
-               (severity (heks//tool-severity (match-string 4 line))))
+               (severity (heks/tool-severity (match-string 4 line))))
           (push (list file number column (car severity) (cdr severity)) entries))))
     (nreverse entries)))
 
@@ -1470,7 +1470,7 @@ reloaded from it, so the two agree again."
 (defvar sql-database)
 (defvar sql-port)
 
-(defun heks//run-in-terminal (name program &rest arguments)
+(defun heks/run-in-terminal (name program &rest arguments)
   "Run PROGRAM with ARGUMENTS in a dedicated terminal buffer called NAME.
 
 Uses a real pseudo-terminal (`term') so that interactive REPLs and
@@ -1512,7 +1512,7 @@ otherwise `mongosh' connects to the default local server."
                       (or (getenv "MONGODB_URI") ""))))
   (unless (executable-find "mongosh")
     (user-error "Cannot find the `mongosh' executable in `exec-path'"))
-  (apply #'heks//run-in-terminal "mongosh" "mongosh"
+  (apply #'heks/run-in-terminal "mongosh" "mongosh"
          (unless (string-empty-p (or uri "")) (list uri))))
 
 ;; Every setting used to be spelled `heks-emacs-NAME'.  A bridge written
