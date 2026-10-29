@@ -48,8 +48,12 @@
   "Mouse hover documentation."
   :group 'tools)
 
-(defcustom heks/hover-timeout 0.8
-  "Seconds to wait for a language server to answer a hover request."
+(defcustom heks/hover-timeout 0.6
+  "Seconds after which the answers that have arrived are shown regardless.
+The first answer is shown as soon as it arrives, so this is not how long a
+popup takes to appear: it is how long the request waits for the quieter
+sources before it is closed, and a source that answers later still updates the
+popup while it is on screen."
   :type 'number
   :group 'heks/hover)
 
@@ -71,54 +75,66 @@
 (defvar heks/hover-mode)
 (defvar heks/hover--frame nil "The child frame the popup is drawn in.")
 (defconst heks/hover--buffer " *heks-hover*")
+(defvar heks/hover--shown nil
+  "Cons of (TEXT . (WIDTH . HEIGHT)): the popup as it was last measured.
+Rendering a document and then measuring it is the expensive half of showing a
+popup, and hovering along a line asks for the same text again and again.")
 
 (defun heks/hover--request (pos callback)
   "Ask ElDoc's functions about POS in the current buffer, without waiting.
 
-CALLBACK is called once, with the answers joined by blank lines (or nil
-when there are none), as soon as every function has answered or
-`heks/hover-timeout' seconds have passed, whichever is first.  It runs in
-the buffer this was called from, if that is still live.  Nothing here
-blocks: the functions in `eldoc-documentation-functions' are called with a
-callback, exactly as ElDoc does, and the answers arrive whenever the
-server or the REPL sends them."
+CALLBACK is called with the answers joined by blank lines (or nil when there
+are none) as soon as the first one arrives, and again as the others come in, so
+that a source which answers at once is not held behind one that thinks about
+it.  `heks/hover-timeout' closes the request, and whatever has arrived by then
+is what it says.  It runs in the buffer this was called from, if that is still
+live.  Nothing here blocks: the functions in `eldoc-documentation-functions'
+are called with a callback, exactly as ElDoc does, and the answers arrive
+whenever the server or the REPL sends them."
   (let* ((buffer (current-buffer))
          (slots '())
          (finished nil)
          (asked nil)
          (timer nil)
+         ;; Whatever has been said so far, handed over now rather than at the
+         ;; end: the popup that waits for the last server to answer waits for
+         ;; the slowest one every time.
+         (settle
+          (lambda ()
+            (let* ((docs (delq nil (mapcar #'car (reverse slots))))
+                   (text (and docs
+                              (string-join (mapcar #'string-trim docs)
+                                           "\n\n"))))
+              (when (and text (not (string-empty-p text)) (buffer-live-p buffer))
+                (with-current-buffer buffer (funcall callback text))))))
          (finish
           (lambda ()
             (unless finished
               (setq finished t)
               (when (timerp timer) (cancel-timer timer))
-              (let* ((docs (delq nil (mapcar #'car (reverse slots))))
-                     (text (and docs
-                                (string-join (mapcar #'string-trim docs)
-                                             "\n\n"))))
-                (when (buffer-live-p buffer)
-                  (with-current-buffer buffer
-                    (funcall callback (and text (not (string-empty-p text))
-                                           text)))))))))
+              (funcall settle)))))
     (setq timer (run-with-timer heks/hover-timeout nil finish))
     (save-excursion
       (goto-char pos)
       (dolist (fn eldoc-documentation-functions)
-        ;; A slot is (DOC . DONE): the callback fills both.
-        (let* ((slot (cons nil nil))
-               (result (ignore-errors
-                         (funcall fn
-                                  (lambda (doc &rest _)
-                                    (when (stringp doc) (setcar slot doc))
-                                    (setcdr slot t)
-                                    ;; Last one in closes the request.
-                                    (when (and asked (cl-every #'cdr slots))
-                                      (funcall finish)))))))
-          ;; Non-nil means "I will call the callback"; nil means there is
-          ;; nothing to say here.
-          (if result
-              (push slot slots)
-            (setcdr slot t)))))
+        ;; The slot is on the list before the function is called: a function is
+        ;; allowed to answer in the same breath it was asked, and an answer
+        ;; that arrives before its slot exists is an answer lost.
+        (let ((slot (cons nil nil)))
+          (push slot slots)
+          (let ((result (ignore-errors
+                          (funcall fn
+                                   (lambda (doc &rest _)
+                                     (when (stringp doc) (setcar slot doc))
+                                     (setcdr slot t)
+                                     (funcall settle)
+                                     ;; Last one in closes the request.
+                                     (when (and asked (cl-every #'cdr slots))
+                                       (funcall finish)))))))
+            ;; Non-nil means "I will call the callback"; nil means there is
+            ;; nothing to say here.
+            (unless result
+              (setcdr slot t))))))
     (setq asked t)
     (when (cl-every #'cdr slots)
       (funcall finish))))
@@ -169,6 +185,9 @@ that is installed so that code fences and emphasis read properly."
                (eq (frame-parent heks/hover--frame) parent))
     (when (frame-live-p heks/hover--frame)
       (delete-frame heks/hover--frame))
+    ;; A popup measured in another frame -- another font, another theme, another
+    ;; size -- says nothing about this one.
+    (setq heks/hover--shown nil)
     (let ((bg (face-background 'tooltip nil t))
           (fg (face-foreground 'tooltip nil t)))
       (setq heks/hover--frame
@@ -206,39 +225,49 @@ that is installed so that code fences and emphasis read properly."
              (frame-visible-p heks/hover--frame))
     (make-frame-invisible heks/hover--frame)))
 
+(defun heks/hover--measure (frame window text max-w max-h)
+  "Return the (WIDTH . HEIGHT) in pixels that TEXT needs in WINDOW of FRAME.
+The frame is widened to MAX-W first, because a line wraps at the width its
+window has: measuring before that would measure one very long line."
+  (set-window-buffer window (heks/hover--render text))
+  (set-window-dedicated-p window t)
+  (set-frame-size frame max-w max-h t)
+  (let ((size (window-text-pixel-size window nil nil max-w max-h t))
+        (char-w (frame-char-width (frame-parent frame))))
+    (cons (min max-w (+ (car size) char-w))
+          (min max-h (cdr size)))))
+
 (defun heks/hover--show (text)
   "Show TEXT in a bounded popup just below the mouse pointer."
   (let* ((parent (selected-frame))
          (pointer (cdr (mouse-pixel-position)))
          (frame (heks/hover--ensure-frame parent))
          (window (frame-root-window frame))
-         (buffer (heks/hover--render text))
          (char-w (frame-char-width parent))
          (char-h (frame-char-height parent))
          (max-w (min (* heks/hover-max-width char-w)
                      (floor (* 0.5 (frame-pixel-width parent)))))
          (max-h (min (* heks/hover-max-height char-h)
-                     (floor (* 0.4 (frame-pixel-height parent))))))
-    (set-window-buffer window buffer)
-    (set-window-dedicated-p window t)
-    ;; Wrap at the maximum width, then shrink to what the text needs.
-    (set-frame-size frame max-w max-h t)
-    (let* ((size (window-text-pixel-size window nil nil max-w max-h t))
-           (w (min max-w (+ (car size) char-w)))
-           (h (min max-h (cdr size)))
-           (border (* 2 (+ 10 1)))
-           (fw (+ w border))
-           (fh (+ h border))
-           (x (if pointer (car pointer) 0))
-           (y (if pointer (cdr pointer) 0))
-           (left (max 0 (min x (- (frame-pixel-width parent) fw))))
-           ;; Below the pointer, unless there is no room, then above it.
-           (top (if (<= (+ y 24 fh) (frame-pixel-height parent))
-                    (+ y 24)
-                  (max 0 (- y fh 8)))))
-      (set-frame-size frame w h t)
-      (set-frame-position frame left top)
-      (make-frame-visible frame))))
+                     (floor (* 0.4 (frame-pixel-height parent)))))
+         ;; The same words in the same frame do not have to be laid out again.
+         (known (and (equal text (car-safe heks/hover--shown))
+                     (cdr heks/hover--shown)))
+         (size (or known (heks/hover--measure frame window text max-w max-h)))
+         (border (* 2 (+ 10 1)))
+         (fw (+ (car size) border))
+         (fh (+ (cdr size) border))
+         (x (if pointer (car pointer) 0))
+         (y (if pointer (cdr pointer) 0))
+         (left (max 0 (min x (- (frame-pixel-width parent) fw))))
+         ;; Below the pointer, unless there is no room, then above it.
+         (top (if (<= (+ y 24 fh) (frame-pixel-height parent))
+                  (+ y 24)
+                (max 0 (- y fh 8)))))
+    (unless known
+      (setq heks/hover--shown (cons text size)))
+    (set-frame-size frame (car size) (cdr size) t)
+    (set-frame-position frame left top)
+    (make-frame-visible frame)))
 
 
 ;;
@@ -251,8 +280,10 @@ that is installed so that code fences and emphasis read properly."
 ;; the pointer is still on that symbol.  The timer runs only while some
 ;; buffer has `heks/hover-mode' on.
 
-(defcustom heks/hover-delay 0.4
-  "Seconds the mouse must rest on a symbol before documentation is asked for."
+(defcustom heks/hover-delay 0.3
+  "Seconds the mouse must rest on a symbol before documentation is asked for.
+Short enough that the popup feels like it follows the pointer rather than
+trailing it, long enough that crossing a line of names asks for nothing."
   :type 'number
   :group 'heks/hover)
 
@@ -260,6 +291,11 @@ that is installed so that code fences and emphasis read properly."
 (defvar heks/hover--dwell-timer nil)
 (defvar heks/hover--anchor nil
   "(WINDOW . SYMBOL-START) the pointer is on, for which a popup is wanted.")
+(defvar heks/hover--sight nil
+  "What the last poll saw: the pointer, the window and where it starts.
+While this is unchanged, nothing is asked of `posn-at-x-y', of the symbol at
+point or of a server: a pointer that has not moved is over the same symbol
+unless the window beneath it scrolled.")
 
 (defun heks/hover--target ()
   "Return (WINDOW . POS) for the hoverable symbol under the pointer, or nil."
@@ -306,15 +342,29 @@ that is installed so that code fences and emphasis read properly."
   (if (not (cl-some (lambda (b) (buffer-local-value 'heks/hover-mode b))
                     (buffer-list)))
       (heks/hover--stop-polling)
-    (let ((target (ignore-errors (heks/hover--target))))
-      (unless (equal target heks/hover--anchor)
-        (heks/hover--cancel-dwell)
-        (heks/hover--hide)
-        (setq heks/hover--anchor target)
-        (when target
-          (setq heks/hover--dwell-timer
-                (run-with-timer heks/hover-delay nil
-                                #'heks/hover--ask target)))))))
+    (let ((sight (list (mouse-pixel-position)
+                       (selected-window)
+                       (window-buffer)
+                       (window-start)
+                       ;; The window the popup belongs to may not be the
+                       ;; selected one: it is its own scroll that would move the
+                       ;; text out from under a pointer that has not moved.
+                       (and (window-live-p (car-safe heks/hover--anchor))
+                            (window-start (car heks/hover--anchor))))))
+      ;; A pointer that has not moved is over the same symbol, unless the
+      ;; window under it moved: most ticks of this timer do nothing at all,
+      ;; which is what makes hovering not cost anything while it is idle.
+      (unless (equal sight heks/hover--sight)
+        (setq heks/hover--sight sight)
+        (let ((target (ignore-errors (heks/hover--target))))
+          (unless (equal target heks/hover--anchor)
+            (heks/hover--cancel-dwell)
+            (heks/hover--hide)
+            (setq heks/hover--anchor target)
+            (when target
+              (setq heks/hover--dwell-timer
+                    (run-with-timer heks/hover-delay nil
+                                    #'heks/hover--ask target)))))))))
 
 (defun heks/hover--start-polling ()
   (unless (timerp heks/hover--poll-timer)
@@ -325,7 +375,8 @@ that is installed so that code fences and emphasis read properly."
   (when (timerp heks/hover--poll-timer)
     (cancel-timer heks/hover--poll-timer))
   (setq heks/hover--poll-timer nil
-        heks/hover--anchor nil)
+        heks/hover--anchor nil
+        heks/hover--sight nil)
   (heks/hover--cancel-dwell)
   (heks/hover--hide))
 

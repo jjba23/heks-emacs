@@ -67,7 +67,7 @@
   (load (expand-file-name (format "modules/%s.el" name) heks-ert--source) nil t))
 
 (dolist (module '("markdown" "render" "import" "present" "heks-emacs" "emacs-core"
-                 "notes" "notes-graph" "notes-auto" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "openapi" "scheme-lint" "duplicates" "shell" "guile" "ui" "ai"))
+                 "notes" "notes-graph" "notes-auto" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "dev-hover" "openapi" "scheme-lint" "duplicates" "shell" "guile" "ui" "ai"))
   (heks-ert--module module))
 
 ;; `htmlize' is what Org colours the code in a note with, and the
@@ -537,6 +537,202 @@ This is what naming the notes directory after nothing used to do:
       (should (stringp directory))
       (should (string-suffix-p "private-notes" directory))
       (should (string-prefix-p (file-truename (expand-file-name "~")) directory)))))
+
+;;
+;; ====== Reading the notes without reading them twice ======
+;;
+
+(defmacro heks-ert--with-notes (directory &rest body)
+  "Run BODY over DIRECTORY as the notes directory, with nothing remembered.
+The caches are what a prompt is made of, so a test of a prompt starts from
+a cache that says nothing rather than from whatever the last test left."
+  (declare (indent 1))
+  `(cl-letf (((symbol-function 'heks/notes-directory)
+              (lambda () (file-name-as-directory ,directory))))
+     (heks/notes--forget-cache)
+     (unwind-protect (progn ,@body)
+       (heks/notes--forget-cache))))
+
+(defun heks-ert--write-note (file title)
+  "Write FILE as a note titled TITLE, and return it."
+  (make-directory (file-name-directory file) t)
+  (write-region (format "#+title: %s\n#+date: [2026-01-01 Thu]\n#+filetags: :one:\n\nBody.\n"
+                        title)
+                nil file nil 'silent)
+  file)
+
+(ert-deftest heks/notes/a-title-changed-on-disk-is-read-again ()
+  "A note edited by another program is what the next prompt offers.
+
+The title of a note is remembered, and remembered with the modification
+time and the size it was read at: a file that says something else now is
+read again, whoever wrote it."
+  (let ((root (heks-ert--temp-directory)))
+    (unwind-protect
+        (heks-ert--with-notes root
+          (let ((note (expand-file-name "work/note.org" root)))
+            (heks-ert--write-note note "The old title")
+            (should (equal (mapcar #'car (heks/notes--candidates))
+                           '("The old title")))
+            ;; Written again by something that is not this configuration, with
+            ;; a title of a different length: nothing depends on how finely the
+            ;; filesystem dates a file.
+            (heks-ert--write-note note "A title someone else gave it")
+            (should (equal (mapcar #'car (heks/notes--candidates))
+                           '("A title someone else gave it")))
+            (should (equal (alist-get 'title (heks/notes--header note))
+                           "A title someone else gave it"))))
+      (delete-directory root t))))
+
+(ert-deftest heks/notes/the-archive-is-in-no-prompt ()
+  "The dot-folder is not a topic, is not a candidate, and is not scanned."
+  (let ((root (heks-ert--temp-directory)))
+    (unwind-protect
+        (heks-ert--with-notes root
+          (heks-ert--write-note (expand-file-name "work/note.org" root) "A working note")
+          (heks-ert--write-note (expand-file-name ".archive/old/note.org" root)
+                                "A note from a former employer")
+          (should (equal (mapcar #'cdr (heks/notes--candidates))
+                         (list (expand-file-name "work/note.org" root))))
+          (should (equal (heks/notes-topics) '("work")))
+          ;; It is still there, for the key that asks for it.
+          (should (equal (heks/notes-files t)
+                         (list (expand-file-name ".archive/old/note.org" root)))))
+      (delete-directory root t))))
+
+(ert-deftest heks/notes/a-note-that-was-created-here-is-offered-at-once ()
+  "Creating a note throws the scan away; nothing waits for the cache to expire."
+  (let ((root (heks-ert--temp-directory)))
+    (unwind-protect
+        (heks-ert--with-notes root
+          (let ((heks/notes-cache-seconds 3600))
+            (heks-ert--write-note (expand-file-name "work/one.org" root) "One")
+            (should (= 1 (length (heks/notes--candidates))))
+            (heks-ert--write-note (expand-file-name "work/two.org" root) "Two")
+            ;; The scan is reused while nothing says otherwise: that is what
+            ;; makes the second prompt of a session cost nothing.
+            (should (= 1 (length (heks/notes--candidates))))
+            ;; And this is what creating a note does -- `heks/notes-new',
+            ;; `heks/notes-move' and the save hook all do it.
+            (heks/notes--forget-cache)
+            (should (= 2 (length (heks/notes--candidates))))))
+      (delete-directory root t))))
+
+(ert-deftest heks/notes/what-is-remembered-is-remembered-for-one-directory ()
+  "Pointing `heks/notes-dir' elsewhere serves nothing from where it was."
+  (let ((one (heks-ert--temp-directory))
+        (two (heks-ert--temp-directory)))
+    (unwind-protect
+        (progn
+          (heks-ert--write-note (expand-file-name "work/one.org" one) "The note in one")
+          (heks-ert--write-note (expand-file-name "work/two.org" two) "The note in two")
+          (heks/notes--forget-cache)
+          (cl-letf (((symbol-function 'heks/notes-directory)
+                     (lambda () (file-name-as-directory one))))
+            (should (equal (mapcar #'car (heks/notes--candidates))
+                           '("The note in one"))))
+          ;; No forgetting in between: the directory itself is what decides.
+          (cl-letf (((symbol-function 'heks/notes-directory)
+                     (lambda () (file-name-as-directory two))))
+            (should (equal (mapcar #'car (heks/notes--candidates))
+                           '("The note in two")))))
+      (heks/notes--forget-cache)
+      (delete-directory one t)
+      (delete-directory two t))))
+
+(ert-deftest heks/notes/an-annotation-says-what-the-note-is ()
+  "The columns beside a title are the topic, the tags and the age of the note."
+  (let ((root (heks-ert--temp-directory)))
+    (unwind-protect
+        (heks-ert--with-notes root
+          (heks-ert--write-note (expand-file-name "work/infra/note.org" root) "A note")
+          (let ((annotation (heks/notes--note-annotation
+                             (caar (heks/notes--candidates)))))
+            (should (equal (car annotation) "work/infra"))
+            ;; Its own tags and the folders it lives in, derived, never written.
+            (should (equal (cadr annotation) "one:work:infra"))
+            (should (stringp (nth 2 annotation))))
+          ;; The annotation a row asks for is the same whether it is given the
+          ;; table made for the prompt or the candidate alone.
+          (let* ((candidates (heks/notes--candidates))
+                 (info (heks/notes--note-info (mapcar #'cdr candidates))))
+            (should (equal (heks/notes--note-annotation (caar candidates) info)
+                           (heks/notes--note-annotation (caar candidates))))))
+      (delete-directory root t))))
+
+;;
+;; ====== A hover popup that does not wait ======
+;;
+
+(defun heks-ert--asked-with (functions pos settle)
+  "Ask POS with FUNCTIONS and return each answer with the delay before it.
+The result is a list of (SECONDS . TEXT), in the order the popup would have
+shown them; SETTLE is how long to listen for answers before giving up."
+  (let ((answers nil)
+        (start (float-time)))
+    (let ((eldoc-documentation-functions functions))
+      (heks/hover--request pos
+                           (lambda (text)
+                             (push (cons (- (float-time) start) text) answers)))
+      ;; The answers arrive through timers, which `sit-for' runs.
+      (let ((deadline (+ (float-time) settle)))
+        (while (< (float-time) deadline) (sit-for 0.02))))
+    (nreverse answers)))
+
+(ert-deftest heks/hover/the-fast-answer-is-not-held-behind-the-slow-one ()
+  "A source that answers at once is shown at once, not at the timeout.
+
+Waiting for every source before showing anything is what made a popup
+appear a second after the pointer stopped moving, for a server that had
+already answered."
+  (with-temp-buffer
+    (insert "(foo bar)")
+    (emacs-lisp-mode)
+    (let* ((answers (heks-ert--asked-with
+                     (list (lambda (cb) (funcall cb "the fast one") t)
+                           (lambda (cb)
+                             (run-with-timer 0.4 nil
+                                             (lambda () (funcall cb "the slow one")))
+                             t))
+                     (point-min) 0.9))
+           (first (car answers))
+           (last (car (last answers))))
+      (should (equal (cdr first) "the fast one"))
+      ;; It arrived at once, not when the request timed out.
+      (should (< (car first) 0.2))
+      ;; And when the slow one does answer, the popup says so too.
+      (should (string-match-p "the slow one" (cdr last)))
+      (should (string-match-p "the fast one" (cdr last))))))
+
+(ert-deftest heks/hover/a-source-with-nothing-to-say-calls-back-nobody ()
+  (with-temp-buffer
+    (insert "(foo)")
+    (emacs-lisp-mode)
+    (should-not (heks-ert--asked-with (list (lambda (_cb) nil)) (point-min) 0.7))))
+
+;;; ---- An idle pointer is not looked at again ------------------------
+
+(ert-deftest heks/hover/a-pointer-that-has-not-moved-is-not-asked-about-again ()
+  "Three polls of an unmoved pointer look the symbol up once, not three times."
+  (let ((buffer (generate-new-buffer " *heks-hover-poll*"))
+        (asked 0)
+        (heks/hover--sight nil)
+        (heks/hover--anchor nil))
+    (unwind-protect
+        (progn
+          (with-current-buffer buffer (setq heks/hover-mode t))
+          (cl-letf (((symbol-function 'heks/hover--target)
+                     (lambda () (cl-incf asked) nil)))
+            (heks/hover--poll)
+            (let ((after-first asked))
+              (heks/hover--poll)
+              (heks/hover--poll)
+              (should (= after-first asked))
+              (should (= asked 1)))))
+      (with-current-buffer buffer (setq heks/hover-mode nil))
+      (heks/hover--poll)
+      (should-not (timerp heks/hover--poll-timer))
+      (kill-buffer buffer))))
 
 ;;
 ;; ====== The JVM build tools ======

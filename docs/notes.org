@@ -319,8 +319,13 @@ Pick an existing note by title; the selection (or latest kill with a prefix, or 
 
 - ~C-c n f~ completes over *titles*, with each note's topic, tags and age shown beside it (annotations are for reading; the typing matches the title).  Two notes with the same title are told apart by their topic.  To find by tag or topic, search: ~C-c n s~ for =filetags:= lines, or open the topic with ~C-c n t~.
 - ~C-c n F~ does the same, and a title that matches nothing *creates* a note (and asks where it goes).  It is the "go to the page named X, making it if need be" command.
-- ~C-c n s~ searches the *text* of every note (with ~consult-ripgrep~ if you have Consult, ~lgrep~ otherwise).
+- ~C-c n s~ searches the *text* of every note (with ~consult-ripgrep~ if you have Consult, ~deadgrep~ otherwise, and ~lgrep~ as the last resort).  Nothing hidden is searched: the archive is a dot-folder, and it has its own key.
 - ~C-c n t~ opens a topic in Dired, for the times you want to /see/ the folder.
+
+The prompts over titles are made to be typed in: the list of notes and what each
+one says are read once and remembered (see ~heks/notes-cache-seconds~ below), so
+the second keystroke of a prompt, and every one after it, costs a lookup rather
+than a directory walk and a page of every file.
 
 ** Linking (~C-c n i~, ~C-c n l~)
 
@@ -571,6 +576,7 @@ A migration checklist that worked:
 | Setting / hook | Default | What it does |
 |----------------+---------+--------------|
 | ~heks/notes-dir~ | nil | The notes directory.  Required. |
+| ~heks/notes-cache-seconds~ | 5 | How long a scan of the notes is reused before the disk is asked again.  Creating, moving and saving a note throws the caches away itself, so this only decides how soon a file that arrived from somewhere else -- a sync, a shell command, another editor -- is noticed.  ~0~ scans on every use.  ~M-x heks/notes-cache-clear~ forgets everything by hand. |
 | ~heks/notes-index-acronyms~ | AH, HTTP, APIs, … | Words in folder names that are written specially in generated titles (=http-apis= → =HTTP APIs=). Add your own. |
 | ~heks/notes-agenda-exclude~ | bookmarks, contacts, index pages | Regexps, on the path inside the notes, of notes that are not agenda files. |
 | ~heks/notes-agenda-max-size~ | 100000 | Notes larger than this (bytes) are not scanned for the agenda. |

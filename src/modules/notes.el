@@ -39,6 +39,7 @@
 (declare-function eww-current-url "eww")
 (declare-function org-link-make-string "ol")
 (declare-function consult-ripgrep "consult")
+(declare-function deadgrep "deadgrep" (search-term &optional dir))
 (declare-function lgrep "grep")
 
 (defun heks/notes--root ()
@@ -54,27 +55,144 @@
 It starts with a dot, so it stays out of `heks/notes-files', the
 agenda and ripgrep until one asks for it with `heks/notes-find-archived'.")
 
+;;; ---- What the notes said, remembered --------------------------------
+;;
+;; A list of notes is read far more often than it changes: `C-c n f' looks at
+;; every title on every keystroke of its prompt, and a title used to cost a file
+;; opened, 2 KB read and a `file-attributes' call -- twice, once to make the
+;; candidate and once to annotate it.  Three caches now stand between the prompt
+;; and the disk, and all three are thrown away the moment this configuration
+;; writes a note:
+;;
+;; - `heks/notes--files-cache'  the list of files, for
+;;                              `heks/notes-cache-seconds' seconds or until a
+;;                              note is created, moved or saved;
+;; - `heks/notes--meta-cache'   what the head of one file said, remembered per
+;;                              file and checked against its modification time
+;;                              and size, so a note edited elsewhere is read
+;;                              again and an untouched one is not read at all;
+;; - `heks/notes--topic-info-cache'
+;;                              the topic folders and their counts, which follow
+;;                              the two above.
+;;
+;; The caches belong to one notes directory: point `heks/notes-dir' somewhere
+;; else and nothing from the old one is served.
+
+(defcustom heks/notes-cache-seconds 5
+  "How long a scan of the notes is reused before the disk is asked again.
+This configuration throws the caches away itself whenever it creates, moves or
+saves a note, so this only decides how soon a change made by something else -- a
+sync, a shell command, another editor -- is noticed.  Set it to 0 to scan on
+every use, which is what this used to do."
+  :type 'number
+  :group 'heks)
+
+(defvar heks/notes--files-cache nil
+  "Cons of (ROOT . FILES): the last scan of the notes, or nil.")
+(defvar heks/notes--files-time 0
+  "The `float-time' `heks/notes--files-cache' was made at.")
+(defvar heks/notes--topics-cache nil
+  "Cons of (ROOT . TOPICS): the last scan of the topic folders, or nil.")
+(defvar heks/notes--topics-time 0
+  "The `float-time' `heks/notes--topics-cache' was made at.")
+(defvar heks/notes--meta-cache (make-hash-table :test 'equal)
+  "Hash table: note file -> (:mtime :size :title :tags :id).
+An entry is used only while the file still has that modification time and that
+size, so a note edited outside this configuration is read again.")
+(defvar heks/notes--topic-info-cache nil
+  "Cons of (STAMP . INFO), see `heks/notes--topic-info'.")
+(defvar heks/notes--description-cache (make-hash-table :test 'equal)
+  "Hash table: index file -> (MTIME . DESCRIPTION), for topic annotations.")
+
+(defun heks/notes--cache-fresh-p ()
+  "Return non-nil when the cached scan of the notes is still worth using."
+  (and heks/notes--files-cache
+       (<= (- (float-time) heks/notes--files-time)
+           (max 0 heks/notes-cache-seconds))))
+
+(defun heks/notes--forget-cache (&optional file)
+  "Throw away what was remembered about the notes.
+With FILE, forget only what was read from that file: a note that was just saved
+has a new title or new tags, and the notes around it did not change."
+  (if file
+      (remhash file heks/notes--meta-cache)
+    (setq heks/notes--files-cache nil
+          heks/notes--files-time 0
+          heks/notes--topics-cache nil
+          heks/notes--topics-time 0
+          heks/notes--topic-info-cache nil)
+    (clrhash heks/notes--meta-cache)
+    (clrhash heks/notes--description-cache)))
+
+;;;###autoload
+(defun heks/notes-cache-clear ()
+  "Forget every note this configuration has read, and scan the directory again.
+Creating, moving and saving a note clears what it touches by itself; this is for
+a notes directory that changed under it -- a sync that brought files in, or a
+`heks/notes-dir' pointed somewhere else."
+  (interactive)
+  (heks/notes--forget-cache)
+  (message "Notes: what was read is forgotten; the next prompt scans again"))
+
+(defun heks/notes--scan (root)
+  "Return the Org files under ROOT, never descending into a hidden folder.
+Nothing hidden is scanned at all -- the archive, a `.git', a `.#' -- rather than
+scanned and then filtered out."
+  (directory-files-recursively
+   root "\\.org\\'" nil
+   (lambda (dir)
+     (not (string-prefix-p "." (file-name-nondirectory (directory-file-name dir)))))))
+
 (defun heks/notes-files (&optional archive)
   "Return every note file, as absolute names.
-With ARCHIVE, return the files of the archive instead."
+With ARCHIVE, return the files of the archive instead.
+The list is reused until a note is written or `heks/notes-cache-seconds' pass,
+which is what makes a prompt over every title quick."
   (let ((root (heks/notes--root)))
     (if archive
         (let ((dir (expand-file-name heks/notes-archive-name root)))
           (and (file-directory-p dir)
                (directory-files-recursively dir "\\.org\\'")))
-      (seq-remove (lambda (file) (string-match-p "/\\." (file-relative-name file root)))
-                  (directory-files-recursively root "\\.org\\'")))))
+      (if (and heks/notes--files-cache
+               (equal (car heks/notes--files-cache) root)
+               (heks/notes--cache-fresh-p))
+          (cdr heks/notes--files-cache)
+        (let ((files (heks/notes--scan root)))
+          (setq heks/notes--files-cache (cons root files)
+                heks/notes--files-time (float-time))
+          files)))))
 
 (defun heks/notes-topics ()
   "Return the topic folders that exist, relative to the notes directory."
   (let ((root (heks/notes--root)))
-    (sort (mapcar (lambda (dir)
-                    (directory-file-name (file-relative-name dir root)))
-                  (seq-remove
-                   (lambda (dir) (string-match-p "/\\." (file-relative-name dir root)))
-                   (seq-filter #'file-directory-p
-                               (directory-files-recursively root "" t))))
-          #'string<)))
+    (if (and heks/notes--topics-cache
+             (equal (car heks/notes--topics-cache) root)
+             (<= (- (float-time) heks/notes--topics-time)
+                 (max 0 heks/notes-cache-seconds)))
+        (cdr heks/notes--topics-cache)
+      (let ((topics (sort (mapcar (lambda (dir)
+                                    (directory-file-name (file-relative-name dir root)))
+                                  (seq-remove
+                                   ;; A folder that is in a hidden one is not a
+                                   ;; topic this configuration offers: the
+                                   ;; archive stays out of the prompts, as it
+                                   ;; stays out of `heks/notes-files'.
+                                   (lambda (dir)
+                                     (string-match-p "\\(?:\\`\\|/\\)\\."
+                                                     (file-relative-name dir root)))
+                                   (seq-filter
+                                    #'file-directory-p
+                                    (directory-files-recursively
+                                     root "" t
+                                     (lambda (dir)
+                                       (not (string-prefix-p
+                                             "."
+                                             (file-name-nondirectory
+                                              (directory-file-name dir)))))))))
+                          #'string<)))
+        (setq heks/notes--topics-cache (cons root topics)
+              heks/notes--topics-time (float-time))
+        topics))))
 
 (defun heks/notes--slug (title)
   "Return TITLE as a file name stem: lowercase words joined by dashes."
@@ -100,10 +218,10 @@ numeric folders (the diary's years and months) say nothing and are skipped."
                              s)))
                        (butlast (split-string rel "/" t)))))))))
 
-(defun heks/notes--header (file)
-  "Return an alist of ID, TITLE and TAGS read from the head of FILE.
-TAGS is an Org tag string: the note's own `#+filetags' plus the folders
-it lives in (see `heks/notes--folder-tags')."
+(defun heks/notes--read-header (file)
+  "Read the head of FILE once: an alist of ID, TITLE and TAGS.
+TAGS is an Org tag string: the note's own `#+filetags' plus the folders it
+lives in (see `heks/notes--folder-tags')."
   (with-temp-buffer
     (insert-file-contents file nil 0 2048)
     (let (id title tags)
@@ -120,6 +238,30 @@ it lives in (see `heks/notes--folder-tags')."
                                       (heks/notes--folder-tags file)))))
         (setq tags (and all (concat ":" (string-join all ":") ":"))))
       `((id . ,id) (title . ,title) (tags . ,tags)))))
+
+(defun heks/notes--header (file)
+  "Return an alist of ID, TITLE and TAGS read from the head of FILE.
+The answer is remembered until FILE's modification time or size changes, so a
+prompt that asks about every note opens each file once rather than once per
+keystroke -- and a note that was rewritten is still read again."
+  (let* ((attributes (file-attributes file))
+         (mtime (and attributes (file-attribute-modification-time attributes)))
+         (size (and attributes (file-attribute-size attributes)))
+         (cached (and attributes (gethash file heks/notes--meta-cache))))
+    (if (and cached
+             (equal (plist-get cached :mtime) mtime)
+             (equal (plist-get cached :size) size))
+        (list (cons 'id (plist-get cached :id))
+              (cons 'title (plist-get cached :title))
+              (cons 'tags (plist-get cached :tags)))
+      (let ((header (heks/notes--read-header file)))
+        (when attributes
+          (puthash file (list :mtime mtime :size size
+                              :id (alist-get 'id header)
+                              :title (alist-get 'title header)
+                              :tags (alist-get 'tags header))
+                   heks/notes--meta-cache))
+        header))))
 
 (defun heks/notes--age (time)
   "Return TIME as a short age: today, 3d, 5w, 2y."
@@ -139,11 +281,20 @@ it lives in (see `heks/notes--folder-tags')."
   "Return TEXT as a muted, smaller annotation column."
   (propertize text 'face 'heks/notes-meta))
 
-(defun heks/notes--align (candidates annotation widths)
+(defun heks/notes--start-column (candidates)
+  "Return the column annotations begin at, for CANDIDATES.
+It follows the longest of them, capped, so that a column of titles stays a
+column of titles.  Computed once per table rather than once per row: it is the
+whole list that decides it, and a prompt asks for one row at a time."
+  (+ 3 (min 52 (apply #'max 8 (mapcar #'string-width candidates)))))
+
+(defun heks/notes--align (candidates annotation widths &optional start)
   "Lay ANNOTATION (a string, or a list of column strings) out in columns.
 The first column starts after the longest of CANDIDATES (capped), so every
-row lines up; WIDTHS gives the width of each column but the last."
-  (let* ((start (+ 3 (min 52 (apply #'max 8 (mapcar #'string-width candidates)))))
+row lines up; WIDTHS gives the width of each column but the last.  START is
+that first column when the caller already worked it out with
+`heks/notes--start-column'."
+  (let* ((start (or start (heks/notes--start-column candidates)))
          (cols (if (listp annotation) annotation (list annotation)))
          (out (propertize " " 'display `(space :align-to ,start)))
          (pos start))
@@ -160,34 +311,64 @@ row lines up; WIDTHS gives the width of each column but the last."
   "Return a completion table of CANDIDATES (strings), in CATEGORY.
 ANNOTATE maps a candidate to its annotation (a string or a list of column
 strings, laid out by `heks/notes--align' with WIDTHS); SORT, when given,
-orders them."
-  (lambda (string pred action)
-    (if (eq action 'metadata)
-        `(metadata (category . ,category)
-                   (annotation-function
-                    . ,(lambda (c)
-                         (when-let* ((a (funcall annotate c)))
-                           (heks/notes--align candidates a widths))))
-                   (display-sort-function . ,(or sort #'identity))
-                   (cycle-sort-function . ,(or sort #'identity)))
-      (complete-with-action action candidates string pred))))
+orders them.  ANNOTATE is called for the rows on screen on every refresh, so
+it is given a table made before the prompt rather than asked to read anything."
+  (let ((start (heks/notes--start-column candidates)))
+    (lambda (string pred action)
+      (if (eq action 'metadata)
+          `(metadata (category . ,category)
+                     (annotation-function
+                      . ,(lambda (c)
+                           (when-let* ((a (funcall annotate c)))
+                             (heks/notes--align candidates a widths start))))
+                     (display-sort-function . ,(or sort #'identity))
+                     (cycle-sort-function . ,(or sort #'identity)))
+        (complete-with-action action candidates string pred)))))
+
+(defun heks/notes--read-topic-description (index)
+  "Return the first line of prose of the index note INDEX, or nil."
+  (when (file-readable-p index)
+    (with-temp-buffer
+      (insert-file-contents index nil 0 1500)
+      (goto-char (point-min))
+      (catch 'found
+        (while (not (eobp))
+          (let ((line (buffer-substring (line-beginning-position) (line-end-position))))
+            (unless (string-match-p "\\`\\(:\\|#\\|\\*\\|-\\|[ \t]*\\'\\)" line)
+              (throw 'found (truncate-string-to-width line 60 nil nil "…"))))
+          (forward-line 1))))))
 
 (defun heks/notes--topic-description (topic)
-  "Return the first line of prose of TOPIC's index note, or nil."
-  (let ((index (expand-file-name "index.org" (expand-file-name topic (heks/notes--root)))))
-    (when (file-readable-p index)
-      (with-temp-buffer
-        (insert-file-contents index nil 0 1500)
-        (goto-char (point-min))
-        (catch 'found
-          (while (not (eobp))
-            (let ((line (buffer-substring (line-beginning-position) (line-end-position))))
-              (unless (string-match-p "\\`\\(:\\|#\\|\\*\\|-\\|[ \t]*\\'\\)" line)
-                (throw 'found (truncate-string-to-width line 60 nil nil "…"))))
-            (forward-line 1)))))))
+  "Return the first line of prose of TOPIC's index note, or nil.
+Read once per version of that page: an annotation is asked for on every
+refresh, and the description of a topic does not change between them."
+  (let* ((index (expand-file-name "index.org" (expand-file-name topic (heks/notes--root))))
+         (attributes (file-attributes index))
+         (mtime (and attributes (file-attribute-modification-time attributes)))
+         (cached (and mtime (gethash index heks/notes--description-cache))))
+    (cond ((null mtime) nil)
+          ((and cached (equal (car cached) mtime)) (cdr cached))
+          (t (let ((description (heks/notes--read-topic-description index)))
+               (puthash index (cons mtime description) heks/notes--description-cache)
+               description)))))
 
 (defun heks/notes--topic-info ()
-  "Return a hash table: topic -> (NOTES SUBTOPICS NEWEST-TIME)."
+  "Return a hash table: topic -> (NOTES SUBTOPICS NEWEST-TIME).
+Built from the scan of the notes, and kept for as long as that scan is the one
+being served: a prompt asks once, its annotations ask for each row."
+  (let ((stamp (list (heks/notes--root) heks/notes--files-time)))
+    (if (and heks/notes--topic-info-cache
+             (equal (car heks/notes--topic-info-cache) stamp))
+        (cdr heks/notes--topic-info-cache)
+      (let ((info (heks/notes--compute-topic-info)))
+        ;; The stamp is taken again: counting the notes may have been what
+        ;; refreshed the scan they were counted from.
+        (setq heks/notes--topic-info-cache
+              (cons (list (heks/notes--root) heks/notes--files-time) info))
+        info))))
+
+(defun heks/notes--compute-topic-info ()
+  "Count the notes, the subtopics and the newest change of every topic."
   (let ((info (make-hash-table :test 'equal))
         (root (heks/notes--root)))
     (dolist (topic (heks/notes-topics))
@@ -273,22 +454,40 @@ title alone, or the title and topic when two notes share a title."
         (push (cons (propertize name 'heks/note-file file) file) result)))
     (nreverse result)))
 
-(defun heks/notes--note-annotation (candidate)
-  "Return the annotation for note CANDIDATE: topic, tags and age."
+(defun heks/notes--note-info (files)
+  "Return a hash table: note file -> (:topic :tags :age), read once for FILES.
+This is what a prompt's annotations are made of: the titles and tags come from
+the header cache, so the whole table costs one `file-attributes' per note and no
+file is opened twice."
+  (let ((root (heks/notes--root))
+        (table (make-hash-table :test 'equal)))
+    (dolist (file files table)
+      (let* ((header (heks/notes--header file))
+             (topic (directory-file-name
+                     (or (file-name-directory (file-relative-name file root)) "")))
+             (attributes (file-attributes file))
+             (time (and attributes (file-attribute-modification-time attributes))))
+        (puthash file
+                 (list :topic (if (string-empty-p topic) "" topic)
+                       :tags (string-trim (or (alist-get 'tags header) "") ":" ":")
+                       :age (and time (heks/notes--age time)))
+                 table)))))
+
+(defun heks/notes--note-annotation (candidate &optional info)
+  "Return the annotation for note CANDIDATE: topic, tags and age.
+INFO is the table `heks/notes--note-info' made for the candidates on offer; when
+it is not given one is made for this single row."
   (when-let* ((file (get-text-property 0 'heks/note-file candidate)))
-    (let* ((root (heks/notes--root))
-           (topic (directory-file-name
-                   (or (file-name-directory (file-relative-name file root)) "")))
-           (tags (alist-get 'tags (heks/notes--header file)))
-           (time (file-attribute-modification-time (file-attributes file))))
-      (list (if (string-empty-p topic) "" topic)
-            (string-trim (or tags "") ":" ":")
-            (heks/notes--age time)))))
+    (let ((cell (gethash file (or info (heks/notes--note-info (list file))))))
+      (when cell
+        (list (plist-get cell :topic) (plist-get cell :tags) (plist-get cell :age))))))
 
 (defun heks/notes--note-table (candidates)
   "Return a completion table of the notes CANDIDATES."
-  (heks/notes--table (mapcar #'car candidates) 'heks/note
-                     #'heks/notes--note-annotation nil '(22 28)))
+  (let ((info (heks/notes--note-info (mapcar #'cdr candidates))))
+    (heks/notes--table (mapcar #'car candidates) 'heks/note
+                       (lambda (candidate) (heks/notes--note-annotation candidate info))
+                       nil '(22 28))))
 
 (defun heks/notes--read-note (prompt &optional archive require-match)
   "Ask for a note with PROMPT and return its file, or the text typed.
@@ -354,6 +553,8 @@ The note is opened when VISIT, and its file is returned either way."
               "#+date: " (format-time-string "[%Y-%m-%d %a]") "\n"
               (if tags (format "#+filetags: :%s:\n" (string-join tags ":")) "")
               "\n" (or body "")))
+    ;; The list of notes just changed, and the folder has one more of them.
+    (heks/notes--forget-cache)
     (heks/notes-index-update-up directory)
     (when visit
       (find-file file)
@@ -469,12 +670,19 @@ The new note is opened when VISIT.  Return the file."
 
 ;;;###autoload
 (defun heks/notes-search ()
-  "Search the text of every note."
+  "Search the text of every note, as the words are typed.
+A hidden folder is not searched -- the archive is one, and it is what
+`heks/notes-find-archived' is for -- and ripgrep answers while the prompt is
+still open rather than after return is pressed."
   (interactive)
-  (if (fboundp 'consult-ripgrep)
-      (consult-ripgrep (heks/notes--root))
-    (require 'grep)
-    (lgrep (read-string "Search notes: ") "*.org" (heks/notes--root))))
+  (let ((root (heks/notes--root)))
+    (cond ((fboundp 'consult-ripgrep)
+           (consult-ripgrep root))
+          ((fboundp 'deadgrep)
+           (deadgrep (read-string "Search notes: ") root))
+          (t
+           (require 'grep)
+           (lgrep (read-string "Search notes: ") "*.org" root)))))
 
 ;;;###autoload
 (defun heks/notes--relink-text (text old-base new-base from to)
@@ -529,6 +737,9 @@ point at its new place, and the links inside it are made relative to it."
     (rename-file file target)
     (set-visited-file-name target nil t)
     (set-buffer-modified-p nil)
+    ;; Every list of notes this configuration holds is now wrong: one file has
+    ;; moved, and the links inside the notes are about to be rewritten.
+    (heks/notes--forget-cache)
     ;; its own links first, then everyone else's
     (when (heks/notes--relink-file target old-base (file-name-directory target) file target)
       (revert-buffer t t t)
@@ -730,6 +941,10 @@ Also usable from a shell: emacs --batch -l init.el -f heks/notes-regenerate-inde
              (not (string= (file-name-nondirectory buffer-file-name) "index.org"))
              (heks/notes-directory)
              (file-in-directory-p buffer-file-name (heks/notes--root)))
+    ;; A note that was just written has a new title, new tags or a new age, and
+    ;; what was remembered about it is now wrong -- but the notes around it did
+    ;; not change, so only this one is forgotten, and the list of files stands.
+    (heks/notes--forget-cache buffer-file-name)
     (ignore-errors
       (heks/notes-index-update-up (file-name-directory buffer-file-name)))))
 

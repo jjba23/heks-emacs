@@ -1,86 +1,234 @@
 #+title: heks-emacs
+#+subtitle: Emacs configuration of the warlock
 #+author: Josep Bigorra
 #+email: jjbigorra@gmail.com
 #+options: toc:nil
 
-[[https://jointhefreeworld.org/ggg/dist/gnu-emacs.svg]] [[https://jointhefreeworld.org/ggg/dist/maak.svg]]  [[https://jointhefreeworld.org/ggg/dist/license-gpl3+.svg]]    [[https://jointhefreeworld.org/ggg/dist/license-fdl13+.svg]]
+[[https://jointhefreeworld.org/ggg/dist/gnu-emacs.svg]] [[https://jointhefreeworld.org/ggg/dist/maak.svg]] [[https://jointhefreeworld.org/ggg/dist/license-gpl3+.svg]] [[https://jointhefreeworld.org/ggg/dist/license-fdl13+.svg]]
 
-Emacs configuration of the warlock: modular, development setup for many languages, multi-theme setup, useful packages and custom functions, reproducible builds and Elpaca package manager: GNU/Linux + macOS
+*Emacs configuration of the warlock*: a modular, delightful, reproducible Emacs
+setup built with Emacs Lisp and [[https://github.com/progfolio/elpaca][Elpaca]], for GNU/Linux and macOS — many
+languages, many palettes, one coherent place to work.
 
-You could see heks-emacs as my temple to computing, almost an operating system unto itself. Some highlights include:
-- Advanced and modular Emacs configurations with Emacs Lisp + Elpaca
-- Multi-theme setup with powerful customizations and adaptable, configurable UI theming
-- Dev setup for: Scheme, Scala, Haskell, Lisp, Kotlin, Rust, Python, Shell, Nix, JavaScript, HTML, CSS, Golang and more
-- Power user EShell configuration with many niceties
+You could see heks-emacs as my temple to computing, almost an operating system
+unto itself: a configuration that is not a list of packages with opinions glued
+to it, but a place where notes, code, mail, music and the shell are the same
+kind of thing, and where every part of it can be read and changed by the person
+using it.
 
-#+TOC: headlines 1
+** See it move
 
-This Emacs config is made with compatibility, smoothness, portability and mind, and should work pretty much out-of the box on a multitude of environments.
+[[file:docs/images/heks-emacs.gif]]
 
-I usually run on the latest Emacs version, from the ~master~ branch, at time of writing it's Emacs 32.0.50, so keep in mind some configuration might me more modern than what you are running. We try to document changes  properly.
+#+begin_quote
+The configuration itself, in six frames: one of its own modules, that module
+beside the key reference written from the key tables, ~C-c~ explained by
+which-key while it is being typed, an Org file folded to its headlines, and the
+modules as files. Every frame was exported from a running heks-emacs rather
+than drawn.
+#+end_quote
 
-If you are interested in that you can find the guide: [[https://jointhefreeworld.org/blog/articles/emacs/build-emacs-from-source/index.html][Hacking Freedom: Compiling GNU Emacs from Source]]
+If a GIF is not enough, there is [[https://jointhefreeworld.org/static-assets/heks/screen-2026-07-15-23-32-24.png][a full-screen screenshot of the whole desktop]]
+in its natural habitat, and two stills from the same recording:
+[[file:docs/images/heks-emacs-two-windows.jpg][a module beside the key reference]] and
+[[file:docs/images/heks-emacs-which-key.png][the ~C-c~ prefix explained]].
 
----------
+** Five seconds on what this is
 
-I recommend you browse the source code of Heks Emacs and take inspiration from it.
+- *What it is* — a complete, modular Emacs configuration: not a package you
+  install, a place you move into.
+- *Who it is for* — people who want a working development environment on day
+  one, and a configuration they can still read and change on day three hundred.
+- *What makes it different* — every key lives under ~C-c~ with a grammar, every
+  module owns one topic, and the documentation is generated from the code rather
+  than written about it.
+- *What it costs you* — one command, a couple of restarts while the packages
+  resolve, and nothing else.
+- *What it needs* — GNU/Linux or macOS and GNU Emacs (I run the ~master~ branch:
+  32.0.50 at the time of writing).
 
-To see the changelog and news about this project, check [[file:NEWS.org][the NEWS file]]
+** What you get
 
-Also, for how mail with Gnus is set up in this config, see [[file:docs/gnus.org][Mail with Gnus]]
+- *~C-c~ is a language, not a grab bag.* A letter for the topic, a letter for
+  the action; ~f~ formats, ~t~ tests, ~g~ goes to a definition, and that meaning
+  holds under every topic. ~which-key~ explains each key in the words of its
+  topic while you are still learning it.
+- *Notes, tasks, contacts and bookmarks as plain files.* One Org file per note,
+  no database, generated index pages, an agenda, a graph, and an importer that
+  turns the Markdown you already wrote into a note.
+- *A development setup that goes deep:* Guile and Guix (with Geiser as the code
+  intelligence, no language server needed), Common Lisp with SLY and SBCL,
+  Scala, Haskell, Kotlin, Rust, Go, Python, Nix, JavaScript/TypeScript, shell,
+  Terraform, SQL, and more — with Eglot, Flymake, Tree-sitter and formatters
+  that agree with each other instead of reporting every line twice.
+- *32+ palettes*, from Modus and the Ef collection to Catppuccin, Gruvbox,
+  Kanagawa and Doom, with separators, faces and prose sizes derived from the
+  theme so that nothing goes invisible when you switch.
+- *An Eshell worth living in:* a prompt with user, host, path and Git branch,
+  aliases for the things you actually type, and project shells opened next to
+  the code they belong to.
+- *The rest of a working day:* Gnus for mail and news, Circe for IRC, a map to
+  look at, a fretboard to look up a chord on, and a pile of small commands that
+  keep a five-second annoyance from being a five-second annoyance every day.
+- *Read and present from Emacs:* ~C-c r p~ previews a Markdown file, an Org
+  note, an OpenAPI specification or a plain text file as a themed HTML page with
+  no network, and ~C-c r P~ turns the same document into a deck.
+- *Reproducible by construction:* Elpaca manages the packages, ~maak~ runs the
+  tasks, and the whole configuration is held to its own lint, key audit,
+  renderer checks, ERT suite, golden pages and a batch verification.
 
-If you like my work, please support me by [[https://bmc.link/jjbigorra][buying me a cup of coffee ☕]] so I can continue with a lot of motivation.
+** The numbers
 
----------
+| Measure                 | Value |
+|-------------------------+-------|
+| Packages                |  >140 |
+| Functions               |  >500 |
+| Interactive commands    |  >110 |
+| Customization variables |   >50 |
+| Unit tests              |  >180 |
+| Themes                  |   >32 |
+| Snippets                |  >200 |
 
-[[https://jointhefreeworld.org/static-assets/heks/screen-2026-07-15-23-32-24.png]]
+#+begin_quote
+Roughly, and growing every week.
+#+end_quote
 
+#+TOC: headlines 2
 
------------------
+* Requirements
 
+| Thing                  | Why you want it                                                                      | Notes                                                             |
+|------------------------+--------------------------------------------------------------------------------------+-------------------------------------------------------------------|
+| GNU/Linux or macOS     | The configuration is developed and lived in there                                    | It is meant to be portable; the bridges are what make it personal |
+| GNU Emacs (29.1 or up) | Eglot, Tree-sitter and the modern APIs the modules are built on                      | I run the ~master~ branch: *32.0.50* at the time of writing       |
+| =git=                  | Elpaca clones and builds every package from its own repository                       |                                                                   |
+| A monospaced font      | Body and code text                                                                   | ~IBM Plex Mono~ by default; ~heks/font-mono~ says otherwise       |
+| =maak= (optional)      | The task runner: install, lint, keys, render, test, golden, verify                   | [[https://codeberg.org/jjba23/maak][Maak, the infinitely extensible command-runner]]                    |
+| Toolchains (optional)  | Language servers, formatters, ~guix~, ~shellcheck~, ~shfmt~, ~terraform~, ~mongosh~… | Every module stays quiet when a tool is absent instead of failing |
 
-| Measure                                | Value |
-|----------------------------------------+-------|
-| Packages                               |   >140 |
-| Functions                              |   >500 |
-| Interactive commands                   |   >110 |
-| Customization variables                |    >50 |
-| Unit tests                             |   >180 |
-| Themes                                 |    >32 |
-| Snippets                               |   >200 |
+This Emacs config is made with compatibility, smoothness and portability in
+mind, and should work pretty much out of the box in a multitude of
+environments.
 
---------
+I usually run on the latest Emacs version, from the ~master~ branch — at the
+time of writing it's Emacs 32.0.50 — so keep in mind some of the configuration
+might be more modern than what you are running. We try to document changes
+properly.
 
-* Installing
+If you are interested in building your own Emacs, you can find the guide here:
+[[https://jointhefreeworld.org/blog/articles/emacs/build-emacs-from-source/index.html][Hacking Freedom: Compiling GNU Emacs from Source]].
 
-This project uses [[https://codeberg.org/jjba23/maak][Maak, the infinitely extensible command-runner]] as automation system.
+* Installation
 
-For installing heks-emacs in one go, do:
+heks-emacs is a *configuration*, not a package: installing it means putting its
+files into ~~/.emacs.d~. You keep your own settings in a small *bridge* file,
+described [[*The bridges][a little further down]], so that pulling a new version of the
+configuration never touches what is yours.
+
+** With Maak (recommended)
+
+This project uses [[https://codeberg.org/jjba23/maak][Maak, the infinitely extensible command-runner]] as its
+automation system. Install it, clone this repository, and from the checkout:
+
 #+begin_src shell
+# put init.el, early-init.el, the modules and the snippets into ~/.emacs.d,
+# leaving the packages you already have alone
 maak install-emacs-config
 #+end_src
 
-For a oneline command to nuke (destroy) your existing Emacs and replace it with heks-emacs, do:
+There is also a one-liner that *replaces* your Emacs configuration wholesale --
+it destroys ~/.emacs.d~ and puts heks-emacs in its place. Use it only when you
+mean it, and keep a copy of what was there:
+
 #+begin_src shell
+# ⚠️ destructive: removes ~/.emacs.d first
 maak full-install-emacs-config
 #+end_src
 
-If you don't want to use Maak, you can just look at ~maak.scm~ to look at installation procedure, and copy relevant files. Alternatively run this one-liner:
+** By hand
+
+If you would rather not use Maak, ~maak.scm~ is short and says exactly which
+files go where; the same thing in one line is:
+
 #+begin_src shell
-# optionally first
-# rm -rf ~/.emacs.d && mkdir -p ~/.emacs.d
-
-
 cp -rfv src/init.el src/early-init.el src/batch-indent.el src/treesit-grammars.el src/modules src/snippets ~/.emacs.d/
 #+end_src
 
-Note: Since heks-emacs is a compilation of several packages and libraries, it's very likely you may need to restart Emacs a couple times before everything works in harmony, as packages get installed and loaded and dependency trees resolved. Elpaca is extremely reliable so don't be afraid to restart and try a few things.
+And if you want a clean slate first (again, destructive):
 
------------------------------------
+#+begin_src shell
+rm -rf ~/.emacs.d && mkdir -p ~/.emacs.d
+#+end_src
 
-You can customize heks-emacs with these variables at your will. This can also be done conveniently via ~heks-linux-brige.el~ or ~cask-and-cons-bridge.el~
+** Your first start
 
-The bridge is loaded *before* the modules, and the modules are loaded after it, because these are the settings they read while they are set up: a module that reads one of them while it is still ~nil~ -- ~heks/notes-dir~ is the one with no sensible default, since nobody can guess where somebody else keeps their notes -- is configured wrongly whatever the setting says a moment later.
+Start Emacs and let it work. Elpaca clones and builds the packages it needs (you
+can watch it happen in ~*elpaca-log*~), and the Tree-sitter grammars are built
+once, in a background batch Emacs of their own, into ~~/.emacs.d/tree-sitter~ --
+so no grammar is ever fetched while you are opening a file. ~M-x
+heks/treesit-install-grammars~ does the same work in front of you, and what the
+child says is in the ~*heks-emacs tree-sitter grammars*~ buffer.
+
+#+begin_quote
+*Since heks-emacs is a compilation of several packages and libraries, it is very
+likely you may need to restart Emacs a couple of times before everything works
+in harmony*, as packages get installed and loaded and dependency trees resolved.
+Elpaca is extremely reliable, so don't be afraid to restart and try a few
+things.
+#+end_quote
+
+If something looks wrong on the very first start, that is usually the answer:
+restart once more, and check ~*Messages*~ and ~*elpaca-log*~ before anything
+else.
+
+** Quick start: your first five minutes
+
+Once Emacs is up, these are worth pressing. Each one is a real key from the
+[[file:docs/keybindings.org][keybindings reference]], and none of them needs any setup beyond the install:
+
+#+begin_src text
+C-c r p    preview this buffer as a themed HTML page, inside Emacs
+           (a Markdown file, an Org note, an OpenAPI spec or plain text)
+
+C-c i f    format the buffer with whoever knows how: shfmt, terraform fmt,
+           guix style, the language server...
+
+C-c n c    capture a note from anywhere, filed under a topic you pick
+           (needs heks/notes-dir -- see the bridge below)
+
+C-c v D    the code this project writes more than once
+
+C-c x t    the AI chat window, shown or hidden
+#+end_src
+
+Then learn the rest as you go: every key lives under ~C-c~, and ~which-key~
+tells you what a prefix does while you are still typing it.
+
+** If something is not right
+
+| Symptom                                              | What is usually happening                                                                                                                      |
+|------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------|
+| A package is missing, or a key does nothing          | The first start is still resolving. Restart once, then check ~*elpaca-log*~                                                                    |
+| Code has no colours, or Tree-sitter modes are absent | The grammars are still building in the background: ~M-x heks/treesit-install-grammars~, or read the ~*heks-emacs tree-sitter grammars*~ buffer |
+| The font is not what you expected                    | Set ~heks/font-mono~, ~heks/font-sans~ and ~heks/font-serif~ in your bridge                                                                    |
+| A language feature is quietly not there              | The toolchain is not installed. Modules stay silent when a program is absent on purpose -- install the server or formatter and it appears      |
+| Notes commands do nothing                            | ~heks/notes-dir~ is not set, and no checkout can guess where your notes are                                                                    |
+| Everything is invisible against the background       | Pick a palette with ~heks/theme~; separators and prose sizes are derived from it                                                               |
+
+* Configuration
+
+You can customize heks-emacs with these variables at your will. This can also be
+done conveniently via the ~heks-linux-bridge.el~ or ~cask-and-cons-bridge.el~
+files described below.
+
+
+** Customization variables
+
+The bridge is loaded *before* the modules, and the modules are loaded after it,
+because these are the settings they read while they are set up: a module that
+reads one of them while it is still ~nil~ -- ~heks/notes-dir~ is the one with no
+sensible default, since nobody can guess where somebody else keeps their
+notes -- is configured wrongly whatever the setting says a moment later.
 
 Feel free to ~setopt~ these:
 #+begin_src elisp
@@ -103,11 +251,45 @@ Feel free to ~setopt~ these:
         heks/notes-dir "~/Hacking/private-notes")
 #+end_src
 
------------------
+Whichever file your machine uses, that is where your own values go: the
+configuration reads it before it configures anything, so a module that looks at
+one of these variables sees the value you set rather than the ~nil~ it would
+have configured itself around.
 
-* Supported Palettes
+The most useful ones to know about:
 
-A curated collection of gorgeous, modern, and highly accessible color palettes with custom tweaks and custom Heks interpretation and styling aiming for harmony and uniformity across the stack.
+| Variable                       | What it decides                                          | Default            |
+|--------------------------------+----------------------------------------------------------+--------------------|
+| ~heks/theme~                   | The palette (see [[*Themes and palettes][Themes and palettes]])                    | ~nil~ -- pick one  |
+| ~heks/notes-dir~               | Where your Org notes live (no sensible default exists)   | ~nil~              |
+| ~heks/clone-dir~               | Where this checkout is, for the commands that rebuild it | ~nil~              |
+| ~heks/font-mono~               | The monospaced family                                    | ~"IBM Plex Mono"~  |
+| ~heks/font-sans~               | The sans-serif family                                    | ~"IBM Plex Sans"~  |
+| ~heks/font-serif~              | The serif family                                         | ~"IBM Plex Serif"~ |
+| ~heks/base-font-size~          | Base size in points; everything else scales from it      | ~11.4~             |
+| ~heks/prose-scale~             | Relative size of prose (~org~ and Markdown body text)    | ~1.0~              |
+| ~heks/window-divider-contrast~ | How visible window separators are, from 0.0 to 1.0       | ~0.45~             |
+
+There are more than fifty of them, each documented in its own ~defcustom~;
+~M-x customize-group RET heks RET~ lists the whole set.
+
+** The bridges
+
+If you use [[https://codeberg.org/jjba23/heks-linux][Heks GNU/Linux]], there is a heks-emacs bridge available there.
+
+If you use [[https://codeberg.org/jjba23/cask-and-cons][Cask and Cons]], there is a cask-and-cons bridge available there.
+
+** Themes and palettes
+
+Set ~heks/theme~ to any of the names below and the whole configuration follows:
+the faces, the window separators, the sizes of prose, and the colours of a
+rendered document or a deck. A palette you have not listed here is a
+~heks/theme~ that loads with whatever Emacs already had, which is a thing you
+can do and probably do not want.
+
+A curated collection of gorgeous, modern, and highly accessible color palettes
+with custom tweaks and a custom Heks interpretation and styling, aiming for
+harmony and uniformity across the stack.
 
 
 *** The Ef Collection
@@ -146,33 +328,40 @@ A curated collection of gorgeous, modern, and highly accessible color palettes w
 *** Ayu Themes
 - ~ayu-dark~, ~ayu-mirage~ and ~ayu-light~
 
-------------
+* Keybindings 🗝️
 
-------------------------
+Everything this configuration adds lives under ~C-c~: a letter for the topic,
+then a letter for the action. An action letter means the same thing under every
+topic -- ~f~ formats, ~t~ tests, ~g~ goes to a definition, ~k~ stops a process,
+~i~ inserts -- and a topic that keys something which is not an action (a font
+size, *whose* configuration is being written, the journal entry for today) says
+so in a table of its own rather than stretching the alphabet until it means
+nothing.
 
-* The keybindings 🗝️
+** Learning a key while pressing it
 
-Everything this configuration adds lives under ~C-c~: a letter for the topic, then a letter for the action.  An action letter means the same thing under every topic -- ~f~ formats, ~t~ tests, ~g~ goes to a definition, ~k~ stops a process, ~i~ inserts -- and a topic that keys something which is not an action (a font size, *whose* configuration is being written, the journal entry for today) says so in a table of its own rather than stretching the alphabet until it means nothing.
+~which-key~ shows the keys of a prefix while it is being typed, and it is taught
+the whole key scheme here: every topic and every key is named in the words this
+configuration gives it, so a key that is being learned is explained as it is
+pressed rather than only in a document. Its menu is a window at the bottom of
+the frame -- tall enough for the page it holds, with the number of the prefix's
+keys it is showing in its mode line -- rather than the echo area, which cannot
+grow past a quarter of the frame.
 
-The whole of it -- every topic, every key, and what both letters of it mean -- is in [[docs/keybindings.org][the keybindings reference]].  That file is not written by hand: ~maak keys-update~ writes it from the configuration, ~maak keys~ fails while the two disagree, and it is checked along with everything else by ~maak check~:
+** The reference
+
+The whole of it -- every topic, every key, and what both letters of it mean -- is
+in [[file:docs/keybindings.org][the keybindings reference]]. That file is not written by hand: ~maak
+keys-update~ writes it from the configuration, and ~maak keys~ fails while the
+two disagree, so the document cannot say something the keys do not.
 
 #+begin_src shell
 maak keys         # the whole key tree, and every key that means two things
 maak keys-update  # write docs/keybindings.org from the keys that are there
-maak test         # the configuration's own test suite
-maak golden       # compare the renderers with the pages they produced last time
-maak golden-update  # write those pages again, deliberately
-maak stats        # the line, definition and decision counts
-maak check        # lint, keys, render, test, golden, verify
 #+end_src
 
-
-* The bridges
-
-If you use [[https://codeberg.org/jjba23/heks-linux][Heks GNU/Linux]], there is a heks-emacs bridge available there.
-
-If you use [[https://codeberg.org/jjba23/cask-and-cons][Cask and Cons]], there is a cask-and-cons bridge available there.
-
+The rest of the tasks -- ~maak test~, ~maak golden~, ~maak verify~ and ~maak
+check~ -- are in [[*Development][Development]].
 
 ------------------------
 
@@ -256,6 +445,8 @@ Improves Emacs help and introspection through =helpful=, providing richer views 
 The development-language and developer-tooling modules, split by concern so that a mistake in one cannot take the others down: =dev-langs.el= (language modes), =dev-tools.el= (Smartparens, Direnv, Docker, compilation, diff-hl, keyword highlighting, rainbow delimiters, the occurrences of the symbol at point), =dev-flymake.el= (checkers and Eglot), =dev-formats.el= (data formats, JVM, debugging), =dev-kubernetes.el=, =dev-folding.el= (navigation and Tree-sitter/Kirigami folding) and =dev-project.el= (EditorConfig, Maak, Terraform, SQL). Together they are the main module set. Provides major-mode support for Rust, Python, Haskell, Scala, Lua, TypeScript, Nix, TOML, YAML, Kotlin, Groovy, GraphQL, Dockerfiles, and other formats. It also configures Smartparens, Direnv, compilation, Flymake, formatting, Kubernetes, Tree-sitter folding, EditorConfig, Maak, and related development utilities. Scheme, Guile and Guix live in =guile.el=.
 
 Three of those are about reading code rather than about writing it, and they are in =dev-tools.el= because they are true of every language: ~hl-todo~ colours what a file says it still has to do (~TODO~, ~FIXME~, ~BUG~, ~HACK~, ~NOTE~ and the rest) and ~C-c t n~ and ~C-c t p~ walk them; ~rainbow-delimiters~ colours parentheses by how deep they are, which is the one thing that makes a list of lists readable at a glance; and ~symbol-overlay~ answers the question a reader asks most -- ~C-c z o~ lights up every occurrence of the symbol at point, ~C-c z n~ and ~C-c z p~ walk them, ~C-c z r~ renames them all at once and ~C-c z k~ takes the lighting off.
+
+=dev-hover.el= is the documentation that follows the pointer. When the mouse rests on a symbol, its signature and its prose appear in a child frame beside it -- in any buffer a language server is serving, and in Emacs Lisp, where there is no server to need. ~C-c i H~ turns it on and off, ~C-c i D~ shows the whole of it in a proper buffer (not clipped, and searchable), and ~C-c i n~ / ~C-c i p~ scroll the popup when there is more of it than fits. Nothing in it waits: the first source to answer is shown at once rather than when the slowest one is done, the pointer is asked about only when it has actually moved, and a popup that would show the same words as the one before it is not rendered and measured again.
 
 Flymake is configured here for every language at once, and one function of this module is what keeps those checkers when a language server arrives. Eglot replaces ~flymake-diagnostic-functions~ with a list of its own backend alone for as long as it manages a buffer, so what the buffer already had is put back beside the server's backend: Emacs's own ~sh-shellcheck-flymake~ for a script, the library's checker for a Python file, the shfmt drift and the OpenAPI check of the modules here. A module registers its checker on its major mode and says nothing about servers, so connecting one can neither lose a checker nor report a problem twice.
 
@@ -416,6 +607,8 @@ It checks the document as it is written, and ~C-c a l~ says what is wrong with t
 
 Notes as plain files: one Org file per note in topic folders under the notes directory (~heks/notes-dir~), linked by relative ~file:~ links, with no database. ~C-c n c~ captures from anywhere -- the region, or with a prefix the latest kill, filed under a topic picked from a completion list that shows how many notes each topic holds, when it last changed and what its index says it is for -- ~C-c n n~ writes a new note, ~C-c n f~ finds one, ~C-c n i~ links one, ~C-c n r~ moves one and repairs the links to it. Every topic folder's ~index.org~ is generated between markers from what is in it, and kept current on save (~C-c n I~ rebuilds them all). The archive of old employers is the dot-folder ~.archive~, kept out of search and the agenda; ~C-c n a~ opens from it.
 
+The prompts are made to be typed in. A list of notes is read far more often than it changes, and it now costs what it changes: the files are scanned once, what the head of each one said is remembered against its modification time and size, and the topic folders and their counts follow them, so the second keystroke of a prompt and every one after it is a lookup rather than a walk of the directory and a page of every file. ~heks/notes-cache-seconds~ says how soon a file that arrived from somewhere else is noticed, and the caches are thrown away by the configuration itself whenever it creates, moves or saves a note.
+
 *** =notes-graph.el=
 The shape of the notes: ~C-c n g~ opens a smooth, interactive map in the browser -- notes and topics as a force-directed graph (the links between notes, the folder structure, or both), with a collapsible tree beside it; hovering lights up a note's neighbours, a click inspects it and opening one opens it in this Emacs. It is served by a tiny loopback-only server inside Emacs (token-protected) from =notes-graph.html=, which sits next to the module and needs no library or network. ~C-c n T~ is the tree as a folding Org outline and ~C-c n G~ exports the map as one self-contained HTML file. See [[file:docs/notes.org][docs/notes.org]].
 
@@ -503,41 +696,125 @@ An auth-source entry in =~/.authinfo.gpg= -- =machine api.deepseek.com login api
 A key file that exists is also what ~auto~ takes as the sign that this machine is the personal one, so no environment variable is needed for that either.  On a machine without one, ~auto~ chooses Copilot; ~HEKS_AI_PROVIDER~ or ~heks/ai-provider~ overrides the choice either way.
 
 
--------
+------------------------
 
+* Documents and further reading
 
-* Licensing
+The configuration is only half of it; the other half is written down:
 
-heks-emacs and all of its source code are free software, licensed under the GNU General Public License v3 (or newer at your convenience).
+| Document             | What is in it                                                                                                                                |
+|----------------------+----------------------------------------------------------------------------------------------------------------------------------------------|
+| [[file:docs/keybindings.org][docs/keybindings.org]] | Every topic, every key, and what both letters of it mean -- generated from the configuration itself                                          |
+| [[file:docs/notes.org][docs/notes.org]]       | The whole note-taking system: the philosophy, the layout, every file format, each workflow, index pages, syncing, setup, tweaking and an FAQ |
+| [[file:docs/gnus.org][docs/gnus.org]]        | How mail and news are set up with Gnus in this configuration                                                                                 |
+| [[file:NEWS.org][NEWS.org]]             | The changelog: what arrived, what changed and what was removed, per release                                                                  |
+| [[*Modules][Modules]] (below)      | What each module is for, in its own words                                                                                                    |
 
-https://www.gnu.org/licenses/gpl-3.0.html
+I recommend you browse the source code of heks-emacs and take inspiration from
+it -- it is meant to be read, not just used. ~src/modules/~ is one topic per
+file, and every non-obvious decision has the paragraph that explains *why* it
+was made next to it.
 
-The documentation and examples, including this document, which are provided with heks-emacs, are all licensed under the GNU Free Documentation License v1.3 (or newer at your convenience).
+* Development
 
-https://www.gnu.org/licenses/fdl-1.3.html
+The configuration is held to itself: the same checks that a contributor runs are
+the ones CI runs, and they are all [[https://codeberg.org/jjba23/maak][Maak]] tasks. From the checkout:
 
-----------------------
+#+begin_src shell
+maak                # list every task
+maak install-emacs-config  # copy the configuration into ~/.emacs.d
+maak lint           # parse every file, catch a parenthesis or a module list out of date
+maak keys           # the whole key tree; fail on a key that means two things
+maak keys-update    # write docs/keybindings.org from the keys that are there
+maak render         # check the Markdown renderer on its own
+maak test           # the configuration's own ERT suite
+maak golden         # compare the renderers with the pages they produced last time
+maak golden-update  # write those pages again, deliberately, then read the diff
+maak stats          # the line, definition and decision counts
+maak verify         # install, load it all in a batch Emacs, assert the invariants
+maak check          # lint, keys, render, test, golden, verify -- everything
+#+end_src
 
-* AI Policy
+Run ~maak check~ before you send a patch. If a golden page changes because you
+meant it to, ~maak golden-update~ is how you say so -- then read the diff it
+leaves in ~test/golden/~ before committing it.
+
+The tests need nothing installed: the modules are loaded from ~src~ by name with
+~use-package~ stubbed out, so what is tested is the code rather than whether a
+package happens to be present, and a test that needs something this machine does
+not have says so and is skipped rather than failing.
+
+* Contributing
+
+Contributions are welcome, and this is the friendliest possible time to send
+one: the modules are small, each one owns a single topic, and the checks tell
+you when something does not fit.
+
+- *Found a bug?* Open an issue on [[https://codeberg.org/jjba23/heks-emacs/issues][Codeberg]] with what you pressed, what you
+  expected and what happened. Your Emacs version and the contents of
+  ~*Messages*~ are usually the whole answer.
+- *Have a fix?* Send a pull request on Codeberg, or a patch with ~git
+  send-email~ if you prefer. Small commits, and a message that says why.
+- *Have an idea?* Open an issue first if it is large; half the good ones here
+  started as a conversation.
+- *Documentation is code here.* The keybindings reference is generated, but
+  ~docs/notes.org~ and this README are written by hand and a correction is a
+  real contribution.
+
+Two house rules worth knowing before you write code:
+
+1. *The module owns the topic.* A key about notes goes in ~notes.el~ and its
+   table entry goes with it; a checker registers itself on its major mode and
+   says nothing about language servers, so a server can neither lose a checker
+   nor report a problem twice.
+2. *A new key needs a new sentence.* Every key is described in the words of its
+   topic, ~maak keys~ fails when it is not, and that failure exists so that no
+   key arrives described only by a letter.
+
+** AI policy
 
 This project adheres to the [[https://jointhefreeworld.org/blog/articles/personal/jointhefreeworld-ai-policy/index.html][jointhefreeworld AI (Artificial Intelligence) policy]].
 
-Our core principle is simple: *AI should assist human creativity and problem-solving, never replace human reasoning.*
+Our core principle is simple: *AI should assist human creativity and
+problem-solving, never replace human reasoning.*
 
-While tools like Large Language Models (LLMs) and interactive chatbots can be beneficial for reviewing, refactoring small functions, or acting as a sounding board, they should be used with moderation.
+While tools like Large Language Models (LLMs) and interactive chatbots can be
+beneficial for reviewing, refactoring small functions, or acting as a sounding
+board, they should be used with moderation.
 
 We require a human in the loop for all contributions.
 
-
-
---------
-
-* Code of conduct
+** Code of conduct
 
 This project adheres to the jointhefreeworld code of conduct. Find it here:
 
 https://jointhefreeworld.org/blog/articles/personal/jointhefreeworld-code-of-conduct/index.html
 
-In summary, we foster an inclusive, respectful, and cooperative environment for all contributors and users of this free software project. Inspired by the ideals of the GNU Project, we strive to uphold freedom, equality, and community as guiding principles. We believe that collaboration in a community of mutual respect is essential to creating excellent free software.
+In summary, we foster an inclusive, respectful, and cooperative environment for
+all contributors and users of this free software project. Inspired by the ideals
+of the GNU Project, we strive to uphold freedom, equality, and community as
+guiding principles. We believe that collaboration in a community of mutual
+respect is essential to creating excellent free software.
+
+* License
+
+heks-emacs and all of its source code are free software, licensed under the
+*GNU General Public License v3.0 or later* (~GPL-3.0-or-later~). The full text is
+in [[file:COPYING][COPYING]], and it is also here:
+https://www.gnu.org/licenses/gpl-3.0.html
+
+The documentation and examples, including this document, which are provided with
+heks-emacs, are all licensed under the *GNU Free Documentation License v1.3 or
+later* (~GFDL-1.3-or-later~):
+https://www.gnu.org/licenses/fdl-1.3.html
+
+In short: use it, read it, change it, share it -- and if you share it back, keep
+it free.
+
+* Supporting the project
+
+If you like my work, please support me by [[https://bmc.link/jjbigorra][buying me a cup of coffee ☕]] so I can
+continue with a lot of motivation. Stars, issues, patches and a screenshot of
+your own heks-emacs are just as welcome.
 
 -------
