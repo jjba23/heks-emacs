@@ -72,6 +72,25 @@ popup while it is on screen."
   :type 'integer
   :group 'heks/hover)
 
+(defcustom heks/hover-backend 'auto
+  "How the popup is drawn.
+`child-frame' draws a bounded, padded child frame; it needs a window system
+that really embeds child frames (X11, Windows).  Under tiling or dynamic window
+managers (OmniWM on macOS, Niri on GNU/Linux via Wayland/pgtk) a child frame is
+a separate toplevel that the WM may tile, focus or animate, so it flickers or
+steals space.  `tooltip' uses Emacs's native tooltip, which every WM leaves
+alone.  `auto' picks `child-frame' only on plain X11 and `tooltip' elsewhere."
+  :type '(choice (const auto) (const child-frame) (const tooltip))
+  :group 'heks/hover)
+
+(defun heks/hover--backend ()
+  "Return the backend to use for the selected frame."
+  (cond ((not (eq heks/hover-backend 'auto)) heks/hover-backend)
+        ((and (eq window-system 'x) (not (featurep 'pgtk))
+              (not (getenv "WAYLAND_DISPLAY")))
+         'child-frame)
+        (t 'tooltip)))
+
 (defvar heks/hover-mode)
 (defvar heks/hover--frame nil "The child frame the popup is drawn in.")
 (defconst heks/hover--buffer " *heks-hover*")
@@ -195,7 +214,10 @@ that is installed so that code fences and emphasis read properly."
                           (minibuffer . nil)
                           (visibility . nil)
                           (undecorated . t)
+                          (override-redirect . t)
                           (no-accept-focus . t)
+                          (no-special-glyphs . t)
+                          (z-group . above)
                           (no-focus-on-map . t)
                           (skip-taskbar . t)
                           (no-other-frame . t)
@@ -342,6 +364,12 @@ unless the window beneath it scrolled.")
   (if (not (cl-some (lambda (b) (buffer-local-value 'heks/hover-mode b))
                     (buffer-list)))
       (heks/hover--stop-polling)
+    ;; Unfocused frame (workspace switch, another WM-managed window): no popup.
+    (if (not (frame-focus-state))
+        (progn (when heks/hover--anchor
+                 (heks/hover--cancel-dwell)
+                 (heks/hover--hide)
+                 (setq heks/hover--anchor nil heks/hover--sight nil)))
     (let ((sight (list (mouse-pixel-position)
                        (selected-window)
                        (window-buffer)
@@ -364,7 +392,7 @@ unless the window beneath it scrolled.")
             (when target
               (setq heks/hover--dwell-timer
                     (run-with-timer heks/hover-delay nil
-                                    #'heks/hover--ask target)))))))))
+                                    #'heks/hover--ask target))))))))))
 
 (defun heks/hover--start-polling ()
   (unless (timerp heks/hover--poll-timer)
