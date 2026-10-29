@@ -369,7 +369,8 @@ unless the window beneath it scrolled.")
         (progn (when heks/hover--anchor
                  (heks/hover--cancel-dwell)
                  (heks/hover--hide)
-                 (setq heks/hover--anchor nil heks/hover--sight nil)))
+                 (setq heks/hover--anchor nil heks/hover--sight nil))))
+     (t
     (let ((sight (list (mouse-pixel-position)
                        (selected-window)
                        (window-buffer)
