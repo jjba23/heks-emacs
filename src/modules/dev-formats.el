@@ -30,7 +30,25 @@
   :config
   (setq-default format-all-formatters
                 '(("CSS"     (prettierd))
-                  ("HTML" (prettierd)))))
+                  ("HTML" (prettierd))
+                  ("Python" (ruff)))))
+
+;; Python is formatted on save by `ruff format' (what `python-black' used to
+;; do), and by `C-c i f' through `heks/format-dispatch': the language server
+;; (`basedpyright') does not format, so the generic Eglot answer would fail.
+(defun heks/python-format-applies-p ()
+  "Return non-nil when `ruff' should format this buffer."
+  (and (derived-mode-p 'python-base-mode) (executable-find "ruff")))
+
+(add-to-list 'heks/format-dispatch
+             (cons #'heks/python-format-applies-p
+                   #'format-all-region-or-buffer))
+
+(defun heks/python-format-on-save ()
+  "Turn on `format-all-mode' in this Python buffer when `ruff' is installed."
+  (when (executable-find "ruff") (format-all-mode 1)))
+
+(add-hook 'python-base-mode-hook #'heks/python-format-on-save)
 
 (use-package just-mode
   :ensure t)
