@@ -709,7 +709,11 @@ already answered."
     (unwind-protect
         (progn
           (with-current-buffer buffer (setq heks/hover-mode t))
-          (cl-letf (((symbol-function 'heks/hover--target)
+          ;; A batch Emacs has no focused frame, and an unfocused one is asked
+          ;; nothing; whether this frame has the focus is not what is tested.
+          (cl-letf (((symbol-function 'frame-focus-state)
+                     (lambda (&optional _frame) t))
+                    ((symbol-function 'heks/hover--target)
                      (lambda () (cl-incf asked) nil)))
             (heks/hover--poll)
             (let ((after-first asked))
@@ -718,7 +722,11 @@ already answered."
               (should (= after-first asked))
               (should (= asked 1)))))
       (with-current-buffer buffer (setq heks/hover-mode nil))
-      (heks/hover--poll)
+      ;; Once no buffer wants a popup, the poll lets go of the timer.  Which
+      ;; buffers want one is the suite's business, not this test's: the one
+      ;; this file is read into has `heks/hover-mode' on as well.
+      (cl-letf (((symbol-function 'heks/hover--wanted) #'ignore))
+        (heks/hover--poll))
       (should-not (timerp heks/hover--poll-timer))
       (kill-buffer buffer))))
 
@@ -2507,7 +2515,22 @@ buffer that said which project it is is not the current one any more."
 line height can leave a gap in it."
   (should (eq (heks/fold-indicator-fringe-bitmap 'guide)
               'heks/fold-indicator-guide))
-  (should (integerp (get 'heks/fold-indicator-guide 'fringe))))
+  ;; What the bitmap is made of is asked of the definition rather than read
+  ;; back from Emacs: a batch Emacs built without a window system keeps no
+  ;; fringe bitmaps, and gives a defined one no `fringe' property at all, so
+  ;; there the bitmap cannot be looked up after the fact.
+  (let (defined)
+    (cl-letf (((symbol-function 'define-fringe-bitmap)
+               (lambda (&rest arguments)
+                 (setq defined arguments)
+                 (car arguments))))
+      (heks/fold-indicator-define-guide))
+    ;; The one row, and `top' with a period: that is what repeats the row
+    ;; down the line, whatever the height of the line is.
+    (should (equal defined
+                   (list 'heks/fold-indicator-guide
+                         (vector heks/fold-indicator-line-row)
+                         nil nil '(top t))))))
 
 (ert-deftest heks/dev-folding/every-line-of-a-block-is-drawn-by-its-own-bitmap ()
   "The head of a block, its middle and its end are drawn differently."

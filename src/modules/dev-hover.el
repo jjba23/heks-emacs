@@ -319,7 +319,11 @@ stripped and rendered afresh."
 
 (defun heks/hover--hide ()
   "Hide the popup."
-  (when (eq (heks/hover--backend) 'tooltip)
+  ;; A tooltip is a graphic: on a terminal, and in an Emacs built without a
+  ;; window system (where `tooltip-hide' calls the `x-hide-tip' that is not
+  ;; there), there is none to hide.
+  (when (and (eq (heks/hover--backend) 'tooltip)
+             (display-graphic-p))
     (tooltip-hide))
   (when (and (frame-live-p heks/hover--frame)
              (frame-visible-p heks/hover--frame))
@@ -482,10 +486,17 @@ unless the window beneath it scrolled.")
        (cdr anchor)
        (lambda (text) (heks/hover--deliver anchor text))))))
 
+(defun heks/hover--wanted ()
+  "Return non-nil while some buffer has `heks/hover-mode' on.
+The timer polls for all of them at once, so it is asked this on every tick
+and lets go of the poll when the last buffer that wanted a popup is done
+with it."
+  (cl-some (lambda (buffer) (buffer-local-value 'heks/hover-mode buffer))
+           (buffer-list)))
+
 (defun heks/hover--poll ()
   "Notice where the pointer is; cheap, and never waits for anything."
-  (if (not (cl-some (lambda (b) (buffer-local-value 'heks/hover-mode b))
-                    (buffer-list)))
+  (if (not (heks/hover--wanted))
       (heks/hover--stop-polling)
     ;; Unfocused frame (workspace switch, another WM-managed window): no popup.
     (cond

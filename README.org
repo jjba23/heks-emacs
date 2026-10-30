@@ -21,11 +21,13 @@ using it.
 [[file:docs/images/heks-emacs.gif]]
 
 #+begin_quote
-The configuration itself, in six frames: one of its own modules, that module
-beside the key reference written from the key tables, ~C-c~ explained by
-which-key while it is being typed, an Org file folded to its headlines, and the
-modules as files. Every frame was exported from a running heks-emacs rather
-than drawn.
+A tour of the configuration itself: the dashboard, an Org file folded to its
+headlines, ~C-c~ explained by which-key while it is being typed, one of its own
+modules, a Markdown note beside its rendering, an OpenAPI document read as a
+specification, a shell script with its language server's hover documentation and
+Flymake findings, the modules as files, five palettes over the same buffer, and
+every text size from nano to jumbo. Every frame was recorded from a running
+heks-emacs rather than drawn.
 #+end_quote
 
 If a GIF is not enough, there is [[https://jointhefreeworld.org/static-assets/heks/screen-2026-07-15-23-32-24.png][a full-screen screenshot of the whole desktop]]

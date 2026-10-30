@@ -185,8 +185,15 @@ libraries are there."
 (defconst heks/fold-indicator-elbow #b00011111
   "The guide of a block turning right, toward the text it brackets.")
 
-(define-fringe-bitmap 'heks/fold-indicator-guide
-  (vector heks/fold-indicator-line-row) nil nil '(top t))
+(defun heks/fold-indicator-define-guide ()
+  "Define the bitmap that draws the guide of a block.
+The guide is a single row, which the periodic `top' alignment repeats for
+as long as the line it is drawn beside: no line spacing can put a gap in
+it."
+  (define-fringe-bitmap 'heks/fold-indicator-guide
+    (vector heks/fold-indicator-line-row) nil nil '(top t)))
+
+(heks/fold-indicator-define-guide)
 
 (defun heks/fold-indicator-line-spacing ()
   "Return the pixels `line-spacing' adds below a line of this buffer."
