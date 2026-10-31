@@ -8,11 +8,11 @@
 ;; Guile Scheme development, with the REPL in the middle of the workflow
 ;; rather than at the end of it.  Geiser drives it, and *nothing here needs
 ;; Guix*: on a machine without it this is a plain Guile setup -- a `guile'
-;; REPL, the Guile compiler as the checker, Emacs' own indentation as the
-;; formatter -- which is what makes it usable on macOS.  Where Guix *is*
-;; installed it adds what only it can give: a Guix REPL, so that
-;; `(use-modules (guix packages))' works, `guix lint' and `guix style', and
-;; the C-c . bindings of Emacs-Guix in Guix buffers.
+;; REPL, the Guile compiler as the checker, sift (see `modules/sift.el') for
+;; the habits of a file and its formatting -- which is what makes it usable on
+;; macOS.  Where Guix *is* installed it adds what only it can give: a Guix
+;; REPL, so that `(use-modules (guix packages))' works, `guix lint', and the
+;; C-c . bindings of Emacs-Guix in Guix buffers.
 ;;
 ;; The REPL (`C-c g r' starts or switches to the one of the current
 ;; project; `C-c g R' restarts it):
@@ -62,21 +62,25 @@
 ;;
 ;; Checking and formatting run on save, from the project's own tools:
 ;;
+;;   * `heks/sift-lint-backend' (see `modules/sift.el') runs `sift lint' on
+;;     the buffer's text, so the rules a Scheme file is read with arrive as
+;;     Flymake diagnostics, each carrying the rule's code (SIFT012) and its
+;;     name: `C-c g H' on one explains it, `C-c g a' applies its fix.
+;;   * `heks/sift-format-backend' reports the lines `sift format' would
+;;     rewrite, which is the drift `sift check' -- and so a pipeline running
+;;     `sift ci' -- fails over.
 ;;   * `heks/guix-lint-backend' runs `guix lint' on the package
 ;;     defined in the buffer, so Guix's checkers (synopsis, inputs,
 ;;     formatting, CVEs, ...) arrive as Flymake diagnostics.
-;;   * `heks/guix-style-backend' reports the lines `guix style' would
-;;     rewrite, in any Scheme buffer of a machine that has Guix: drift in a
-;;     Guix library file is as interesting as drift in a package file.
 ;;   * `heks/guile-compile-backend' runs the Guile compiler
 ;;     (`guild compile') where Guix is not the authority -- every other
 ;;     Scheme buffer.  It is a real checker: it reports unbound and unused
 ;;     variables, unused imports and arity mismatches, and it is the whole
 ;;     checking story on a machine without Guix.
 ;;   * `C-c g L' lints the buffer with output you can click through,
-;;     `C-c g f' formats it in place, `C-c g S' applies one of Guix's
-;;     styling rules (`inputs', `arguments', `git-source') and reloads the
-;;     buffer.  `C-c i f' is the historical binding for formatting.
+;;     `C-c g f' formats it in place with sift, `C-c g a' applies the fix of
+;;     the rule reported at point and `C-c g A' every fix sift has.
+;;     `C-c i f' is the historical binding for formatting.
 ;;   * `guix-devel-mode' is enabled in Guix buffers, which brings Emacs-Guix's
 ;;     own C-c . bindings: lint (`C-c . l'), build the package definition
 ;;     (`C-c . b'), its source (`C-c . s'), download it (`C-c . d') and
@@ -103,11 +107,14 @@
 (require 'seq)
 (require 'xref)
 
-;; The bad-practice checker of `modules/scheme-lint.el' is registered in
-;; every Scheme buffer below; it is a module of its own because it is
-;; Elisp over the buffer rather than a tool being run, and because its
-;; rules are worth reading -- and testing -- on their own.
-(declare-function heks/scheme-lint-check "scheme-lint" (report-fn &rest arguments))
+;; What checks the habits of a Scheme file -- the bad practices that work and
+;; should not be written -- is sift, in `modules/sift.el', and a Scheme buffer
+;; is set up for it in `heks/scheme-setup-flymake' below.
+(declare-function heks/sift-setup-flymake "sift" ())
+(declare-function heks/sift-format-buffer "sift" ())
+(declare-function heks/sift-fix-buffer "sift" ())
+(declare-function heks/sift-fix-at-point "sift" ())
+(declare-function heks/sift-explain-rule "sift" ())
 
 ;;;
 ;;; Customization
@@ -169,22 +176,12 @@ reports on each evaluation, and to the Flymake backend."
   :type 'boolean
   :group 'heks)
 
-(defcustom heks/guix-style-flymake t
-  "Whether `guix style' reports formatting drift as a Flymake backend."
-  :type 'boolean
-  :group 'heks)
-
 (defcustom heks/guix-lint-checkers nil
   "Checkers passed to `guix lint' with -c.
 
 nil means every checker the installed Guix provides; `guix lint
 --list-checkers' lists the names.  Network checks are always disabled
 (-n), because linting runs on every save."
-  :type '(repeat string)
-  :group 'heks)
-
-(defcustom heks/guix-style-rules '("format" "inputs" "arguments" "git-source")
-  "Styling rules offered by `heks/guix-style-apply-rule'."
   :type '(repeat string)
   :group 'heks)
 
@@ -416,41 +413,6 @@ a subset of the checkers)."
                            (list "-c" (mapconcat #'identity heks/guix-lint-checkers ",")))
                          (list "-L" root "-e" expression)))))))
 
-(defun heks/guix-style-applies-p ()
-  "Return non-nil when `guix style' has an opinion about this buffer.
-
-Any Scheme file, not just one that defines packages: `guix style' is the
-formatter of a Guix checkout's library files too."
-  (and heks/guix-style-flymake
-       (heks/guix-available-p)
-       (derived-mode-p 'scheme-mode)))
-
-(defun heks/guix-style-backend (report-fn &rest _args)
-  "Flymake backend reporting the lines `guix style' would reformat.
-
-`guix style' rewrites files in place, so the check runs on a copy of the
-buffer: unsaved edits are covered, and the buffer is never touched."
-  (heks/tool-drift-backend
-   "guix-style" report-fn
-   (list
-    :what "guix style"
-    :applies #'heks/guix-style-applies-p
-    :suffix ".scm"
-    :root #'heks/scheme-load-path
-    :command (lambda (file)
-               (list (heks/tool-path heks/guix-program) "style" "-f" file)))))
-
-(defun heks/scheme-format-spec ()
-  "Return the formatter to use for this buffer.
-
-Guix's own formatter where Guix is installed, which is what a Guix
-checkout, a channel and a package want; nothing where it is not, and
-`heks/scheme-format-buffer' falls back to Emacs' indentation."
-  (when (heks/guix-available-p)
-    (list :what "guix style"
-          :command (lambda (file)
-                     (list (heks/tool-path heks/guix-program) "style" "-f" file)))))
-
 ;;;
 ;;; Flymake setup
 ;;;
@@ -458,22 +420,22 @@ checkout, a channel and a package want; nothing where it is not, and
 (defun heks/scheme-setup-flymake ()
   "Register the checkers of the current Scheme buffer.
 
-The Guix tools load the whole Guix module tree and the Guile compiler
-reads a file, so these run on save (`flymake-start-on-save-buffer') rather
-than on every keystroke; the checker that applies to the buffer answers,
-and the others stay silent.
+sift is asked first and it is the only one of them that needs nothing but
+itself: its findings are the habits of the file (see `modules/sift.el'),
+and the drift it reports is the formatting a pipeline would fail on.  The
+Guix tools load the whole Guix module tree and the Guile compiler reads a
+file, so all of these run on save rather than on every keystroke; the
+checker that applies to the buffer answers, and the others stay silent.
 
-The first of them is `modules/scheme-lint.el', which is Elisp over the
-buffer: it needs nothing installed, it is what says that a `cond' has a
-clause after its `else' or that a `let' binds one name twice -- the things
-that work and should not be written -- and it runs beside the tools rather
-than instead of them."
-  (add-hook 'flymake-diagnostic-functions #'heks/scheme-lint-check nil t)
+`heks/sift-setup-flymake' is what starts Flymake and what registers the
+two sift backends; it bows out on a machine without sift, and then the
+compiler and `guix lint' are what a Scheme buffer has -- which is what
+every Scheme buffer had before sift was here."
+  (heks/sift-setup-flymake)
   (when heks/scheme-guile-compile-flymake
     (add-hook 'flymake-diagnostic-functions #'heks/guile-compile-backend nil t))
   (when (heks/guix-available-p)
-    (add-hook 'flymake-diagnostic-functions #'heks/guix-lint-backend nil t)
-    (add-hook 'flymake-diagnostic-functions #'heks/guix-style-backend nil t))
+    (add-hook 'flymake-diagnostic-functions #'heks/guix-lint-backend nil t))
   (setq-local flymake-no-changes-timeout nil
               flymake-start-on-flymake-mode nil)
   (flymake-mode 1))
@@ -1450,22 +1412,23 @@ for a saved buffer, and this works either way."
 (defun heks/scheme-format-buffer ()
   "Format the current buffer in place.
 
-With Guix installed that is `guix style', the formatter of Guix itself.
-Without it, the buffer is re-indented the way `scheme-mode' indents Scheme
-(which is also what `indent-region' does by hand) and its trailing
-whitespace is dropped: there is no canonical Scheme formatter installed,
-and this is the one thing that is always right about the indentation."
+That is `sift format' (see `modules/sift.el'), which is what a pipeline
+running `sift ci' checks the file against -- the buffer and the build
+agree about what formatted means.  Where sift is not installed the buffer
+is re-indented the way `scheme-mode' indents Scheme (which is also what
+`indent-region' does by hand) and its trailing whitespace is dropped:
+there is no canonical Scheme formatter to be had then, and this is the one
+thing that is always right about the indentation."
   (interactive)
-  (let ((spec (heks/scheme-format-spec)))
-    (if spec
-        (heks/tool-format-buffer spec)
-      (let ((inhibit-message t))
-        ;; `indent-region' reports how many lines it changed; a formatter
-        ;; says nothing when there is nothing to do, and so does this.
-        (save-excursion
-          (indent-region (point-min) (point-max))
-          (delete-trailing-whitespace)))
-      (message "Re-indented the buffer (install Guix for `guix style')"))))
+  (if (heks/sift-formats-p)
+      (heks/sift-format-buffer)
+    (let ((inhibit-message t))
+      ;; `indent-region' reports how many lines it changed; a formatter says
+      ;; nothing when there is nothing to do, and so does this.
+      (save-excursion
+        (indent-region (point-min) (point-max))
+        (delete-trailing-whitespace)))
+    (message "Re-indented the buffer (install sift for `sift format')")))
 
 (defun heks/scheme-buffer-p ()
   "Return non-nil when the current buffer holds Scheme code."
@@ -1473,50 +1436,12 @@ and this is the one thing that is always right about the indentation."
 
 ;; `C-c i f' is the format key in every buffer, and it is a table the
 ;; buffer answers: in a Scheme one the formatter is the above, which uses
-;; `guix style' where Guix is installed and the indentation of
-;; `scheme-mode' where it is not.  `C-c g f' stays as the same command
-;; under the Guile topic, for the fingers that look for it there.
+;; sift where it is installed and the indentation of `scheme-mode' where it
+;; is not.  `C-c g f' stays as the same command under the Guile topic, for
+;; the fingers that look for it there.
 (add-to-list 'heks/format-dispatch
              (cons #'heks/scheme-buffer-p
                    #'heks/scheme-format-buffer))
-
-(defun heks/guix-style-apply-rule (rule)
-  "Apply the `guix style' styling RULE to the current buffer.
-
-The rules are Guix's own (`inputs', `arguments', `git-source', ...; see
-`heks/guix-style-rules' and `guix style -l').  They rewrite the
-file, so the buffer is saved first and reloaded once the rule has been
-applied."
-  (interactive (list (completing-read "Styling rule: " heks/guix-style-rules
-                                      nil t nil nil (car heks/guix-style-rules))))
-  (unless (heks/guix-available-p)
-    (user-error "`%s' is not installed" heks/guix-program))
-  (let ((file buffer-file-name)
-        (source (current-buffer))
-        (buffer (get-buffer-create "*guix style*")))
-    (unless file
-      (user-error "The buffer is not visiting a file"))
-    (when (buffer-modified-p)
-      (user-error "Save the buffer first: `guix style' rewrites the file"))
-    (with-current-buffer buffer (erase-buffer))
-    (let ((default-directory (file-name-directory file)))
-      (message "Applying the `%s' Guix styling rule to %s..."
-               rule (file-name-nondirectory file))
-      (make-process
-       :name "guix style"
-       :command (list (heks/tool-path heks/guix-program) "style" "-S" rule file)
-       :buffer buffer
-       :noquery t
-       :sentinel
-       (lambda (process _event)
-         (when (memq (process-status process) '(exit signal))
-           (if (and (eq (process-status process) 'exit)
-                    (zerop (process-exit-status process))
-                    (buffer-live-p source))
-               (with-current-buffer source
-                 (revert-buffer :ignore-auto :noconfirm)
-                 (message "Applied the `%s' styling rule (see *guix style*)" rule))
-             (message "`guix style -S %s' failed; see the *guix style* buffer" rule))))))))
 
 ;;;
 ;;; Keys and setup
@@ -1575,15 +1500,20 @@ which is the command it is everywhere else too."
     (define-key map (kbd "C-c g C") #'heks/scheme-callees)
     ;; `m' is a menu of the methods, which is what `m' is everywhere else.
     (define-key map (kbd "C-c g m") #'heks/scheme-generic-methods)
-    ;; Testing, linting and formatting: `t' tests, `L' lints the Guix
-    ;; packages in the buffer, `f' formats it and `S' applies one of
-    ;; Guix's styling rules.  Formatting is only bound here for Scheme:
-    ;; in every other buffer it is `C-c i f', which asks this command
-    ;; when the buffer is a Scheme one.
+    ;; Testing, linting, formatting and fixing: `t' tests, `L' lints the
+    ;; Guix packages in the buffer with `guix lint', `f' formats it with
+    ;; sift, `a' applies the fix of the sift rule reported at point, `A'
+    ;; every fix sift has, and `H' explains that rule -- the code in the
+    ;; margin and the page that says what it wants, one key apart.
+    ;; Formatting is only bound here for Scheme: in every other buffer it
+    ;; is `C-c i f', which asks this command when the buffer is a Scheme
+    ;; one.
     (define-key map (kbd "C-c g t") #'heks/scheme-test)
     (define-key map (kbd "C-c g L") #'heks/guix-lint-buffer)
     (define-key map (kbd "C-c g f") #'heks/scheme-format-buffer)
-    (define-key map (kbd "C-c g S") #'heks/guix-style-apply-rule)
+    (define-key map (kbd "C-c g a") #'heks/sift-fix-at-point)
+    (define-key map (kbd "C-c g A") #'heks/sift-fix-buffer)
+    (define-key map (kbd "C-c g H") #'heks/sift-explain-rule)
     ;; `p' is the package at point: `guix edit', the way `g' is the scheme
     ;; definition at point.  It used to be a global `C-c g l', which made
     ;; the one Guile key that worked outside a Scheme buffer.

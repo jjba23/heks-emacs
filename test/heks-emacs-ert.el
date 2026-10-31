@@ -55,7 +55,7 @@
   (load (expand-file-name (format "modules/%s.el" name) heks-ert--source) nil t))
 
 (dolist (module '("markdown" "render" "import" "present" "heks-emacs" "emacs-core"
-                 "notes" "notes-graph" "notes-auto" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "dev-hover" "openapi" "scheme-lint" "duplicates" "shell" "guile" "ui" "ai"))
+                 "notes" "notes-graph" "notes-auto" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "dev-hover" "openapi" "sift" "duplicates" "shell" "guile" "ui" "ai"))
   (heks-ert--module module))
 
 ;; `htmlize' is what Org colours the code in a note with, and the
@@ -2664,120 +2664,184 @@ line height can leave a gap in it."
     (should-not (heks/preview--section-heading))))
 
 ;;
-;; ====== The rules a Scheme buffer is held to ======
+;; ====== What sift says about a file ======
 ;;
-;; `heks/scheme-lint-problems' is the whole checker as a function of
-;; a string, which is what makes these tests what they are: a form in, and
-;; the findings out.  Two kinds of test matter here, and the second more
-;; than the first: that a habit is reported, and that the code around it --
-;; the quote, the comment, the shebang line -- is not.
+;; sift is a program (see `modules/sift.el'), so the tests here are of two
+;; kinds.  What the configuration makes of an answer -- the line and column,
+;; the severity, the rule's name in the data -- is a pure function of sift's
+;; JSON, and it is tested by feeding it one.  What it makes of the program is
+;; tested where the program is, and skipped where it is not: a machine that
+;; has no sift is not a machine where this configuration is broken, it is a
+;; machine where a Scheme buffer falls back to the checkers of `guile.el'.
 ;;
 
-(defun heks-ert--scheme-lint (text)
-  "Return the findings of the Scheme in TEXT, as (SEVERITY . MESSAGE) pairs."
-  (mapcar (lambda (finding)
-            (cons (plist-get finding :severity) (plist-get finding :message)))
-          (heks/scheme-lint-problems text)))
+(defun heks-ert--sift-finding (line column rule code severity message)
+  "Return one finding of sift's JSON, as a string, for the tests below."
+  (json-encode `((file . "heks-ert.scm")
+                 (line . ,line) (column . ,column)
+                 (checker . ,rule) (code . ,code)
+                 (severity . ,severity) (message . ,message))))
 
-(ert-deftest heks/scheme-lint/a-clean-form-is-left-alone ()
-  (should-not (heks-ert--scheme-lint
-               "(define (twice f x) (f (f x)))\n\n(let* ((a 1) (b 2)) (+ a b))\n"))
-  (should-not (heks-ert--scheme-lint
-               "(cond ((null? xs) '()) (else (car xs)))")))
+(ert-deftest heks/sift/a-finding-carries-its-code-its-rule-and-its-severity ()
+  "What a diagnostic has to carry for the rest of the module to work.
 
-(ert-deftest heks/scheme-lint/a-name-bound-twice-is-an-error ()
-  (let ((found (heks-ert--scheme-lint "(let ((x 1) (x 2)) x)")))
-    (should (equal (length found) 1))
-    (should (eq (caar found) :error))
-    (should (string-match-p "bound twice" (cdar found)))))
-
-(ert-deftest heks/scheme-lint/a-procedure-that-binds-a-name-twice-is-an-error ()
-  (should (eq (caar (heks-ert--scheme-lint "(lambda (x x) x)")) :error))
-  (should (eq (caar (heks-ert--scheme-lint "(define (f a a) a)")) :error)))
-
-(ert-deftest heks/scheme-lint/a-clause-after-else-can-never-run ()
-  (should (eq (caar (heks-ert--scheme-lint "(cond (a 1) (else 2) (b 3))")) :error)))
-
-(ert-deftest heks/scheme-lint/eq-on-a-string-is-not-a-string-comparison ()
-  (let ((found (heks-ert--scheme-lint "(eq? \"a\" \"b\")")))
-    (should (eq (caar found) :warning))
-    (should (string-match-p "string=?" (cdar found))))
-  ;; The same question asked the right way says nothing.
-  (should-not (heks-ert--scheme-lint "(string=? a b)")))
-
-(ert-deftest heks/scheme-lint/quoted-data-is-data ()
-  "A `nil' a program reads is not a `nil' a program wrote."
-  (should-not (heks-ert--scheme-lint "(assq 'nil alist)"))
-  (should (heks-ert--scheme-lint "(car (list nil))")))
-
-(ert-deftest heks/scheme-lint/a-finding-sits-on-the-form-that-has-the-habit ()
-  (let* ((text "(define (f) (if c #t #f))")
-         (finding (car (heks/scheme-lint-problems text))))
-    (should (equal (substring text (plist-get finding :start) (plist-get finding :end))
-                   "(if c #t #f)"))))
-
-(ert-deftest heks/scheme-lint/what-is-not-code-does-not-move-the-reader ()
-  "Comments, a shebang line and a datum comment are read past, not read."
-  (should-not (heks-ert--scheme-lint "#| (let ((x 1) (x 2))) |#\n"))
-  (should-not (heks-ert--scheme-lint "#!/usr/bin/guile -s\n(define (f) 1)\n"))
-  (should-not (heks-ert--scheme-lint "(define (f) #;(let ((x 1) (x 2))) 1)"))
-  ;; A nested block comment ends where it ends, not at the first `|#'.
-  (should-not (heks-ert--scheme-lint "#| a #| b |# (let ((x 1) (x 2))) |#\n"))
-  ;; And the form after a string holding a comment opener is still read.
-  (should (heks-ert--scheme-lint "(define (f) \"#|\" (let ((x 1) (x 2)) x))")))
-
-(ert-deftest heks/scheme-lint/a-file-that-stops-in-the-middle-still-checks-what-it-has ()
-  (let ((found (heks-ert--scheme-lint "(let ((x 1) (x 2)) x)\n(define (f) 1")))
-    (should (= 1 (length found)))))
-
-(ert-deftest heks/scheme-lint/a-guix-package-says-what-it-turns-off ()
-  (let ((found (heks-ert--scheme-lint
-                "(package (name foo) (arguments '(#:tests? #f)))")))
-    (should (= 1 (length found)))
-    (should (string-match-p "tests" (cdar found))))
-  ;; A package that runs its tests says nothing.
-  (should-not (heks-ert--scheme-lint
-               "(package (name foo) (arguments (list #:tests? #t)))")))
-
-(ert-deftest heks/scheme-lint/a-guix-package-with-old-style-inputs-is-one-finding ()
-  (let ((found (heks-ert--scheme-lint
-                "(package (name foo) (inputs `((\"a\" ,a) (\"b\" ,b))))")))
-    (should (= 1 (length found)))
-    (should (string-match-p "old-style" (cdar found))))
-  ;; The inputs spelled the way `guix style' writes them are quiet.
-  (should-not (heks-ert--scheme-lint
-               "(package (name foo) (inputs (list a b)))")))
-
-(ert-deftest heks/scheme-lint/every-rule-is-a-function-and-there-are-many ()
-  (should (> (length heks/scheme-lint-rules) 15))
-  (dolist (rule heks/scheme-lint-rules)
-    (should (functionp rule))))
-
-(ert-deftest heks/scheme-lint/a-buffer-gets-diagnostics-on-the-lines-they-belong-to ()
+The code is what the margin and the list of findings show; the rule's name
+is in the data, which is what `heks/sift-fix-at-point' and
+`heks/sift-explain-rule' read.  A finding of severity `info' is a `:note',
+because a suggestion is not a warning."
   (with-temp-buffer
-    (setq buffer-file-name (expand-file-name "heks-ert-lint.scm" temporary-file-directory))
-    (insert ";; a comment\n\n(let ((x 1) (x 2)) x)\n")
-    (scheme-mode)
-    (let ((diagnostics (heks/scheme-lint-diagnostics)))
-      (should (= 1 (length diagnostics)))
-      ;; The diagnostic sits on the form that has the habit -- the second
-      ;; binding, not the line it happens to be on -- because that is what
-      ;; the reader is being told to look at.
-      (should (equal (line-number-at-pos (flymake-diagnostic-beg (car diagnostics))) 3))
-      (should (equal (buffer-substring-no-properties
-                      (flymake-diagnostic-beg (car diagnostics))
-                      (flymake-diagnostic-end (car diagnostics)))
-                     "(x 2)"))
-      (should (equal (flymake-diagnostic-type (car diagnostics)) :error))
-      ;; What the user reads is a sentence with a tool in front of it,
-      ;; not a message with a gap where the tool should be.
-      (should (string-prefix-p "Scheme" (flymake-diagnostic-text (car diagnostics)))))))
+    (insert "(define (f x)\n  (if x 1))\n")
+    (let* ((diagnostics
+            (heks/sift--diagnostics
+             (concat "[" (heks-ert--sift-finding
+                          2 3 "if-without-else" "SIFT012" "warning"
+                          "`if` has no else branch")
+                     ","
+                     (heks-ert--sift-finding
+                      2 1 "line-length" "SIFT003" "info"
+                      "line is 91 columns long")
+                     "]")))
+           (warning (car diagnostics))
+           (note (cadr diagnostics)))
+      (should (= 2 (length diagnostics)))
+      ;; sift counts from one, and a diagnostic lands where it said.
+      (should (equal (line-number-at-pos (flymake-diagnostic-beg warning)) 2))
+      (should (equal (flymake-diagnostic-beg warning)
+                     (save-excursion (goto-char (point-min))
+                                     (forward-line 1) (forward-char 2) (point))))
+      (should (equal (flymake-diagnostic-type warning) :warning))
+      (should (equal (flymake-diagnostic-type note) :note))
+      (should (string-match-p "SIFT012" (flymake-diagnostic-text warning)))
+      (should (string-match-p "if-without-else" (flymake-diagnostic-text warning)))
+      (should (equal (plist-get (flymake-diagnostic-data warning) :rule)
+                     "if-without-else"))
+      (should (equal (plist-get (flymake-diagnostic-data warning) :code) "SIFT012")))))
 
-(ert-deftest heks/scheme-lint/nothing-is-said-in-a-buffer-that-is-not-scheme ()
+(ert-deftest heks/sift/the-dialect-is-read-from-the-major-mode ()
+  "sift is told which Lisp it is, and the mode is what says so."
+  (dolist (case '((scheme-mode . "scheme")
+                  (scheme-ts-mode . "scheme")
+                  (emacs-lisp-mode . "elisp")
+                  (lisp-mode . "cl")))
+    ;; A mode whose library is not part of this Emacs -- `scheme-ts-mode' is
+    ;; a package here -- is one this buffer cannot be put in, and the
+    ;; answer for it is not something this test can read.
+    (when (fboundp (car case))
+      (with-temp-buffer
+        (funcall (car case))
+        (should (equal (heks/sift-dialect) (cdr case))))))
   (with-temp-buffer
-    (insert "(let ((x 1) (x 2)) x)")
+    (fundamental-mode)
+    (should-not (heks/sift-dialect))))
+
+(ert-deftest heks/sift/emacs-lisp-is-checked-and-not-formatted ()
+  "The three dialects are checked, and only Scheme is formatted by default.
+
+Formatting Emacs Lisp with sift is a decision a person makes by adding the
+dialect to `heks/sift-format-dialects'; it is not one this configuration
+makes for them, since sift's idea of how an Elisp file is laid out is its
+own.  What the checker does in all three is the same, and that is on by
+default."
+  (skip-unless (heks/sift-available-p))
+  (with-temp-buffer
     (emacs-lisp-mode)
-    (should-not (heks/scheme-lint-diagnostics))))
+    (should (heks/sift-lint-applies-p))
+    (should-not (heks/sift-formats-p)))
+  (let ((heks/sift-format-dialects '("scheme" "elisp")))
+    (with-temp-buffer
+      (emacs-lisp-mode)
+      (should (heks/sift-formats-p)))))
+
+(defun heks-ert--sift-await (name start)
+  "Run START, which starts the Flymake backend NAME, and return its report.
+
+The backends are asynchronous, which is the point of them, so the test
+waits for the process the way Flymake would rather than calling the code
+it would have called."
+  (let ((reported 'nothing))
+    (funcall start (lambda (report &rest _rest) (setq reported report)))
+    (let ((tries 0))
+      (while (and (process-live-p (alist-get name heks/tool-processes))
+                  (< tries 400))
+        (accept-process-output nil 0.05)
+        (setq tries (1+ tries))))
+    (accept-process-output nil 0.2)
+    reported))
+
+(ert-deftest heks/sift/the-lint-backend-reports-what-the-program-found ()
+  (skip-unless (heks/sift-available-p))
+  (with-temp-buffer
+    (setq buffer-file-name (expand-file-name "heks-ert-sift.scm"
+                                             temporary-file-directory))
+    (insert "(define (f x)\n  (if x 1))\n")
+    (scheme-mode)
+    (let ((diagnostics (heks-ert--sift-await "sift-lint"
+                                             #'heks/sift-lint-backend)))
+      (should (listp diagnostics))
+      (should (seq-some (lambda (diagnostic)
+                          (equal (plist-get (flymake-diagnostic-data diagnostic) :rule)
+                                 "if-without-else"))
+                        diagnostics))
+      (should (seq-every-p (lambda (diagnostic)
+                             (equal (line-number-at-pos (flymake-diagnostic-beg diagnostic))
+                                    2))
+                           (seq-filter (lambda (diagnostic)
+                                         (string-match-p "if-without-else"
+                                                         (flymake-diagnostic-text diagnostic)))
+                                       diagnostics))))))
+
+(ert-deftest heks/sift/the-drift-backend-reports-the-lines-that-would-change ()
+  (skip-unless (heks/sift-available-p))
+  (with-temp-buffer
+    (setq buffer-file-name (expand-file-name "heks-ert-drift.scm"
+                                             temporary-file-directory))
+    ;; Three spaces where sift writes two, which is the drift a pipeline
+    ;; fails on; nothing is written, so the buffer has to be untouched after.
+    (insert "(define (f x)\n   x)\n")
+    (scheme-mode)
+    (let ((source (buffer-substring-no-properties (point-min) (point-max)))
+          (reported (heks-ert--sift-await "sift-format"
+                                          #'heks/sift-format-backend)))
+      (should reported)
+      (should (equal (line-number-at-pos (flymake-diagnostic-beg (car reported))) 2))
+      (should (string-match-p "reformat" (flymake-diagnostic-text (car reported))))
+      (should (equal (buffer-substring-no-properties (point-min) (point-max))
+                     source)))))
+
+(ert-deftest heks/sift/formatting-replaces-the-buffer-and-nothing-else ()
+  (skip-unless (heks/sift-available-p))
+  (with-temp-buffer
+    (setq buffer-file-name (expand-file-name "heks-ert-format.scm"
+                                             temporary-file-directory))
+    (insert "(define (f x)\n   (+ x 1))\n")
+    (scheme-mode)
+    (heks/sift-format-buffer)
+    (should (equal (buffer-substring-no-properties (point-min) (point-max))
+                   "(define (f x)\n  (+ x 1))\n"))
+    ;; Nothing was written: the answer replaced the text, and a buffer that
+    ;; is visiting a file it never saved is still that.
+    (should-not (file-exists-p buffer-file-name))))
+
+(ert-deftest heks/sift/a-file-that-does-not-parse-is-said-so ()
+  "A formatter that quietly did nothing would teach a person it worked."
+  (skip-unless (heks/sift-available-p))
+  (with-temp-buffer
+    (insert "(define (f x)\n   (+ x 1)\n")
+    (scheme-mode)
+    (should-error (heks/sift-format-buffer) :type 'user-error)))
+
+(ert-deftest heks/sift/a-fix-changes-the-rule-it-was-asked-for ()
+  (skip-unless (heks/sift-available-p))
+  (with-temp-buffer
+    (insert "(define (f x)\n   (if x 1))\n")
+    (scheme-mode)
+    (let ((fixed (heks/sift--fix-string
+                  (buffer-substring-no-properties (point-min) (point-max))
+                  "if-without-else")))
+      ;; The habit is fixed -- `if' with no else becomes `when' -- and the
+      ;; indentation, which is another finding, is left as it was.
+      (should (string-match-p "(when x 1)" fixed))
+      (should (string-match-p "^   (when" fixed)))))
 
 ;;
 ;; ====== The page an OpenAPI specification becomes ======

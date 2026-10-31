@@ -161,9 +161,9 @@
                            present
                            proofreading
                            render
-                           scheme-lint
                            search
                            shell
+                           sift
                            snippets
                            theme
                            ui))

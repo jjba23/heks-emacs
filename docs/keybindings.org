@@ -130,7 +130,9 @@ in every other topic.
 | ~f~ | ~t~ | tiny |
 | ~g~ | ~b~ | the whole buffer, sent to the REPL |
 | ~g~ | ~L~ | lint it with `guix lint' |
-| ~g~ | ~S~ | apply one of `guix style''s rules |
+| ~g~ | ~a~ | the fix of the sift rule reported here |
+| ~g~ | ~A~ | every fix sift has, applied to the buffer |
+| ~g~ | ~H~ | what the sift rule reported here wants |
 | ~g~ | ~p~ | the package at the mark |
 | ~g~ | ~R~ | restart it |
 | ~g~ | ~E~ | the region, or the whole buffer |
@@ -374,16 +376,18 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
+| ~C-c g A~ | ~heks/sift-fix-buffer~ | every fix sift has, applied to the buffer | guile.el (a mode's own map) |
 | ~C-c g C~ | ~heks/scheme-callees~ | the callees of this definition | guile.el (a mode's own map) |
 | ~C-c g E~ | ~heks/scheme-eval-region-or-buffer~ | the region, or the whole buffer | guile.el (a mode's own map) |
+| ~C-c g H~ | ~heks/sift-explain-rule~ | what the sift rule reported here wants | guile.el (a mode's own map) |
 | ~C-c g L~ | ~heks/guix-lint-buffer~ | lint it with `guix lint' | guile.el (a mode's own map) |
 | ~C-c g R~ | ~heks/scheme-repl-restart~ | the REPL, restarted | guile.el (a mode's own map) |
-| ~C-c g S~ | ~heks/guix-style-apply-rule~ | apply one of `guix style''s rules | guile.el (a mode's own map) |
+| ~C-c g a~ | ~heks/sift-fix-at-point~ | the fix of the sift rule reported here | guile.el (a mode's own map) |
 | ~C-c g b~ | ~heks/scheme-load-buffer~ | the whole buffer, sent to the REPL | guile.el (a mode's own map) |
 | ~C-c g c~ | ~heks/scheme-callers~ | the callers of this definition | guile.el (a mode's own map) |
 | ~C-c g d~ | ~heks/scheme-debugger~ | the Guile debugger | guile.el (a mode's own map) |
 | ~C-c g e~ | ~heks/scheme-eval-definition~ | the definition at point | guile.el (a mode's own map) |
-| ~C-c g f~ | ~heks/scheme-format-buffer~ | the buffer, formatted with Guix style | guile.el (a mode's own map) |
+| ~C-c g f~ | ~heks/scheme-format-buffer~ | the buffer, formatted with sift | guile.el (a mode's own map) |
 | ~C-c g g~ | ~xref-find-definitions~ | the definition of the symbol at point | guile.el (a mode's own map) |
 | ~C-c g h~ | ~heks/scheme-documentation~ | the documentation of the symbol at point | guile.el (a mode's own map) |
 | ~C-c g k~ | ~heks/scheme-interrupt~ | the running Guile, interrupted | guile.el (a mode's own map) |
@@ -411,7 +415,9 @@ in every other topic.
 |-----+---------+--------------+----|
 | ~C-c i 0~ | ~heks/eglot-disable~ | the language server, off in this Emacs | eglot.el |
 | ~C-c i 1~ | ~heks/eglot-enable~ | the language server, on in this Emacs | eglot.el |
+| ~C-c i D~ | ~heks/hover-open~ | IDE: language server, formatting, diagnostics | dev-hover.el |
 | ~C-c i E~ | ~eglot-events-buffer~ | the server's log of messages | eglot.el |
+| ~C-c i H~ | ~heks/hover-mode~ | IDE: language server, formatting, diagnostics | dev-hover.el |
 | ~C-c i R~ | ~eglot-reconnect~ | the language server, reconnected | eglot.el |
 | ~C-c i a~ | ~eglot-code-actions~ | the actions the server offers here | eglot.el |
 | ~C-c i e~ | ~eglot~ | the server, and what it is doing | eglot.el |
@@ -420,6 +426,8 @@ in every other topic.
 | ~C-c i h~ | ~eglot-inlay-hints-mode~ | the server's hints, inside the source | eglot.el |
 | ~C-c i k~ | ~eglot-shutdown-all~ | every language server, stopped | eglot.el |
 | ~C-c i m~ | ~eglot-menu~ | the Eglot menu | eglot.el |
+| ~C-c i n~ | ~heks/hover-scroll-down~ | new, or next | dev-hover.el |
+| ~C-c i p~ | ~heks/hover-scroll-up~ | preview, or previous | dev-hover.el |
 | ~C-c i r~ | ~eglot-rename~ | the symbol at point, renamed everywhere | eglot.el |
 | ~C-c i s~ | ~heks/yaml-insert-schema-modeline~ | the schema line, written into this file | eglot.el |
 
@@ -475,6 +483,7 @@ in every other topic.
 | ~C-c n I~ | ~heks/notes-regenerate-indexes~ | every index page, regenerated from the notes | notes.el |
 | ~C-c n K~ | ~heks/contact-new~ | a contact, added to the contacts file | contacts.el |
 | ~C-c n M~ | ~heks/markdown-region-to-org~ | the region of Markdown, converted to Org | import.el |
+| ~C-c n R~ | ~heks/notes-related-update-all~ | notes: Org notes | notes-auto.el |
 | ~C-c n T~ | ~heks/notes-tree~ | the topics and notes as a folding outline in a buffer | notes-graph.el |
 | ~C-c n X~ | ~heks/habit-capture~ | a habit, captured: a todo that repeats | agenda.el |
 | ~C-c n a~ | ~heks/notes-find-archived~ | an archived note, from a former employer | notes.el |

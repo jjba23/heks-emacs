@@ -76,9 +76,10 @@
 
 ;; Scheme, Guile and Guix development live in `modules/guile.el': Geiser for
 ;; the REPL, the completion, the debugger and the call hierarchy; the Guile
-;; compiler and `guix lint' for checking, `guix style' for formatting, and
-;; the folding keys shared with the other languages.  Guix is optional
-;; there: without it the module is a plain Guile setup.
+;; compiler and `guix lint' for checking, sift (see `modules/sift.el') for
+;; the habits of a file, the drift and the formatting, and the folding keys
+;; shared with the other languages.  Guix is optional there: without it the
+;; module is a plain Guile setup.
 
 ;; Provdes a REPL session management tool for Emacs and more.
 (use-package sesman

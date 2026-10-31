@@ -28,7 +28,7 @@
 ;;     lists callers, `i' inserts, `k' kills, `l' lints, `n' creates,
 ;;     `v' views, `a' applies.
 ;;
-;; So `C-c g f' formats a Scheme file with Guix, `C-c i f' formats
+;; So `C-c g f' formats a Scheme file with sift, `C-c i f' formats
 ;; whatever buffer is current, and `C-c j t' runs the tests of a JVM
 ;; project.
 ;;
@@ -173,7 +173,9 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
          ("t" . "tiny"))
     ("g" ("b" . "the whole buffer, sent to the REPL")
          ("L" . "lint it with `guix lint'")
-         ("S" . "apply one of `guix style''s rules")
+         ("a" . "the fix of the sift rule reported here")
+         ("A" . "every fix sift has, applied to the buffer")
+         ("H" . "what the sift rule reported here wants")
          ("p" . "the package at the mark")
          ("R" . "restart it")
          ("E" . "the region, or the whole buffer")
@@ -335,16 +337,18 @@ of its own and prints, for every key, what this scheme calls it.")
     ("C-c f r" . "regular")
     ("C-c f s" . "small")
     ("C-c f t" . "tiny")
+    ("C-c g A" . "every fix sift has, applied to the buffer")
     ("C-c g C" . "the callees of this definition")
     ("C-c g E" . "the region, or the whole buffer")
+    ("C-c g H" . "what the sift rule reported here wants")
     ("C-c g L" . "lint it with `guix lint'")
     ("C-c g R" . "the REPL, restarted")
-    ("C-c g S" . "apply one of `guix style''s rules")
+    ("C-c g a" . "the fix of the sift rule reported here")
     ("C-c g b" . "the whole buffer, sent to the REPL")
     ("C-c g c" . "the callers of this definition")
     ("C-c g d" . "the Guile debugger")
     ("C-c g e" . "the definition at point")
-    ("C-c g f" . "the buffer, formatted with Guix style")
+    ("C-c g f" . "the buffer, formatted with sift")
     ("C-c g g" . "the definition of the symbol at point")
     ("C-c g h" . "the documentation of the symbol at point")
     ("C-c g k" . "the running Guile, interrupted")

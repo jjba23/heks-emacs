@@ -295,10 +295,14 @@ configuration."
                 heks/scheme-callers
                 heks/scheme-test
                 heks/scheme-format-buffer
-                heks/guix-style-apply-rule
+                heks/sift-format-buffer
+                heks/sift-fix-at-point
+                heks/sift-fix-buffer
+                heks/sift-explain-rule
                 heks/guile-compile-backend
                 heks/guix-lint-backend
-                heks/guix-style-backend))
+                heks/sift-lint-backend
+                heks/sift-format-backend))
   (heks-verify--check (format "%s is defined" name) (fboundp name)))
 
 (heks-verify--section "the keys the key scheme promises")
@@ -320,7 +324,8 @@ configuration."
   (insert "(define (f x) x)")
   (dolist (key '("C-c g r" "C-c g R" "C-c g s" "C-c g e" "C-c g E" "C-c g b"
                  "C-c g k" "C-c g x" "C-c g d" "C-c g g" "C-c g h" "C-c g c"
-                 "C-c g C" "C-c g m" "C-c g t" "C-c g L" "C-c g f" "C-c g S"
+                 "C-c g C" "C-c g m" "C-c g t" "C-c g L" "C-c g f" "C-c g a"
+                 "C-c g A" "C-c g H"
                  "C-c g p" "C-c s p" "C-c s a" "C-c s h"))
     (heks-verify--check (format "a Scheme buffer has %s" key)
                         (commandp (lookup-key heks/scheme-mode-map (kbd key))))))
@@ -386,10 +391,18 @@ configuration."
                       (and (memq 'heks/guile-compile-backend
                                  flymake-diagnostic-functions)
                            t))
-  (heks-verify--check "the bad-practice checker runs beside it"
-                      (and (memq 'heks/scheme-lint-check
-                                 flymake-diagnostic-functions)
-                           t))
+  ;; sift is the checker of the habits of a file, and the one that reports
+  ;; the drift a pipeline fails on; it is registered only where the program
+  ;; is installed, so the check follows the same condition the setup does.
+  (heks-verify--check "sift checks the buffer where it is installed"
+                      (if (heks/sift-available-p)
+                          (and (memq 'heks/sift-lint-backend
+                                     flymake-diagnostic-functions)
+                               (memq 'heks/sift-format-backend
+                                     flymake-diagnostic-functions)
+                               t)
+                        (not (memq 'heks/sift-lint-backend
+                                   flymake-diagnostic-functions))))
   (heks-verify--check "Flymake is on" flymake-mode)
 
   (heks-verify--section "folding covers a whole definition")
@@ -427,16 +440,70 @@ configuration."
   (heks-verify--with-scheme-buffer
       "(define-module (verify package))\n(define-public hello (package))\n"
     ;; The file *looks* like a Guix package, but nothing here can lint one,
-    ;; so the compiler has to be the checker instead of nothing at all.
+    ;; so the compiler has to be the checker instead of nothing at all --
+    ;; and sift, which needs no Guix, is still what reads the habits of it.
     (heks-verify--check "a Guix-looking file is checked by the Guile compiler"
                         (heks/guile-compile-applies-p))
     (heks-verify--check "the Guix checkers bow out"
-                        (and (not (memq 'heks/guix-lint-backend
-                                        flymake-diagnostic-functions))
-                             (not (memq 'heks/guix-style-backend
-                                        flymake-diagnostic-functions))
-                             t))
+                        (not (memq 'heks/guix-lint-backend
+                                   flymake-diagnostic-functions)))
+    (heks-verify--check "sift is still what reads the habits of the file"
+                        (if (heks/sift-available-p)
+                            (and (memq 'heks/sift-lint-backend
+                                       flymake-diagnostic-functions)
+                                 t)
+                          t))
     (heks-verify--check "a Guix REPL is not offered" (heks/scheme-guile-binary) nil)))
+
+;;;
+;;; sift
+;;;
+
+;; sift is the whole checking story of a scheme file now (see
+;; `modules/sift.el'): the Guix tools say whether a package is right, the
+;; compiler whether the code is sound, and sift what a reader would say about
+;; the way it is written.  It is a program, so the checks are conditional on
+;; it, and what they check is that the two backends are the ones the module
+;; says and that a finding arrives with the code a reader can see.
+(heks-verify--section "sift is what reads the habits of a Scheme file")
+(heks-verify--check "the program is found, or its absence is known"
+                    (if (heks/sift-available-p)
+                        (file-executable-p (heks/sift-program-path))
+                      t))
+(if (heks/sift-available-p)
+    (heks-verify--with-scheme-buffer "(define (f x)\n  (if x 1))\n"
+      (let ((reported 'nothing))
+        (heks/sift-lint-backend
+         (lambda (report &rest _arguments) (setq reported report)))
+        (let ((tries 0))
+          (while (and (process-live-p (alist-get "sift-lint" heks/tool-processes))
+                      (< tries 400))
+            (accept-process-output nil 0.05)
+            (setq tries (1+ tries))))
+        (accept-process-output nil 0.2)
+        (heks-verify--check
+         "the `if' with no else is reported by the rule that names it"
+         (and (listp reported)
+              (seq-some (lambda (diagnostic)
+                          (equal (plist-get (flymake-diagnostic-data diagnostic) :rule)
+                                 "if-without-else"))
+                        reported)
+              t))
+        (heks-verify--check
+         "and the diagnostic carries the code the margin shows"
+         (and (listp reported)
+              (seq-some (lambda (diagnostic)
+                          (string-match-p
+                           "SIFT012" (flymake-diagnostic-text diagnostic)))
+                        reported)
+              t))))
+  (heks-verify--with-scheme-buffer "(define (f x)\n  (if x 1))\n"
+    (heks-verify--check "without sift nothing of it is registered"
+                        (and (not (memq 'heks/sift-lint-backend
+                                        flymake-diagnostic-functions))
+                             (not (memq 'heks/sift-format-backend
+                                        flymake-diagnostic-functions))
+                             t))))
 
 ;;;
 ;;; Finding a definition

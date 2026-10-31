@@ -302,28 +302,6 @@ process of verifying the project's functionality."
                          (async-shell-to-buffer cmd buf-name)))))
 
 
-(defun heks/guix-fmt ()
-  "Format the current buffer in place using `guix style`.
-
-This command will:
-1. Determine the absolute path of the current buffer's file.
-2. Execute the `guix style` command with the `-f` (format) option,
-   applying the Guix code style to the file.
-3. Revert the buffer, reloading the formatted content from disk.
-4. Display informative messages in the minibuffer indicating the
-   start and completion of the formatting process.
-
-Note: This command assumes that the `guix` command-line utility is
-installed and accessible in your system's `exec-path'.  The file name is
-quoted, so a path with spaces in it does not turn into several arguments."
-  (interactive)
-  (let ((path (file-truename (or buffer-file-name
-                                 (user-error "The buffer is not visiting a file")))))
-    (message "formatting current buffer with Guix style")
-    (shell-command (format "guix style -f %s" (shell-quote-argument path)))
-    (revert-buffer :ignore-auto :noconfirm)
-    (message "formatted current buffer with Guix style")))
-
 (defun heks/new-buffer-with-json (buffer-name data)
   "Create a new buffer with JSON data, format it, and switch to it.
 
@@ -905,7 +883,7 @@ in the buffer that language owns.")
   "Format the current buffer with the best formatter it has.
 
 In order: the language's own formatter from
-`heks/format-dispatch' (Guix style for Scheme, for instance), the
+`heks/format-dispatch' (sift for Scheme, for instance), the
 language server when one manages the buffer, then `format-all', which
 knows how to call prettier, black, gofmt and the rest from a single
 interface.  Buffers with none of those say so rather than pretending."
@@ -1041,7 +1019,7 @@ interface.  Buffers with none of those say so rather than pretending."
 ;;     is fine (`guix lint', `guild compile', `go vet', `cargo clippy') --
 ;;     `heks/tool-diagnostic-backend';
 ;;   * a *formatter* rewrites the file, and the lines it was not happy with
-;;     are the diagnostics (`guix style', `gofmt', `rustfmt', `nixfmt') --
+;;     are the diagnostics (`shfmt', `gofmt', `rustfmt', `nixfmt') --
 ;;     `heks/tool-drift-backend'.
 ;;
 ;; Both run asynchronously, both use a pipe rather than a pty and both turn
@@ -1387,7 +1365,7 @@ SPEC is a plist:
   :env      extra environment entries for the process.
   :what     the name of the formatter as it appears in the diagnostic and
             in the message `heks/tool-format-buffer' prints, for
-            instance \"guix style\"."
+            instance \"shfmt\"."
   (heks/tool-stop name)
   (let ((original (when (and (funcall (plist-get spec :applies))
                               (not (string-empty-p (string-trim (buffer-substring-no-properties
@@ -1528,9 +1506,7 @@ otherwise `mongosh' connects to the default local server."
 (define-obsolete-variable-alias 'heks-emacs-scheme-guile-warning-level 'heks/scheme-guile-warning-level "2026-10")
 (define-obsolete-variable-alias 'heks-emacs-scheme-guile-compile-flymake 'heks/scheme-guile-compile-flymake "2026-10")
 (define-obsolete-variable-alias 'heks-emacs-guix-lint-flymake 'heks/guix-lint-flymake "2026-10")
-(define-obsolete-variable-alias 'heks-emacs-guix-style-flymake 'heks/guix-style-flymake "2026-10")
 (define-obsolete-variable-alias 'heks-emacs-guix-lint-checkers 'heks/guix-lint-checkers "2026-10")
-(define-obsolete-variable-alias 'heks-emacs-guix-style-rules 'heks/guix-style-rules "2026-10")
 (define-obsolete-variable-alias 'heks-emacs-clone-dir 'heks/clone-dir "2026-10")
 (define-obsolete-variable-alias 'heks-emacs-notes-dir 'heks/notes-dir "2026-10")
 (define-obsolete-variable-alias 'heks-emacs-theme 'heks/theme "2026-10")
@@ -1552,7 +1528,6 @@ otherwise `mongosh' connects to the default local server."
 (define-obsolete-variable-alias 'heks-emacs-preview-buffer-name 'heks/preview-buffer-name "2026-10")
 (define-obsolete-variable-alias 'heks-emacs-preview-follow-on-save 'heks/preview-follow-on-save "2026-10")
 (define-obsolete-variable-alias 'heks-emacs-render-toc-headings 'heks/render-toc-headings "2026-10")
-(define-obsolete-variable-alias 'heks-emacs-scheme-lint-enabled 'heks/scheme-lint-enabled "2026-10")
 (define-obsolete-variable-alias 'heks-emacs-shfmt-program 'heks/shfmt-program "2026-10")
 (define-obsolete-variable-alias 'heks-emacs-shfmt-flymake 'heks/shfmt-flymake "2026-10")
 (define-obsolete-variable-alias 'heks-emacs-shfmt-arguments 'heks/shfmt-arguments "2026-10")
