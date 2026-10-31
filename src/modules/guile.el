@@ -62,11 +62,13 @@
 ;;
 ;; Checking and formatting run on save, from the project's own tools:
 ;;
-;;   * `heks/sift-lint-backend' (see `modules/sift.el') runs `sift lint' on
-;;     the buffer's text, so the rules a Scheme file is read with arrive as
-;;     Flymake diagnostics, each carrying the rule's code (SIFT012) and its
-;;     name: `C-c g H' on one explains it, `C-c g a' applies its fix.
-;;   * `heks/sift-format-backend' reports the lines `sift format' would
+;;   * `sift-flymake' (from the sift package, configured in
+;;     `modules/sift.el') runs `sift lint' on the buffer's text, so the rules
+;;     a Scheme file is read with arrive as Flymake diagnostics, each carrying
+;;     the rule's code (SIFT012) and its name: `C-c g H' on one explains it,
+;;     `C-c g a' applies its fix -- sift's own mode, which is where those two
+;;     keys live.
+;;   * `heks/sift-drift-backend' reports the lines `sift format' would
 ;;     rewrite, which is the drift `sift check' -- and so a pipeline running
 ;;     `sift ci' -- fails over.
 ;;   * `heks/guix-lint-backend' runs `guix lint' on the package
@@ -108,13 +110,14 @@
 (require 'xref)
 
 ;; What checks the habits of a Scheme file -- the bad practices that work and
-;; should not be written -- is sift, in `modules/sift.el', and a Scheme buffer
-;; is set up for it in `heks/scheme-setup-flymake' below.
-(declare-function heks/sift-setup-flymake "sift" ())
-(declare-function heks/sift-format-buffer "sift" ())
-(declare-function heks/sift-fix-buffer "sift" ())
-(declare-function heks/sift-fix-at-point "sift" ())
-(declare-function heks/sift-explain-rule "sift" ())
+;; should not be written -- is sift, whose editor side is the package of that
+;; name and whose configuration is `modules/sift.el'.  A Scheme buffer is set
+;; up for it in `heks/scheme-setup-flymake' below, and its commands are the
+;; package's own: they are called by name here and declared so that a machine
+;; where the package is not installed yet still loads this file.
+(declare-function heks/sift-setup "sift" ())
+(declare-function heks/sift-formats-p "sift" ())
+(declare-function sift-format-buffer "sift" ())
 
 ;;;
 ;;; Customization
@@ -421,17 +424,17 @@ a subset of the checkers)."
   "Register the checkers of the current Scheme buffer.
 
 sift is asked first and it is the only one of them that needs nothing but
-itself: its findings are the habits of the file (see `modules/sift.el'),
-and the drift it reports is the formatting a pipeline would fail on.  The
-Guix tools load the whole Guix module tree and the Guile compiler reads a
-file, so all of these run on save rather than on every keystroke; the
-checker that applies to the buffer answers, and the others stay silent.
+itself: its findings are the habits of the file (see `modules/sift.el'), and
+the drift it reports is the formatting a pipeline would fail on.  The Guix
+tools load the whole Guix module tree and the Guile compiler reads a file, so
+all of these run on save rather than on every keystroke; the checker that
+applies to the buffer answers, and the others stay silent.
 
-`heks/sift-setup-flymake' is what starts Flymake and what registers the
-two sift backends; it bows out on a machine without sift, and then the
-compiler and `guix lint' are what a Scheme buffer has -- which is what
+`heks/sift-setup' is what turns sift on -- the package's Flymake backend and
+the drift report beside it -- and it bows out on a machine without sift, and
+then the compiler and `guix lint' are what a Scheme buffer has, which is what
 every Scheme buffer had before sift was here."
-  (heks/sift-setup-flymake)
+  (heks/sift-setup)
   (when heks/scheme-guile-compile-flymake
     (add-hook 'flymake-diagnostic-functions #'heks/guile-compile-backend nil t))
   (when (heks/guix-available-p)
@@ -1421,7 +1424,7 @@ there is no canonical Scheme formatter to be had then, and this is the one
 thing that is always right about the indentation."
   (interactive)
   (if (heks/sift-formats-p)
-      (heks/sift-format-buffer)
+      (sift-format-buffer)
     (let ((inhibit-message t))
       ;; `indent-region' reports how many lines it changed; a formatter says
       ;; nothing when there is nothing to do, and so does this.
@@ -1500,20 +1503,19 @@ which is the command it is everywhere else too."
     (define-key map (kbd "C-c g C") #'heks/scheme-callees)
     ;; `m' is a menu of the methods, which is what `m' is everywhere else.
     (define-key map (kbd "C-c g m") #'heks/scheme-generic-methods)
-    ;; Testing, linting, formatting and fixing: `t' tests, `L' lints the
-    ;; Guix packages in the buffer with `guix lint', `f' formats it with
-    ;; sift, `a' applies the fix of the sift rule reported at point, `A'
-    ;; every fix sift has, and `H' explains that rule -- the code in the
-    ;; margin and the page that says what it wants, one key apart.
+    ;; Testing, linting and formatting: `t' tests, `L' lints the Guix
+    ;; packages in the buffer with `guix lint', and `f' formats it with
+    ;; sift.  sift's other three -- `a' the fix of the rule reported at
+    ;; point, `A' every fix it has, `H' what that rule wants -- are not
+    ;; bound here: they are `sift-mode', a minor mode, which answers in
+    ;; every Lisp buffer and not only in a Scheme one (see
+    ;; `modules/sift.el').
     ;; Formatting is only bound here for Scheme: in every other buffer it
     ;; is `C-c i f', which asks this command when the buffer is a Scheme
     ;; one.
     (define-key map (kbd "C-c g t") #'heks/scheme-test)
     (define-key map (kbd "C-c g L") #'heks/guix-lint-buffer)
     (define-key map (kbd "C-c g f") #'heks/scheme-format-buffer)
-    (define-key map (kbd "C-c g a") #'heks/sift-fix-at-point)
-    (define-key map (kbd "C-c g A") #'heks/sift-fix-buffer)
-    (define-key map (kbd "C-c g H") #'heks/sift-explain-rule)
     ;; `p' is the package at point: `guix edit', the way `g' is the scheme
     ;; definition at point.  It used to be a global `C-c g l', which made
     ;; the one Guile key that worked outside a Scheme buffer.

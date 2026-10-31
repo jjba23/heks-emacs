@@ -153,6 +153,13 @@ depend on either of them."
   ;; Terraform and HCL major modes.
   (add-to-list 'eglot-server-programs '(terraform-mode . ("terraform-ls" "serve")))
 
+  ;; --- The three Lisps ---
+  ;; Scheme, Emacs Lisp and Common Lisp are not registered here: their
+  ;; server is sift, one Guile program that formats, lints and answers the
+  ;; protocol for all three, and `modules/sift.el' is what registers it
+  ;; (`heks/sift-register-lsp') -- because the contact is the sift package's
+  ;; and the server, the formatter and the linter are one program there.
+
   (setq-default eglot-workspace-configuration
                 '(
                   :metals ( :autoImportBuild "all"

@@ -2664,61 +2664,83 @@ line height can leave a gap in it."
     (should-not (heks/preview--section-heading))))
 
 ;;
-;; ====== What sift says about a file ======
+;; ====== sift, and the package that is its editor side ======
 ;;
-;; sift is a program (see `modules/sift.el'), so the tests here are of two
-;; kinds.  What the configuration makes of an answer -- the line and column,
-;; the severity, the rule's name in the data -- is a pure function of sift's
-;; JSON, and it is tested by feeding it one.  What it makes of the program is
-;; tested where the program is, and skipped where it is not: a machine that
-;; has no sift is not a machine where this configuration is broken, it is a
-;; machine where a Scheme buffer falls back to the checkers of `guile.el'.
+;; What talks to sift -- the Flymake backend, the formatting, the fixes, the
+;; explanation of a rule -- is the `sift' package, and `modules/sift.el' is
+;; what this configuration says to it.  So the tests here are of this
+;; configuration's own half: which mode is which dialect, which dialects are
+;; formatted, the copy the drift backend hands the formatter, and what a buffer
+;; is set up with.  What the package makes of an answer is the package's to
+;; test, against the same executable; the tests below that need it say so and
+;; are skipped where it is not there, because a machine with no sift is not a
+;; machine where this configuration is broken -- it is a machine where a Scheme
+;; buffer falls back to the checkers of `guile.el'.
 ;;
 
-(defun heks-ert--sift-finding (line column rule code severity message)
-  "Return one finding of sift's JSON, as a string, for the tests below."
-  (json-encode `((file . "heks-ert.scm")
-                 (line . ,line) (column . ,column)
-                 (checker . ,rule) (code . ,code)
-                 (severity . ,severity) (message . ,message))))
+(defconst heks-ert--sift-sources
+  (list (expand-file-name "elpaca/builds/sift" user-emacs-directory)
+        (expand-file-name "Hacking/sift/emacs" (expand-file-name "~")))
+  "Where the sift package is found when this suite runs in a bare Emacs.
 
-(ert-deftest heks/sift/a-finding-carries-its-code-its-rule-and-its-severity ()
-  "What a diagnostic has to carry for the rest of the module to work.
+The packages are not installed here (see the commentary at the top of this
+file), so the suite loads the one this configuration is developed against from
+the checkout, and from Elpaca's builds where there is one.  A machine with
+neither skips the tests that need it rather than failing them.")
 
-The code is what the margin and the list of findings show; the rule's name
-is in the data, which is what `heks/sift-fix-at-point' and
-`heks/sift-explain-rule' read.  A finding of severity `info' is a `:note',
-because a suggestion is not a warning."
-  (with-temp-buffer
-    (insert "(define (f x)\n  (if x 1))\n")
-    (let* ((diagnostics
-            (heks/sift--diagnostics
-             (concat "[" (heks-ert--sift-finding
-                          2 3 "if-without-else" "SIFT012" "warning"
-                          "`if` has no else branch")
-                     ","
-                     (heks-ert--sift-finding
-                      2 1 "line-length" "SIFT003" "info"
-                      "line is 91 columns long")
-                     "]")))
-           (warning (car diagnostics))
-           (note (cadr diagnostics)))
-      (should (= 2 (length diagnostics)))
-      ;; sift counts from one, and a diagnostic lands where it said.
-      (should (equal (line-number-at-pos (flymake-diagnostic-beg warning)) 2))
-      (should (equal (flymake-diagnostic-beg warning)
-                     (save-excursion (goto-char (point-min))
-                                     (forward-line 1) (forward-char 2) (point))))
-      (should (equal (flymake-diagnostic-type warning) :warning))
-      (should (equal (flymake-diagnostic-type note) :note))
-      (should (string-match-p "SIFT012" (flymake-diagnostic-text warning)))
-      (should (string-match-p "if-without-else" (flymake-diagnostic-text warning)))
-      (should (equal (plist-get (flymake-diagnostic-data warning) :rule)
-                     "if-without-else"))
-      (should (equal (plist-get (flymake-diagnostic-data warning) :code) "SIFT012")))))
+(defun heks-ert--load-sift ()
+  "Load the sift package and point it at the program.
+
+Return non-nil when the package is there, which is what the tests below ask
+before they run: the package is a program's editor side, and half of what is
+tested here is what the program answers."
+  (or (require 'sift nil t)
+      (seq-some (lambda (directory)
+                  (let ((file (expand-file-name "sift.el" directory)))
+                    (and (file-exists-p file) (load file nil t))))
+                heks-ert--sift-sources))
+  (when (fboundp 'sift-flymake)
+    (setq sift-executable (heks/sift-program-path))
+    t))
+
+(defun heks-ert--sift-await (start)
+  "Run START, which starts one of the asynchronous backends, and answer.
+
+START is called with the report function Flymake would give it, and the
+process it returns is waited on the way Flymake waits rather than by calling
+the code it would have called.  Both backends hand back the process they
+started: the package's own, and the drift report's."
+  (let* ((reported 'nothing)
+         (process (funcall start (lambda (report &rest _arguments)
+                                   (setq reported report)))))
+    (let ((tries 0))
+      (while (and (processp process) (process-live-p process) (< tries 400))
+        (accept-process-output nil 0.05)
+        (setq tries (1+ tries))))
+    (accept-process-output nil 0.2)
+    reported))
+
+(ert-deftest heks/sift/the-copy-the-formatter-sees-is-named-for-its-dialect ()
+  "The file `sift format' is handed is read as the Lisp the buffer is.
+
+The drift report formats a copy of the buffer rather than the buffer, and a
+copy called `something` would be a file sift has to be told the dialect of
+twice -- once in the arguments and once in the name.  The suffix is the
+dialect, so the two cannot disagree about the same file."
+  (skip-unless (heks-ert--load-sift))
+  (dolist (case '((scheme-mode . ".scm")
+                  (emacs-lisp-mode . ".el")
+                  (lisp-mode . ".lisp")))
+    ;; A mode whose library is not part of this Emacs is one this buffer
+    ;; cannot be put in, and the answer for it is not something to read.
+    (when (fboundp (car case))
+      (with-temp-buffer
+        (funcall (car case))
+        (should (equal (heks/sift-suffix) (cdr case)))))))
 
 (ert-deftest heks/sift/the-dialect-is-read-from-the-major-mode ()
   "sift is told which Lisp it is, and the mode is what says so."
+  (skip-unless (heks-ert--load-sift))
   (dolist (case '((scheme-mode . "scheme")
                   (scheme-ts-mode . "scheme")
                   (emacs-lisp-mode . "elisp")
@@ -2742,6 +2764,7 @@ dialect to `heks/sift-format-dialects'; it is not one this configuration
 makes for them, since sift's idea of how an Elisp file is laid out is its
 own.  What the checker does in all three is the same, and that is on by
 default."
+  (skip-unless (heks-ert--load-sift))
   (skip-unless (heks/sift-available-p))
   (with-temp-buffer
     (emacs-lisp-mode)
@@ -2752,35 +2775,156 @@ default."
       (emacs-lisp-mode)
       (should (heks/sift-formats-p)))))
 
-(defun heks-ert--sift-await (name start)
-  "Run START, which starts the Flymake backend NAME, and return its report.
+(ert-deftest heks/sift/a-buffer-is-set-up-with-the-mode-and-both-reports ()
+  "What `heks/sift-setup' puts in a Scheme buffer, and with what.
 
-The backends are asynchronous, which is the point of them, so the test
-waits for the process the way Flymake would rather than calling the code
-it would have called."
-  (let ((reported 'nothing))
-    (funcall start (lambda (report &rest _rest) (setq reported report)))
-    (let ((tries 0))
-      (while (and (process-live-p (alist-get name heks/tool-processes))
-                  (< tries 400))
-        (accept-process-output nil 0.05)
-        (setq tries (1+ tries))))
-    (accept-process-output nil 0.2)
-    reported))
+`sift-mode' is the package's and it is what the keys come from; the findings
+are the package's backend, the drift is this configuration's, and the
+before-save hook is this module's rather than the mode's -- because the
+dialects sift formats are `heks/sift-format-dialects'.  A buffer that has one
+of those and not the others has half of sift."
+  (skip-unless (heks-ert--load-sift))
+  (skip-unless (heks/sift-available-p))
+  (with-temp-buffer
+    (scheme-mode)
+    ;; Flymake is started by the setup, and a check started here would be a
+    ;; process the test does not wait for.
+    (setq-local flymake-start-on-flymake-mode nil)
+    (heks/sift-setup)
+    (should sift-mode)
+    (should (memq 'sift-flymake flymake-diagnostic-functions))
+    (should (memq 'heks/sift-drift-backend flymake-diagnostic-functions))
+    (should (memq 'heks/sift--format-before-save before-save-hook))
+    ;; The mode adds a before-save hook of its own, which formats whichever
+    ;; Lisp it is on in; it is taken back out so that the dialects this
+    ;; configuration formats are the only ones formatted.
+    (should-not (memq 'sift--format-before-save before-save-hook))
+    (should flymake-mode)))
+
+(ert-deftest heks/sift/the-keys-are-the-scheme-s-own ()
+  "`sift-mode' is on, and its map says what this configuration says.
+
+The package's `C-c s' prefix is the one thing of it that could not be used:
+`C-c s' is the snippets topic here.  So the prefix is taken out of the map
+and its commands are bound to the letters the scheme already promises, which
+is what makes the mode's keys the same keys in every Lisp."
+  (skip-unless (heks-ert--load-sift))
+  (should (keymapp sift-mode-map))
+  ;; The package's prefix, and with it the ten keys under it, is gone: the
+  ;; map has no binding of its own for `C-c s', and `C-c s f' -- which
+  ;; `lookup-key' answers with the length of the prefix it walked, now that
+  ;; nothing is under it -- is not a command.
+  (should-not (lookup-key sift-mode-map (kbd "C-c s")))
+  (should-not (commandp (lookup-key sift-mode-map (kbd "C-c s f"))))
+  ;; …and the three actions have the letters of the scheme.
+  (should (eq (lookup-key sift-mode-map (kbd "C-c g a")) #'sift-fix-at-point))
+  (should (eq (lookup-key sift-mode-map (kbd "C-c g A")) #'sift-fix-buffer))
+  (should (eq (lookup-key sift-mode-map (kbd "C-c g H")) #'sift-explain-at-point))
+  ;; Formatting is not bound here: `C-c i f' is the configuration's format
+  ;; key, and `C-c g f' is the Scheme buffer's, with its fallback to
+  ;; indentation where sift is not installed.
+  (should-not (lookup-key sift-mode-map (kbd "C-c g f"))))
+
+(ert-deftest heks/sift/the-mode-s-keys-answer-in-every-lisp ()
+  "The three keys are sift's mode rather than a Scheme buffer's.
+
+That is the point of binding them there: the same letters in a Scheme file,
+an Emacs Lisp file and a Common Lisp file, rather than in one of the three."
+  (skip-unless (heks-ert--load-sift))
+  (skip-unless (heks/sift-available-p))
+  (dolist (mode '(scheme-mode emacs-lisp-mode lisp-mode))
+    (when (fboundp mode)
+      (with-temp-buffer
+        (funcall mode)
+        (setq-local flymake-start-on-flymake-mode nil)
+        (heks/sift-setup)
+        (should (eq (key-binding (kbd "C-c g a")) #'sift-fix-at-point))
+        (should (eq (key-binding (kbd "C-c g A")) #'sift-fix-buffer))
+        (should (eq (key-binding (kbd "C-c g H")) #'sift-explain-at-point))))))
+
+(ert-deftest heks/sift/eglot-is-told-that-sift-serves-the-lisps ()
+  "The three Lisps have one language server here, and it is sift's.
+
+`sift lsp' answers with the findings of `sift lint' and with sift's own
+fixes as code actions, so what Eglot is told is the same program the Flymake
+backend runs.  The contact is the package's, which is why the entry names it
+rather than carrying a copy of the command."
+  (require 'eglot)
+  (let ((entry (seq-find (lambda (entry)
+                           (member 'emacs-lisp-mode
+                                   (if (listp (car entry)) (car entry) (list (car entry)))))
+                         eglot-server-programs)))
+    (should entry)
+    (should (equal (sort (copy-sequence (car entry)) #'string<)
+                   (sort (copy-sequence heks/sift-modes) #'string<)))
+    (should (eq (cdr entry) #'sift-eglot-contact))
+    (should (member 'scheme-ts-mode (car entry)))
+    (should (member 'lisp-data-mode (car entry)))))
+
+(ert-deftest heks/sift/a-server-that-is-sift-is-recognised ()
+  "Which server a buffer has is read from the command it was started with.
+
+That is the one thing about a connection Eglot does not make up: the
+process behind it, and the program that process is.  A server that is
+something else, and a buffer with no server at all, are not sift."
+  (skip-unless (heks-ert--load-sift))
+  (skip-unless (heks/sift-available-p))
+  (require 'eglot)
+  (let ((sift-process (make-process :name "heks-ert-sift-lsp"
+                                    :command (list (heks/sift-program-path) "lsp")
+                                    :noquery t))
+        (other-process (make-process :name "heks-ert-other-lsp"
+                                     :command '("sleep" "30")
+                                     :noquery t)))
+    (unwind-protect
+        (cl-letf (((symbol-function 'eglot-managed-p) (lambda (&optional _) t)))
+          (cl-letf (((symbol-function 'eglot-current-server)
+                     (lambda (&optional _) (eglot-lsp-server :process sift-process))))
+            (should (heks/sift-eglot-p)))
+          (cl-letf (((symbol-function 'eglot-current-server)
+                     (lambda (&optional _) (eglot-lsp-server :process other-process))))
+            (should-not (heks/sift-eglot-p)))
+          (cl-letf (((symbol-function 'eglot-current-server) (lambda (&optional _) nil)))
+            (should-not (heks/sift-eglot-p))))
+      (delete-process sift-process)
+      (delete-process other-process))))
+
+(ert-deftest heks/sift/the-server-takes-over-what-the-backend-was-reporting ()
+  "One finding, one note: the backend steps aside for the server, and back.
+
+`sift lsp' publishes the findings of `sift lint', which is what
+`sift-flymake' gets from the same program; a buffer with both says
+everything twice.  The drift report is left alone, because the server sends
+lint findings and not formatting ones."
+  (skip-unless (heks-ert--load-sift))
+  (with-temp-buffer
+    (add-hook 'flymake-diagnostic-functions #'sift-flymake nil t)
+    (add-hook 'flymake-diagnostic-functions #'heks/sift-drift-backend nil t)
+    (cl-letf (((symbol-function 'heks/sift-eglot-p) (lambda () t)))
+      (heks/sift--eglot-stand-aside))
+    (should-not (memq 'sift-flymake flymake-diagnostic-functions))
+    (should (memq 'heks/sift-drift-backend flymake-diagnostic-functions))
+    ;; A server that is not sift says nothing about sift's findings, so the
+    ;; backend stays where it was.
+    (add-hook 'flymake-diagnostic-functions #'sift-flymake nil t)
+    (cl-letf (((symbol-function 'heks/sift-eglot-p) (lambda () nil)))
+      (heks/sift--eglot-stand-aside))
+    (should (memq 'sift-flymake flymake-diagnostic-functions))))
 
 (ert-deftest heks/sift/the-lint-backend-reports-what-the-program-found ()
+  "The package's backend, and the rule's name where the keys read it."
+  (skip-unless (heks-ert--load-sift))
   (skip-unless (heks/sift-available-p))
   (with-temp-buffer
     (setq buffer-file-name (expand-file-name "heks-ert-sift.scm"
                                              temporary-file-directory))
     (insert "(define (f x)\n  (if x 1))\n")
     (scheme-mode)
-    (let ((diagnostics (heks-ert--sift-await "sift-lint"
-                                             #'heks/sift-lint-backend)))
+    (let ((diagnostics (heks-ert--sift-await #'sift-flymake)))
       (should (listp diagnostics))
       (should (seq-some (lambda (diagnostic)
-                          (equal (plist-get (flymake-diagnostic-data diagnostic) :rule)
-                                 "if-without-else"))
+                          (equal (plist-get (flymake-diagnostic-data diagnostic) :checker)
+                                 'if-without-else))
                         diagnostics))
       (should (seq-every-p (lambda (diagnostic)
                              (equal (line-number-at-pos (flymake-diagnostic-beg diagnostic))
@@ -2791,6 +2935,8 @@ it would have called."
                                        diagnostics))))))
 
 (ert-deftest heks/sift/the-drift-backend-reports-the-lines-that-would-change ()
+  "The lines `sift format' would rewrite, reported and not applied."
+  (skip-unless (heks-ert--load-sift))
   (skip-unless (heks/sift-available-p))
   (with-temp-buffer
     (setq buffer-file-name (expand-file-name "heks-ert-drift.scm"
@@ -2800,8 +2946,7 @@ it would have called."
     (insert "(define (f x)\n   x)\n")
     (scheme-mode)
     (let ((source (buffer-substring-no-properties (point-min) (point-max)))
-          (reported (heks-ert--sift-await "sift-format"
-                                          #'heks/sift-format-backend)))
+          (reported (heks-ert--sift-await #'heks/sift-drift-backend)))
       (should reported)
       (should (equal (line-number-at-pos (flymake-diagnostic-beg (car reported))) 2))
       (should (string-match-p "reformat" (flymake-diagnostic-text (car reported))))
@@ -2809,13 +2954,15 @@ it would have called."
                      source)))))
 
 (ert-deftest heks/sift/formatting-replaces-the-buffer-and-nothing-else ()
+  "Formatting is the package's command, and it writes no file."
+  (skip-unless (heks-ert--load-sift))
   (skip-unless (heks/sift-available-p))
   (with-temp-buffer
     (setq buffer-file-name (expand-file-name "heks-ert-format.scm"
                                              temporary-file-directory))
     (insert "(define (f x)\n   (+ x 1))\n")
     (scheme-mode)
-    (heks/sift-format-buffer)
+    (sift-format-buffer)
     (should (equal (buffer-substring-no-properties (point-min) (point-max))
                    "(define (f x)\n  (+ x 1))\n"))
     ;; Nothing was written: the answer replaced the text, and a buffer that
@@ -2824,20 +2971,22 @@ it would have called."
 
 (ert-deftest heks/sift/a-file-that-does-not-parse-is-said-so ()
   "A formatter that quietly did nothing would teach a person it worked."
+  (skip-unless (heks-ert--load-sift))
   (skip-unless (heks/sift-available-p))
   (with-temp-buffer
     (insert "(define (f x)\n   (+ x 1)\n")
     (scheme-mode)
-    (should-error (heks/sift-format-buffer) :type 'user-error)))
+    (should-error (sift-format-buffer) :type 'user-error)))
 
 (ert-deftest heks/sift/a-fix-changes-the-rule-it-was-asked-for ()
+  (skip-unless (heks-ert--load-sift))
   (skip-unless (heks/sift-available-p))
   (with-temp-buffer
     (insert "(define (f x)\n   (if x 1))\n")
     (scheme-mode)
-    (let ((fixed (heks/sift--fix-string
+    (let ((fixed (sift--fix-string
                   (buffer-substring-no-properties (point-min) (point-max))
-                  "if-without-else")))
+                  '(if-without-else))))
       ;; The habit is fixed -- `if' with no else becomes `when' -- and the
       ;; indentation, which is another finding, is left as it was.
       (should (string-match-p "(when x 1)" fixed))

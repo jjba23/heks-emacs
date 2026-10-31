@@ -295,14 +295,16 @@ configuration."
                 heks/scheme-callers
                 heks/scheme-test
                 heks/scheme-format-buffer
-                heks/sift-format-buffer
-                heks/sift-fix-at-point
-                heks/sift-fix-buffer
-                heks/sift-explain-rule
+                heks/sift-setup
+                heks/sift-drift-backend
+                heks/sift-formats-p
+                sift-format-buffer
+                sift-fix-at-point
+                sift-fix-buffer
+                sift-explain-at-point
                 heks/guile-compile-backend
                 heks/guix-lint-backend
-                heks/sift-lint-backend
-                heks/sift-format-backend))
+                sift-flymake))
   (heks-verify--check (format "%s is defined" name) (fboundp name)))
 
 (heks-verify--section "the keys the key scheme promises")
@@ -320,23 +322,38 @@ configuration."
 ;; The map holds the keys that are Scheme's own.  Folding and formatting are
 ;; bound once, globally, and are checked in the buffer further down, where a
 ;; map that had also answered the global key shows up as the wrong command.
+;; sift's three keys are not here: they belong to `sift-mode', which answers
+;; in every Lisp buffer, and they are checked in the buffer below.
 (with-temp-buffer
   (insert "(define (f x) x)")
   (dolist (key '("C-c g r" "C-c g R" "C-c g s" "C-c g e" "C-c g E" "C-c g b"
                  "C-c g k" "C-c g x" "C-c g d" "C-c g g" "C-c g h" "C-c g c"
-                 "C-c g C" "C-c g m" "C-c g t" "C-c g L" "C-c g f" "C-c g a"
-                 "C-c g A" "C-c g H"
+                 "C-c g C" "C-c g m" "C-c g t" "C-c g L" "C-c g f"
                  "C-c g p" "C-c s p" "C-c s a" "C-c s h"))
     (heks-verify--check (format "a Scheme buffer has %s" key)
                         (commandp (lookup-key heks/scheme-mode-map (kbd key))))))
 
 ;; What the keys above are worth is that they are the ones that answer when
-;; the key is pressed in a buffer, whichever mode the buffer is in.
+;; the key is pressed in a buffer, whichever mode the buffer is in.  sift's
+;; three are asked the same way: they belong to `sift-mode', a minor mode, so
+;; the map that holds them is not the Scheme one, and only the buffer knows
+;; that the mode is on in it.
 (heks-verify--with-scheme-buffer "(define (f x)\n  x)\n"
   (heks-verify--check "the fold key is the global one in a Scheme buffer"
                       (key-binding (kbd "C-c v c")) 'heks/fold-close)
   (heks-verify--check "the format key is the global one in a Scheme buffer"
-                      (key-binding (kbd "C-c i f")) 'heks/format-buffer))
+                      (key-binding (kbd "C-c i f")) 'heks/format-buffer)
+  (heks-verify--check "sift's mode is on in a Scheme buffer"
+                      (and (bound-and-true-p sift-mode) t))
+  (when (heks/sift-available-p)
+    (heks-verify--check "the fix of the rule at point is `C-c g a'"
+                        (key-binding (kbd "C-c g a")) 'sift-fix-at-point)
+    (heks-verify--check "every fix is `C-c g A'"
+                        (key-binding (kbd "C-c g A")) 'sift-fix-buffer)
+    (heks-verify--check "what the rule wants is `C-c g H'"
+                        (key-binding (kbd "C-c g H")) 'sift-explain-at-point)
+    (heks-verify--check "and the package's own prefix is not bound"
+                        (key-binding (kbd "C-c s f")) nil)))
 
 (dolist (key '("C-c ! n" "C-c ! N" "C-c ! b" "C-c ! a" "C-c ! m"
                "C-c a v" "C-c a l" "C-c a r" "C-c a b"
@@ -392,16 +409,18 @@ configuration."
                                  flymake-diagnostic-functions)
                            t))
   ;; sift is the checker of the habits of a file, and the one that reports
-  ;; the drift a pipeline fails on; it is registered only where the program
-  ;; is installed, so the check follows the same condition the setup does.
+  ;; the drift a pipeline fails on; the findings are the sift package's
+  ;; backend and the drift is this configuration's, and both are registered
+  ;; only where the program is installed, so the check follows the same
+  ;; condition the setup does.
   (heks-verify--check "sift checks the buffer where it is installed"
                       (if (heks/sift-available-p)
-                          (and (memq 'heks/sift-lint-backend
+                          (and (memq 'sift-flymake
                                      flymake-diagnostic-functions)
-                               (memq 'heks/sift-format-backend
+                               (memq 'heks/sift-drift-backend
                                      flymake-diagnostic-functions)
                                t)
-                        (not (memq 'heks/sift-lint-backend
+                        (not (memq 'sift-flymake
                                    flymake-diagnostic-functions))))
   (heks-verify--check "Flymake is on" flymake-mode)
 
@@ -449,7 +468,7 @@ configuration."
                                    flymake-diagnostic-functions)))
     (heks-verify--check "sift is still what reads the habits of the file"
                         (if (heks/sift-available-p)
-                            (and (memq 'heks/sift-lint-backend
+                            (and (memq 'sift-flymake
                                        flymake-diagnostic-functions)
                                  t)
                           t))
@@ -462,21 +481,44 @@ configuration."
 ;; sift is the whole checking story of a scheme file now (see
 ;; `modules/sift.el'): the Guix tools say whether a package is right, the
 ;; compiler whether the code is sound, and sift what a reader would say about
-;; the way it is written.  It is a program, so the checks are conditional on
-;; it, and what they check is that the two backends are the ones the module
-;; says and that a finding arrives with the code a reader can see.
+;; the way it is written.  The editor side of it is the sift package, so what
+;; is checked here is that the package arrived with the configuration, that
+;; the two backends of a Scheme buffer are the ones the module says, and that
+;; a finding arrives with the code a reader can see.  It is a program, so the
+;; last of those is conditional on it.
 (heks-verify--section "sift is what reads the habits of a Scheme file")
+(heks-verify--check "the package is installed and loaded"
+                    (and (fboundp 'sift-flymake-mode) t))
+;; sift is also the language server of the three Lisps (see
+;; `heks/sift-register-lsp'): the registration is one alist entry, and the
+;; function that keeps the Flymake backend from saying the same findings a
+;; second time is on Eglot's own hook.
+(heks-verify--check "Eglot is given sift for the three Lisps"
+                    (progn
+                      (require 'eglot)
+                      (let ((entry (seq-find
+                                    (lambda (entry)
+                                      (member 'emacs-lisp-mode
+                                              (if (listp (car entry))
+                                                  (car entry)
+                                                (list (car entry)))))
+                                    eglot-server-programs)))
+                        (and entry (eq (cdr entry) #'sift-eglot-contact) t))))
+(heks-verify--check "and the Flymake backend stands aside for it"
+                    (and (memq 'heks/sift--eglot-stand-aside
+                               eglot-managed-mode-hook)
+                         t))
 (heks-verify--check "the program is found, or its absence is known"
                     (if (heks/sift-available-p)
                         (file-executable-p (heks/sift-program-path))
                       t))
 (if (heks/sift-available-p)
     (heks-verify--with-scheme-buffer "(define (f x)\n  (if x 1))\n"
-      (let ((reported 'nothing))
-        (heks/sift-lint-backend
-         (lambda (report &rest _arguments) (setq reported report)))
+      (let* ((reported 'nothing)
+             (process (sift-flymake
+                       (lambda (report &rest _arguments) (setq reported report)))))
         (let ((tries 0))
-          (while (and (process-live-p (alist-get "sift-lint" heks/tool-processes))
+          (while (and (processp process) (process-live-p process)
                       (< tries 400))
             (accept-process-output nil 0.05)
             (setq tries (1+ tries))))
@@ -485,8 +527,8 @@ configuration."
          "the `if' with no else is reported by the rule that names it"
          (and (listp reported)
               (seq-some (lambda (diagnostic)
-                          (equal (plist-get (flymake-diagnostic-data diagnostic) :rule)
-                                 "if-without-else"))
+                          (equal (plist-get (flymake-diagnostic-data diagnostic) :checker)
+                                 'if-without-else))
                         reported)
               t))
         (heks-verify--check
@@ -499,9 +541,9 @@ configuration."
               t))))
   (heks-verify--with-scheme-buffer "(define (f x)\n  (if x 1))\n"
     (heks-verify--check "without sift nothing of it is registered"
-                        (and (not (memq 'heks/sift-lint-backend
+                        (and (not (memq 'sift-flymake
                                         flymake-diagnostic-functions))
-                             (not (memq 'heks/sift-format-backend
+                             (not (memq 'heks/sift-drift-backend
                                         flymake-diagnostic-functions))
                              t))))
 

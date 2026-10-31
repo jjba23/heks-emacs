@@ -376,13 +376,13 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c g A~ | ~heks/sift-fix-buffer~ | every fix sift has, applied to the buffer | guile.el (a mode's own map) |
+| ~C-c g A~ | ~sift-fix-buffer~ | every fix sift has, applied to the buffer | sift.el (a mode's own map) |
 | ~C-c g C~ | ~heks/scheme-callees~ | the callees of this definition | guile.el (a mode's own map) |
 | ~C-c g E~ | ~heks/scheme-eval-region-or-buffer~ | the region, or the whole buffer | guile.el (a mode's own map) |
-| ~C-c g H~ | ~heks/sift-explain-rule~ | what the sift rule reported here wants | guile.el (a mode's own map) |
+| ~C-c g H~ | ~sift-explain-at-point~ | what the sift rule reported here wants | sift.el (a mode's own map) |
 | ~C-c g L~ | ~heks/guix-lint-buffer~ | lint it with `guix lint' | guile.el (a mode's own map) |
 | ~C-c g R~ | ~heks/scheme-repl-restart~ | the REPL, restarted | guile.el (a mode's own map) |
-| ~C-c g a~ | ~heks/sift-fix-at-point~ | the fix of the sift rule reported here | guile.el (a mode's own map) |
+| ~C-c g a~ | ~sift-fix-at-point~ | the fix of the sift rule reported here | sift.el (a mode's own map) |
 | ~C-c g b~ | ~heks/scheme-load-buffer~ | the whole buffer, sent to the REPL | guile.el (a mode's own map) |
 | ~C-c g c~ | ~heks/scheme-callers~ | the callers of this definition | guile.el (a mode's own map) |
 | ~C-c g d~ | ~heks/scheme-debugger~ | the Guile debugger | guile.el (a mode's own map) |
