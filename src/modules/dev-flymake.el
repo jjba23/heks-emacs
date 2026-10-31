@@ -98,7 +98,9 @@ that module saying anything about it."
 ;; what Emacs's backend would run rather than what checks a Python buffer
 ;; here today.  It is kept because it is what one would change to make that
 ;; backend (and so flake8) the checker of a Python buffer.
-(setq python-flymake-command '("~/.local/bin/flake8" "-"))
+;; Python's checker is ruff, set up by `heks/python-setup' in `dev-langs.el'
+;; (flake8, which `python-flymake' runs, is the fallback when ruff is absent).
+(setq python-flymake-command '("flake8" "-"))
 
 (provide 'heks/dev-flymake)
 

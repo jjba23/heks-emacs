@@ -28,7 +28,9 @@
 (defun heks/eglot-format-before-save ()
   "Format with Eglot, only where a live server manages this buffer."
   (when (and (fboundp 'eglot-managed-p) (eglot-managed-p)
-             (ignore-errors (eglot-current-server)))
+             (ignore-errors (eglot-current-server))
+             ;; `basedpyright' and others do not format; asking them errors.
+             (ignore-errors (eglot-server-capable :documentFormattingProvider)))
     (eglot-format-buffer)))
 
 (use-package eglot
@@ -48,6 +50,7 @@
          (nix-ts-mode . heks/eglot-ensure)
          (go-mode . heks/eglot-ensure)
          (python-mode . heks/eglot-ensure)
+         (python-ts-mode . heks/eglot-ensure)
          (rust-mode . heks/eglot-ensure)
          (html-mode . heks/eglot-ensure)
          (c-mode . heks/eglot-ensure)
@@ -105,6 +108,12 @@
   (setq eglot-server-programs (assq-delete-all 'scala-ts-mode eglot-server-programs))
 
   (setq eglot-server-programs (assoc-delete-all 'scala-ts-mode eglot-server-programs))
+
+  ;; Python: `basedpyright' for language intelligence; linting and
+  ;; formatting are `ruff' (see `dev-langs.el' and `dev-formats.el').
+  (add-to-list 'eglot-server-programs
+               '((python-mode python-ts-mode)
+                 . ("basedpyright-langserver" "--stdio")))
 
   (add-to-list 'eglot-server-programs `(scala-ts-mode . ("metals"
                                                          "-Xmx4G"

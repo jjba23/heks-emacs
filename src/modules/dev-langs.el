@@ -20,12 +20,23 @@
 ;; and adherence to best practices.
 (use-package package-lint :ensure t)
 
-;; Integrates the Black formatter for Python, automatically formatting Python
-;; code on save to maintain consistent style.
-(use-package python-black
+;; Python: `basedpyright' is the language server (see `eglot.el'), `ruff' is
+;; the linter and formatter.  Ruff runs as a Flymake backend through
+;; `flymake-ruff' rather than as a second server, because Eglot manages one
+;; server per buffer; `heks/flymake-keep-backends' keeps the backend next to
+;; Eglot's own.  Formatting on save is `ruff format' via `format-all'
+;; (see `dev-formats.el').  Both tools read `pyproject.toml'.
+(use-package flymake-ruff
   :ensure t
-  :after python
-  :hook (python-mode . python-black-on-save-mode-enable-dwim))
+  :commands (flymake-ruff-load))
+
+(defun heks/python-setup ()
+  "Check this Python buffer with ruff rather than flake8, when ruff is installed."
+  (when (executable-find "ruff")
+    (remove-hook 'flymake-diagnostic-functions #'python-flymake t)
+    (flymake-ruff-load)))
+
+(add-hook 'python-base-mode-hook #'heks/python-setup)
 
 ;; Configures Emacs for Haskell development, enabling syntax highlighting
 ;; and other features for Haskell files.
