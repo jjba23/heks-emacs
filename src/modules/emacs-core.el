@@ -1,12 +1,12 @@
 ;;; emacs-core.el --- Configuring Emacs core -*- lexical-binding: t -*-
 
-;; SPDX-License-Identifier: MIT
-;; Copyright © Josep Bigorra <jjbigorra@gmail.com>
+;;; SPDX-License-Identifier: MIT
+;;; Copyright © Josep Bigorra <jjbigorra@gmail.com>
 
 ;;; Commentary:
 
-;; Configuring Emacs core
-;; This file establishes the baseline behavior for Emacs
+;;; Configuring Emacs core
+;;; This file establishes the baseline behavior for Emacs
 
 ;;; Code:
 
@@ -64,40 +64,40 @@
 ;; has no description of its own.
 
 (defconst heks/key-topics
-  '(("!"     . "diagnostics: Flymake")
-    ("#"     . "system: this machine and the Guix system")
-    ("C-#"   . "Org statistics cookies, kept off `C-c #'")
-    (";"     . "diary")
-    ("C-d"   . "diagrams: Mermaid")
-    ("SPC"   . "dashboard")
-    ("a"     . "API and HTTP: OpenAPI specs and requests")
-    ("b"     . "breakpoints and the debugger: dape")
-    ("c"     . "containers: Docker")
-    ("d"     . "databases: PostgreSQL and MongoDB")
-    ("e"     . "environment: direnv")
-    ("f"     . "fonts and text size")
-    ("g"     . "Guile and Guix")
-    ("h"     . "help and documentation")
-    ("i"     . "IDE: language server, formatting, diagnostics")
-    ("j"     . "JVM: Maven, Gradle, Spring, Java and Kotlin")
-    ("l"     . "Emacs itself: evaluating and debugging Elisp")
-    ("m"     . "make-style tasks: maak")
-    ("n"     . "notes: Org notes")
-    ("o"     . "mail: Gnus")
-    ("p"     . "completion at point: cape")
-    ("r"     . "render, preview and present")
-    ("s"     . "snippets and recorded macros")
-    ("t"     . "text tools")
-    ("u"     . "Kubernetes: kubed, by its own mnemonic letters")
-    ("U"     . "Kubernetes: kubed, from a menu")
-    ("v"     . "view: folding and comparisons")
-    ("w"     . "workspace and project: running it, and Terraform")
-    ("x"     . "eca: the AI coding assistant")
-    ("z"     . "the thing at point: the region grown, the symbol lit up, a place jumped to")
-    ("C-f"   . "JSON log view: filtering, kept off `C-c f' (font sizes)")
-    ("C-g"   . "JSON log view: filtering by raw text, kept off `C-c g' (Guile and Guix)")
-    ("C-c"   . "JSON log view: clearing the filter")
-    ("C-t"   . "JSON log view: the menu of its own commands"))
+  '(("!" . "diagnostics: Flymake")
+    ("#" . "system: this machine and the Guix system")
+    ("C-#" . "Org statistics cookies, kept off `C-c #'")
+    (";" . "diary")
+    ("C-d" . "diagrams: Mermaid")
+    ("SPC" . "dashboard")
+    ("a" . "API and HTTP: OpenAPI specs and requests")
+    ("b" . "breakpoints and the debugger: dape")
+    ("c" . "containers: Docker")
+    ("d" . "databases: PostgreSQL and MongoDB")
+    ("e" . "environment: direnv")
+    ("f" . "fonts and text size")
+    ("g" . "Guile and Guix")
+    ("h" . "help and documentation")
+    ("i" . "IDE: language server, formatting, diagnostics")
+    ("j" . "JVM: Maven, Gradle, Spring, Java and Kotlin")
+    ("l" . "Emacs itself: evaluating and debugging Elisp")
+    ("m" . "make-style tasks: maak")
+    ("n" . "notes: Org notes")
+    ("o" . "mail: Gnus")
+    ("p" . "completion at point: cape")
+    ("r" . "render, preview and present")
+    ("s" . "snippets and recorded macros")
+    ("t" . "text tools")
+    ("u" . "Kubernetes: kubed, by its own mnemonic letters")
+    ("U" . "Kubernetes: kubed, from a menu")
+    ("v" . "view: folding and comparisons")
+    ("w" . "workspace and project: running it, and Terraform")
+    ("x" . "eca: the AI coding assistant")
+    ("z" . "the thing at point: the region grown, the symbol lit up, a place jumped to")
+    ("C-f" . "JSON log view: filtering, kept off `C-c f' (font sizes)")
+    ("C-g" . "JSON log view: filtering by raw text, kept off `C-c g' (Guile and Guix)")
+    ("C-c" . "JSON log view: clearing the filter")
+    ("C-t" . "JSON log view: the menu of its own commands"))
   "What each `C-c' topic letter is for.
 
 A capital letter is a topic of its own and not a variant of the small
@@ -140,145 +140,145 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
 
 (defconst heks/key-letters
   '(("!" ("n" . "the next diagnostic")
-         ("N" . "the previous diagnostic")
-         ("b" . "the diagnostics of this buffer")
-         ("a" . "all the diagnostics of the project"))
+     ("N" . "the previous diagnostic")
+     ("b" . "the diagnostics of this buffer")
+     ("a" . "all the diagnostics of the project"))
     ("#" ("j" . "his own configuration")
-         ("s" . "the system")
-         ("e" . "this file, edited as root")
-         ("f" . "everything: his configuration and the system"))
+     ("s" . "the system")
+     ("e" . "this file, edited as root")
+     ("f" . "everything: his configuration and the system"))
     (";" ("v" . "the entry for today")
-         ("g" . "the entry for yesterday"))
+     ("g" . "the entry for yesterday"))
     ("C-d" ("c" . "the diagram at point")
-           ("r" . "the diagram in the region")
-           ("b" . "the diagrams in this buffer")
-           ("f" . "the diagrams in this file"))
+     ("r" . "the diagram in the region")
+     ("b" . "the diagrams in this buffer")
+     ("f" . "the diagrams in this file"))
     ("a" ("b" . "the request written as a block to paste"))
     ("b" ("b" . "a breakpoint at point, toggled")
-         ("c" . "the program, continued to the next breakpoint")
-         ("i" . "into the call at point, stepped")
-         ("o" . "out of the current function, stepped"))
+     ("c" . "the program, continued to the next breakpoint")
+     ("i" . "into the call at point, stepped")
+     ("o" . "out of the current function, stepped"))
     ("c" ("d" . "Docker"))
     ("d" ("p" . "PostgreSQL")
-         ("m" . "the MongoDB shell"))
+     ("m" . "the MongoDB shell"))
     ("e" ("a" . "allow this `.envrc'")
-         ("d" . "direnv, in every buffer"))
+     ("d" . "direnv, in every buffer"))
     ("f" ("c" . "colossal")
-         ("j" . "jumbo")
-         ("l" . "large")
-         ("L" . "larger")
-         ("n" . "nano")
-         ("r" . "regular")
-         ("s" . "small")
-         ("t" . "tiny"))
+     ("j" . "jumbo")
+     ("l" . "large")
+     ("L" . "larger")
+     ("n" . "nano")
+     ("r" . "regular")
+     ("s" . "small")
+     ("t" . "tiny"))
     ("g" ("b" . "the whole buffer, sent to the REPL")
-         ("L" . "lint it with `guix lint'")
-         ("a" . "the fix of the sift rule reported here")
-         ("A" . "every fix sift has, applied to the buffer")
-         ("H" . "what the sift rule reported here wants")
-         ("p" . "the package at the mark")
-         ("R" . "restart it")
-         ("E" . "the region, or the whole buffer")
-         ("C" . "the callees of this definition"))
+     ("L" . "lint it with `guix lint'")
+     ("a" . "the fix of the sift rule reported here")
+     ("A" . "every fix sift has, applied to the buffer")
+     ("H" . "what the sift rule reported here wants")
+     ("p" . "the package at the mark")
+     ("R" . "restart it")
+     ("E" . "the region, or the whole buffer")
+     ("C" . "the callees of this definition"))
     ("h" ("f" . "the function at point, as `C-h f'")
-         ("v" . "the variable at point, as `C-h v'")
-         ("k" . "the key at point, as `C-h k'")
-         ("F" . "the face at point"))
+     ("v" . "the variable at point, as `C-h v'")
+     ("k" . "the key at point, as `C-h k'")
+     ("F" . "the face at point"))
     ("i" ("e" . "Eglot itself, and what it is doing")
-         ("E" . "the server's log of messages")
-         ("r" . "rename the symbol at point")
-         ("R" . "restart the language server")
-         ("s" . "the schema line this file names")
-         ("h" . "the server's inlay hints, on and off"))
+     ("E" . "the server's log of messages")
+     ("r" . "rename the symbol at point")
+     ("R" . "restart the language server")
+     ("s" . "the schema line this file names")
+     ("h" . "the server's inlay hints, on and off"))
     ("j" ("m" . "Maven")
-         ("M" . "the Maven menu")
-         ("g" . "Gradle")
-         ("G" . "the Gradle menu")
-         ("s" . "Spring Boot")
-         ("N" . "a new project")
-         ("B" . "the project, built again")
-         ("D" . "the dependencies of this project")
-         ("T" . "the tree of this project's dependencies")
-         ("R" . "the project's classpath, reloaded"))
+     ("M" . "the Maven menu")
+     ("g" . "Gradle")
+     ("G" . "the Gradle menu")
+     ("s" . "Spring Boot")
+     ("N" . "a new project")
+     ("B" . "the project, built again")
+     ("D" . "the dependencies of this project")
+     ("T" . "the tree of this project's dependencies")
+     ("R" . "the project's classpath, reloaded"))
     ("l" ("l" . "a library, opened by name")
-         ("L" . "a library, loaded from disk")
-         ("p" . "the parentheses of this buffer"))
+     ("L" . "a library, loaded from disk")
+     ("p" . "the parentheses of this buffer"))
     ("n" ("a" . "an archived note, opened")
-         ("b" . "a bookmark, opened")
-         ("B" . "a bookmark, filed under a category")
-         ("c" . "a note, captured from anywhere")
-         ("d" . "today: the agenda, its habits and the inbox")
-         ("e" . "text added to an existing note")
-         ("f" . "a note, found")
-         ("g" . "the notes as a graph and a tree, in the browser")
-         ("G" . "the map of the notes, exported as one HTML page")
-         ("F" . "a note, found or created")
-         ("h" . "the habits, with their graphs")
-         ("i" . "a link to a note, inserted")
-         ("I" . "the index pages, regenerated")
-         ("k" . "a contact, found")
-         ("K" . "a contact, added")
-         ("l" . "the notes that link here")
-         ("n" . "a new note, opened for writing")
-         ("r" . "this note, moved to another topic")
-         ("s" . "the text of every note, searched")
-         ("t" . "a topic folder, opened")
-         ("T" . "the topics as a folding outline")
-         ("u" . "the birthdays coming up")
-         ("x" . "a todo, captured into the inbox")
-         ("X" . "a habit, captured")
-         ("A" . "the agenda: every note's dates and TODOs, in one list")
-         ;; `m' is the Markdown a note is made from rather than a menu:
-         ;; an import is not a mode to turn on and off.
-         ("m" . "a Markdown file, imported as an Org note")
-         ("M" . "a region of Markdown, converted to Org"))
+     ("b" . "a bookmark, opened")
+     ("B" . "a bookmark, filed under a category")
+     ("c" . "a note, captured from anywhere")
+     ("d" . "today: the agenda, its habits and the inbox")
+     ("e" . "text added to an existing note")
+     ("f" . "a note, found")
+     ("g" . "the notes as a graph and a tree, in the browser")
+     ("G" . "the map of the notes, exported as one HTML page")
+     ("F" . "a note, found or created")
+     ("h" . "the habits, with their graphs")
+     ("i" . "a link to a note, inserted")
+     ("I" . "the index pages, regenerated")
+     ("k" . "a contact, found")
+     ("K" . "a contact, added")
+     ("l" . "the notes that link here")
+     ("n" . "a new note, opened for writing")
+     ("r" . "this note, moved to another topic")
+     ("s" . "the text of every note, searched")
+     ("t" . "a topic folder, opened")
+     ("T" . "the topics as a folding outline")
+     ("u" . "the birthdays coming up")
+     ("x" . "a todo, captured into the inbox")
+     ("X" . "a habit, captured")
+     ("A" . "the agenda: every note's dates and TODOs, in one list")
+     ;; `m' is the Markdown a note is made from rather than a menu:
+     ;; an import is not a mode to turn on and off.
+     ("m" . "a Markdown file, imported as an Org note")
+     ("M" . "a region of Markdown, converted to Org"))
     ("o" ("m" . "Gnus itself")
-         ("g" . "a group, read once"))
+     ("g" . "a group, read once"))
     ("r" ("b" . "the browser")
-         ("d" . "the deck, in the browser")
-         ("D" . "the deck, written next to the file")
-         ("e" . "keep it as a file")
-         ("m" . "follow the buffer, re-rendering on save")
-         ("n" . "a slide boundary, inserted")
-         ("P" . "the buffer, presented")
-         ("r" . "render it again"))
+     ("d" . "the deck, in the browser")
+     ("D" . "the deck, written next to the file")
+     ("e" . "keep it as a file")
+     ("m" . "follow the buffer, re-rendering on save")
+     ("n" . "a slide boundary, inserted")
+     ("P" . "the buffer, presented")
+     ("r" . "render it again"))
     ("s" ("a" . "an alist accessor out of a string one")
-         ("c" . "the snippet at point, completed")
-         ("h" . "a hygguile class set out of a list of classes")
-         ("p" . "a parameter out of a value")
-         ("x" . "the named snippet, expanded"))
+     ("c" . "the snippet at point, completed")
+     ("h" . "a hygguile class set out of a list of classes")
+     ("p" . "a parameter out of a value")
+     ("x" . "the named snippet, expanded"))
     ("t" ("a" . "the lines, sorted")
-         ("c" . "the fill column indicator")
-         ("o" . "Olivetti, writing in the middle of the window")
-         ("r" . "colour names, shown as colours")
-         ("w" . "the whitespace at the end of the lines")
-         ("y" . "the marked files' contents, copied"))
+     ("c" . "the fill column indicator")
+     ("o" . "Olivetti, writing in the middle of the window")
+     ("r" . "colour names, shown as colours")
+     ("w" . "the whitespace at the end of the lines")
+     ("y" . "the marked files' contents, copied"))
     ("v" ("c" . "this fold")
-         ("C" . "every fold")
-         ("o" . "this fold, opened")
-         ("O" . "this fold and everything under it")
-         ("r" . "every fold, revealed")
-         ("d" . "the difference between two buffers")
-         ("D" . "the code this project writes more than once")
-         ("t" . "the fold at point, toggled"))
+     ("C" . "every fold")
+     ("o" . "this fold, opened")
+     ("O" . "this fold and everything under it")
+     ("r" . "every fold, revealed")
+     ("d" . "the difference between two buffers")
+     ("D" . "the code this project writes more than once")
+     ("t" . "the fold at point, toggled"))
     ("w" ("c" . "a repository, cloned")
-         ("d" . "the development server")
-         ("D" . "the infrastructure, destroyed")
-         ("g" . "a search of the project")
-         ("i" . "the providers and state, initialised")
-         ("s" . "a random order for the standup"))
+     ("d" . "the development server")
+     ("D" . "the infrastructure, destroyed")
+     ("g" . "a search of the project")
+     ("i" . "the providers and state, initialised")
+     ("s" . "a random order for the standup"))
     ("x" ("t" . "the chat window, shown or hidden")
-         ("m" . "the model, chosen")
-         ("p" . "the provider, chosen"))
+     ("m" . "the model, chosen")
+     ("p" . "the provider, chosen"))
     ("z" ("e" . "the region, grown to the next thing around it")
-         ("s" . "the region, shrunk back to what it was")
-         ("o" . "the symbol at point, lit up at every occurrence")
-         ("n" . "the next occurrence of it")
-         ("p" . "the previous occurrence of it")
-         ("r" . "every occurrence of it, renamed at once")
-         ("k" . "the lighting, taken off")
-         ("j" . "a place on the screen, jumped to by its letter")
-         ("J" . "a line, jumped to by its letter")))
+     ("s" . "the region, shrunk back to what it was")
+     ("o" . "the symbol at point, lit up at every occurrence")
+     ("n" . "the next occurrence of it")
+     ("p" . "the previous occurrence of it")
+     ("r" . "every occurrence of it, renamed at once")
+     ("k" . "the lighting, taken off")
+     ("j" . "a place on the screen, jumped to by its letter")
+     ("J" . "a line, jumped to by its letter")))
   "What the letters of a topic mean, topic by topic.
 
 These are the topics whose keys do not perform one of the actions in
@@ -668,8 +668,8 @@ about the menu is part of the menu (see
 than the echo area has."
   (setq heks/which-key-echoing (not (heks/which-key-side-window-p)))
   (if heks/which-key-echoing
-      (let ((dims (which-key--minibuffer-max-dimensions)))
-        (cons (max 1 (1- (car dims))) (cdr dims)))
+    (let ((dims (which-key--minibuffer-max-dimensions)))
+      (cons (max 1 (1- (car dims))) (cdr dims)))
     (which-key--side-window-max-dimensions)))
 
 (defun heks/which-key-show-popup (dimensions)
@@ -682,7 +682,7 @@ menu: when there is no window, the keys and the line which-key says about
 them go to the echo area."
   (unless (and (not heks/which-key-echoing)
                (condition-case nil
-                   (which-key--show-buffer-side-window dimensions)
+                 (which-key--show-buffer-side-window dimensions)
                  (error nil)))
     (which-key--echo (heks/which-key-echoed-menu))))
 
@@ -740,17 +740,17 @@ in the window."
   :ensure nil
   :config
   (setq which-key-sort-order 'which-key-key-order-alpha
-        ;; Long enough for every sentence the scheme has, so that none of
-        ;; them is shown with its end replaced by `..' -- see
-        ;; `heks/which-key-description-length', which is what the
-        ;; longest of them measures.
-        which-key-max-description-length heks/which-key-description-length)
+    ;; Long enough for every sentence the scheme has, so that none of
+    ;; them is shown with its end replaced by `..' -- see
+    ;; `heks/which-key-description-length', which is what the
+    ;; longest of them measures.
+    which-key-max-description-length heks/which-key-description-length)
   ;; Fast enough to be useful, slow enough not to flash
   (setq-default which-key-idle-delay 0.4)
   ;; `C-h' after a prefix asks for the menu at once, for when the 0.4s
   ;; of waiting is one breath too long.
   (setq which-key-show-early-on-C-h t
-        which-key-idle-secondary-delay 0.05)
+    which-key-idle-secondary-delay 0.05)
   ;; The window at the bottom rather than the echo area, which is the one
   ;; choice here that which-key's own documentation asks for: of
   ;; `which-key-setup-minibuffer' it says "do not use this setup if you use
@@ -777,26 +777,26 @@ in the window."
   ;; `line-spacing'; with spacing the window is too short in pixels and the
   ;; last rows are clipped.  Its own buffer gets none.
   (add-hook 'which-key-init-buffer-hook
-            (lambda () (setq-local line-spacing 0)))
+    (lambda () (setq-local line-spacing 0)))
   (setq which-key-side-window-max-height 0.4
-        ;; Fit the window to the buffer in pixels, not to a count of
-        ;; default-font lines: the menu's lines are taller than that, and
-        ;; the lower rows were being cut off.
-        which-key-allow-imprecise-window-fit nil
-        which-key-show-remaining-keys t
-        which-key-preserve-window-configuration t)
+    ;; Fit the window to the buffer in pixels, not to a count of
+    ;; default-font lines: the menu's lines are taller than that, and
+    ;; the lower rows were being cut off.
+    which-key-allow-imprecise-window-fit nil
+    which-key-show-remaining-keys t
+    which-key-preserve-window-configuration t)
   ;; Which of the two places the menu goes in is decided per popup, in
   ;; `heks/which-key-popup-dimensions', and shown in
   ;; `heks/which-key-show-popup': `which-key' has no fallback of its
   ;; own, so this configuration shows the menu itself (the `custom' popup
   ;; is which-key's own way of being told that).
   (setq which-key-popup-type 'custom
-        which-key-custom-popup-max-dimensions-function
-        #'heks/which-key-popup-dimensions
-        which-key-custom-show-popup-function #'heks/which-key-show-popup
-        which-key-custom-hide-popup-function #'heks/which-key-hide-popup)
+    which-key-custom-popup-max-dimensions-function
+    #'heks/which-key-popup-dimensions
+    which-key-custom-show-popup-function #'heks/which-key-show-popup
+    which-key-custom-hide-popup-function #'heks/which-key-hide-popup)
   (advice-add 'which-key--popup-showing-p :around
-              #'heks/which-key-popup-visible-p)
+    #'heks/which-key-popup-visible-p)
   ;; Every topic and every key, in the words the scheme gives them.
   (heks/which-key-setup)
   (which-key-mode))
@@ -815,102 +815,102 @@ in the window."
 (defun add-prettify-mappings ()
   "Append custom symbols to the buffer-local prettify-symbols-alist."
   (setq prettify-symbols-alist
-        (append '(
-                  ;; --- Lambda: only the literal word is replaced ---
-                  ("lambda" . ?λ)
+    (append '(
+              ;; --- Lambda: only the literal word is replaced ---
+              ("lambda" . ?λ)
 
-                  ;; --- Types & Optionals ---
-                  ;; ("None"    . ?Ø)
-                  ;; ("Nil"     . ?Ø)
-                  ;; ("nil"     . ?Ø)
-                  ;; ("null"    . ?Ø)
+              ;; --- Types & Optionals ---
+              ;; ("None"    . ?Ø)
+              ;; ("Nil"     . ?Ø)
+              ;; ("nil"     . ?Ø)
+              ;; ("null"    . ?Ø)
 
-                  ;; --- Logic & Boolean ---
-                  ;; ("true"   . ?✓)
-                  ;; ("#t"     . ?✓)
-                  ;; ("True"   . ?✓)
-                  ;; ("false"  . ?✗)
-                  ;; ("#f"     . ?✗)
-                  ;; ("False"  . ?✗)
+              ;; --- Logic & Boolean ---
+              ;; ("true"   . ?✓)
+              ;; ("#t"     . ?✓)
+              ;; ("True"   . ?✓)
+              ;; ("false"  . ?✗)
+              ;; ("#f"     . ?✗)
+              ;; ("False"  . ?✗)
 
-                  ;; --- Mathematical & Set Theory ---
-                  ;; ("in"     . ?∈)
-                  ;; ("not in" . ?∉)
-                  ("sum"    . ?∑)
-                  ;; ("product" . ?∏)
-                  ("sqrt"   . ?√)
-                  ("pi"     . ?π)
-                  ("Infinity" . ?∞)
-                  ("infinity" . ?∞)
-                  ("inf" . ?∞)
-                  ("Omega"   . ?Ω)
-                  ("omega"   . ?Ω)
-                  ("Theta"   . ?Θ)
-                  ("theta"   . ?Θ)
-                  ("phi"     . ?φ)
-                  ("Phi"     . ?φ)
-                  ("forall"  . ?∀)
-                  ("mu"      . ?μ)
-                  ("sigma"   . ?σ)
-                  ("Sigma"   . ?Σ)
-                  ("alpha"   . ?α)
-                  ("Alpha"   . ?α)
-                  ("beta"    . ?β)
-                  ("Beta"    . ?β)
-                  ("gamma"   . ?γ)
-                  ("Gamma"   . ?γ)
-                  ("pi"      . ?π)
-                  ("Pi"      . ?π)
-                  ("tau"     . ?τ)
-                  ("Tau"     . ?τ)
+              ;; --- Mathematical & Set Theory ---
+              ;; ("in"     . ?∈)
+              ;; ("not in" . ?∉)
+              ("sum" . ?∑)
+              ;; ("product" . ?∏)
+              ("sqrt" . ?√)
+              ("pi" . ?π)
+              ("Infinity" . ?∞)
+              ("infinity" . ?∞)
+              ("inf" . ?∞)
+              ("Omega" . ?Ω)
+              ("omega" . ?Ω)
+              ("Theta" . ?Θ)
+              ("theta" . ?Θ)
+              ("phi" . ?φ)
+              ("Phi" . ?φ)
+              ("forall" . ?∀)
+              ("mu" . ?μ)
+              ("sigma" . ?σ)
+              ("Sigma" . ?Σ)
+              ("alpha" . ?α)
+              ("Alpha" . ?α)
+              ("beta" . ?β)
+              ("Beta" . ?β)
+              ("gamma" . ?γ)
+              ("Gamma" . ?γ)
+              ("pi" . ?π)
+              ("Pi" . ?π)
+              ("tau" . ?τ)
+              ("Tau" . ?τ)
 
-                  ;; --- Comparison Operators ---
-                  ("<="     . ?≤)
-                  (">="     . ?≥)
+              ;; --- Comparison Operators ---
+              ("<=" . ?≤)
+              (">=" . ?≥)
 
-                  ;; --- Control Flow & Arrows ---
-                  ("->"     . ?→)
-                  ("-->"    . ?⟶)
-                  ("<-"     . ?←)
-                  ("<--"    . ?⟵)
+              ;; --- Control Flow & Arrows ---
+              ("->" . ?→)
+              ("-->" . ?⟶)
+              ("<-" . ?←)
+              ("<--" . ?⟵)
 
-                  ;; ---- Org
-                  ("#+begin_src"       . ?≫)
-                  ("#+BEGIN_SRC"       . ?≫)
-                  ("#+end_src"         . ?≪)
-                  ("#+END_SRC"         . ?≪)
-                  ("#+results:"        . ?▷)
-                  ("#+RESULTS:"        . ?▷)
-                  ("#+begin_quote"     . ?“)
-                  ("#+BEGIN_QUOTE"     . ?“)
-                  ("#+end_quote"       . ?”)
-                  ("#+END_QUOTE"       . ?”)
-                  ("#+begin_example" . ?¶)
-                  ("#+BEGIN_EXAMPLE" . ?¶)
-                  ("#+end_example" . ?¶)
-                  ("#+END_EXAMPLE" . ?¶)
-                  ("#+title:"   . ?§)
-                  ("#+TITLE:"   . ?§)
-                  ("#+author:"  . ?᚛)
-                  ("#+AUTHOR:"  . ?᚛)
-                  ("#+email:"  . ?✉)
-                  ("#+EMAIL:"  . ?✉)
-                  ("#+date:"    . ?⧖)
-                  ("#+DATE:"    . ?⧖)
-                  ("#+options:" . ?⌘)
-                  ("#+OPTIONS:" . ?⌘)
-                  ("#+name:"       . ?⛦)
-                  ("#+NAME:"       . ?⛦)
+              ;; ---- Org
+              ("#+begin_src" . ?≫)
+              ("#+BEGIN_SRC" . ?≫)
+              ("#+end_src" . ?≪)
+              ("#+END_SRC" . ?≪)
+              ("#+results:" . ?▷)
+              ("#+RESULTS:" . ?▷)
+              ("#+begin_quote" . ?“)
+              ("#+BEGIN_QUOTE" . ?“)
+              ("#+end_quote" . ?”)
+              ("#+END_QUOTE" . ?”)
+              ("#+begin_example" . ?¶)
+              ("#+BEGIN_EXAMPLE" . ?¶)
+              ("#+end_example" . ?¶)
+              ("#+END_EXAMPLE" . ?¶)
+              ("#+title:" . ?§)
+              ("#+TITLE:" . ?§)
+              ("#+author:" . ?᚛)
+              ("#+AUTHOR:" . ?᚛)
+              ("#+email:" . ?✉)
+              ("#+EMAIL:" . ?✉)
+              ("#+date:" . ?⧖)
+              ("#+DATE:" . ?⧖)
+              ("#+options:" . ?⌘)
+              ("#+OPTIONS:" . ?⌘)
+              ("#+name:" . ?⛦)
+              ("#+NAME:" . ?⛦)
 
-                  ;; --- Lisp ---
-                  ("unquote" . ?↴)
-                  ("cons"      . ?∷)
+              ;; --- Lisp ---
+              ("unquote" . ?↴)
+              ("cons" . ?∷)
 
-                  ;; --- Miscellaneous / Clean Syntax ---
-                  ;; ("import" . ?📥)
-                  ;; ("export" . ?📤)
-                  )
-                prettify-symbols-alist)))
+              ;; --- Miscellaneous / Clean Syntax ---
+              ;; ("import" . ?📥)
+              ;; ("export" . ?📤)
+              )
+            prettify-symbols-alist)))
 
 (defun heks-activate-prettify ()
   "Populate mappings and safely initialize prettify-symbols-mode."
@@ -1019,39 +1019,39 @@ in the window."
   :config
   ;; --- UI & Visual Tweaks ---
   (setq-default line-spacing 6
-                pgtk-wait-for-event-timeout 0 ; Fixes input lag on Wayland/PGTK builds
-                electric-indent-inhibit t)
+    pgtk-wait-for-event-timeout 0 ; Fixes input lag on Wayland/PGTK builds
+    electric-indent-inhibit t)
 
-  (setopt treesit-font-lock-level 4           ; Maximum syntax highlighting for tree-sitter
-          ring-bell-function #'ignore         ; Disable the annoying visual/audio bell
-          frame-resize-pixelwise t            ; Allow smooth, gapless window tiling
-          use-dialog-box nil                  ; Force prompts to stay in the minibuffer
-          fill-column 78)                     ; Standard column width for indicators/wrapping
+  (setopt treesit-font-lock-level 4 ; Maximum syntax highlighting for tree-sitter
+          ring-bell-function #'ignore ; Disable the annoying visual/audio bell
+          frame-resize-pixelwise t ; Allow smooth, gapless window tiling
+          use-dialog-box nil ; Force prompts to stay in the minibuffer
+          fill-column 78) ; Standard column width for indicators/wrapping
 
   (setopt treesit-auto-install-grammar 'always) ; EMACS-31
-  (setopt treesit-enabled-modes t)              ; EMACS-31
+  (setopt treesit-enabled-modes t) ; EMACS-31
 
   ;; default to utf-8 for all the things
   (set-charset-priority 'unicode)
   (setq locale-coding-system 'utf-8
-        coding-system-for-read 'utf-8
-        coding-system-for-write 'utf-8)
+    coding-system-for-read 'utf-8
+    coding-system-for-write 'utf-8)
   (set-terminal-coding-system 'utf-8)
   (set-keyboard-coding-system 'utf-8)
   (set-selection-coding-system 'utf-8)
   (prefer-coding-system 'utf-8)
   (setq default-process-coding-system '(utf-8-unix . utf-8-unix))
 
-  (setq-default cursor-type 'bar)             ; Modern pipe cursor instead of standard block
-  (global-hl-line-mode +1)                    ; Highlight current line
+  (setq-default cursor-type 'bar) ; Modern pipe cursor instead of standard block
+  (global-hl-line-mode +1) ; Highlight current line
 
   ;; --- Editing & Behavior ---
   (setopt backward-delete-char-untabify-method 'hungry ; Deleting whitespace eats all of it at once
-          compilation-always-kill t           ; Auto-kill old compilation processes without prompting
-          tab-always-indent 'complete         ; Make TAB fallback to completion if already indented
+          compilation-always-kill t ; Auto-kill old compilation processes without prompting
+          tab-always-indent 'complete ; Make TAB fallback to completion if already indented
           text-mode-ispell-word-completion nil
-          vc-follow-symlinks t                ; Don't ask to follow symlinks to version-controlled files
-          delete-by-moving-to-trash t         ; Use system trash instead of permanent deletion
+          vc-follow-symlinks t ; Don't ask to follow symlinks to version-controlled files
+          delete-by-moving-to-trash t ; Use system trash instead of permanent deletion
           tab-width 2
           sentence-end-double-space t
           compile-command "maak --list")
@@ -1061,7 +1061,7 @@ in the window."
     (let* ((project (project-current))
            ;; Extract the folder name if in a project, otherwise use "global"
            (project-name (if project
-                             (file-name-nondirectory (directory-file-name (project-root project)))
+                           (file-name-nondirectory (directory-file-name (project-root project)))
                            "global")))
       ;; Returns e.g., "*compilation-my-project*"
       (format "*%s-%s*" (downcase mode) project-name)))
@@ -1069,16 +1069,16 @@ in the window."
   ;; Tell Emacs to use your custom function
   (setq compilation-buffer-name-function #'heks/project-compilation-buffer-name)
 
-  (setq-default indent-tabs-mode nil)         ; Always use spaces instead of tabs
+  (setq-default indent-tabs-mode nil) ; Always use spaces instead of tabs
 
 
-  (defalias 'yes-or-no-p 'y-or-n-p)           ; Type 'y' instead of 'yes' for prompts
+  (defalias 'yes-or-no-p 'y-or-n-p) ; Type 'y' instead of 'yes' for prompts
 
   ;; --- Minibuffer & Completion ---
   (setopt read-extended-command-predicate #'command-completion-default-include-p ; Hide irrelevant commands
-          completion-cycle-threshold 3        ; Cycle through options if there are 3 or fewer
-          completion-eager-update t               ;; EMACS-31
-          completion-eager-display 'auto          ;; EMACS-31
+          completion-cycle-threshold 3 ; Cycle through options if there are 3 or fewer
+          completion-eager-update t ;; EMACS-31
+          completion-eager-display 'auto ;; EMACS-31
           minibuffer-visible-completions 'up-down ;; EMACS-31
           read-file-name-completion-ignore-case t
           read-buffer-completion-ignore-case t
@@ -1086,10 +1086,10 @@ in the window."
           eldoc-help-at-pt t)
 
   ;; --- State Preservation ---
-  (savehist-mode 1)                           ; Remember minibuffer history across sessions
-  (save-place-mode 1)                         ; Remember cursor position in previously opened files
-  (global-auto-revert-mode 1)                 ; Auto-update buffers if the file changes on disk
-  (delete-selection-mode +1)                  ; Typing replaces highlighted text (modern behavior)
+  (savehist-mode 1) ; Remember minibuffer history across sessions
+  (save-place-mode 1) ; Remember cursor position in previously opened files
+  (global-auto-revert-mode 1) ; Auto-update buffers if the file changes on disk
+  (delete-selection-mode +1) ; Typing replaces highlighted text (modern behavior)
 
   ;; Remember recently opened files
   (recentf-mode 1)
@@ -1132,15 +1132,15 @@ in the window."
     (setopt insert-directory-program (executable-find "gls")))
 
   (setopt dired-listing-switches "-lAh --group-directories-first" ; Human readable, dirs at the top
-          dired-kill-when-opening-new-dired-buffer t)             ; Keep buffer list clean
+          dired-kill-when-opening-new-dired-buffer t) ; Keep buffer list clean
 
   (add-to-list 'set-message-functions 'inhibit-message)
   (add-to-list 'inhibit-message-regexps "replicasets\\.apps is forbidden")
 
   (add-hook 'dired-mode-hook
-            (lambda ()
-              (dired-hide-details-mode 1)     ; Hide ownership/permissions by default for cleaner look
-              (auto-revert-mode)))            ; Auto-refresh dired when files change
+    (lambda ()
+      (dired-hide-details-mode 1) ; Hide ownership/permissions by default for cleaner look
+      (auto-revert-mode))) ; Auto-refresh dired when files change
 
   (add-to-list 'auto-mode-alist '("\\.hbs\\'" . html-mode))
 
@@ -1161,7 +1161,7 @@ in the window."
   ;; These settings tell Emacs to assume left-to-right text everywhere and skip the bidirectional parenthesis algorithm:
 
   (setq-default bidi-display-reordering 'left-to-right
-                bidi-paragraph-direction 'left-to-right)
+    bidi-paragraph-direction 'left-to-right)
 
   (setq bidi-inhibit-bpa t)
 
@@ -1203,26 +1203,26 @@ in the window."
 
   ;; --- Speedbar ---
   (setopt speedbar-window-default-width 25) ;; EMACS-31
-  (setopt speedbar-window-max-width 25)     ;; EMACS-31
+  (setopt speedbar-window-max-width 25) ;; EMACS-31
 
   ;; --- VC ---
-  (setopt vc-auto-revert-mode t                    ; EMACS-31
-          vc-allow-rewriting-published-history t   ; EMACS-31
-          vc-dir-auto-hide-up-to-date t)     ; EMACS-31
+  (setopt vc-auto-revert-mode t ; EMACS-31
+          vc-allow-rewriting-published-history t ; EMACS-31
+          vc-dir-auto-hide-up-to-date t) ; EMACS-31
 
   ;; -- General niceties ----
-  (setopt delete-pair-push-mark t)                    ; EMACS-31: pushes a mark after
-                                        ; delete-pair so C-x C-x selects what was inside
-  (setopt ibuffer-human-readable-size t)              ; EMACS-31: KB/MB instead of raw byte counts
-  (setopt kill-region-dwim 'emacs-word)               ; EMACS-31: C-w with no region kills a word
-  (setopt native-comp-async-on-battery-power nil)     ; EMACS-31: stop native-comp jobs on battery
-  (setopt view-lossage-auto-refresh t)                ; EMACS-31: live-updating C-h l, great for teaching/debugging
-  (setopt display-fill-column-indicator-warning nil)  ; EMACS-31
-  (setopt dired-hide-details-hide-absolute-location t); EMACS-31: hide the absolute dir path in dired-hide-details-mode
-  (setopt world-clock-sort-order "%FT%T")             ; EMACS-31: sort the world clock sanely
-  (setopt zone-all-frames t)                          ; EMACS-31
-  (setopt zone-all-windows-in-frame t)                ; EMACS-31
-  (setopt uniquify-after-kill-buffer-flag t)          ; EMACS-31: renamed from the -p variant
+  (setopt delete-pair-push-mark t) ; EMACS-31: pushes a mark after
+  ; delete-pair so C-x C-x selects what was inside
+  (setopt ibuffer-human-readable-size t) ; EMACS-31: KB/MB instead of raw byte counts
+  (setopt kill-region-dwim 'emacs-word) ; EMACS-31: C-w with no region kills a word
+  (setopt native-comp-async-on-battery-power nil) ; EMACS-31: stop native-comp jobs on battery
+  (setopt view-lossage-auto-refresh t) ; EMACS-31: live-updating C-h l, great for teaching/debugging
+  (setopt display-fill-column-indicator-warning nil) ; EMACS-31
+  (setopt dired-hide-details-hide-absolute-location t) ; EMACS-31: hide the absolute dir path in dired-hide-details-mode
+  (setopt world-clock-sort-order "%FT%T") ; EMACS-31: sort the world clock sanely
+  (setopt zone-all-frames t) ; EMACS-31
+  (setopt zone-all-windows-in-frame t) ; EMACS-31
+  (setopt uniquify-after-kill-buffer-flag t) ; EMACS-31: renamed from the -p variant
 
 
   ;; --- Persist the Kill Ring Across Sessions ---
@@ -1230,15 +1230,15 @@ in the window."
   ;; Add it and you get clipboard history that survives restarts:
 
   (setq savehist-additional-variables
-        '(search-ring regexp-search-ring kill-ring))
+    '(search-ring regexp-search-ring kill-ring))
 
   ;; One thing to watch out for: the kill ring can accumulate text properties (fonts, overlays, etc.) that bloat the savehist file.
   ;; With this you strip them before saving:
   (add-hook 'savehist-save-hook
-            (lambda ()
-              (setq kill-ring
-                    (mapcar #'substring-no-properties
-                            (cl-remove-if-not #'stringp kill-ring)))))
+    (lambda ()
+      (setq kill-ring
+        (mapcar #'substring-no-properties
+                (cl-remove-if-not #'stringp kill-ring)))))
 
   ;; --- Prevent ffap from Pinging Hostnames ---
   ;; Ever had Emacs freeze for a few seconds when you ran find-file-at-point (or a command that uses it internally)?
@@ -1302,10 +1302,7 @@ in the window."
                             modusregel-flymake-expr
                             (ignore-errors keycast-mode-line))))
 
-  (add-hook 'after-change-major-mode-hook #'my-set-custom-modeline)
-
-  )
-
+  (add-hook 'after-change-major-mode-hook #'my-set-custom-modeline))
 
 ;;
 ;; ====== Tree-sitter grammars ======
@@ -1360,11 +1357,7 @@ grammar whose recipe is right, and stays right as Emacs changes.")
 
 (defconst heks/treesit-script
   (expand-file-name "treesit-grammars.el" user-emacs-directory)
-  "The script a batch Emacs runs to build the grammars.
-
-It sits next to the installed configuration, the way `batch-indent.el'
-does, because what it is loaded by is an Emacs with no configuration of its
-own.")
+  "The script a batch Emacs runs to build the grammars.")
 
 (defun heks/treesit--batch-command ()
   "Return the command line of the batch Emacs that builds the grammars.
@@ -1448,7 +1441,6 @@ two configurations happened to be loaded."
     (setf (alist-get (car recipe) treesit-language-source-alist nil nil #'eq)
           (cdr recipe))))
 
-
 (use-package project
   :ensure nil
   :init
@@ -1463,7 +1455,7 @@ two configurations happened to be loaded."
           (seq (group (or "***" "**" "__" "~~"))
                (+? (not (any "\n"))) (group (backref 3)))
           (seq (group-n 5 (any "*_")) (not (any "*_ \n"))
-               (? (*? (not (any "\n"))) (not (any "*_ \n"))) (backref 5))))
+               (?  (*? (not (any "\n"))) (not (any "*_ \n"))) (backref 5))))
   "Inline Markdown markup whose delimiters are hidden, as in Org.")
 
 (defconst heks/markdown-max-size 2000000
@@ -1474,7 +1466,7 @@ two configurations happened to be loaded."
   "A line that may open a fenced block: three or more backticks or tildes.")
 
 (defvar-local heks/markdown--blocks-cache nil
-  "(TICK . BLOCKS) of `heks/markdown--blocks', valid while TICK is current.")
+              "(TICK . BLOCKS) of `heks/markdown--blocks', valid while TICK is current.")
 
 (defun heks/markdown--blocks ()
   "Return the fenced code blocks of the buffer, as a list in buffer order.
@@ -1485,7 +1477,7 @@ An unclosed block runs to the end of the buffer; its CLOSE-BEG and
 CLOSE-END are nil."
   (let ((tick (buffer-chars-modified-tick)))
     (if (eq (car heks/markdown--blocks-cache) tick)
-        (cdr heks/markdown--blocks-cache)
+      (cdr heks/markdown--blocks-cache)
       (let (blocks)
         (save-excursion
           (save-restriction
@@ -1499,16 +1491,16 @@ CLOSE-END are nil."
                 ;; "```a`" is inline code, not a fence.
                 (unless (and (eq (aref fence 0) ?`) (string-search "`" info))
                   (let ((lang (if (string-match "\\`[^ \t{}]+" info)
-                                  (match-string 0 info) ""))
+                                (match-string 0 info) ""))
                         (closer (format "^[ \t]*%s\\{%d,\\}[ \t]*$"
                                         (regexp-quote (string (aref fence 0)))
                                         (length fence))))
                     (forward-line 1)
                     (let ((bbeg (point)))
                       (if (re-search-forward closer nil t)
-                          (push (list obeg oeol bbeg (match-beginning 0)
-                                      (match-beginning 0) (match-end 0) lang)
-                                blocks)
+                        (push (list obeg oeol bbeg (match-beginning 0)
+                                    (match-beginning 0) (match-end 0) lang)
+                              blocks)
                         (push (list obeg oeol bbeg (point-max) nil nil lang)
                               blocks)
                         (goto-char (point-max))))))))))
@@ -1538,15 +1530,15 @@ in snake_case."
       (let* ((mb (match-beginning 0)) (me (match-end 0))
              (block (heks/markdown--block-at mb)))
         (cond
-         (block
-          (goto-char (max (point) (heks/markdown--block-end block))))
-         ((and (eq (char-after mb) ?_)
-               (> mb (point-min))
-               (memq (char-syntax (char-before mb)) '(?w ?_)))
-          (goto-char (1+ mb)))
-         (t
-          (funcall fn mb me
-                   (if (match-beginning 3) (length (match-string 3)) 1))))))))
+          (block
+            (goto-char (max (point) (heks/markdown--block-end block))))
+          ((and (eq (char-after mb) ?_)
+                (> mb (point-min))
+                (memq (char-syntax (char-before mb)) '(?w ?_)))
+           (goto-char (1+ mb)))
+          (t
+            (funcall fn mb me
+                     (if (match-beginning 3) (length (match-string 3)) 1))))))))
 
 (defun heks/markdown-hide-markers (beg end)
   "Hide the delimiters of inline Markdown markup between BEG and END.
@@ -1589,22 +1581,22 @@ gets a background."
         (remove-text-properties start (min stop (point-max))
                                 '(display nil font-lock-multiline nil))
         (pcase-dolist (`(,obeg ,oeol ,bbeg ,bend ,cbeg ,cend ,lang) hit)
-          (when cbeg                    ; an unclosed block is left alone
-            (add-text-properties
-             obeg oeol
-             `(display ,(propertize (if (string-empty-p lang)
-                                        "───" (concat "─── " lang))
-                                    'face 'heks/markdown-code-fence)
-               font-lock-multiline t))
-            (font-lock-append-text-property
-             bbeg bend 'face 'heks/markdown-code-block)
-            (add-text-properties
-             cbeg cend
-             `(display ,(propertize "───" 'face 'heks/markdown-code-fence)
-               font-lock-multiline t))))))))
+                      (when cbeg ; an unclosed block is left alone
+                        (add-text-properties
+                         obeg oeol
+                         `(display ,(propertize (if (string-empty-p lang)
+                                                  "───" (concat "─── " lang))
+                                                'face 'heks/markdown-code-fence)
+                                   font-lock-multiline t))
+                        (font-lock-append-text-property
+                         bbeg bend 'face 'heks/markdown-code-block)
+                        (add-text-properties
+                         cbeg cend
+                         `(display ,(propertize "───" 'face 'heks/markdown-code-fence)
+                                   font-lock-multiline t))))))))
 
 (defvar-local heks/markdown--revealed nil
-  "The (BEG . END) of the markup whose delimiters are showing, or nil.")
+              "The (BEG . END) of the markup whose delimiters are showing, or nil.")
 
 (defun heks/markdown-reveal ()
   "Show the delimiters of the markup around point, hide the rest."

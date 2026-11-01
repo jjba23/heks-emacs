@@ -25,7 +25,6 @@
   "Install the Emacs configuration."
   (cp "src/init.el" emacs-config-install-dir)
   (cp "src/early-init.el" emacs-config-install-dir)
-  (cp "src/batch-indent.el" emacs-config-install-dir)
   ;; The script the configuration runs in a batch Emacs to build the
   ;; tree-sitter grammars, next to the configuration it belongs to.
   (cp "src/treesit-grammars.el" emacs-config-install-dir)

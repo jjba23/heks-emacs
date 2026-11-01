@@ -153,7 +153,7 @@ If you would rather not use Maak, ~maak.scm~ is short and says exactly which
 files go where; the same thing in one line is:
 
 #+begin_src shell
-cp -rfv src/init.el src/early-init.el src/batch-indent.el src/treesit-grammars.el src/modules src/snippets ~/.emacs.d/
+cp -rfv src/init.el src/early-init.el src/treesit-grammars.el src/modules src/snippets ~/.emacs.d/
 #+end_src
 
 And if you want a clean slate first (again, destructive):
@@ -538,9 +538,6 @@ Shell *scripts* are checked and formatted by the tools that own them. ~shellchec
 
 *** =dd.el=
 Provides an interactive helper for writing ISO/IMG images directly to USB devices using =dd=. It performs an explicit destructive-operation confirmation, runs the write asynchronously, displays progress in an Emacs buffer, and reports successful completion.
-
-*** =batch-indent.el=
-Provides batch indentation helpers for files, including commands to indent a file and indent-and-save it.
 
 *** =treesit-grammars.el=
 Builds every tree-sitter grammar this Emacs can be asked for, into ~~/.emacs.d/tree-sitter~, so that no grammar is fetched while a file is being opened. It is a batch script: the configuration starts it in a background Emacs of its own at startup, handing it the directory to install into, the recipes of the languages Emacs ships no mode for, and the directories a grammar may already be in. It can be run by hand as ~emacs -Q --batch -l ~/.emacs.d/treesit-grammars.el~, and a grammar whose repository moved or whose compiler is missing is a line in the script's output rather than the end of the ones after it. Each grammar is tried twice before it is given up on, so a clone that timed out is not a verdict: only a grammar that would not build twice is reported, and one that worked on the second attempt says so.
