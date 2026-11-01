@@ -63,6 +63,23 @@
          (kotlin-ts-mode . heks/eglot-ensure)
          (yaml-mode . heks/eglot-ensure)
          (yaml-ts-mode . heks/eglot-ensure)
+         ;; --- The three Lisps ---
+         ;; Their server is sift's, registered in `modules/sift.el' and not
+         ;; here (see the `:config' below); which modes it starts in is this
+         ;; list's business, as it is for every other language, and the three
+         ;; dialects are the three ways Emacs opens one: a Scheme file with or
+         ;; without Tree-sitter, an Emacs Lisp file, and a Common Lisp one.
+         ;; A Lisp *data* file is not here even though the server is
+         ;; registered for it too: what is in one is data, and a jump to the
+         ;; definition of a name is not a question a file of data answers.
+         ;; The hook is what makes opening a file enough -- `C-c i e' is what
+         ;; a buffer these hooks never reached is given by hand -- and
+         ;; `C-c i 0' still turns all of it off, since this is the same
+         ;; `heks/eglot-ensure' every other mode here uses.
+         (scheme-mode . heks/eglot-ensure)
+         (scheme-ts-mode . heks/eglot-ensure)
+         (emacs-lisp-mode . heks/eglot-ensure)
+         (lisp-mode . heks/eglot-ensure)
          (before-save . heks/eglot-format-before-save))
   ;; `g' goes to the implementation and `k' shuts the server down, so that
   ;; both are the letters they are everywhere else; `x' used to reconnect
@@ -159,6 +176,10 @@ depend on either of them."
   ;; protocol for all three, and `modules/sift.el' is what registers it
   ;; (`heks/sift-register-lsp') -- because the contact is the sift package's
   ;; and the server, the formatter and the linter are one program there.
+  ;; What *is* here is the hook that starts it, in the four modes the three
+  ;; dialects open in (see the `:hook' above): a registration without a hook
+  ;; is a server one has to ask for, and these three dialects are meant to be
+  ;; served by opening a file.
 
   (setq-default eglot-workspace-configuration
                 '(

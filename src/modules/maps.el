@@ -10,11 +10,11 @@
 ;;; Code:
 
 (use-package osm
-  :ensure t
-  ;;:bind ("C-c m" . osm-prefix-map)
-  :custom
-  (osm-server 'default)
-  (osm-copyright t))
+             :ensure t
+             ;;:bind ("C-c m" . osm-prefix-map)
+             :custom
+             (osm-server 'default)
+             (osm-copyright t))
 
 (provide 'heks/maps)
 

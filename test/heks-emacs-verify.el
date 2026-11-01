@@ -508,6 +508,22 @@ configuration."
                     (and (memq 'heks/sift--eglot-stand-aside
                                eglot-managed-mode-hook)
                          t))
+;; The registration is not something to ask for: the four modes the three
+;; dialects open in are on `heks/eglot-ensure', which is the switch every
+;; other language here uses (see `modules/eglot.el'), so opening a Scheme,
+;; Emacs Lisp or Common Lisp file is what starts the server.
+(dolist (hook '(scheme-mode-hook scheme-ts-mode-hook
+                emacs-lisp-mode-hook lisp-mode-hook))
+  (heks-verify--check (format "%s asks for the server" hook)
+                      (and (boundp hook)
+                           (memq 'heks/eglot-ensure (symbol-value hook))
+                           t)))
+;; And the other half of what a server is worth: where it has no definition
+;; to jump to, the backends the buffer already had answer (see
+;; `modules/dev-folding.el'), which is an entry in the buffer's own hook,
+;; added and taken out with the server.
+(heks-verify--check "and a definition falls back to the other backends"
+                    (and (memq 'heks/xref-install eglot-managed-mode-hook) t))
 (heks-verify--check "the program is found, or its absence is known"
                     (if (heks/sift-available-p)
                         (file-executable-p (heks/sift-program-path))

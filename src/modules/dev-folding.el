@@ -10,6 +10,19 @@
 
 ;;; Code:
 
+;; `xref' is what the dispatcher below extends and `cl-defmethod' is how a
+;; backend is written, so both are required here rather than reached through
+;; an autoload: a method defined before its generic function exists is a
+;; generic function `xref' then defines again.
+(require 'cl-lib)
+(require 'seq)
+(require 'xref)
+
+;; The one function of Eglot this file asks, and only to find out whether a
+;; buffer is a server's; the rest of Eglot is asked through `xref', whose
+;; generic functions are what a backend is.
+(declare-function eglot-managed-p "eglot" (&optional buffer))
+
 (use-package dumb-jump
   :ensure t
   :custom
@@ -17,6 +30,146 @@
   (xref-show-definitions-function #'consult-xref)
   :config
   (add-hook 'xref-backend-functions #'dumb-jump-xref-activate))
+
+;;
+;; ====== A definition, whichever way it is found ======
+;;
+;; `xref' asks one backend: it runs the functions of
+;; `xref-backend-functions' until one answers with the backend of the
+;; buffer, and whatever that backend says is the answer -- including
+;; nothing.  A language server is the best answer to `M-.' when it has one,
+;; and it has none for a name it cannot resolve: a definition in a file it
+;; has not indexed, a macro of the language, a name whose module it does not
+;; know.  In a buffer a server manages, the server is therefore asked first
+;; and, where it has nothing, the backends that were there before it answer:
+;; its answer is the first rather than the only one.
+;;
+;; Nothing changes in a buffer no server manages -- `heks/xref-install' is
+;; what puts the entry in the hook, and it is on Eglot's own hook -- so `M-.'
+;; in a Scheme file with no server is `heks/scheme' and the files as before,
+;; and a language whose server this configuration registers elsewhere (the
+;; three Lisps, whose server is sift's, see `modules/sift.el') is one of the
+;; buffers it applies to rather than an exception.  Nor does it replace a
+;; backend: the ones the buffer already had are the ones asked after the
+;; server, in the order the hook names them.
+
+(defun heks/xref-backend ()
+  "Return the chaining backend when a language server manages this buffer.
+
+`xref' takes the first function of `xref-backend-functions' that answers
+for a buffer, and this one answers for a buffer a server is in: the
+server's answer first, and the answers of the other backends of the
+buffer where it has none (see `heks/xref--first').  Every other buffer
+is left to the backends it had."
+  (when (and (fboundp 'eglot-managed-p) (eglot-managed-p))
+    'heks/xref))
+
+(defun heks/xref--backend-functions ()
+  "Return the functions of `xref-backend-functions' as `xref' runs them.
+
+A buffer-local value holds the functions the buffer itself added, with the
+symbol t where the global value belongs -- that is what `add-hook' puts
+there when it is given a LOCAL argument, and what
+`run-hook-with-args-until-success' expands into the global functions.
+Both halves are backends here: the server's own entry is in the buffer's
+value and the rest of the configuration's are in the global one."
+  (let ((global (ensure-list (default-value 'xref-backend-functions))))
+    (seq-mapcat (lambda (function)
+                  (if (eq function t) global (list function)))
+                (ensure-list xref-backend-functions))))
+
+(defun heks/xref--backends ()
+  "Return the backends of this buffer, without the one asking.
+
+Each function of the hook is asked for the backend it serves, which is
+what `xref' does with them; one that serves nothing here -- saying nil,
+or signalling because the buffer is not its -- contributes nothing.  The
+server's backend comes first, since the buffer's own entry is ahead of
+the global ones."
+  (let ((served (mapcar (lambda (function)
+                          (when (and (functionp function)
+                                     (not (eq function #'heks/xref-backend)))
+                            (ignore-errors (funcall function))))
+                        (heks/xref--backend-functions))))
+    (seq-uniq (delq nil served))))
+
+(defun heks/xref--first (method backends &rest arguments)
+  "Return the first non-nil answer to METHOD asked of BACKENDS.
+
+METHOD is one of the `xref-backend-*' generic functions, ARGUMENTS what
+it is given after the backend, and a backend that signals is one that has
+nothing to say here: Eglot's own methods signal where the server does not
+support the request, which is a fallback rather than an error."
+  (seq-some (lambda (backend)
+              (ignore-errors (apply method backend arguments)))
+            backends))
+
+(defun heks/xref--server-backend ()
+  "Return the backend of the language server, or nil where Eglot is absent."
+  (when (fboundp 'eglot-xref-backend) (eglot-xref-backend)))
+
+(defun heks/xref--identifier-at-point ()
+  "Return the name at point, as the buffer's own backends read it.
+
+The server's own reading is the last one asked for.  In a buffer Eglot
+manages it is usually a stand-in rather than a name -- Eglot sets
+`xref-prompt-for-identifier' to nil there, so it has no reason to work
+out which name is meant, and asks the server about the place point is at
+instead -- and a stand-in is not a name to hand to the backends that
+follow, which search for one."
+  (let* ((backends (heks/xref--backends))
+         (server (heks/xref--server-backend))
+         (others (if server (delq server (copy-sequence backends)) backends)))
+    (or (heks/xref--first #'xref-backend-identifier-at-point others)
+        (heks/xref--first #'xref-backend-identifier-at-point backends))))
+
+(cl-defmethod xref-backend-identifier-at-point ((_backend (eql heks/xref)))
+  "Return the name at point, read the way the buffer's tools read it."
+  (heks/xref--identifier-at-point))
+
+(cl-defmethod xref-backend-identifier-completion-table
+    ((_backend (eql heks/xref)))
+  "Return the names a jump can be asked for: the server's, or the others'.
+
+The server's table is the workspace's symbols, which is the widest list of
+names on offer; a backend that has no table of its own says nil and the
+next one is asked."
+  (heks/xref--first #'xref-backend-identifier-completion-table
+                    (heks/xref--backends)))
+
+(cl-defmethod xref-backend-definitions ((_backend (eql heks/xref)) identifier)
+  "Return the definitions of IDENTIFIER: the server's, or the others'."
+  (heks/xref--first #'xref-backend-definitions
+                    (heks/xref--backends) identifier))
+
+(cl-defmethod xref-backend-references ((_backend (eql heks/xref)) identifier)
+  "Return the places IDENTIFIER is used: the server's, or the others'."
+  (heks/xref--first #'xref-backend-references
+                    (heks/xref--backends) identifier))
+
+(cl-defmethod xref-backend-apropos ((_backend (eql heks/xref)) pattern)
+  "Return what matches PATTERN: the server's names, or the others'.
+
+`xref-find-apropos' is answered by one backend, so the server's names are
+what is offered where it has any, and the files are what is read where it
+has none."
+  (heks/xref--first #'xref-backend-apropos
+                    (heks/xref--backends) pattern))
+
+(defun heks/xref-install ()
+  "Put the chaining backend in front of the server's own, or take it out.
+
+Both entries are buffer-local, so the order is decided here rather than
+by the global hook: the depth puts this one ahead of the entry
+`eglot--managed-mode' added at the default depth, and the server's own
+entry is what the chaining backend asks first.  A buffer the server has
+stopped managing gets the entry taken out, which leaves its own backends
+as they were."
+  (if (and (fboundp 'eglot-managed-p) (eglot-managed-p))
+      (add-hook 'xref-backend-functions #'heks/xref-backend -90 t)
+    (remove-hook 'xref-backend-functions #'heks/xref-backend t)))
+
+(add-hook 'eglot-managed-mode-hook #'heks/xref-install)
 
 (use-package treesit-fold
   :ensure t

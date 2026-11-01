@@ -31,14 +31,14 @@
 ;;     fail on -- and `sift-explain' prints a rule's page by name;
 ;;   * and it speaks the Language Server Protocol: `sift lsp'.  This module
 ;;     registers it with Eglot for the three Lisps (see
-;;     `heks/sift-register-lsp'), so `M-x eglot' in a Scheme, Emacs Lisp or
-;;     Common Lisp buffer finds sift -- the same program the Flymake backend
-;;     runs -- and the server's code actions are sift's own fixes, and
-;;     ~textDocument/formatting~ is `sift format'.  What is *not* handed over
-;;     is the drift: the server publishes lint findings and not formatting
-;;     ones, so `heks/sift-drift-backend' keeps reporting them.  Nor is the
-;;     Flymake backend left to say the same thing twice: when the server is
-;;     sift, `sift-flymake' stands aside (see
+;;     `heks/sift-register-lsp'), so opening a Scheme, Emacs Lisp or Common
+;;     Lisp file starts sift as the server of that buffer -- the same program
+;;     the Flymake backend runs -- and the server's code actions are sift's
+;;     own fixes, and ~textDocument/formatting~ is `sift format'.  What is
+;;     *not* handed over is the drift: the server publishes lint findings and
+;;     not formatting ones, so `heks/sift-drift-backend' keeps reporting
+;;     them.  Nor is the Flymake backend left to say the same thing twice:
+;;     when the server is sift, `sift-flymake' stands aside (see
 ;;     `heks/sift--eglot-stand-aside').
 ;;
 ;; What this module is, then, is what this configuration says to that, and the
@@ -415,11 +415,14 @@ milliseconds it takes a Guile program to start."
   "Give Eglot `sift lsp' for the three Lisps this configuration edits.
 
 The registration is made when Eglot loads, because that is when
-`eglot-server-programs' exists; connecting is still the person's decision
--- `M-x eglot', `C-c i e' -- unless a mode's hook asks `heks/eglot-ensure'
-for it.  A machine without the package is not a reason to leave the entry
-out: the contact is a symbol resolved at connect time, and the package says
-that it is missing better than a registration that silently is not there."
+`eglot-server-programs' exists.  Connecting is not something to ask for:
+`heks/eglot-ensure' is on the major mode hooks of the four modes the three
+dialects open in (see `modules/eglot.el'), so a Scheme, Emacs Lisp or
+Common Lisp file is served as soon as it is opened.  `M-x eglot' -- or
+`C-c i e' -- is then what a buffer no hook reached is given by hand.  A
+machine without the package is not a reason to leave the entry out: the
+contact is a symbol resolved at connect time, and the package says that it
+is missing better than a registration that silently is not there."
   (with-eval-after-load 'eglot
     (add-to-list 'eglot-server-programs
                  (cons heks/sift-modes #'sift-eglot-contact))))

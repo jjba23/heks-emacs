@@ -2563,6 +2563,96 @@ line height can leave a gap in it."
                      nil overlay 'some-other-drawing))))))
 
 ;;
+;; ====== A definition, whichever way it is found ======
+;;
+
+(ert-deftest heks/xref/the-chaining-backend-is-a-servers-buffers ()
+  "The backend that falls back is in the hook only while a server manages.
+
+It is added to the buffer's own value of `xref-backend-functions' -- where
+the entry `eglot--managed-mode' put is -- so it can come before it; a
+buffer no server manages is left with the backends it had, which is the
+whole point of not putting it in the global hook."
+  (let ((managed nil))
+    (with-temp-buffer
+      (cl-letf (((symbol-function 'eglot-managed-p)
+                 (lambda (&optional _buffer) managed)))
+        (heks/xref-install)
+        (should-not (heks/xref-backend))
+        (should-not (local-variable-p 'xref-backend-functions))
+        (setq managed t)
+        (heks/xref-install)
+        (should (eq (heks/xref-backend) 'heks/xref))
+        (should (local-variable-p 'xref-backend-functions))
+        (should (eq (car xref-backend-functions) 'heks/xref-backend))
+        ;; The server goes away and takes the entry with it.
+        (setq managed nil)
+        (heks/xref-install)
+        (should-not (memq 'heks/xref-backend xref-backend-functions))))))
+
+(ert-deftest heks/xref/the-global-backends-are-part-of-the-chain ()
+  "A buffer's hook holds its own functions and a `t' for the global ones.
+
+`add-hook' with a LOCAL argument makes `t' a member of the value, which is
+how the global functions are run at that place in the list; the chain this
+module asks is the same list with that marker expanded, so that the
+server's entry and the configuration's are asked in one pass."
+  (with-temp-buffer
+    (add-hook 'xref-backend-functions #'ignore nil t)
+    (should (memq t xref-backend-functions))
+    (should (equal (heks/xref--backend-functions)
+                   (append (list #'ignore)
+                           (default-value 'xref-backend-functions))))))
+
+(ert-deftest heks/xref/the-server-is-asked-first-and-the-others-after ()
+  "The server's answer is the first one, and the other backends' the next.
+
+A backend that has nothing to say says nil and the next one is asked, and
+one that signals -- which is what Eglot's own methods do where the server
+does not support the request -- is a backend with nothing to say rather
+than an error."
+  (let ((asked '()))
+    (cl-letf (((symbol-function 'xref-backend-definitions)
+               (lambda (backend identifier)
+                 (push (cons backend identifier) asked)
+                 (when (eq backend 'the-others) 'the-other-answer))))
+      (should (eq (heks/xref--first #'xref-backend-definitions
+                                    '(eglot the-others) "greet")
+                  'the-other-answer))
+      (should (equal (nreverse asked)
+                     '((eglot . "greet") (the-others . "greet")))))
+    (cl-letf (((symbol-function 'xref-backend-definitions)
+               (lambda (backend _identifier)
+                 (if (eq backend 'eglot)
+                     (user-error "Server does not support Definition")
+                   'the-other-answer))))
+      (should (eq (heks/xref--first #'xref-backend-definitions
+                                    '(eglot the-others) "greet")
+                  'the-other-answer)))))
+
+(ert-deftest heks/xref/the-name-is-read-by-the-buffers-own-tool ()
+  "The name the fallbacks are given is a name, not the server's stand-in.
+
+Eglot sets `xref-prompt-for-identifier' to nil in the buffers it manages,
+so its reading of the name at point is usually a stand-in -- the server
+is asked about the place point is at, not about a name -- and the
+backends that follow the server are searches for a name.  The buffer's
+own backend is asked for it, and the server's reading is what is left
+where there is no other."
+  (require 'eglot)
+  (cl-letf (((symbol-function 'heks/xref--backends)
+             (lambda () '(eglot heks/scheme)))
+            ((symbol-function 'xref-backend-identifier-at-point)
+             (lambda (backend)
+               (if (eq backend 'eglot) "LSP identifier at point" "greet"))))
+    (should (equal (heks/xref--identifier-at-point) "greet")))
+  (cl-letf (((symbol-function 'heks/xref--backends)
+             (lambda () '(eglot)))
+            ((symbol-function 'xref-backend-identifier-at-point)
+             (lambda (_backend) "LSP identifier at point")))
+    (should (equal (heks/xref--identifier-at-point) "LSP identifier at point"))))
+
+;;
 ;; ====== The things a document has, and a preview needs ======
 ;;
 

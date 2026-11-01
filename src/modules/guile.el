@@ -33,8 +33,12 @@
 ;;   `C-c g d'   return to the debugger buffer after an exception, where
 ;;               Geiser's debugger shows the backtrace and its restarts.
 ;;
-;; Geiser's own database answers the navigation questions, so this is a
-;; code intelligence setup with no language server in it:
+;; Geiser's own database answers the navigation questions, and it is what a
+;; Scheme buffer is navigated with even though sift speaks the Language
+;; Server Protocol to it (see `modules/sift.el'): the server is asked first
+;; where it manages the buffer, and Geiser answers where it has nothing --
+;; which is the order `M-.' works in everywhere here (see
+;; `modules/dev-folding.el'):
 ;;
 ;;   `C-c g g'   go to the definition of the symbol at point, which is what
 ;;               `M-.' does -- the same command, `xref-find-definitions'.
@@ -954,9 +958,12 @@ definitions of one name are, with the file being read first."
 this is one of those.  It is put at the front of the hook, so that what
 answers `M-.' in a Scheme buffer is this backend and not whichever one was
 added to the hook last -- `dumb-jump' is the one the rest of the
-configuration adds (see `dev-flymake.el') -- and the other backends are not thrown
-away: the methods below ask `dumb-jump' themselves when the REPL and the
-files have nothing to say."
+configuration adds (see `dev-folding.el') -- and the other backends are not
+thrown away: the methods below ask `dumb-jump' themselves when the REPL and
+the files have nothing to say.  A buffer sift's language server manages has
+one entry ahead of this one, `heks/xref-backend', which asks the server
+first and then asks this backend: the server's answer is the first, and the
+REPL and the files are what answers where it has none."
   (when (derived-mode-p 'scheme-mode 'geiser-repl-mode) 'heks/scheme))
 
 ;; A depth rather than a flag: a negative depth is a place at the front of
