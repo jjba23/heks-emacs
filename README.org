@@ -16,7 +16,6 @@ to it, but a place where notes, code, mail, music and the shell are the same
 kind of thing, and where every part of it can be read and changed by the person
 using it.
 
-** See it move
 
 [[file:docs/images/heks-emacs.gif]]
 
@@ -30,8 +29,9 @@ every text size from nano to jumbo. Every frame was recorded from a running
 heks-emacs rather than drawn.
 #+end_quote
 
-If a GIF is not enough, there is [[https://jointhefreeworld.org/static-assets/heks/screen-2026-07-15-23-32-24.png][a full-screen screenshot of the whole desktop]]
-in its natural habitat, and two stills from the same recording:
+[[https://jointhefreeworld.org/static-assets/heks/screen-2026-07-15-23-32-24.png]]
+
+Two stills from the same GIF recording:
 [[file:docs/images/heks-emacs-two-windows.jpg][a module beside the key reference]] and
 [[file:docs/images/heks-emacs-which-key.png][the ~C-c~ prefix explained]].
 
