@@ -55,6 +55,16 @@
 ;; Enable integration of use-package with Elpaca
 (elpaca elpaca-use-package (elpaca-use-package-mode))
 
+;; `transient' is loaded the moment the first package that wants a menu is
+;; read -- `justl' in `modules/dev-formats.el', `magit' in `modules/git.el',
+;; `kubed' in `modules/dev-kubernetes.el', `pandoc-mode' -- and Elpaca
+;; activates what it has queued in `after-init-hook', which is after every
+;; module has been read.  Asking for it here, and waiting for the queue before
+;; the modules are loaded, activates it first, so nothing loads it ahead of its
+;; own activation; that is the state Elpaca reports as "transient loaded before
+;; Elpaca activation", and it printed it on every start.
+(elpaca transient (elpaca-wait))
+
 ;; ====== Configuration ======
 
 ;; Add user Emacs Lisp modules
@@ -138,6 +148,7 @@
                            emacs-core
                            irc
                            git
+                           github-repo
                            go
                            guile
                            help

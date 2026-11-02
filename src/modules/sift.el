@@ -105,6 +105,7 @@
 ;; server serves which mode, and which buffer a server is managing.
 (declare-function eglot-current-server "eglot" (&optional buffer))
 (declare-function eglot-managed-p "eglot" (&optional buffer))
+(declare-function eglot-server-capable "eglot" (capability &optional server))
 (declare-function jsonrpc-process "jsonrpc" (object))
 (declare-function jsonrpc--process "jsonrpc" (object))
 (defvar eglot-server-programs)
@@ -315,6 +316,17 @@ arriving while the code is being written."
 ;; ====== Where it is wired in ======
 ;;
 
+(defun heks/sift--server-formats-p ()
+  "Return non-nil when a language server formats this buffer on save.
+
+`heks/eglot-format-before-save' (see `modules/eglot.el') formats every
+buffer a server manages whose server has `textDocument/formatting', and
+`sift lsp' is one of them: it advertises the capability (see its
+`initialize' answer).  A buffer with both would run `sift format' twice for
+one save, which is two round trips and two undo entries for one keystroke."
+  (and (heks/sift-eglot-p)
+       (ignore-errors (eglot-server-capable :documentFormattingProvider))))
+
 (defun heks/sift--format-before-save ()
   "Format the buffer before saving it, when `sift-format-on-save' says so.
 
@@ -322,8 +334,15 @@ The setting is the package's.  The hook is this module's, and it is here
 because the package's own -- which `sift-mode' adds -- formats whichever
 dialect the mode is on in, while which dialects are formatted rather than
 only checked is this configuration's `heks/sift-format-dialects'.  The
-package's hook is taken back out in `heks/sift-setup', where it is added."
-  (when (and (bound-and-true-p sift-format-on-save) (heks/sift-formats-p))
+package's hook is taken back out in `heks/sift-setup', where it is added.
+
+The hook stands down in a buffer a language server manages with a server
+that formats on save, which is what the package's own hook does and for the
+same reason: the server is asked by `heks/eglot-format-before-save', so
+formatting here as well would send the buffer out twice and save it twice."
+  (when (and (bound-and-true-p sift-format-on-save)
+             (heks/sift-formats-p)
+             (not (heks/sift--server-formats-p)))
     (sift-format-buffer)))
 
 (defun heks/sift--mnemonic-keys ()
@@ -459,6 +478,22 @@ answers nil."
            (file-name-nondirectory
             (or (car (process-command process)) "")))))
 
+(defun heks/sift--saved-backend-drop (backend)
+  "Take BACKEND out of the backends Eglot puts back in a managed buffer.
+
+`heks/flymake-keep-backends' (see `modules/dev-flymake.el') restores the
+checkers a buffer had from the copy Eglot saved of
+`flymake-diagnostic-functions'.  A backend this module has decided the
+buffer must not carry has to be taken out of that copy too, or it is
+restored -- and run -- before it is taken out again, and the buffer says
+every finding twice until Flymake next re-checks it."
+  (when (boundp 'eglot--saved-bindings)
+    (let ((entry (assq 'flymake-diagnostic-functions eglot--saved-bindings)))
+      (when entry
+        ;; a new list rather than `setcdr': what Eglot saved can be the very
+        ;; list the buffer's own hook variable held
+        (setcdr entry (delq backend (copy-sequence (cdr entry))))))))
+
 (defun heks/sift--eglot-stand-aside ()
   "Let the sift server report what `sift-flymake' was reporting.
 
@@ -469,16 +504,24 @@ twice, which is the one thing this configuration refuses to do about a
 diagnostic.  The server is the one that keeps them here, and the drift
 report stays: the server sends lint findings and not formatting ones.
 
-This runs at the end of `eglot-managed-mode-hook', after the function of
-`modules/dev-flymake.el' that puts a buffer's checkers back beside the
-server's: the point is to take one of them away again."
-  (when (heks/sift-eglot-p)
-    (remove-hook 'flymake-diagnostic-functions #'sift-flymake t)))
+This runs before the function of `modules/dev-flymake.el' that puts a
+buffer's checkers back beside the server's, rather than after it: that
+function asks Flymake to run everything it restored, so a backend taken out
+afterwards has already reported.  What the server went away from is the
+buffer's again, since the copy Eglot restored no longer holds it."
+  (cond
+   ((heks/sift-eglot-p)
+    (remove-hook 'flymake-diagnostic-functions #'sift-flymake t)
+    (heks/sift--saved-backend-drop #'sift-flymake))
+   ((and (heks/sift-lint-applies-p)
+         (bound-and-true-p sift-flymake-mode)
+         (not (memq #'sift-flymake flymake-diagnostic-functions)))
+    (add-hook 'flymake-diagnostic-functions #'sift-flymake nil t))))
 
 ;; The depth is what makes the order: `heks/flymake-keep-backends' puts the
-;; buffer's checkers back at the default depth, and this takes `sift-flymake'
-;; out again after it has.
-(add-hook 'eglot-managed-mode-hook #'heks/sift--eglot-stand-aside 90)
+;; buffer's checkers back at the default depth and starts Flymake, so this
+;; runs before it and leaves nothing for it to restore.
+(add-hook 'eglot-managed-mode-hook #'heks/sift--eglot-stand-aside -10)
 
 (defun heks/sift-format-key-p ()
   "Return non-nil when `C-c i f' should format this buffer with sift."

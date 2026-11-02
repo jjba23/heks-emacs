@@ -517,6 +517,9 @@ Which rules a file is held to is sift's answer and not this configuration's: ~si
 *** =git.el=
 Provides Git integration through Magit and related packages. Handles repository interaction, Git links, Git modes, and Git-related editing conveniences.
 
+*** =github-repo.el=
+A repository's GitHub configuration, written down once and given to the next repository. ~M-x heks/github-repo-capture~ reads a repository and shows its settings as a Lisp spec, ~M-x heks/github-repo-apply~ creates or configures a repository so that it matches the spec -- merge settings, features, secret scanning and push protection, Dependabot, Actions permissions and the branch ruleset that guards the default branch -- and ~M-x heks/github-repo-verify~ says whether it still does, as a diff. Everything is plain Lisp data (a JSON object is an alist, a JSON ~false~ is ~json-false~), so the tool is written in the configuration's own language and needs nothing beside ~gh~: no ~jq~, no ~bash~, no checkout of the repository. One spec is the house style and ~heks/github-repo-specs~ gives a repository, or a whole owner, its own (the most specific entry wins, and an entry is a whole spec rather than a patch), so ~apply~ and ~verify~ take the spec a repository is entitled to; the repository prompt defaults to the current project's own remote. Two batch commands do the set: ~heks/github-repo-verify-all~ reports every repository as ~ok~ or ~differs~ in one buffer, with the diff under each one that differs, and ~heks/github-repo-apply-all~ aligns them one by one, leaving forks and archived repositories out and asking once before it writes to more than one. It is the Emacs Lisp of the shell script that used to live in the heks-linux checkout, and it is documented in [[file:docs/github-repo.org][docs/github-repo.org]].
+
 *** =macros.el=
 Contains small keyboard-driven editing macros and transformations, particularly for Scheme/Guile development. Includes helpers for generating parameters and transforming Scheme association-list expressions.
 
@@ -713,6 +716,7 @@ The configuration is only half of it; the other half is written down:
 | [[file:docs/keybindings.org][docs/keybindings.org]] | Every topic, every key, and what both letters of it mean -- generated from the configuration itself                                          |
 | [[file:docs/notes.org][docs/notes.org]]       | The whole note-taking system: the philosophy, the layout, every file format, each workflow, index pages, syncing, setup, tweaking and an FAQ |
 | [[file:docs/gnus.org][docs/gnus.org]]        | How mail and news are set up with Gnus in this configuration                                                                                 |
+| [[file:docs/github-repo.org][docs/github-repo.org]] | The GitHub repository settings as a spec, and the three commands that capture, apply and verify them                                          |
 | [[file:NEWS.org][NEWS.org]]             | The changelog: what arrived, what changed and what was removed, per release                                                                  |
 | [[*Modules][Modules]] (below)      | What each module is for, in its own words                                                                                                    |
 

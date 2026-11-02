@@ -55,7 +55,7 @@
   (load (expand-file-name (format "modules/%s.el" name) heks-ert--source) nil t))
 
 (dolist (module '("markdown" "render" "import" "present" "heks-emacs" "emacs-core"
-                 "notes" "notes-graph" "notes-auto" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "dev-hover" "openapi" "sift" "duplicates" "shell" "guile" "ui" "ai"))
+                 "notes" "notes-graph" "notes-auto" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "dev-hover" "openapi" "sift" "duplicates" "shell" "guile" "ui" "ai" "github-repo"))
   (heks-ert--module module))
 
 ;; `htmlize' is what Org colours the code in a note with, and the
@@ -3671,6 +3671,89 @@ lint findings and not formatting ones."
   (heks-ert--with-markdown "- item\n  ```go\n  *a*\n  ```\n"
     (should (equal (heks-ert--hidden nil) "- item\n  ```go\n  *a*\n  ```\n"))))
 
+;;
+;; github-repo: the spec, and what GitHub is sent.
+;;
+
+(ert-deftest heks/github-repo/a-false-setting-is-sent-as-false ()
+  "A setting that is off is `false', which is not the same as unset."
+  (should (equal (json-encode (heks/github-repo--get
+                               (alist-get 'repo heks/github-repo-spec)
+                               'has_wiki))
+                 "false"))
+  (should (equal (json-encode (list (cons 'description nil)))
+                 "{\"description\":null}")))
+
+(ert-deftest heks/github-repo/the-whole-spec-encodes ()
+  "The rulesets, the empty arrays and the booleans all reach the API as JSON."
+  (let ((json (json-encode heks/github-repo-spec)))
+    (should (string-match-p "\"rulesets\":\\[" json))
+    (should (string-match-p "\"required_reviewers\":\\[\\]" json))
+    (should (string-match-p "\"bypass_actors\"" json))
+    (should (string-match-p "\"require_code_owner_review\":true" json))))
+
+(ert-deftest heks/github-repo/what-a-repository-cannot-take-is-dropped-last ()
+  "The extra approval goes first, then the rules of a newer plan, one at a time."
+  (let* ((ruleset (car (alist-get 'rulesets heks/github-repo-spec)))
+         (pull (lambda (ruleset)
+                 (seq-find (lambda (rule)
+                             (equal (alist-get 'type rule) "pull_request"))
+                           (alist-get 'rules ruleset))))
+         (types (lambda (ruleset)
+                  (mapcar (lambda (rule) (alist-get 'type rule))
+                          (alist-get 'rules ruleset))))
+         (one (heks/github-repo-reduce-ruleset ruleset)))
+    (should-not (assq 'require_extra_approval_for_unattributed_changes
+                      (alist-get 'parameters (funcall pull one))))
+    (should (equal (funcall types one)
+                   '("deletion" "non_fast_forward" "required_linear_history"
+                     "required_signatures" "pull_request"
+                     "copilot_code_review" "code_scanning" "code_quality")))
+    (let ((rest one)
+          (left nil))
+      (while (let ((next (heks/github-repo-reduce-ruleset rest)))
+               (if next (setq rest next) (setq left rest))
+               next))
+      (should (equal (funcall types left)
+                     '("deletion" "non_fast_forward" "required_linear_history"
+                       "required_signatures" "pull_request")))
+      ;; And when nothing unsupported is left, it says so rather than
+      ;; taking a rule away for nothing.
+      (should-not (heks/github-repo-reduce-ruleset left)))))
+
+(ert-deftest heks/github-repo/normalize-ignores-the-capture-not-the-settings ()
+  "When it was captured and how it is spelled are not differences in settings."
+  (let* ((want (heks/github-repo-normalize heks/github-repo-spec))
+         (other (heks/github-repo-normalize
+                 (cons (cons 'captured_at "2020-01-01T00:00:00Z")
+                       (reverse (copy-tree heks/github-repo-spec)))))
+         (changed (copy-tree heks/github-repo-spec)))
+    (should (equal want other))
+    (setf (alist-get 'has_wiki (alist-get 'repo changed)) t)
+    (should-not (equal want (heks/github-repo-normalize changed)))))
+
+(ert-deftest heks/github-repo/the-most-specific-spec-wins ()
+  "A repository's own spec comes before its owner's, and the default last."
+  (let ((heks/github-repo-specs '(("jjba23" . owner)
+                                  ("jjba23/sift" . repository))))
+    (should (eq (heks/github-repo-specification "jjba23/sift") 'repository))
+    (should (eq (heks/github-repo-specification "jjba23/heks-emacs") 'owner))
+    (should (eq (heks/github-repo-specification "someone/else")
+                heks/github-repo-spec))))
+
+(ert-deftest heks/github-repo/a-remote-url-names-its-repository ()
+  "Every way GitHub writes a remote names the same OWNER/REPO, and Codeberg none."
+  (should (equal (heks/github-repo--slug-from-url
+                  "git@personal.github.com:jjba23/symbanta.git")
+                 "jjba23/symbanta"))
+  (should (equal (heks/github-repo--slug-from-url
+                  "https://github.com/jjba23/sift.git")
+                 "jjba23/sift"))
+  (should (equal (heks/github-repo--slug-from-url
+                  "https://github.com/jjba23/sift")
+                 "jjba23/sift"))
+  (should-not (heks/github-repo--slug-from-url
+               "https://codeberg.org/jjba23/heks-emacs.git")))
 
 (unless (getenv "HEKS_ERT_NO_RUN")
   (ert-run-tests-batch-and-exit))

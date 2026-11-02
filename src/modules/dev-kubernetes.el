@@ -189,7 +189,15 @@ originally printed -- the right tool for apps that do not log JSON."
 ;; `C-c C-t' binding in `json-log-view-mode-map' is for.
 ;; Defined once transient has been activated by Elpaca; requiring it
 ;; here at load time would pull in the built-in version too early.
-(eval-when-compile (require 'transient))
+;; `transient-define-prefix' below is a macro, and the byte-compiler has to
+;; have `transient' when it expands it; the interpreter does not, because it
+;; expands the form when `transient' finally loads.  `eval-when-compile' is
+;; `progn' in interpreted code -- which is how the modules here are read -- so
+;; requiring it that way loaded `transient' during startup, ahead of the
+;; activation Elpaca does in `after-init-hook', and Elpaca said so on every
+;; start ("transient loaded before Elpaca activation").
+(when (bound-and-true-p byte-compile-current-file)
+  (require 'transient nil t))
 (with-eval-after-load 'transient
   (transient-define-prefix json-log-view-transient ()
     "Filter and reset the log view in the current buffer."

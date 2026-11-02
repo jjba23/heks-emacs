@@ -1,0 +1,191 @@
+#+title: github-repo
+#+subtitle: reproducible GitHub repository settings, in Emacs Lisp
+#+author: Josep Bigorra
+
+* What this is
+
+=github-repo.el= keeps a GitHub repository's configuration in version
+control, as a value of this configuration.  The settings of
+[[https://github.com/jjba23/symbanta][jjba23/symbanta]] are
+=heks/github-repo-spec= in =src/modules/github-repo.el=; applying that value
+to another repository makes the two match: merge settings, features, security
+features, Actions permissions and the branch ruleset (protection) that guards
+=trunk=.
+
+The three verbs are =capture=, =apply= and =verify=, and they are =M-x=
+commands:
+
+| Command                        | What it does                                            |
+|--------------------------------+---------------------------------------------------------|
+| =heks/github-repo-capture=     | read a repository and show its settings as a spec form   |
+| =heks/github-repo-apply=       | create/configure a repository so it matches its spec      |
+| =heks/github-repo-verify=      | capture the live repository and diff it against its spec  |
+| =heks/github-repo-apply-all=   | the same, for one or more repositories at once            |
+| =heks/github-repo-verify-all=  | the same, reported as one buffer instead of N diffs       |
+
+Every write is skipped by a prefix argument (=C-u=), and =apply= is
+idempotent, so it is safe to run again after editing the spec.  =gh= has to
+be installed and authenticated (=gh auth login=); nothing here needs =jq=,
+=bash= or a checkout of the repository.
+
+This is the Emacs Lisp of the shell script that used to live in the
+heks-linux checkout (=scripts/github-repo.sh=, with the settings beside it
+in =github-repo-settings.json=).  The settings are a Lisp value now rather
+than a JSON file with =jq= between it and the API, so the tool is written in
+one language and there is nothing to install beside =gh=.
+
+* The spec
+
+A JSON object is an alist whose keys are the API's own field names, so
+=has_issues= is a symbol with an underscore in it; a JSON array is a list,
+or a vector when it is empty; a JSON =false= is =json-false= and a JSON
+=null= is nil.  An off setting is not an absent one, which is the whole of
+what =has_wiki= means; a null one and an absent one are the same thing to
+GitHub, and to the tool.
+
+#+begin_src emacs-lisp
+(setq heks/github-repo-spec
+      '((template . "jjba23/symbanta")
+        (repo (default_branch . "trunk")
+              (visibility . "public")
+              (has_wiki . :json-false)
+              (security_and_analysis
+               (secret_scanning (status . "enabled"))))
+        (private_vulnerability_reporting . t)
+        (rulesets (((name . "branch-ruleset")
+                    (target . "branch")
+                    (enforcement . "active")
+                    (rules (((type . "deletion"))
+                            ((type . "code_scanning")
+                             (parameters
+                              (code_scanning_tools
+                               ((tool . "CodeQL")
+                                (security_alerts_threshold . "high_or_higher")
+                                (alerts_threshold . "errors"))))))
+                            ((type . "required_signatures")))))))))
+#+end_src
+
+The module ships the spec of the reference repository, so applying a
+repository is one command with no file to find first.
+
+* One spec, or several
+
+=heks/github-repo-spec= is the house style.  =heks/github-repo-specs= holds
+the exceptions, by owner or by repository; the most specific entry wins,
+and an entry is a whole spec rather than a patch over the default:
+
+#+begin_src emacs-lisp
+(setq heks/github-repo-specs
+      '((\"jjba23/old-thing\" . ...)   ; this one repository
+        (\"someone\" . ...)))         ; everything under this owner
+#+end_src
+
+=heks/github-repo-apply= and =heks/github-repo-verify= take that spec when
+they are given no other, and accept one as their last argument, so a
+caller can pass a spec that lives nowhere in particular:
+
+#+begin_src emacs-lisp
+(heks/github-repo-apply \"jjba23/one-off\" nil nil nil nil my-spec)
+(heks/github-repo-verify \"jjba23/one-off\" my-spec)
+#+end_src
+
+* Capturing settings from another repository
+
+=M-x heks/github-repo-capture= asks for an =OWNER/REPO= -- the default is the
+repository the current project's =origin= names -- and shows the result in a
+buffer of its own, with Emacs Lisp mode on, ready to be copied into the
+module or loaded:
+
+#+begin_src shell
+M-x heks/github-repo-capture RET jjba23/symbanta RET
+C-u M-x heks/github-repo-capture RET jjba23/symbanta RET
+    ;; ... and the second one writes github-repo-settings.el instead
+#+end_src
+
+It reads the general settings, the merge strategies,
+=security_and_analysis=, private-vulnerability reporting, Actions
+permissions, the default workflow permissions and every repository ruleset.
+Per-repository values (name, description, visibility) are dropped or
+defaulted, so the result can be given to a different project.  Loading a
+captured file with =M-x load-file= is what replaces the spec, and copying an
+entry of it into =heks/github-repo-specs= is what gives one repository its
+own.
+
+* Creating / migrating a repository
+
+=M-x heks/github-repo-apply= asks for the repository, an optional
+description, the visibility, and whether the current project should be
+attached as a remote (and pushed).  It then:
+
+1. creates the repository if it does not exist (=gh repo create=),
+2. renames an existing =origin= that points at Codeberg to =codeberg= and
+   adds =origin= for GitHub, then pushes the default branch and every tag,
+3. applies the general and merge settings, one field per request so a single
+   rejected field cannot block the rest,
+4. enables the security features of the spec, then the Actions permissions
+   and the default (read-only) workflow token,
+5. creates or updates the branch ruleset, dropping rules the plan or the
+   repository cannot use (Copilot review, code quality, code scanning) and
+   the extra-approval parameter, with a warning for each.
+
+=.woodpecker/= does not run on GitHub.  Keep it while Codeberg is still
+around, or port =byggsteg.yaml= to a GitHub Actions workflow; without any
+workflow the ruleset's code-scanning and code-quality rules simply never
+report and do not block pull requests.
+
+* Every repository at once
+
+=heks/github-repo-verify-all= and =heks/github-repo-apply-all= ask for one
+or more =OWNER/REPO=, completed from the signed-in user's repositories; an
+empty answer is all of them.  =verify-all= writes one buffer that says =ok=
+or =differs= per repository, with the diff under each one that differs, and
+=apply-all= runs them one by one, so a refusal on one is a line in the log
+rather than the end of the others.  =C-u= on =apply-all= is a dry run, and
+applying to more than one repository asks once, first.
+
+Forks are left out -- somebody else's project with your name on the remote
+is not yours to standardise -- unless =heks/github-repo-include-forks= says
+otherwise, and archived repositories are always left out.
+
+* Checking drift
+
+=M-x heks/github-repo-verify= captures the live repository and diffs it
+against its spec in a buffer, so it doubles as a "did I change a setting by
+hand?" check.  The comparison ignores when the spec was captured and the
+order GitHub returns things in, and it returns nil when there is a
+difference, so a script can ask it too.
+
+* Notes
+
+- The protocol of the new remote follows =gh config get git_protocol=, and
+  =heks/github-repo-protocol= overrides it.  With https the =gh= token is
+  registered as a repository-local credential helper; with ssh the remote
+  names the alias found in =~/.ssh/config= (this machine uses
+  =Host personal.github.com=), and that key has to be registered at
+  https://github.com/settings/keys.
+- The ssh preflight does not trust an inherited =SSH_AUTH_SOCK=.  A shell, an
+  editor or a terminal that outlives the agent that was running when it
+  started keeps pointing at a path that no longer exists, and ssh then never
+  asks the agent -- which reads as "the key is not registered".  The
+  inherited socket only counts while it answers (=ssh-add -l=), and the
+  session's own answer (=systemctl --user show-environment=) and the usual
+  runtime paths are tried after it:
+  #+begin_example
+  == git remote in ~/Hacking/cask-and-cons
+  ignoring a dead SSH_AUTH_SOCK (/run/user/1000/wezterm/agent.36283)
+  using the agent at /run/user/1000/gcr/ssh
+  #+end_example
+- The ruleset requires signed commits (=required_signatures=), linear
+  history and squash/rebase merges only, matching the reference repository,
+  with one approving review and a code-owner review per pull request.  The
+  repository admin role can bypass it (=bypass_actors=), so the first push
+  of history that predates the ruleset still works.
+- The spec of the reference repository has private vulnerability reporting
+  on, secret scanning with push protection, Dependabot security updates, and
+  code scanning with CodeQL.
+- Tags are pushed with the default branch.  Every other local branch is a
+  =git push --all= away, and Magit is where that is done.
+- The commands are =M-x= commands rather than keys: they are run once per
+  repository, they ask questions the key tree cannot ask, and a key for a
+  command used once a month is a key the scheme has to describe and nobody
+  remembers.
