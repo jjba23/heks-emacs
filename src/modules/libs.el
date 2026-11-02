@@ -9,7 +9,11 @@
 
 ;;; Code:
 
-(use-package transient :ensure t :after (compat))
+;; `transient' is activated in `init.el', before the modules are read, so
+;; that no package loads it ahead of Elpaca's own activation of it (the
+;; paragraph there says why).  Declaring it here as well would queue it
+;; twice, and Elpaca answers a duplicate queue with a warning that stops
+;; the load.
 
 (use-package f :ensure t)
 
