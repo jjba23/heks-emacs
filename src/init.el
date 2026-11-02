@@ -103,6 +103,11 @@
 ;; whose notes directory is nobody's default, is where that showed.
 (load-user-file "modules/heks-emacs.el")
 
+;; macOS-only module (the PATH Emacs gets from the Dock is not the shell's).
+;; Loaded before the module list so programs are findable when they look.
+(when heks/is-darwin-p
+  (load-user-file "modules/darwin.el"))
+
 ;; load heks-linux bridge if available (GNU/Linux system)
 (ignore-errors
   (when heks/is-gnu-linux-p
