@@ -120,8 +120,8 @@ position of the error is what makes a mistake findable."
       (heks-lint--check (format "modules/%s.el is loaded by init.el" file)
                         (and (or (memq file modules)
                                  ;; The bridge module is loaded by name, not
-                                 ;; from the list.
-                                 (eq file 'heks-emacs))
+                                 ;; from the list; so is the macOS-only one.
+                                 (memq file '(heks-emacs darwin)))
                              t)))))
 
 (message "\n== %d passed, %d failed ==" heks-lint--passed heks-lint--failed)
