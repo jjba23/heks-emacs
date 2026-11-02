@@ -34,32 +34,143 @@
         olivetti-body-width 94)
   (olivetti-set-width 94))
 
+;;
+;; ====== Fonts this machine does not have ======
+;;
+;; Which family is wanted is this configuration's business; which families a
+;; machine has is the machine's.  `heks/font-sans' and its two neighbours are
+;; requests, and a request Emacs cannot satisfy used to be fatal: given a
+;; `:font' whose family the font backend cannot find, Emacs signals
+;; `font-not-known' from inside `set-face-attribute', and during startup that
+;; aborts whatever frame was being set up - so a machine missing one typeface
+;; lost the rest of its UI as well.
+;;
+;; The helpers below make that a warning and a substitute instead: resolve the
+;; family against the machine's fonts first, fall back along a chain, and apply
+;; the faces in a way that turns a refusal into a message rather than an error.
+;;
+;; The question is asked with `find-font', and only when there is a graphical
+;; frame to ask it of.  A daemon before its first frame and a terminal session
+;; have no font list, and resolving against nothing would report every family
+;; as missing and rewrite the configuration for a machine that has them all.
+
+(defcustom heks/font-fallbacks
+  '( ("Work Sans" "DejaVu Sans")
+     ("JuliaMono" "DejaVu Sans Mono")
+     ("Source Serif 4" "DejaVu Serif"))
+  "Substitute families for fonts this machine does not have.
+
+Each key is a family named in `heks/font-sans', `heks/font-mono' or
+`heks/font-serif'; the values are tried in order.  A family with no entry here
+falls back to `heks/font-last-resort', which every Emacs ships."
+  :type '(alist :key-type string :value-type (repeat string)))
+
+(defcustom heks/font-last-resort "DejaVu Sans"
+  "The family used when nothing in `heks/font-fallbacks' is installed either.
+
+It is the one family every build this configuration targets carries, so it is
+the last answer rather than a guess."
+  :type 'string)
+
+(defvar heks/font-missing nil
+  "Families already reported missing, so a redisplay does not repeat it.")
+
+(defun heks/font-available-p (family frame)
+  "Return non-nil when FAMILY can be drawn on FRAME."
+  (and (stringp family)
+       (not (equal family ""))
+       (find-font (font-spec :family family) frame)))
+
+(defun heks/font-candidates (family)
+  "Return the families to try for FAMILY, most wanted first."
+  (append (cdr (assoc family heks/font-fallbacks))
+          (list heks/font-last-resort)))
+
+(defun heks/resolve-font (family &optional frame)
+  "Return a family FRAME can draw in place of FAMILY.
+
+FAMILY itself when it is installed; otherwise the first candidate in
+`heks/font-fallbacks' that is, then `heks/font-last-resort'.  The missing
+family is named once per session with `display-warning', because a typeface
+that is not installed is something to fix rather than something to rediscover
+on every face.  With no graphical FRAME - a daemon before its first frame, or
+a terminal session - FAMILY is returned unchanged, since there is nothing to
+resolve it against."
+  (let ((frame (or frame (and (display-graphic-p) (selected-frame)))))
+    (if (or (null frame) (heks/font-available-p family frame))
+        family
+      (let ((substitute (cl-find-if (lambda (candidate)
+                                      (heks/font-available-p candidate frame))
+                                    (heks/font-candidates family))))
+        (unless (member family heks/font-missing)
+          (push family heks/font-missing)
+          (display-warning
+           'heks
+           (format "%s is not installed; drawing it in %s instead"
+                   family (or substitute "the default face"))
+           :warning))
+        substitute))))
+
+(defun heks/plist-without (plist key)
+  "Return PLIST without the entries for KEY."
+  (let (result)
+    (while plist
+      (unless (eq (car plist) key)
+        (setq result (append result (list (car plist) (cadr plist)))))
+      (setq plist (cddr plist)))
+    result))
+
+(defun heks/resolve-font-attributes (attributes)
+  "Return ATTRIBUTES with a family-valued `:font' replaced by a font spec.
+
+A `:font' that is already a spec, or absent, is returned untouched.  A family
+nothing on the machine provides drops the attribute rather than leaving Emacs
+to fail on it: a face drawn in the frame's own font is a better outcome than a
+face that cannot be set."
+  (let ((family (plist-get attributes :font)))
+    (if (not (stringp family))
+        attributes
+      (let ((resolved (heks/resolve-font family)))
+        (if resolved
+            (plist-put (copy-sequence attributes)
+                       :font (font-spec :family resolved))
+          (heks/plist-without attributes :font))))))
+
 (defun set-mode-line-faces ()
   "Apply the compact sans-serif style to the mode-line faces, ignoring errors."
-  (ignore-errors
-    (set-face-attribute 'mode-line nil
-                        :box `(:line-width 3 :color ,(face-attribute 'mode-line :background))
-                        :height 0.7
-                        :font heks/font-sans))
-  (ignore-errors
-    (set-face-attribute 'mode-line-active nil
-                        :box `(:line-width 3 :color ,(face-attribute 'mode-line :background))
-                        :height 0.7
-                        :font heks/font-sans))
-  (ignore-errors
-    (set-face-attribute 'mode-line-inactive nil
-                        :box `(:line-width 3 :color ,(face-attribute 'mode-line-inactive :background))
-                        :height 0.7
-                        :font heks/font-sans)))
+  (heks/set-face 'mode-line
+                 :box `(:line-width 3 :color ,(face-attribute 'mode-line :background))
+                 :height 0.7
+                 :font heks/font-sans)
+  (heks/set-face 'mode-line-active
+                 :box `(:line-width 3 :color ,(face-attribute 'mode-line :background))
+                 :height 0.7
+                 :font heks/font-sans)
+  (heks/set-face 'mode-line-inactive
+                 :box `(:line-width 3 :color ,(face-attribute 'mode-line-inactive :background))
+                 :height 0.7
+                 :font heks/font-sans))
 
 (defun heks/set-face (face &rest attributes)
   "Set ATTRIBUTES on FACE, but only when FACE actually exists.
 
 Faces that belong to a library which has not been loaded yet are simply
 skipped; they are configured later through the `with-eval-after-load'
-calls below."
+calls below.
+
+The `:font' attribute is resolved first (`heks/resolve-font'), so a family
+this machine does not have becomes the next best one instead of an error, and
+the call is wrapped in `condition-case': a backend that still refuses a font
+is worth a warning, not the end of the rest of the UI."
   (when (facep face)
-    (apply #'set-face-attribute face nil attributes)))
+    (condition-case err
+        (apply #'set-face-attribute face nil
+               (heks/resolve-font-attributes attributes))
+      (error
+       (display-warning
+        'heks
+        (format "Could not set %s: %s" face (error-message-string err))
+        :warning)))))
 
 ;;
 ;; ====== Separators between windows ======

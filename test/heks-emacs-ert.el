@@ -2111,6 +2111,104 @@ failing test rather than a menu that disappears again."
   (should-not (facep 'heks/no-such-face)))
 
 ;;
+;; ====== A font this machine does not have ======
+;;
+;; A typeface is the machine's business.  Emacs signals `font-not-known' when a
+;; `:font' family cannot be found, and at startup that costs every face after
+;; it; these tests pin the softer path - substitute, warn, carry on.
+;;
+
+(defun heks-ert--call-with-fonts (installed function)
+  "Call FUNCTION with INSTALLED as the only families the font backend has.
+
+The three functions are saved and put back by hand rather than through
+`cl-letf': `find-font' answers a question that two other functions have to lie
+about as well, and saving them explicitly is what makes the stub reachable from
+inside `heks/font-available-p'."
+  (let ((saved-available (symbol-function 'heks/font-available-p))
+        (saved-frame (symbol-function 'selected-frame))
+        (saved-graphic (symbol-function 'display-graphic-p)))
+    (unwind-protect
+        (progn
+          (fset 'display-graphic-p (lambda (&optional _) t))
+          (fset 'selected-frame (lambda () 'heks-test-frame))
+          ;; The question `heks/resolve-font' asks is stubbed at its own door
+          ;; rather than at the backend's: what a machine has installed is the
+          ;; fact under test, and asking fontconfig for it here would make the
+          ;; test pass or fail on which fonts this machine happens to carry.
+          (fset 'heks/font-available-p
+                (lambda (family &optional _frame)
+                  (and (stringp family) (member family installed))))
+          (funcall function))
+      (fset 'heks/font-available-p saved-available)
+      (fset 'selected-frame saved-frame)
+      (fset 'display-graphic-p saved-graphic))))
+
+(defmacro heks-ert--with-fonts (installed &rest body)
+  "Run BODY with INSTALLED as the only families that exist, on a graphical frame."
+  (declare (indent 1))
+  `(heks-ert--call-with-fonts ,installed (lambda () ,@body)))
+
+(ert-deftest heks/ui/an-installed-font-is-left-alone ()
+  (heks-ert--with-fonts '("Work Sans")
+    (setq heks/font-missing nil)
+    (should (equal (heks/resolve-font "Work Sans") "Work Sans"))
+    (should-not heks/font-missing)))
+
+(ert-deftest heks/ui/a-missing-font-becomes-the-next-best ()
+  (heks-ert--with-fonts '("DejaVu Serif")
+    (setq heks/font-missing nil)
+    (let ((warning nil))
+      (cl-letf (((symbol-function 'display-warning)
+                 (lambda (_type message &optional _level)
+                   (setq warning message))))
+        (should (equal (heks/resolve-font "Source Serif 4") "DejaVu Serif"))
+        (should (string-match-p "not installed" warning))
+        (should (equal heks/font-missing '("Source Serif 4"))))
+      ;; A second face asks the same question; the warning is not repeated.
+      (cl-letf (((symbol-function 'display-warning)
+                 (lambda (&rest _) (ert-fail "warned twice"))))
+        (should (equal (heks/resolve-font "Source Serif 4") "DejaVu Serif"))))))
+
+(ert-deftest heks/ui/a-font-nothing-provides-falls-back-to-the-last-resort ()
+  (heks-ert--with-fonts '("DejaVu Sans")
+    (setq heks/font-missing nil)
+    (cl-letf (((symbol-function 'display-warning) #'ignore))
+      (should (equal (heks/resolve-font "JuliaMono") "DejaVu Sans")))))
+
+(ert-deftest heks/ui/no-graphical-frame-means-no-resolution ()
+  "A daemon or a terminal has no font list; nothing is resolved against it."
+  (cl-letf (((symbol-function 'display-graphic-p) (lambda (&optional _) nil)))
+    (setq heks/font-missing nil)
+    (should (equal (heks/resolve-font "Source Serif 4") "Source Serif 4"))
+    (should-not heks/font-missing)))
+
+(ert-deftest heks/ui/a-family-becomes-a-font-spec ()
+  (heks-ert--with-fonts '("Work Sans")
+    (setq heks/font-missing nil)
+    (let ((attributes (heks/resolve-font-attributes (list :font "Work Sans"
+                                                          :height 0.7))))
+      (should (fontp (plist-get attributes :font)))
+      ;; The family of a font spec is a symbol, not a string: `font-spec'
+      ;; interns the name it is given, so the comparison goes through the
+      ;; printed name rather than through `equal' on the raw value.
+      (should (equal (format "%s"
+                             (font-get (plist-get attributes :font) :family))
+                     "Work Sans"))
+      (should (equal (plist-get attributes :height) 0.7)))))
+
+(ert-deftest heks/ui/a-font-that-cannot-be-set-is-a-warning ()
+  "The failure mode this replaces: one bad font aborted the rest of startup."
+  (let ((warning nil))
+    (cl-letf (((symbol-function 'set-face-attribute)
+               (lambda (&rest _) (error "Font not known: Source Serif 4")))
+              ((symbol-function 'display-warning)
+               (lambda (_type message &optional _level)
+                 (setq warning message))))
+      (heks/set-face 'default :font "Source Serif 4")
+      (should (string-match-p "Could not set default" warning)))))
+
+;;
 ;; ====== Which AI account this session is for ======
 ;;
 
