@@ -3880,6 +3880,14 @@ name is a directory that is not a repository at all."
              ,@body))
        (delete-directory root t))))
 
+(defun heks-ert--git-init (directory)
+  "Make DIRECTORY a repository git itself agrees is one.
+
+The fixtures above make the `.git' a checkout has, which is all the reading
+looks for; a question git is asked -- what the root of the repository is --
+is answered only by a repository git initialised."
+  (call-process "git" nil nil nil "-C" directory "init" "-q"))
+
 (ert-deftest heks/onefetch/what-the-reading-says-is-read-in-records ()
   "The records are pairs of NUL-ended fields, and a field may arrive alone."
   (let ((answer (heks/onefetch--split-records
@@ -4149,6 +4157,77 @@ name is a directory that is not a repository at all."
       ;; And nothing was started: the queue is empty and no process is here.
       (should-not heks/onefetch--queue)
       (should-not heks/onefetch--running))))
+
+(ert-deftest heks/onefetch/one-project-is-a-screen-of-its-own ()
+  "`C-c w O' draws one repository, named in the buffer and in the header."
+  (skip-unless (executable-find "git"))
+  (heks-ert--with-repositories '("alpha/" "beta/")
+    (let* ((repository (expand-file-name "alpha/" root))
+           (heks/onefetch-executable "true"))
+      (heks-ert--git-init repository)
+      (heks/onefetch-project repository)
+      (let ((buffer (get-buffer "*heks/onefetch: alpha*")))
+        (unwind-protect
+            (with-current-buffer buffer
+              (should (derived-mode-p 'heks/onefetch-mode))
+              (should (equal heks/onefetch--only
+                             (heks/onefetch--toplevel repository)))
+              ;; One repository, and not the ones beside it: no reading was
+              ;; started to find the others, and none of them is on the
+              ;; screen.
+              (should (equal (mapcar (lambda (one) (plist-get one :name))
+                                     heks/onefetch--repositories)
+                             '("alpha")))
+              (should-not heks/onefetch--reader)
+              ;; The header is the repository, rather than a count of them.
+              (should (equal (buffer-substring-no-properties (point-min)
+                                                             (line-end-position))
+                             (format "onefetch · alpha · %s"
+                                     (abbreviate-file-name
+                                      (directory-file-name heks/onefetch--only)))))
+              ;; And the keys that would do nothing with one are not named.
+              (should-not (string-match-p
+                           "s order"
+                           (buffer-substring-no-properties (point-min) (point-max)))))
+          (kill-buffer buffer))))))
+
+(ert-deftest heks/onefetch/the-project-is-the-repository-point-is-in ()
+  "What `C-c w O' asks about by default is the block or the project at point."
+  (with-temp-buffer
+    (heks/onefetch-mode)
+    (setq heks/onefetch--repositories
+          (list (list :name "alpha" :directory "/repos/alpha/" :status 'done
+                      :text "  text\n")))
+    (heks/onefetch--render)
+    (goto-char (point-min))
+    (heks/onefetch-next)
+    (should (equal (heks/onefetch--project-directory) "/repos/alpha/"))))
+
+(ert-deftest heks/onefetch/a-directory-that-is-not-a-repository-is-refused ()
+  "A screen of one is a description, and a directory with no description has none."
+  (skip-unless (executable-find "git"))
+  (heks-ert--with-repositories '("plain")
+    (let ((heks/onefetch-executable "true"))
+      (should-error (heks/onefetch-project (expand-file-name "plain/" root))
+                    :type 'user-error))))
+
+(ert-deftest heks/onefetch/the-one-screen-is-asked-again-not-the-fleet ()
+  "`g' on a screen of one asks about it, and starts no reading."
+  (skip-unless (executable-find "git"))
+  (heks-ert--with-repositories '("alpha/" "beta/")
+    (let* ((repository (expand-file-name "alpha/" root))
+           (heks/onefetch-executable "true"))
+      (heks-ert--git-init repository)
+      (heks/onefetch-project repository)
+      (let ((buffer (get-buffer "*heks/onefetch: alpha*")))
+        (unwind-protect
+            (with-current-buffer buffer
+              (heks/onefetch-refresh)
+              (should-not heks/onefetch--reader)
+              (should (equal (mapcar (lambda (one) (plist-get one :name))
+                                     heks/onefetch--repositories)
+                             '("alpha"))))
+          (kill-buffer buffer))))))
 
 (unless (getenv "HEKS_ERT_NO_RUN")
   (ert-run-tests-batch-and-exit))

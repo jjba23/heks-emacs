@@ -1,0 +1,65 @@
+#+title: Configuration
+#+author: Josep Bigorra
+#+options: toc:2
+
+You can customize heks-emacs with these variables at your will. This can also be
+done conveniently via the ~heks-linux-bridge.el~ or ~cask-and-cons-bridge.el~
+files described below.
+
+
+* Customization variables
+
+The bridge is loaded *before* the modules, and the modules are loaded after it,
+because these are the settings they read while they are set up: a module that
+reads one of them while it is still ~nil~ -- ~heks/notes-dir~ is the one with no
+sensible default, since nobody can guess where somebody else keeps their
+notes -- is configured wrongly whatever the setting says a moment later.
+
+Feel free to ~setopt~ these:
+#+begin_src elisp
+;; heks-linux-bridge.el --- Bridge to Heks Emacs  -*- lexical-binding: t -*-
+(setopt heks/font-mono "IBM Plex Mono"
+        heks/font-sans "IBM Plex Sans"
+        heks/font-serif "IBM Plex Serif"
+        heks/theme 'modus-vivendi
+        heks/clone-dir "~/Hacking/heks-emacs"
+        heks/notes-dir "~/Hacking/private-notes")
+#+end_src
+
+#+begin_src elisp
+;; cask-and-cons-bridge.el --- Bridge to Heks Emacs  -*- lexical-binding: t -*-
+(setopt heks/font-mono "Intel One Mono"
+        heks/font-sans "Lucida Sans"
+        heks/font-serif "Baskerville"
+        heks/theme 'ayu-dark
+        heks/clone-dir "~/Hacking/heks-emacs"
+        heks/notes-dir "~/Hacking/private-notes")
+#+end_src
+
+Whichever file your machine uses, that is where your own values go: the
+configuration reads it before it configures anything, so a module that looks at
+one of these variables sees the value you set rather than the ~nil~ it would
+have configured itself around.
+
+The most useful ones to know about:
+
+| Variable                       | What it decides                                          | Default            |
+|--------------------------------+----------------------------------------------------------+--------------------|
+| ~heks/theme~                   | The palette (see [[file:themes.org][Themes and palettes]])                    | ~nil~ -- pick one  |
+| ~heks/notes-dir~               | Where your Org notes live (no sensible default exists)   | ~nil~              |
+| ~heks/clone-dir~               | Where this checkout is, for the commands that rebuild it | ~nil~              |
+| ~heks/font-mono~               | The monospaced family                                    | ~"IBM Plex Mono"~  |
+| ~heks/font-sans~               | The sans-serif family                                    | ~"IBM Plex Sans"~  |
+| ~heks/font-serif~              | The serif family                                         | ~"IBM Plex Serif"~ |
+| ~heks/base-font-size~          | Base size in points; everything else scales from it      | ~11.4~             |
+| ~heks/prose-scale~             | Relative size of prose (~org~ and Markdown body text)    | ~1.0~              |
+| ~heks/window-divider-contrast~ | How visible window separators are, from 0.0 to 1.0       | ~0.45~             |
+
+There are more than fifty of them, each documented in its own ~defcustom~;
+~M-x customize-group RET heks RET~ lists the whole set.
+
+* The bridges
+
+If you use [[https://codeberg.org/jjba23/heks-linux][Heks GNU/Linux]], there is a heks-emacs bridge available there.
+
+If you use [[https://codeberg.org/jjba23/cask-and-cons][Cask and Cons]], there is a cask-and-cons bridge available there.

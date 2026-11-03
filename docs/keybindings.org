@@ -221,6 +221,7 @@ in every other topic.
 | ~w~ | ~D~ | the infrastructure, destroyed |
 | ~w~ | ~g~ | a search of the project |
 | ~w~ | ~i~ | the providers and state, initialised |
+| ~w~ | ~O~ | one repository, as onefetch describes it |
 | ~w~ | ~s~ | a random order for the standup |
 | ~x~ | ~t~ | the chat window, shown or hidden |
 | ~x~ | ~m~ | the model, chosen |
@@ -585,6 +586,7 @@ in every other topic.
 |-----+---------+--------------+----|
 | ~C-c w D~ | ~heks/terraform-destroy~ | the infrastructure, destroyed | dev-project.el |
 | ~C-c w G~ | ~heks/project-git-stats~ | the Git history of the project, summarised | dev-project.el |
+| ~C-c w O~ | ~heks/onefetch-project~ | one repository, as onefetch describes it | onefetch.el |
 | ~C-c w a~ | ~heks/terraform-apply~ | the plan, applied | dev-project.el |
 | ~C-c w c~ | ~magit-clone~ | a repository, cloned | emacs-core.el |
 | ~C-c w d~ | ~heks/project-start-dev~ | the development server | emacs-core.el |

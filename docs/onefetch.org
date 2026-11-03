@@ -1,0 +1,253 @@
+#+title: onefetch -- every repository, as onefetch describes it
+#+subtitle: the fleet screen, and the screen of one repository
+#+author: Josep Bigorra
+#+options: toc:2
+
+[[https://github.com/o2sh/onefetch][onefetch]] is a program that says what a repository has become: the languages
+it is written in and how much of each, the people who wrote them, when it
+started, its last change, its commits, the files that churn, its lines of
+code, its size, its licence and the URL it came from -- beside a piece of
+ASCII art for its main language, drawn in that language's own colour.
+
+This configuration has two screens for it: the fleet -- every checkout of
+=yours=, one block each, in one buffer -- and the screen of one repository.
+Neither reimplements the drawing.  What is in a block is onefetch's own
+output, character for character; the escape codes that colour it are turned
+into faces on the text by =ansi-color=, so the magenta of an Emacs Lisp
+repository, the chips that are each language's colour, the palette, the
+sparkline and the art are the program's, not an imitation of them.
+
+* The fleet screen: =C-c w o=
+
+=M-x heks/onefetch= (or =C-c w o=) draws every repository found one level
+down in =heks/onefetch-directories= (~~/Hacking~ by default) in one buffer,
+=*heks/onefetch*=, a block per repository, ordered by name or by the date of
+the last commit.
+
+Nothing is waited for.  The window is drawn in a millisecond and the work
+happens behind it: one shell process walks the directories and asks =git=
+for the commit each checkout is at, saying it as it goes, and each repository
+is added to the screen and described as the answers arrive,
+=heks/onefetch-parallelism= of them at a time.  A checkout with a million
+commits is a block that arrives a few seconds late rather than a window that
+does not open.
+
+A directory is a repository when it has a =.git= in it -- the directory of a
+checkout, or the file a worktree keeps.  What is read is one level down and
+no further: a =.git= found by walking a whole tree is a submodule's or a
+cache's.  A directory that is not there is passed over, so a list naming one
+machine's places is still a list on another machine.
+
+** What a block is
+
+The heading is the module's own -- the name, an arrow saying whether the
+block is folded, how long ago the repository last changed, and an ellipsis
+while onefetch has not answered yet.  Under it is exactly what the program
+printed, its colours included, and nothing is wrapped: the drawing is not
+wrapped either.  A repository onefetch refused is its heading and the reason
+it refused, in one line, taken from the end of what it wrote to standard
+error (the line after =Caused by:=, which is the only one that says something
+about the repository).
+
+** The keys
+
+| Key      | What it does                                                    |
+|----------+-----------------------------------------------------------------|
+| =n=, =p= | the next or the previous repository                             |
+| =TAB=    | fold, or open, the block point is in                            |
+| =S-TAB=  | fold every block, or open every one, whichever there is more of |
+| =RET=    | the Magit status of the repository point is in                  |
+| =o=      | its directory, in Dired                                         |
+| =b=      | the page its remote names, in the browser                       |
+| =r=      | ask onefetch about this one again                               |
+| =g=      | ask onefetch about every repository again                       |
+| =s=      | order by name, or by the last change, one after the other       |
+| =f=      | show only the repositories whose name matches (a regexp)        |
+| =F=      | show every repository again                                     |
+| =m=      | onefetch's own options, in a menu                               |
+| =?=      | what the mode is, and these keys                                |
+| =q=      | close the window (the work it was doing is stopped)             |
+
+The whole block carries the repository it describes, so a key pressed
+anywhere in it -- or on the blank line under it -- knows which one is meant.
+
+** onefetch's own options: =m=
+
+The flags are what makes onefetch say one thing rather than another, and the
+ones worth changing while the screen is looked at are in a transient menu.
+Every one of them changes =heks/onefetch-arguments= and asks onefetch again,
+because the arguments are part of what a description is: the same commit
+described with the art left out is a different description.
+
+| Key | What it does                             |
+|-----+------------------------------------------|
+| =g= | ask about every repository again         |
+| =r= | ask about this one again                 |
+| =s= | the order of the repositories            |
+| =f= | only the repositories whose name matches |
+| =F= | every repository again                   |
+| =a= | the art, on and off                      |
+| =p= | the palette, on and off                  |
+| =t= | the title above each block, on and off   |
+| =b= | bold, on and off                         |
+| =i= | the dates as ISO 8601, on and off        |
+| =B= | commits by bots, left out                |
+| =M= | merge commits, left out                  |
+| =e= | the authors' addresses, shown            |
+| =h= | hidden files, counted                    |
+| =A= | how many authors to show                 |
+| =L= | how many languages to show               |
+| =C= | how many churned files to show           |
+| =d= | which of the seventeen fields to show    |
+
+A count of zero or less takes the option out and leaves the number to
+onefetch's own default rather than asking for none of a thing.  The fields
+are the program's own vocabulary -- =project=, =description=, =head=,
+=created=, =languages=, =dependencies=, =authors=, =last-change=,
+=contributors=, =url=, =commits=, =churn=, =lines-of-code=, =size=,
+=license=, =pending= and =version= -- and a field that is not in it makes
+onefetch refuse the whole command rather than quietly leave it out.
+
+Nothing in the menu is written to disk: it is a flag to try while the screen
+is being read.  What should hold for every session is set in
+=heks/onefetch-arguments= (see [[#settings][Settings]]).
+
+* One repository: =C-c w O=
+
+=M-x heks/onefetch-project= (or =C-c w O=) draws one repository instead of
+the fleet, in a buffer named after it, =*heks/onefetch: NAME*=.  It is the
+same mode with one block in it, so the same keys work, and the header names
+the repository and its path rather than counting them.
+
+What it asks about, in order:
+
+1. the block point is in, when it is pressed on the fleet's screen;
+2. the current buffer's project (its root, which may be a directory inside
+   the repository);
+3. a checkout of =heks/onefetch-directories=, picked from a prompt.
+
+A prefix argument (=C-u=) asks for any directory instead, for a repository
+that lives outside those directories.  A directory that is not in a
+repository is refused -- onefetch has nothing to say about one, and a screen
+of a failure is not what was asked for.
+
+There is nothing to walk for it: the commit is one =git= call rather than the
+directory-reading process, and the description is asked for in the
+background as every other one is.  What it draws is the fleet's description
+of the same repository -- the cache is keyed by directory, commit and
+arguments -- so a repository described on one screen is on the other at once.
+
+On this screen =g= asks about that one repository and touches nothing else:
+the fleet is not what it is showing, and the descriptions of the fleet are
+not what it is giving up.  The keys that would do nothing with one -- the
+order, the filter -- are not offered in its key line.
+
+* Settings
+
+| Variable                            | What it is                                                           |
+|-------------------------------------+----------------------------------------------------------------------|
+| =heks/onefetch-directories=         | the directories whose repositories the fleet shows (~~/Hacking~)     |
+| =heks/onefetch-executable=          | the program that describes a repository (=onefetch= on the =PATH=)   |
+| =heks/onefetch-arguments=           | the arguments every call is given (=--true-color always= by default) |
+| =heks/onefetch-order=               | =name= or =recent=, the order the fleet is shown in                  |
+| =heks/onefetch-parallelism=         | how many repositories are described at once (4)                      |
+| =heks/onefetch-buffer-name=         | the fleet's buffer (=*heks/onefetch*\))                              |
+| =heks/onefetch-project-buffer-name= | one repository's buffer, a =format= string (=*heks/onefetch: %s*\))  |
+| =heks/onefetch-ssh-config=          | the ssh configuration that says which machine an alias stands for    |
+
+The one argument that is not onefetch's own default is the colour.  Asked
+for =auto=, onefetch decides from the terminal it is writing to, and a
+process whose output Emacs reads is not a terminal, so the chips would be the
+eight palette colours in turn rather than each language's own.  Emacs can
+show the true colours, and =--true-color always= asks for them.
+
+Everything else onefetch offers on its command line is an entry in
+=heks/onefetch-arguments= as it is on the command line --
+=--number-of-authors=, =--no-art=, =--disabled-fields= and the rest -- so a
+setting can be made to hold for every screen, and =m= changes the ones worth
+changing while a screen is looked at.
+
+#+begin_src emacs-lisp
+(use-package heks/onefetch
+  :config
+  (setq heks/onefetch-directories '("~/Hacking" "~/src")
+        heks/onefetch-parallelism 6
+        heks/onefetch-arguments '("--true-color" "always"
+                                  "--number-of-authors" "7"
+                                  "--no-bots")))
+#+end_src
+
+* Where a repository came from
+
+=b= opens the page a repository's remote names.  A remote is written three
+ways -- =git@github.com:owner/repo.git=,
+=ssh://git@codeberg.org/owner/repo.git= and
+=https://gitlab.com/owner/repo.git= -- and all of them name a page whose
+address is the host and the path, without the protocol the repository was
+cloned with and without the =.git= on the end.
+
+The host is the machine the ssh configuration says an alias stands for,
+because an alias is a name only ssh knows: on this machine the configuration
+reaches GitHub as =Host personal.github.com= with =HostName github.com=
+under it, and =b= opens =github.com= rather than a name nothing resolves.
+=origin= is asked for first, and when there is none the first remote is.
+
+* Asking again, and what is remembered
+
+A description is kept for the session it was got in, in
+=heks/onefetch--cache=, by directory, commit and arguments.  The same commit
+described with the same arguments would be the same words, so it is not asked
+for twice; a file on disk would have to say when it stopped being true -- a
+working tree that was edited, a branch that was fetched.
+
+-=g= asks about every repository again.  What the screen already says is kept
+until the new answer arrives, so refreshing it does not empty it: a block a
+reader is in the middle of is still there, saying the old thing, while it
+says it again.
+-=r= forgets one repository's description and asks for it again.
+-=m= to a new option forgets the descriptions that the old arguments produced,
+because they would be answers to a question that is no longer being asked:
+the processes still running are stopped, and what they would have said is
+dropped rather than mixed with the new answers.
+
+Closing the buffer stops the work: a checkout with a million commits takes
+seconds, and nobody wants that spent on a buffer that is gone.
+
+* Design notes
+
+- *Nothing is reimplemented.*  The block is the program's own output, so the
+  screen cannot drift away from the tool it shows: the first time onefetch
+  changed a colour or a field, a reimplementation would be wrong.
+- *The screen is a value.*  The buffer is a list of repositories -- each a
+  plist of what is known about it -- and drawing it is a function of that
+  list.  Folding a block, filtering, changing the order and a description
+  arriving are the same operation: the value changes and the screen is drawn
+  again.  There is one place where the buffer and the state can disagree, and
+  it is that one.
+- *One process reads the directories.*  Asking git which commit each checkout
+  is at is a call per repository, and a fleet is dozens of them: one shell
+  walks them and prints the answers as it goes.  Each record is two fields
+  ended by a NUL -- the directory, and the commit with the date of that
+  commit -- because a directory name may hold spaces and newlines, and a
+  screen of one's own repositories is not the place to discover that.
+- *Nothing happens in the window.*  Everything that takes time is a process
+  whose answer arrives later, and a description that is already known is put
+  in place before the screen is first drawn.
+
+* Troubleshooting
+
+| What you see                              | What it is                                                         |
+|-------------------------------------------+--------------------------------------------------------------------|
+| =onefetch is not installed=               | =heks/onefetch-executable= is not on the =PATH=; install it        |
+| =nothing under ... is a repository=       | every directory of =heks/onefetch-directories= is missing or empty |
+| a block saying it is not a git repository | the checkout has no =.git= any more, or it is not a checkout       |
+| a block saying there are no commits       | the repository was created and never committed to                  |
+| =... has no remote to open=               | =b= was pressed on a repository with no remote                     |
+| a block that never fills                  | the process is still running; =g= asks again, =q= stops it         |
+
+* Further reading
+
+- The program itself: [[https://github.com/o2sh/onefetch][github.com/o2sh/onefetch]];
+  =onefetch --help= is the list of every flag, and =onefetch --disabled-fields
+  nonsense= prints the vocabulary the field chooser offers.
+- The keys of every topic: [[file:keybindings.org][docs/keybindings.org]].

@@ -1,0 +1,30 @@
+#+title: Development
+#+author: Josep Bigorra
+#+options: toc:2
+
+The configuration is held to itself: the same checks that a contributor runs are
+the ones CI runs, and they are all [[https://codeberg.org/jjba23/maak][Maak]] tasks. From the checkout:
+
+#+begin_src shell
+maak                # list every task
+maak install-emacs-config  # copy the configuration into ~/.emacs.d
+maak lint           # parse every file, catch a parenthesis or a module list out of date
+maak keys           # the whole key tree; fail on a key that means two things
+maak keys-update    # write docs/keybindings.org from the keys that are there
+maak render         # check the Markdown renderer on its own
+maak test           # the configuration's own ERT suite
+maak golden         # compare the renderers with the pages they produced last time
+maak golden-update  # write those pages again, deliberately, then read the diff
+maak stats          # the line, definition and decision counts
+maak verify         # install, load it all in a batch Emacs, assert the invariants
+maak check          # lint, keys, render, test, golden, verify -- everything
+#+end_src
+
+Run ~maak check~ before you send a patch. If a golden page changes because you
+meant it to, ~maak golden-update~ is how you say so -- then read the diff it
+leaves in ~test/golden/~ before committing it.
+
+The tests need nothing installed: the modules are loaded from ~src~ by name with
+~use-package~ stubbed out, so what is tested is the code rather than whether a
+package happens to be present, and a test that needs something this machine does
+not have says so and is skipped rather than failing.

@@ -51,11 +51,21 @@
 ;; `o' in Dired, `b' in a browser, `s' changes the order, `f' shows only the
 ;; repositories whose name matches, and `m' is onefetch's own options -- the
 ;; art, the palette, how many authors, which fields to leave out.
+;;
+;; The fleet is not the only thing it draws.  `C-c w O' asks about one
+;; repository -- the project of the buffer it is pressed in, a block of the
+;; fleet's screen, or a checkout picked from a prompt -- and draws the same
+;; block, with the same mode and the same keys, in a buffer named after it.
+;; What the fleet's reading would have said of it is one git call here, so
+;; there is nothing to walk; the description is the one the fleet keeps, by
+;; directory, commit and arguments, so a repository described on either
+;; screen is on the other at once.
 
 ;;; Code:
 
 (require 'ansi-color)
 (require 'cl-lib)
+(require 'project)
 (require 'seq)
 (require 'subr-x)
 
@@ -124,6 +134,15 @@ commits is not competing with itself for every core."
   :type 'string
   :group 'heks/onefetch)
 
+(defcustom heks/onefetch-project-buffer-name "*heks/onefetch: %s*"
+  "The buffer one repository is shown in, named after it.
+
+The name is a `format' string and the repository's name is what fills it, so
+that two repositories asked about in one session are two buffers -- and one
+of them being asked about again does not empty the other."
+  :type 'string
+  :group 'heks/onefetch)
+
 (defcustom heks/onefetch-ssh-config "~/.ssh/config"
   "The ssh configuration that says which machine a host alias stands for."
   :type 'file
@@ -168,6 +187,14 @@ still being asked) and :folded.")
 
 (defvar-local heks/onefetch--filter nil
   "The regexp a repository's name has to match to be shown, or nil.")
+
+(defvar-local heks/onefetch--only nil
+  "The one directory this screen is about, or nil when it is the fleet.
+
+The screen of one repository is the fleet's screen with one repository in
+it: the same mode, the same keys, the same drawing.  What this says is what
+`g' asks again, what the header names, and which of the keys are worth
+offering -- there is no order to change and nothing to filter.")
 
 (defvar-local heks/onefetch--blocks nil
   "Where each block of the screen is, as (DIRECTORY START END).
@@ -231,6 +258,48 @@ it without a date rather than not at all."
 A directory that is not there is passed over rather than refused, so that a
 list naming this machine's own places is still a list on another machine."
   (seq-filter #'file-directory-p (mapcar #'expand-file-name heks/onefetch-directories)))
+
+(defun heks/onefetch--checkouts ()
+  "Return the checkouts of `heks/onefetch-directories', one level down.
+
+It is the directories the reading would find and nothing else -- a `.git'
+that is a directory or the file a worktree keeps -- so that a prompt offers
+what has a description to show rather than every folder beside it."
+  (let ((checkouts nil))
+    (dolist (root (heks/onefetch--roots))
+      (dolist (directory (directory-files root t "\\`[^.]" t))
+        (when (and (file-directory-p directory)
+                   (file-exists-p (expand-file-name ".git" directory)))
+          (push (file-name-as-directory directory) checkouts))))
+    (nreverse checkouts)))
+
+(defun heks/onefetch--toplevel (directory)
+  "Return the root of the repository DIRECTORY is in, or nil when it is in none.
+
+onefetch describes a checkout, so what it is given is the root and not a
+directory somewhere inside one; and a directory that is not in a repository
+at all has nothing for it to describe."
+  (when (file-directory-p directory)
+    (when-let* ((output (heks/onefetch--git directory "rev-parse" "--show-toplevel")))
+      (file-name-as-directory (expand-file-name output)))))
+
+(defun heks/onefetch--project-directory ()
+  "Return the repository `heks/onefetch-project' is asked about by default.
+
+What point is looking at, when that is a repository: the block of the
+onefetch screen it is pressed in, or the project of the buffer.  Otherwise
+one of the checkouts of `heks/onefetch-directories', picked from a prompt --
+nothing that is not a repository is offered, because a directory that is not
+one has no description to show."
+  (or (when (derived-mode-p 'heks/onefetch-mode)
+        (plist-get (heks/onefetch--repository-at-point) :directory))
+      (when-let* ((project (project-current))
+                  (root (heks/onefetch--toplevel (project-root project))))
+        root)
+      (when-let* ((checkouts (heks/onefetch--checkouts)))
+        (completing-read "Repository: " checkouts nil t))
+      (user-error "No repository to describe: point is not in one, and nothing under %s is"
+                  (mapconcat #'abbreviate-file-name heks/onefetch-directories ", "))))
 
 (defconst heks/onefetch--read-script
   (concat "for root in \"$@\"; do\n"
@@ -469,6 +538,18 @@ put in place, and the repository shows it at once."
       (heks/onefetch--ask repository)))
   (heks/onefetch--pump))
 
+(defun heks/onefetch--only-fill (directory)
+  "Read DIRECTORY's HEAD and ask onefetch about it.
+
+A screen of one repository reads what the fleet's reading would have said of
+it -- the commit it is at and when that was -- with one git call rather than
+a process that walks the directories, and asks onefetch in the background
+like every other description."
+  (let* ((head (and (executable-find "git") (heks/onefetch--head directory)))
+         (revision (when head (format "%s %s" (car head) (cdr head)))))
+    (heks/onefetch--found directory (or revision ""))
+    (heks/onefetch--describe (list (file-name-as-directory (expand-file-name directory))))))
+
 (defun heks/onefetch--pump ()
   "Start as many repositories as `heks/onefetch-parallelism' allows."
   (while (and heks/onefetch--queue
@@ -614,11 +695,25 @@ saying that the block under it is still being written."
               ""))))
 
 (defun heks/onefetch--key-hints ()
-  "Return the keys the screen is read with, as a list of what they do."
+  "Return the keys the screen is read with, as a list of what they do.
+
+A screen of one repository is offered the keys that mean something there:
+there is no order to change and nothing to filter, and a key that would do
+nothing is not a key worth naming."
   (append '("g again" "r this one" "RET Magit" "o dired" "b browser"
-            "TAB fold" "s order")
-          (if heks/onefetch--filter '("F everything") '("f filter"))
+            "TAB fold")
+          (unless heks/onefetch--only
+            (append '("s order")
+                    (if heks/onefetch--filter '("F everything") '("f filter"))))
           (when (fboundp 'heks/onefetch-menu) '("m onefetch's options"))))
+
+(defun heks/onefetch--only-state ()
+  "Return what the screen of one repository says of how far it has got."
+  (pcase (plist-get (heks/onefetch--repository heks/onefetch--only) :status)
+    ('done "described")
+    ('failed "onefetch would not describe it")
+    ('running "asking onefetch about it")
+    (_ "waiting for onefetch")))
 
 (defun heks/onefetch--render-header ()
   "Insert what the screen is, how far it has got, and the keys that read it."
@@ -630,29 +725,39 @@ saying that the block under it is still being written."
                                  (memq (plist-get repository :status) '(done failed)))
                                heks/onefetch--repositories)))
     (insert (propertize
-             (format "onefetch · %d %s%s"
-                     total
-                     (if (= total 1) "repository" "repositories")
-                     (if heks/onefetch-directories
-                         (format " in %s"
-                                 (mapconcat #'abbreviate-file-name
-                                            heks/onefetch-directories ", "))
-                       ""))
+             ;; One repository says which one rather than how many: the
+             ;; count of one is the block's heading, and the directory is
+             ;; what tells two checkouts of the same name apart.
+             (if heks/onefetch--only
+                 (format "onefetch · %s · %s"
+                         (file-name-nondirectory (directory-file-name heks/onefetch--only))
+                         (abbreviate-file-name (directory-file-name heks/onefetch--only)))
+               (format "onefetch · %d %s%s"
+                       total
+                       (if (= total 1) "repository" "repositories")
+                       (if heks/onefetch-directories
+                           (format " in %s"
+                                   (mapconcat #'abbreviate-file-name
+                                              heks/onefetch-directories ", "))
+                         "")))
              'face 'bold)
             "\n")
     (insert (propertize
              (string-join
               (delq nil
-                    (list (if (eq heks/onefetch-order 'recent)
-                              "the last change first" "by name")
-                          (cond ((process-live-p heks/onefetch--reader)
-                                 "reading the repositories")
-                                ((zerop total) "nothing to describe")
-                                ((= described total) (format "all %d described" total))
-                                (t (format "%d of %d described" described total)))
-                          (and heks/onefetch--filter
-                               (format "only “%s”" heks/onefetch--filter))
-                          (and (/= shown total) (format "%d shown" shown))))
+                    (if heks/onefetch--only
+                        (list (heks/onefetch--only-state)
+                              (and (/= shown total) (format "%d shown" shown)))
+                      (list (if (eq heks/onefetch-order 'recent)
+                                "the last change first" "by name")
+                            (cond ((process-live-p heks/onefetch--reader)
+                                   "reading the repositories")
+                                  ((zerop total) "nothing to describe")
+                                  ((= described total) (format "all %d described" total))
+                                  (t (format "%d of %d described" described total)))
+                            (and heks/onefetch--filter
+                                 (format "only “%s”" heks/onefetch--filter))
+                            (and (/= shown total) (format "%d shown" shown)))))
               " · ")
              'face 'shadow)
             "\n")
@@ -699,8 +804,11 @@ onefetch used to say about it: the refusal is the newer thing."
         (dolist (repository shown)
           (heks/onefetch--render-repository repository)))
        ;; Nothing found yet is not nothing there: while the directories are
-       ;; being read the screen is empty because the answer is coming.
+       ;; being read the screen is empty because the answer is coming.  A
+       ;; screen of one repository says nothing about the directories: what
+       ;; it is about is one of them, and it is the buffer's name.
        ((and (null heks/onefetch--repositories)
+             (null heks/onefetch--only)
              (not (process-live-p heks/onefetch--reader)))
         (insert (propertize (format "  nothing under %s is a repository\n"
                                     (mapconcat #'abbreviate-file-name
@@ -795,7 +903,9 @@ the program prints, character for character.  Lines are not wrapped, because
 the drawing is not wrapped either.
 
 `g' asks about every repository again, `n' and `p' walk them, `TAB' folds
-the block point is in, and `m' is the options onefetch is asked with."
+the block point is in, and `m' is the options onefetch is asked with.  The
+screen of one repository -- `C-c w O' -- is this mode with one block in it,
+in a buffer named after the repository."
   (setq-local truncate-lines t
               revert-buffer-function #'heks/onefetch--revert
               heks/onefetch--repositories nil
@@ -962,11 +1072,19 @@ comes back as it came."
 
 What the screen already says is kept until the new answer arrives, so that
 refreshing it does not empty it: a block a reader is in the middle of is
-still there, saying the old thing, while it says it again."
+still there, saying the old thing, while it says it again.  The screen of
+one repository asks about that one and walks nothing -- the fleet is not
+what it is showing, and the descriptions of the fleet are not what it is
+giving up -- and what the other repositories were described as is kept."
   (interactive)
   (heks/onefetch--cancel)
-  (clrhash heks/onefetch--cache)
-  (heks/onefetch--read)
+  (if heks/onefetch--only
+      (progn
+        (when-let* ((repository (heks/onefetch--repository heks/onefetch--only)))
+          (remhash (heks/onefetch--cache-key repository) heks/onefetch--cache))
+        (heks/onefetch--only-fill heks/onefetch--only))
+    (clrhash heks/onefetch--cache)
+    (heks/onefetch--read))
   (heks/onefetch--render))
 
 (defun heks/onefetch-refresh-one ()
@@ -1157,6 +1275,55 @@ under the rule at the top of the buffer, and `m' is onefetch's own options."
       (unless (derived-mode-p 'heks/onefetch-mode)
         (heks/onefetch-mode))
       (heks/onefetch--read)
+      (heks/onefetch--render))
+    (pop-to-buffer buffer)))
+
+;;;###autoload
+(global-set-key (kbd "C-c w O") #'heks/onefetch-project)
+
+;;;###autoload
+(defun heks/onefetch-project (&optional directory)
+  "Show DIRECTORY, one repository, as onefetch describes it.
+
+This is the screen of `heks/onefetch' with one repository in it: the same
+mode, the same keys, the same block -- the languages and how much of each,
+the authors, the art, in the colours onefetch prints them in.  Nothing is
+walked to find it: the repository point is in is the one asked about -- the
+block of the fleet's screen, or the project of the buffer -- and from
+anywhere else it is picked from the checkouts under `heks/onefetch-directories'.
+A prefix argument asks for a directory of one's own instead.  What is drawn
+is the fleet's description of that repository, kept in the same cache by
+directory, commit and arguments, so a repository described on one screen is
+on the other at once; `g' asks it again and touches nothing else.
+
+A directory that is not in a repository is refused rather than described:
+onefetch has nothing to say about one, and a screen of a failure is not
+what was asked for."
+  (interactive
+   (list (if current-prefix-arg
+             (read-directory-name
+              "Repository: "
+              (or (when-let* ((project (project-current)))
+                    (project-root project))
+                  default-directory))
+           (heks/onefetch--project-directory))))
+  (let* ((wanted (or directory default-directory))
+         (root (or (heks/onefetch--toplevel wanted)
+                   (user-error "%s is not in a repository, so onefetch has nothing to describe"
+                               (abbreviate-file-name (expand-file-name wanted)))))
+         (buffer (get-buffer-create
+                  (format heks/onefetch-project-buffer-name
+                          (file-name-nondirectory (directory-file-name root))))))
+    (with-current-buffer buffer
+      (unless (derived-mode-p 'heks/onefetch-mode)
+        (heks/onefetch-mode))
+      ;; Another repository is another screen: what this buffer was saying is
+      ;; not about the one it is about now.
+      (unless (equal heks/onefetch--only root)
+        (heks/onefetch--cancel)
+        (setq heks/onefetch--repositories nil))
+      (setq heks/onefetch--only root)
+      (heks/onefetch--only-fill root)
       (heks/onefetch--render))
     (pop-to-buffer buffer)))
 
