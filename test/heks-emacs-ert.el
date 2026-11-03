@@ -55,7 +55,7 @@
   (load (expand-file-name (format "modules/%s.el" name) heks-ert--source) nil t))
 
 (dolist (module '("markdown" "render" "import" "present" "heks-emacs" "emacs-core"
-                 "notes" "notes-graph" "notes-auto" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "dev-hover" "openapi" "sift" "duplicates" "shell" "guile" "ui" "ai" "github-repo"))
+                 "notes" "notes-graph" "notes-auto" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "dev-hover" "openapi" "sift" "duplicates" "shell" "guile" "ui" "ai" "github-repo" "onefetch"))
   (heks-ert--module module))
 
 ;; `htmlize' is what Org colours the code in a note with, and the
@@ -3852,6 +3852,303 @@ lint findings and not formatting ones."
                  "jjba23/sift"))
   (should-not (heks/github-repo--slug-from-url
                "https://codeberg.org/jjba23/heks-emacs.git")))
+
+;;
+;; ====== onefetch: every repository, as the program describes it ======
+;;
+
+(defmacro heks-ert--with-repositories (names &rest body)
+  "Run BODY with `root' holding directories NAMES, some of them repositories.
+
+A name ending in `/' is a repository with a `.git' directory in it, a name
+ending in `!' is one with a `.git' file, as a worktree keeps, and a plain
+name is a directory that is not a repository at all."
+  (declare (indent 1))
+  `(let ((root (file-name-as-directory (heks-ert--temp-directory))))
+     (unwind-protect
+         (progn
+           (dolist (name ,names)
+             (let* ((repository (string-suffix-p "/" name))
+                    (worktree (string-suffix-p "!" name))
+                    (plain (string-remove-suffix "!" (string-remove-suffix "/" name)))
+                    (directory (expand-file-name plain root)))
+               (make-directory directory t)
+               (cond (repository (make-directory (expand-file-name ".git" directory) t))
+                     (worktree (with-temp-file (expand-file-name ".git" directory)
+                                 (insert "gitdir: /elsewhere\n"))))))
+           (let ((heks/onefetch-directories (list root)))
+             ,@body))
+       (delete-directory root t))))
+
+(ert-deftest heks/onefetch/what-the-reading-says-is-read-in-records ()
+  "The records are pairs of NUL-ended fields, and a field may arrive alone."
+  (let ((answer (heks/onefetch--split-records
+                 "/repos/alpha/\0abc 100\0/repos/beta/\0\0")))
+    ;; The repository with no commit is a record with an empty revision.
+    (should (equal (car answer)
+                   '(("/repos/alpha/" . "abc 100") ("/repos/beta/" . ""))))
+    (should (equal (cdr answer) "")))
+  ;; The answer is a pipe and says what it has when it has it: a directory
+  ;; whose revision has not arrived yet is kept and read again, not dropped.
+  (let* ((first (heks/onefetch--split-records "/repos/alpha/\0"))
+         (second (heks/onefetch--split-records (concat (cdr first) "\0"))))
+    (should-not (car first))
+    (should (equal (cdr first) "/repos/alpha/\0"))
+    (should (equal (car second) '(("/repos/alpha/" . ""))))
+    (should (equal (cdr second) "")))
+  (let* ((first (heks/onefetch--split-records "/repos/al"))
+         (second (heks/onefetch--split-records (concat (cdr first) "pha/\0abc 1")))
+         (third (heks/onefetch--split-records (concat (cdr second) "00\0"))))
+    (should-not (car first))
+    (should-not (car second))
+    (should (equal (car third) '(("/repos/alpha/" . "abc 100"))))
+    (should (equal (cdr third) ""))))
+
+(ert-deftest heks/onefetch/the-directories-are-read-in-the-background ()
+  "The screen opens at once, and what is under the directories arrives after it."
+  (skip-unless (and (executable-find "sh") (executable-find "git")))
+  (heks-ert--with-repositories '("alpha/" "beta!" "gamma" ".hidden/")
+    ;; `true' stands in for onefetch: what is being checked is the reading,
+    ;; and a program that says nothing says it quickly.
+    (let ((buffer (generate-new-buffer "*heks/onefetch test*"))
+          (heks/onefetch-executable "true"))
+      (unwind-protect
+          (with-current-buffer buffer
+            (heks/onefetch-mode)
+            (heks/onefetch--read)
+            ;; Nothing was waited for: the screen is drawn and the reading is
+            ;; still going on, with no repository on it yet.
+            (heks/onefetch--render)
+            (should (process-live-p heks/onefetch--reader))
+            (should-not heks/onefetch--repositories)
+            (should (string-match-p "reading the repositories" (buffer-string)))
+            (let ((waited 0))
+              (while (and (process-live-p heks/onefetch--reader) (< waited 100))
+                (accept-process-output nil 0.1)
+                (setq waited (1+ waited))))
+            ;; What has a `.git' is a repository, a directory or the file a
+            ;; worktree keeps, and a repository with no commit has no date.
+            (should (equal (mapcar (lambda (repository) (plist-get repository :name))
+                                   heks/onefetch--repositories)
+                           '("alpha" "beta")))
+            (should (equal (mapcar (lambda (repository) (plist-get repository :head))
+                                   heks/onefetch--repositories)
+                           '(nil nil))))
+        (kill-buffer buffer)))))
+
+(ert-deftest heks/onefetch/a-repository-is-shown-by-name-or-by-its-last-change ()
+  (let ((repositories (list (list :name "beta" :time 300)
+                            (list :name "alpha" :time 200)
+                            (list :name "gamma" :time nil))))
+    (let ((heks/onefetch-order 'name))
+      (should (equal (mapcar (lambda (one) (plist-get one :name))
+                             (heks/onefetch--in-order (copy-sequence repositories)))
+                     '("alpha" "beta" "gamma"))))
+    (let ((heks/onefetch-order 'recent))
+      ;; Newest first, and a repository with no commit yet -- no date to be
+      ;; new by -- comes last rather than first.
+      (should (equal (mapcar (lambda (one) (plist-get one :name))
+                             (heks/onefetch--in-order (copy-sequence repositories)))
+                     '("beta" "alpha" "gamma"))))))
+
+(ert-deftest heks/onefetch/a-description-keeps-the-colours-and-loses-the-codes ()
+  "What onefetch printed comes back as text, with its colours as faces."
+  (let ((described (heks/onefetch--described
+                    "\e[?7l\e[35;1mheks-emacs\e[0m \e[38;2;192;101;219m●\e[0m\e[?7h\n")))
+    (should (equal described "heks-emacs ●\n"))
+    ;; The title is the language's colour, bold, as onefetch prints it.
+    (should (equal (get-text-property 0 'face described)
+                   '(ansi-color-bold (:foreground "magenta3"))))
+    ;; And a chip is the language's own colour, in true colours.
+    (should (equal (get-text-property (string-match "●" described) 'face described)
+                   '(:foreground "#C065DB")))))
+
+(ert-deftest heks/onefetch/a-remote-names-the-page-it-is-at ()
+  "Every way a remote is written names one page, and a path names none."
+  (should (equal (heks/onefetch-web-url "git@github.com:jjba23/sift.git")
+                 "https://github.com/jjba23/sift"))
+  (should (equal (heks/onefetch-web-url "https://github.com/o2sh/onefetch.git")
+                 "https://github.com/o2sh/onefetch"))
+  (should (equal (heks/onefetch-web-url "ssh://git@codeberg.org/joe/thing.git")
+                 "https://codeberg.org/joe/thing"))
+  (should (equal (heks/onefetch-web-url "/home/joe/Hacking/sift")
+                 "/home/joe/Hacking/sift")))
+
+(ert-deftest heks/onefetch/a-host-alias-is-the-machine-it-stands-for ()
+  "The alias an ssh remote names is looked up in the ssh configuration."
+  (let* ((config (make-temp-file "heks-ert-ssh-config-"))
+         (heks/onefetch-ssh-config config))
+    (unwind-protect
+        (progn
+          (with-temp-file config
+            (insert "Host *\n  ServerAliveInterval 60\n\n"
+                    "Host personal.github.com\n  HostName github.com\n"
+                    "  User git\n\n"
+                    "Host elsewhere\n  HostName example.org\n"))
+          (should (equal (heks/onefetch--ssh-hostname "personal.github.com")
+                         "github.com"))
+          (should (equal (heks/onefetch--ssh-hostname "elsewhere") "example.org"))
+          (should-not (heks/onefetch--ssh-hostname "github.com"))
+          (should (equal (heks/onefetch-web-url
+                          "git@personal.github.com:jjba23/heks-emacs.git")
+                         "https://github.com/jjba23/heks-emacs")))
+      (delete-file config))))
+
+(ert-deftest heks/onefetch/a-date-is-said-the-way-onefetch-says-it ()
+  (let ((now 1000000000))
+    (should (equal (heks/onefetch--ago now now) "now"))
+    (should (equal (heks/onefetch--ago (- now 30) now) "now"))
+    (should (equal (heks/onefetch--ago (- now 200) now) "3 minutes ago"))
+    (should (equal (heks/onefetch--ago (- now 3600) now) "an hour ago"))
+    (should (equal (heks/onefetch--ago (- now 40000) now) "11 hours ago"))
+    (should (equal (heks/onefetch--ago (- now 2000000) now) "23 days ago"))
+    (should (equal (heks/onefetch--ago (- now 20000000) now) "8 months ago"))
+    (should (equal (heks/onefetch--ago (+ now 86400) now) "in a day"))))
+
+(ert-deftest heks/onefetch/what-onefetch-refuses-is-said-in-one-line ()
+  "The reason is the last thing onefetch said, not the whole report."
+  (should (equal (heks/onefetch--reason
+                  1 "Error: Failed to traverse Git commit history\n\nCaused by:\n    Branch 'refs/heads/trunk' does not have any commits\n"
+                  "")
+                 "Branch 'refs/heads/trunk' does not have any commits"))
+  (should (equal (heks/onefetch--reason 1 "" "") "onefetch exited with 1")))
+
+(ert-deftest heks/onefetch/the-arguments-are-onefetch-s-own ()
+  "An option is set, replaced, and taken out again, in onefetch's own order."
+  (let ((heks/onefetch-arguments '("--true-color" "always")))
+    (heks/onefetch--set-option "--number-of-authors" '("5"))
+    (should (equal heks/onefetch-arguments
+                   '("--true-color" "always" "--number-of-authors" "5")))
+    (heks/onefetch--set-option "--number-of-authors" '("2"))
+    (should (equal heks/onefetch-arguments
+                   '("--true-color" "always" "--number-of-authors" "2")))
+    ;; A count of none is not asked for: the option goes, and onefetch's own
+    ;; default is what answers.
+    (heks/onefetch--set-option "--number-of-authors" nil)
+    (should (equal heks/onefetch-arguments '("--true-color" "always")))
+    ;; A list-valued option keeps its values together, and reading it back
+    ;; stops at the next flag.
+    (heks/onefetch--set-option "--disabled-fields" '("authors" "url"))
+    (heks/onefetch-toggle-flag "--no-art")
+    (should (equal (heks/onefetch--option-values "--disabled-fields")
+                   '("authors" "url")))
+    (heks/onefetch-toggle-flag "--no-art")
+    (should-not (member "--no-art" heks/onefetch-arguments))))
+
+(ert-deftest heks/onefetch/the-screen-has-a-mode-and-keys ()
+  (with-temp-buffer
+    (heks/onefetch-mode)
+    (should (derived-mode-p 'special-mode))
+    (should (keymapp heks/onefetch-mode-map))
+    (should (eq (key-binding (kbd "n")) 'heks/onefetch-next))
+    (should (key-binding (kbd "p")))
+    (should (eq (key-binding (kbd "TAB")) 'heks/onefetch-toggle))
+    (should (key-binding (kbd "RET")))
+    (should (eq (key-binding (kbd "o")) 'heks/onefetch-dired))
+    (should (eq (key-binding (kbd "b")) 'heks/onefetch-browse))
+    ;; `g' is the one the screen inherits, and what it reverts is this module.
+    (should (eq (key-binding (kbd "g")) 'revert-buffer))
+    (should (eq revert-buffer-function 'heks/onefetch--revert))
+    (should (eq (key-binding (kbd "q")) 'quit-window))))
+
+(ert-deftest heks/onefetch/the-screen-draws-a-block-and-folds-it ()
+  (let ((first (list :name "alpha" :directory "/repos/alpha/" :status 'done
+                     :text (heks/onefetch--described "\e[35;1mProject\e[0m: alpha\n")
+                     :time nil))
+        (second (list :name "beta" :directory "/repos/beta/" :status 'failed
+                      :message "no commits" :time nil)))
+    (let ((buffer (generate-new-buffer "*heks/onefetch test*")))
+      (unwind-protect
+          (with-current-buffer buffer
+            (heks/onefetch-mode)
+            (setq heks/onefetch--repositories (list first second)
+                  heks/onefetch-directories '("/repos"))
+            (heks/onefetch--render)
+            ;; Every repository is a heading, what onefetch said is under it,
+            ;; and what it would not say is why.
+            (should (equal (buffer-substring-no-properties (point-min)
+                                                           (line-end-position))
+                           "onefetch · 2 repositories in /repos"))
+            (should (string-match-p "^▾ alpha$" (buffer-string)))
+            (should (string-match-p "Project: alpha" (buffer-string)))
+            (should (string-match-p "^  no commits$" (buffer-string)))
+            ;; The heading and the block are the repository, so a key pressed
+            ;; anywhere in it knows which one.
+            (goto-char (point-min))
+            (heks/onefetch-next)
+            (should (equal (plist-get (heks/onefetch--repository-at-point) :name)
+                           "alpha"))
+            (forward-line 2)
+            (should (equal (plist-get (heks/onefetch--repository-at-point) :name)
+                           "alpha"))
+            ;; Folding it leaves the heading and takes the rest away.
+            (heks/onefetch-toggle)
+            (should (string-match-p "^▸ alpha$" (buffer-string)))
+            (should-not (string-match-p "Project: alpha" (buffer-string)))
+            (should (equal (plist-get (heks/onefetch--repository-at-point) :name)
+                           "alpha")))
+        (kill-buffer buffer)))))
+
+(ert-deftest heks/onefetch/the-screen-walks-its-repositories ()
+  (let ((buffer (generate-new-buffer "*heks/onefetch test*")))
+    (unwind-protect
+        (with-current-buffer buffer
+          (heks/onefetch-mode)
+          (setq heks/onefetch--repositories
+                (mapcar (lambda (name)
+                          (list :name name :directory (format "/repos/%s/" name)
+                                :status 'done :text "  text\n"))
+                        '("alpha" "beta" "gamma"))
+                heks/onefetch-directories '("/repos"))
+          (heks/onefetch--render)
+          (goto-char (point-min))
+          (dolist (name '("alpha" "beta" "gamma"))
+            (heks/onefetch-next)
+            (should (equal (plist-get (heks/onefetch--repository-at-point) :name)
+                           name)))
+          ;; The last is the last: walking past it stays there.
+          (heks/onefetch-next)
+          (should (equal (plist-get (heks/onefetch--repository-at-point) :name)
+                         "gamma"))
+          (heks/onefetch-previous)
+          (should (equal (plist-get (heks/onefetch--repository-at-point) :name)
+                         "beta")))
+      (kill-buffer buffer))))
+
+(ert-deftest heks/onefetch/the-filter-shows-only-what-matches ()
+  (with-temp-buffer
+    (heks/onefetch-mode)
+    (setq heks/onefetch--repositories
+          (mapcar (lambda (name)
+                    (list :name name :directory (format "/repos/%s/" name)
+                          :status 'done :text "  text\n"))
+                  '("alpha" "beta.el" "gamma.el")))
+    (let ((heks/onefetch--filter "et"))
+      (should (equal (mapcar (lambda (one) (plist-get one :name))
+                             (heks/onefetch--shown))
+                     '("beta.el"))))
+    (let ((heks/onefetch--filter nil))
+      (should (= 3 (length (heks/onefetch--shown)))))))
+
+(ert-deftest heks/onefetch/a-repository-is-asked-about-once ()
+  "What was described in this session is not asked for again."
+  (let ((heks/onefetch--cache (make-hash-table :test #'equal))
+        (heks/onefetch-executable "true"))
+    (with-temp-buffer
+      (heks/onefetch-mode)
+      (setq heks/onefetch--repositories
+            (list (list :name "alpha" :directory "/repos/alpha/"
+                        :head "abc" :status 'pending)))
+      (puthash (heks/onefetch--cache-key (car heks/onefetch--repositories))
+               "  the description\n" heks/onefetch--cache)
+      (heks/onefetch--describe)
+      (should (equal (plist-get (heks/onefetch--repository "/repos/alpha/") :text)
+                     "  the description\n"))
+      (should (equal (plist-get (heks/onefetch--repository "/repos/alpha/") :status)
+                     'done))
+      ;; And nothing was started: the queue is empty and no process is here.
+      (should-not heks/onefetch--queue)
+      (should-not heks/onefetch--running))))
 
 (unless (getenv "HEKS_ERT_NO_RUN")
   (ert-run-tests-batch-and-exit))
