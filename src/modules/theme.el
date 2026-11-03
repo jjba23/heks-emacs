@@ -20,6 +20,13 @@
 
   ;; Handle theme-specific overrides dynamically
   (pcase heks/theme
+    ;; The light operandi palettes paint a comment `red-faint', and a comment
+    ;; that shouts belongs to neither the prose nor the code around it; it is
+    ;; given the theme's own grey, the `fg-dim' the untinted palette uses.
+    ('modus-operandi
+     (setq modus-operandi-palette-overrides '((comment fg-dim))))
+    ('modus-operandi-tinted
+     (setq modus-operandi-tinted-palette-overrides '((comment fg-dim))))
     ('modus-vivendi-tinted
      (setq modus-vivendi-tinted-palette-overrides '((comment "#928f8a"))))
     ('ef-bio
@@ -31,7 +38,19 @@
     ('ef-autumn
      (setq ef-autumn-palette-overrides '((variable fg-main) (bg-main bg-dim)))))
 
-  (load-theme heks/theme t))
+  (load-theme heks/theme t)
+
+  ;; A directory is `accent-0' in the Modus palettes, and in the light ones
+  ;; that is a red.  Dired draws a folder in `dired-directory' and, through
+  ;; `nerd-icons-dired', in `nerd-icons-dired-dir-face', so both are given a
+  ;; pink instead; reading the palette rather than writing a hex keeps them
+  ;; with the theme if `magenta-warmer' is ever overridden.
+  (when (memq heks/theme '(modus-operandi modus-operandi-tinted))
+    (let ((folder (modus-themes-get-color-value 'magenta-warmer)))
+      (custom-theme-set-faces
+       heks/theme
+       `(dired-directory ((t :foreground ,folder)))
+       `(nerd-icons-dired-dir-face ((t :foreground ,folder)))))))
 
 (use-package everforest
   :ensure (:host github :repo "Theory-of-Everything/everforest-emacs" :branch "master2")
