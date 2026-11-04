@@ -98,6 +98,11 @@ against the Maven schema."
       (eglot-ensure))))
 
 (add-to-list 'auto-mode-alist '("pom\\.xml\\'" . nxml-mode))
+
+;; JSON Lines (one JSON value per line, also `.ndjson') is not a single
+;; JSON document, so use the plain `js-json-mode' (no tree-sitter parse
+;; of the whole buffer, which would flag every line after the first).
+(add-to-list 'auto-mode-alist '("\\.\\(?:jsonl\\|ndjson\\)\\'" . js-json-mode))
 (add-hook 'nxml-mode-hook #'heks/pom-xml-setup)
 
 ;; Spring Boot configuration lives either in `application*.properties'
