@@ -31,9 +31,15 @@
 ;;
 ;; if you're a beginner, consider setting all these to 1
 ;;
-(tool-bar-mode -1)
-(scroll-bar-mode -1)
-(menu-bar-mode -1)
+;; `tool-bar-mode' and `scroll-bar-mode' are only defined by a build with a
+;; window system.  A daemon built without one (Guix's `emacs-no-x', which is
+;; what the compositor starts) has the first and not the second, and an
+;; unguarded call stops this file at that line -- before the GC threshold, the
+;; startup screen and `native-comp-speed' below are set, so a session like
+;; that ran with Emacs' defaults for all three and never said why.
+(when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
+(when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
+(when (fboundp 'menu-bar-mode) (menu-bar-mode -1))
 
 ;; Defer garbage collection further back in the startup process
 (setq gc-cons-threshold most-positive-fixnum

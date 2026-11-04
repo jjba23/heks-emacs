@@ -705,7 +705,7 @@ nothing is not a key worth naming."
           (unless heks/onefetch--only
             (append '("s order")
                     (if heks/onefetch--filter '("F everything") '("f filter"))))
-          (when (fboundp 'heks/onefetch-menu) '("m onefetch's options"))))
+          '("m onefetch's options")))
 
 (defun heks/onefetch--only-state ()
   "Return what the screen of one repository says of how far it has got."
@@ -886,6 +886,7 @@ repository\" read."
   "TAB" #'heks/onefetch-toggle
   "<backtab>" #'heks/onefetch-toggle-all
   "RET" #'heks/onefetch-magit
+  "m" #'heks/onefetch-options
   "o" #'heks/onefetch-dired
   "b" #'heks/onefetch-browse
   "r" #'heks/onefetch-refresh-one
@@ -1226,13 +1227,23 @@ turns a thing off and is read better the other way round."
 (heks/onefetch--def-toggle heks/onefetch-toggle-hidden
   "--include-hidden" "hidden files, counted")
 
+;; `transient' is asked for when the menu is opened, and not when this module is
+;; read.  Requiring it here made Emacs load its own copy during startup, ahead
+;; of the build Elpaca installs, and Elpaca said so on every start ("transient
+;; loaded before Elpaca activation").  The menu is a thing pressed at a screen,
+;; so a screen is also the latest moment it can be needed.
+(defun heks/onefetch-options ()
+  "Onefetch's own options, in a menu."
+  (interactive)
+  (require 'transient)
+  (call-interactively #'heks/onefetch-menu))
+
 (use-package transient
   :ensure nil
+  :defer t
   :config
   ;; Onefetch's own options, in a menu, because a flag is a thing to try
   ;; rather than a setting to write down and reload the configuration for.
-  (keymap-set heks/onefetch-mode-map "m" #'heks/onefetch-menu)
-
   (transient-define-prefix heks/onefetch-menu ()
     "onefetch: what the screen asks for, and what it shows."
     [["the screen"
