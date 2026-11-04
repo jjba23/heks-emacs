@@ -6,6 +6,9 @@
 
 [[https://jointhefreeworld.org/ggg/dist/gnu-emacs.svg]] [[https://jointhefreeworld.org/ggg/dist/maak.svg]] [[https://img.shields.io/badge/license-MIT-blue.svg]]
 
+#+attr_html: :width 160 :alt heks-emacs logo
+[[file:logo.svg]]
+
 *Emacs configuration of the warlock*: a modular, delightful, reproducible Emacs
 setup built with Emacs Lisp and [[https://github.com/progfolio/elpaca][Elpaca]], for GNU/Linux and macOS — many
 languages, many palettes, one coherent place to work.
@@ -15,7 +18,6 @@ unto itself: a configuration that is not a list of packages with opinions glued
 to it, but a place where notes, code, mail, music and the shell are the same
 kind of thing, and where every part of it can be read and changed by the person
 using it.
-
 
 [[file:docs/images/heks-emacs.gif]]
 
