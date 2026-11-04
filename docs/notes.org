@@ -352,7 +352,7 @@ Because everything is files, a big restructuring is just ~git mv~, a script, and
 :CUSTOM_ID: import
 :END:
 
-A document written for other tools -- a README, a blog post, an ADR -- becomes a note with ~C-c n m~ (the file in this buffer; with a prefix, written straight into the notes directory), and a selected region of Markdown becomes Org with ~C-c n M~.  What it does and does not translate is in the [[file:../README.org][README]] (the ~import.el~ section).
+A document written for other tools -- a README, a blog post, an ADR -- becomes a note with ~C-c n m~ (the file in this buffer; with a prefix, written straight into the notes directory), and a selected region of Markdown becomes Org with ~C-c n M~.  What it does and does not translate is in [[file:modules.org][docs/modules.org]] (the ~import.el~ section).
 
 * The personal agenda
 :PROPERTIES:
@@ -545,7 +545,7 @@ The modules are ~notes.el~, ~contacts.el~, ~bookmarks.el~ and ~agenda.el~, loade
 (setopt heks/notes-dir "~/notes")        ; "$HOME/notes" works too
 #+end_src
 
-The place to put it is the *bridge* (see [[file:../README.org][the README]]), ~~/.emacs.d/cask-and-cons-bridge.el~ if you use cask-and-cons, because the bridge is loaded /before/ the modules read their settings.  (The older name ~heks-emacs-notes-roam-dir~ still works, as an obsolete alias.)  Until the setting exists the commands tell you what to set rather than guessing.
+The place to put it is the *bridge* (see [[file:configuration.org][docs/configuration.org]]), ~~/.emacs.d/cask-and-cons-bridge.el~ if you use cask-and-cons, because the bridge is loaded /before/ the modules read their settings.  (The older name ~heks-emacs-notes-roam-dir~ still works, as an obsolete alias.)  Until the setting exists the commands tell you what to set rather than guessing.
 
 ** Start from nothing
 

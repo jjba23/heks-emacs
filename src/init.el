@@ -171,6 +171,7 @@
                            markdown
                            misc
                            music
+                           onefetch
                            openapi
                            org
                            plot

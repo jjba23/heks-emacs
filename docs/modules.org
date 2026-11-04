@@ -1,0 +1,289 @@
+#+title: The modules
+#+author: Josep Bigorra
+#+options: toc:2
+
+HEKS-EMACS is organized as a collection of focused modules. Each module owns a particular aspect of the Emacs environment, keeping the configuration modular and independently maintainable.
+
+The configuration is deliberately split by responsibility:
+
+- *Core* modules establish Emacs behavior and HEKS-specific infrastructure.
+- *UI* modules control presentation, themes, completion, navigation, and interaction.
+- *Development* modules provide language tooling, LSP, Git, containers, formatting, and project workflows.
+- *Knowledge* modules handle Org notes, Markdown, and writing.
+- *System* modules integrate shells, Guix, Dired, USB image writing, and other operating-system workflows.
+- *.eld* files provide lightweight, mode-specific editor configuration and snippets without turning every file type into a standalone module.
+
+
+* Core & Bootstrap
+
+** =init.el=
+The main entry point for the configuration. Loads the HEKS-EMACS environment, Elpaca package manager, and configures package-level infrastructure such as =gcmh= and =no-littering=, and provides helpers for loading the individual user configuration modules.
+
+** =early-init.el=
+Early Emacs startup configuration. Handles settings that need to be applied before the normal initialization process begins.
+
+** =emacs-core.el=
+Establishes the baseline behavior of Emacs. Configures core editing behavior, UTF-8, minibuffer behavior, state persistence, Tree-sitter, window management, Dired defaults, diagnostics, keybindings, prettification, and other global defaults.
+
+Tree-sitter is set up so that no grammar is ever fetched while a file is being opened: every grammar this Emacs can be asked for is built once, into ~~/.emacs.d/tree-sitter~, by ~treesit-grammars.el~ in a batch Emacs of its own, started in the background at startup. ~M-x heks/treesit-install-grammars~ does the same work in front of you, and what the child says -- a grammar whose repository moved, or one whose compiler is missing -- is in the ~*heks-emacs tree-sitter grammars*~ buffer.
+
+=which-key= is what shows the keys of a prefix while it is being typed, and it is taught the whole key scheme here: every topic and every key is named in the words this configuration gives it, so a key that is being learned is explained as it is pressed rather than only in a document. What it may cut a description to is measured from those sentences rather than guessed at, so a menu is a list of whole sentences, and the menu itself is a window at the bottom of the frame -- tall enough for the page it holds, with the number of the prefix's keys it is showing in its mode line -- rather than the echo area, which cannot grow past a quarter of the frame.
+
+** =heks-emacs.el=
+Contains the main HEKS-EMACS-specific utilities and project automation commands. Provides helpers for rebuilding the system/user configuration, project REPLs, formatting, development and test tasks, Guix integration, UUID generation, JSON buffers, Dired utilities, and other workflow commands.
+
+It also owns the JVM build commands (Maven, Gradle and Spring Boot, which find the project root upwards from the current buffer and prefer the ~mvnw~ / ~gradlew~ wrappers), the database entry points (PostgreSQL through the built-in ~sql.el~ and MongoDB through ~mongosh~ in a terminal buffer), and the shared customization variables for the window separators.
+
+* User Interface
+
+** =ui.el=
+Controls the interactive Emacs UI. Configures the completion interface, scrolling, icons, ligatures, context actions, visual feedback, modeline-related helpers, and general presentation behavior.
+
+It also sizes the base, Org, Markdown and prose faces as multiples of the base font size so ~tekengrootte~ scales stay proportional, gives ECA's own faces a family by what they print (sans-serif for what names something in a chat, monospace for what a reader copies out of it), and it guarantees that the separators between windows remain clearly visible: their color is derived from the active theme, applied to ~window-divider~, its first/last pixels and ~vertical-border~, refreshed on every theme or scale change, and corrected where ~spacious-padding~ deliberately hides them.
+
+** =theme.el=
+Provides the theme system and look-and-feel configuration. Supports a selection of themes including EF/Modus, Everforest, Gruvbox, Dracula, Catppuccin, Rose Pine, Kaolin, Doom, and Kanagawa, selected through the HEKS-EMACS theme configuration.
+
+** =dashboard.el=
+Configures the HEKS welcome/dashboard screen. Defines project, work, and action bookmarks and makes the welcome screen the initial buffer when possible.
+
+** =editor.el=
+Contains general editor-quality-of-life improvements such as automatic saving, rainbow-mode, and convenient text movement.
+
+Two things about the text at point are here rather than anywhere else, because they are about what a buffer is made of rather than about a language: ~C-c z e~ grows the region by what it is made of -- a word, the string around it, the form, the definition -- and ~C-c z s~ shrinks it again (~expand-region~), and ~C-c # e~ opens the file at point again as root, through TRAMP, for the file that has to be edited and cannot be written by this user (~sudo-edit~).
+
+** =completion.el=
+Provides the completion stack using CAPE, Corfu, and Orderless. Adds completion-at-point sources, popup completion, history, documentation, and flexible Orderless matching.
+
+- *Popup*: completion appears automatically after two characters. ~TAB~ / ~S-TAB~ move through candidates (and cycle), ~M-SPC~ inserts an Orderless separator so a query can have several components.
+- *Documentation*: a popup beside the candidate list shows its documentation (~M-h~ toggles it, ~M-d~ shows the documentation, ~M-l~ jumps to the source), and the echo area shows a one-line summary.
+- *Quick select*: ~M-q~ labels each candidate with a key and completes the one you press; ~C-q~ inserts it instead. Candidates are also numbered, and a prefix argument picks one, e.g. ~C-u 3 TAB~.
+- *History*: Corfu remembers what you picked and ranks it higher, persisted across sessions through ~savehist~.
+- *Minibuffer*: Corfu also works in minibuffer prompts that have no other completion UI (not under Vertico, never when reading a password). ~M-m~ moves the current completion into the minibuffer UI (needs Consult).
+- *Sources (CAPE)*: file paths, dabbrev words, keywords and Org/Elisp blocks. In Eglot-managed buffers the language server, dabbrev and keyword results are merged into one list rather than the first source hiding the rest. Eglot's results are cache-busted so a failing server does not break the popup. In text buffers emoji and TeX/Unicode symbols complete too. ~C-c p~ opens the CAPE prefix map to trigger a single source by hand.
+- *Snippets*: yasnippet snippets appear as candidates.
+- *Terminal*: ~corfu-terminal~ makes the popup work in ~emacs -nw~.
+- *Behaviour*: ~tab-always-indent~ is ~complete~, so ~TAB~ indents first and completes when already indented; ~M-x~ only lists commands relevant to the current mode.
+
+** =consult.el=
+Configures =consult= for enhanced minibuffer navigation, buffer switching, searching, registers, bookmarks, project buffers, diagnostics, xrefs, and recent files.
+
+** =dired.el=
+Enhances Dired with subtree navigation, open-with support, utility helpers, and Nerd Font icons. Subtrees can be toggled interactively with mouse and keyboard bindings.
+
+** =help.el=
+Improves Emacs help and introspection through =helpful=, providing richer views for functions, variables, commands, keys, and symbols.
+
+* Development
+
+** =dev-*.el=
+The development-language and developer-tooling modules, split by concern so that a mistake in one cannot take the others down: =dev-langs.el= (language modes), =dev-tools.el= (Smartparens, Direnv, Docker, compilation, diff-hl, keyword highlighting, rainbow delimiters, the occurrences of the symbol at point), =dev-flymake.el= (checkers and Eglot), =dev-formats.el= (data formats, JVM, debugging), =dev-kubernetes.el=, =dev-folding.el= (navigation and Tree-sitter/Kirigami folding) and =dev-project.el= (EditorConfig, Maak, Terraform, SQL). Together they are the main module set. Provides major-mode support for Rust, Python, Haskell, Scala, Lua, TypeScript, Nix, TOML, YAML, Kotlin, Groovy, GraphQL, Dockerfiles, and other formats. It also configures Smartparens, Direnv, compilation, Flymake, formatting, Kubernetes, Tree-sitter folding, EditorConfig, Maak, and related development utilities. Scheme, Guile and Guix live in =guile.el=, and what formats and lints a Lisp -- sift -- lives in =sift.el=, which is the one module of this section that is not a language but the three Lisps' shared tool.
+
+Three of those are about reading code rather than about writing it, and they are in =dev-tools.el= because they are true of every language: ~hl-todo~ colours what a file says it still has to do (~TODO~, ~FIXME~, ~BUG~, ~HACK~, ~NOTE~ and the rest) and ~C-c t n~ and ~C-c t p~ walk them; ~rainbow-delimiters~ colours parentheses by how deep they are, which is the one thing that makes a list of lists readable at a glance; and ~symbol-overlay~ answers the question a reader asks most -- ~C-c z o~ lights up every occurrence of the symbol at point, ~C-c z n~ and ~C-c z p~ walk them, ~C-c z r~ renames them all at once and ~C-c z k~ takes the lighting off.
+
+=dev-hover.el= is the documentation that follows the pointer. When the mouse rests on a symbol, its signature and its prose appear in a child frame beside it -- in any buffer a language server is serving, and in Emacs Lisp, where there is no server to need. ~C-c i H~ turns it on and off, ~C-c i D~ shows the whole of it in a proper buffer (not clipped, and searchable), and ~C-c i n~ / ~C-c i p~ scroll the popup when there is more of it than fits. Nothing in it waits: the first source to answer is shown at once rather than when the slowest one is done, the pointer is asked about only when it has actually moved, and a popup that would show the same words as the one before it is not rendered and measured again.
+
+Flymake is configured here for every language at once, and one function of this module is what keeps those checkers when a language server arrives. Eglot replaces ~flymake-diagnostic-functions~ with a list of its own backend alone for as long as it manages a buffer, so what the buffer already had is put back beside the server's backend: Emacs's own ~sh-shellcheck-flymake~ for a script, the library's checker for a Python file, the shfmt drift and the OpenAPI check of the modules here. A module registers its checker on its major mode and says nothing about servers, so connecting one can neither lose a checker nor report a problem twice.
+
+JVM work is covered through Kotlin (~.kt~ and ~.kts~) and Groovy (~build.gradle~, ~Jenkinsfile~) modes and through Maven conventions for ~pom.xml~ (four-space ~nxml-mode~ indentation). Terraform and HCL get ~terraform-mode~, ~hcl-mode~, ~terraform fmt~ on save and ~terraform-ls~ over Eglot when the toolchain is installed. SQL files open in ~sql-mode~ with PostgreSQL as the default product, upper-cased keywords and Flymake linting, and ~mongosh~ scripts open in JavaScript mode.
+
+Compilation is read as output rather than as text. ~fancy-compilation~ turns the escape codes a tool writes into the colours it asked for, scrolls the output as it arrives and takes the faces of the buffer from the theme, and the ~TERM~ the tool is given is one that has colours, so it writes them at all. It is loaded and turned on when the configuration loads rather than when it is first wanted, which is not a detail: what the package does, it does by advising ~compile~ and ~compilation-filter~, so a mode that is loaded on demand has to be asked for before the first compilation -- and the escape codes are only noticed once that output is already in the buffer.
+
+** =eglot.el=
+Configures Emacs's Language Server Protocol integration through Eglot. Enables LSP support for languages including Scala, Haskell, Nix, Go, Python, Rust, HTML, CSS, JavaScript, Kotlin, YAML, C, Terraform, Markdown and shell scripts, with language-specific server configuration, formatting, diagnostics, code actions, and completion fixes.
+
+Kotlin uses whichever server is installed (JetBrains' ~intellij-server~, ~kotlin-lsp~ or the community ~kotlin-language-server~), Terraform uses ~terraform-ls~, and Java is handled through ~eglot-java~ with JDT LS configured to re-import Maven and Gradle projects automatically.
+
+A shell script gets ~bash-language-server~, in both of the modes one opens in (~bash-ts-mode~, which is what a ~.sh~ file comes up as when the bash grammar is built, and ~sh-mode~), for what shellcheck and shfmt cannot answer: the completion of the variables, functions and options of the script, its documentation on hover, the symbols of the file, a definition, its references and a rename. The two tools the server runs itself are turned off in it, because they are not the only ones that would be running: ~shell.el~ already checks every shell buffer with shellcheck and formats it with shfmt, so the server is language intelligence rather than a second toolchain, and nothing is reported on a line twice. Eglot makes its own backend the only Flymake one while it manages a buffer, and what the buffer already had is put back beside it by the one function of ~dev-flymake.el~ that does that for every language: completion arrives without the checking being lost.
+
+It also contains specific integration workarounds for Metals and the Kotlin language server.
+
+** =common-lisp.el=
+Configures Common Lisp development through SLY and SBCL, providing an interactive Common Lisp REPL environment.
+
+** =go.el=
+Provides Go-specific editing and development configuration through =go-mode=.
+
+** =guile.el=
+Guile Scheme development, built around the REPL, [[https://gitlab.com/emacs-geiser/geiser][Geiser]] driving it.
+
+*Guix is optional here.* On a machine that has it the module adds what only Guix can give (a Guix REPL, ~guix lint~, Emacs-Guix's own bindings); on a machine that does not -- a Mac, say -- it is a complete plain Guile setup instead: a ~guile~ REPL, the Guile compiler as the checker and sift as the formatter and the reader of the file's habits. Nothing has to be reconfigured for that; the module looks for ~guix~ and uses what it finds, and what checks and formats a Scheme file does not come from Guix at all.
+
+~C-c g r~ starts or switches to the current project's REPL: a Guix REPL (~guix repl~) in a buffer that defines packages, a plain Guile one elsewhere, always with the project root on Guile's load path and one REPL per project. ~C-c g R~ restarts it and ~C-c g s~ points it at the module of the current buffer. Definitions, regions, whole files and scripts go to it with ~C-c g e~, ~C-c g E~, ~C-c g b~ and ~C-c g x~, ~C-c g k~ interrupts a runaway evaluation, and ~C-c g d~ returns to Geiser's debugger after an exception.
+
+~C-c g r~ is for wanting to *be* at the prompt: evaluating or loading -- ~C-c g e~, ~C-c g E~, ~C-c g b~ -- brings the project’s REPL up when none is running rather than stopping to say there is none, so the first evaluation in a fresh project is one command rather than two.
+
+Geiser also answers the navigation questions, so this is a code-intelligence setup with no language server in it. Navigation is Emacs's own: ~M-.~ goes to a definition and ~M-?~ to the places a name is used, as they do in every buffer, and ~C-c g g~ is the same command ~M-.~ is. ~C-c g h~ shows the documentation of the symbol at point, ~C-c g c~ and ~C-c g C~ list callers and callees, and ~C-c g m~ lists the methods of a generic function. Completion is Geiser's, through ~completion-at-point~ (so Corfu shows it like any other source), and ~geiser-autodoc-mode~ puts the signature of the symbol at point in the echo area. Geiser activates itself in Scheme buffers, so none of this needs a command to start.
+
+~M-.~ asks two sources rather than one, because neither has everything: the REPL, which knows the file and the line of the modules it has loaded -- and is therefore right about a symbol of Guile's or Guix's own that this project merely imports -- and, when it has no answer, the files of the project, searched for the head of a ~define~ that names the symbol. A symbol whose module has never been loaded is the case a REPL cannot answer, and the case a reader is in most of the time, since reading code is not running it; a buffer opened with no REPL at all is the other one, and it is no longer an error. Where the files have nothing, ~dumb-jump~'s wider search follows, and a name in a ~use-modules~ clause opens the module, as it did before. All of it is one backend behind ~xref-find-definitions~, so the jump is remembered like any other, a name defined in several files arrives as a list to choose from, ~M-?~ answers with the callers the REPL knows or the places the files mention the name, and the name ~M-.~ asks for is completed from what the project's files define.
+
+~M-s .~ is the other question this backend answers: not where a name is, but which names match a pattern -- a name half remembered, a family of names, a fragment of one -- and where each of them is. The definitions of the project's files answer it with the head that defines each name, so an entry is the signature one is looking for, and the REPL answers it with the names it has loaded, which is the half no search of the project can give: a function of Guile's or of a library the project uses is defined in a file this project does not hold. A name both sources have is offered once, and a name only the REPL has is asked of it when it is jumped to (the same question ~M-.~ asks), so the list of matches is one question rather than one per name. Where a name the REPL has cannot be placed -- a procedure written in C -- the jump says so rather than landing somewhere the name was merely mentioned.
+
+The shape of the change is worth saying out loud, because it is the shape the rest of this configuration follows: what was added is a *backend* and not a key. The command stays the one Emacs has everywhere -- ~M-.~, ~M-?~, ~C-x 4 .~, ~M-,~ -- and the intelligence is put behind it, so that a jump made in a Scheme buffer is a jump like every other one rather than one that works its own way. The keys of the ~C-c~ scheme that do something a built-in key already does are bound to the built-in command as well: ~C-c ! n~ is ~flymake-goto-next-error~, ~C-c i g~ is ~eglot-find-implementation~, ~C-c v t~ folds with Hideshow through the one fold key, and ~C-c i f~ asks whoever knows how to format the buffer.
+
+Checking and formatting run on save, from whichever tool is the authority:
+- sift (see =sift.el= below) on the buffer's text, so the rules a Scheme file is read with -- a name bound twice, an ~if~ with no else, a line too long, an unused argument -- appear as Flymake diagnostics beside the line, each carrying its code (~SIFT012~) and the name of the rule;
+- sift again for the formatting, marking the lines ~sift format~ would rewrite, which is the drift a pipeline running ~sift ci~ fails on;
+- ~guix lint~ on the package defined at point, so Guix's checkers appear as Flymake diagnostics;
+- the Guile compiler (~guild compile~) in every other Scheme buffer, which is where the soundness of a file comes from without Guix: unbound and unused variables, unused modules and arity mismatches. It runs on a copy of the buffer too, so code that has been typed but not saved is checked as well.
+~C-c g L~ lints the Guix package into a clickable compilation buffer (the hyperlinks Guix puts around file names become real ones there), ~C-c g f~ formats the buffer in place with sift, ~C-c g a~ applies the fix of the sift rule reported at point and ~C-c g A~ every fix sift has -- neither saves the file, so one ~undo~ takes it back -- and ~C-c g H~ says what the rule under point wants. ~guix-devel-mode~ is enabled in Guix buffers, so Emacs-Guix's ~C-c . l~ (lint), ~C-c . b~ (build), ~C-c . s~/~C-c . d~ (source) and ~C-c . u~ (use module) are available too.
+
+Folding treats the buffer as a sequence of top-level forms, so each definition is a fold, collapsing the definition at point works from anywhere inside it, and the keys are the ones the Tree-sitter folding uses elsewhere: ~C-c v c~ (fold), ~C-c v o~ (unfold), ~C-c v O~ (unfold recursively), ~C-c v r~ (unfold everything), ~C-c v t~ (toggle) and ~C-c v C~ (fold everything).
+
+~C-c g t~ runs the project's own test task, so the tests run the way the project runs them.
+
+~C-c i f~ is the one format key of the configuration, and a Scheme buffer is one of the buffers that answers it: the formatter is ~C-c g f~.
+
+** =sift.el=
+The formatter and the linter of the three Lisps this configuration edits -- Scheme, Emacs Lisp and Common Lisp -- in one program, [[https://github.com/jjba23/sift][sift]]. It is the module that replaced two ideas with one tool: ~guix style~, which formatted Scheme only on a machine that had Guix and said nothing about the code, and the configuration's own =scheme-lint.el=, which read a Scheme buffer for the habits that work and should not be written. sift has those rules and more, in three dialects, each finding with a code that can be explained and, where a machine can write the better form, a fix.
+
+The editor side of it is not written here. It is the program's own Emacs package, the ~emacs/~ directory of that repository, which Elpaca installs like every other package this configuration uses: it runs ~sift lint --stdin --format=json~ on the buffer's own text, so every finding arrives as a diagnostic whose text carries the rule's code (~SIFT012~) and name and whose data carries both; ~C-c g a~ on the line fixes *that* rule, ~C-c g H~ opens the page that says what it wants, and the buffer is never saved to be judged. The package also owns the formatting and the fixes -- ~sift-format-buffer~, ~sift-fix-buffer~, ~sift-fix-at-point~ -- and every one of them replaces the buffer in one change group, so one ~undo~ takes it back.
+
+What the module adds to the package is the drift: the lines ~sift format~ would rewrite, which is the disagreement ~sift check~ -- and so a pipeline running ~sift ci~ -- fails a build over, reported while the code is being written rather than after it is committed. It is built from the same ~heks/tool-drift-backend~ the shell and Terraform formatters come from, so it runs asynchronously, keeps its process to itself, and touches nothing: the formatter rewrites a *copy* of the buffer and the two are compared. It also owns the keys, which are this configuration's grammar rather than the package's. The package's ~sift-mode~ is on -- it is what puts sift's commands in a buffer -- but its keymap is not the package's: the ~C-c s~ prefix is taken out of it, because ~C-c s~ is the snippets topic here, and the three actions are given the letters the scheme already promises, ~C-c g a~ the fix of the rule reported at point, ~C-c g A~ every fix, ~C-c g H~ the page that says what the rule wants. A minor mode's map answers in every buffer the mode is on in, so those three work in Emacs Lisp and Common Lisp as well as in Scheme, which is one thing better than the Scheme-only bindings they replace. Formatting keeps the keys it had: ~C-c i f~ in every buffer sift formats, and ~C-c g f~ in a Scheme buffer, where the fallback to Emacs' own indentation lives.
+
+The settings are the package's, so what is set is what it reads: ~sift-executable~ (the ~sift~ on the ~PATH~, or the launcher of a checkout, which is how this machine runs the version it is developing), ~sift-lint-severity~ (everything by default; nil passes nothing and lets the project's own ~sift.yaml~ decide), ~sift-format-on-save~, ~sift-format-style~, ~sift-comment-align~ and ~sift-extra-arguments~. The two that are this configuration's own are ~heks/sift-format-dialects~ -- Scheme alone until someone says otherwise, since sift's idea of how an Emacs Lisp file is laid out is its own and rewriting this configuration's own sources is not something to do by surprise -- and ~heks/sift-lint-flymake~ / ~heks/sift-format-flymake~, which say whether the findings and the drift are reported at all. Where sift is not installed nothing of it is registered and a Scheme buffer has the compiler and ~guix lint~, which is what it had before.
+
+sift also speaks the Language Server Protocol, and the three Lisps' server is sift: `M-x eglot' (or ~C-c i e~) in a Scheme, Emacs Lisp or Common Lisp buffer now finds ~sift lsp~ -- the same program the Flymake backend runs -- and the code actions the server offers are sift's own fixes, while ~textDocument/formatting~ is ~sift format~. It is registered for the five modes those three open in (Scheme with and without Tree-sitter, Emacs Lisp, Common Lisp and Lisp data), from ~modules/sift.el~ rather than ~eglot.el~ because the contact is the package's. What is *not* handed over is the drift: the server publishes lint findings and not formatting ones, so ~heks/sift-drift-backend~ keeps marking the lines ~sift format~ would rewrite. And nothing is said twice: when the server is sift, the Flymake backend of the same findings stands aside, and it comes back when the server shuts down.
+
+Which rules a file is held to is sift's answer and not this configuration's: ~sift list-checkers~ prints them with their codes, dialects and severities, ~M-x sift-explain~ prints the page of one, and ~C-c g H~ opens that page from the diagnostic that fired. A project that wants a different threshold says so in its own ~sift.yaml~, which the editor reads because sift reads it -- so the buffer and the build agree about what wrong means.
+
+** =git.el=
+Provides Git integration through Magit and related packages. Handles repository interaction, Git links, Git modes, and Git-related editing conveniences.
+
+** =github-repo.el=
+A repository's GitHub configuration, written down once and given to the next repository. ~M-x heks/github-repo-capture~ reads a repository and shows its settings as a Lisp spec, ~M-x heks/github-repo-apply~ creates or configures a repository so that it matches the spec -- merge settings, features, secret scanning and push protection, Dependabot, Actions permissions and the branch ruleset that guards the default branch -- and ~M-x heks/github-repo-verify~ says whether it still does, as a diff. Everything is plain Lisp data (a JSON object is an alist, a JSON ~false~ is ~json-false~), so the tool is written in the configuration's own language and needs nothing beside ~gh~: no ~jq~, no ~bash~, no checkout of the repository. One spec is the house style and ~heks/github-repo-specs~ gives a repository, or a whole owner, its own (the most specific entry wins, and an entry is a whole spec rather than a patch), so ~apply~ and ~verify~ take the spec a repository is entitled to; the repository prompt defaults to the current project's own remote. Two batch commands do the set: ~heks/github-repo-verify-all~ reports every repository as ~ok~ or ~differs~ in one buffer, with the diff under each one that differs, and ~heks/github-repo-apply-all~ aligns them one by one, leaving forks and archived repositories out and asking once before it writes to more than one. It is the Emacs Lisp of the shell script that used to live in the heks-linux checkout, and it is documented in [[file:github-repo.org][docs/github-repo.org]].
+
+** =onefetch.el=
+Every repository of mine, as [[https://github.com/o2sh/onefetch][onefetch]] describes it, in one buffer. ~C-c w o~ asks the program about each checkout under ~heks/onefetch-directories~ (~~/Hacking~ by default) -- the languages and how much of each, the authors, when it started, its last change, its commits, the churn of its files, its lines of code, its size, its licence and its URL, beside the piece of ASCII art its main language is drawn as -- and puts the answers one under the other, a block per repository, in the order of their names or of the last change.
+
+What is in a block is onefetch's own output, character for character: the escape codes that colour it are turned into faces on the text, so the magenta of an Emacs Lisp repository, the chips that are each language's own colour, the palette, the sparkline and the art are the program's rather than a drawing of them. Nothing is reimplemented, which is why the screen cannot drift away from the tool it shows. What is this module's own is the screen, and it waits for nothing: ~C-c w o~ draws the window in a millisecond and starts the work behind it -- one process walks the directories and asks git for the commit each checkout is at, saying it as it goes, and the repositories are added to the screen and described as the answers arrive, ~heks/onefetch-parallelism~ of them at a time, so a checkout with a million commits is a block that arrives a few seconds late rather than a window that does not open. What was described in the session is remembered and is there at once, ~g~ asks again over the screen it is showing rather than after emptying it, changing an option mid-fill gives up on the answers that were being fetched rather than mixing them with the new ones, and closing the buffer stops the work it was doing.
+
+~n~ and ~p~ walk the repositories, ~TAB~ folds the block point is in and ~S-TAB~ folds every one, ~RET~ opens it in Magit, ~o~ in Dired, ~b~ the page its remote names (with an ssh alias resolved through ~ssh/config~, since ~git@personal.github.com~ is a name only ssh knows), ~s~ changes the order, ~f~ shows only the repositories whose name matches, and ~m~ is onefetch's own options -- the art, the palette, the number of authors and languages and churned files, which fields to leave out -- in a menu, because a flag is a thing to try rather than a setting to write down.  It is documented in [[file:onefetch.org][docs/onefetch.org]].
+
+The fleet is not the only thing it draws. ~C-c w O~ is one repository -- the project of the buffer it is pressed in, the block of the fleet's screen point is in, or a checkout picked from a prompt, with ~C-u~ for a directory that is not under ~heks/onefetch-directories~ -- drawn in a buffer named after it, with the same mode and the same keys. There is nothing to walk for it: the commit it is at is one ~git~ call, the description is asked for in the background as the fleet's are, and it is the same description, remembered in the same cache by directory, commit and arguments -- so a repository described on one screen is on the other at once. Its header names the repository rather than how many there are, ~g~ asks about that one and leaves the other repositories' descriptions alone, and the keys that would do nothing with one -- the order and the filter -- are not offered in it.
+
+** =macros.el=
+Contains small keyboard-driven editing macros and transformations, particularly for Scheme/Guile development. Includes helpers for generating parameters and transforming Scheme association-list expressions.
+
+* Org & Knowledge Management
+
+** =org.el=
+Configures Org mode as a major part of the HEKS workflow. Provides Org editing behavior, visual customization, presentations, automatic tangling, HTTP and Mermaid source blocks, and related Org tooling.
+
+Notes, tasks, contacts, bookmarks and the agenda are one system of plain files, documented end to end -- the philosophy, the layout and file formats, every workflow, the index pages, syncing, setup and tweaking -- in [[file:notes.org][docs/notes.org]]. The key reference is [[file:keybindings.org][docs/keybindings.org]].
+
+* Shell & System Interaction
+
+** =shell.el=
+Configures Eshell and terminal-oriented workflows. Provides a custom Eshell prompt with user, host, path, and Git branch information, convenient Eshell aliases, and Ghostel integration for project shells.
+
+Shell *scripts* are checked and formatted by the tools that own them. ~shellcheck~ is the checker, through Emacs's own ~sh-shellcheck-flymake~, which ~sh-mode~ and ~bash-ts-mode~ register themselves: it runs shellcheck on the buffer itself -- so what has been typed but not saved is checked too -- as the dialect the mode decided the script is written in. What the module says to it is ~--external-sources~, so the files a script ~source~s are part of what is checked rather than a note on every ~source~ line; what it adds around it is the part that was missing entirely, that Flymake is started in a shell buffer at all, so the backend registered for every one of them actually runs.
+
+~shfmt~ is the formatter, and nothing in Emacs knows about it: ~C-c i f~ -- the one format key, the same in every buffer -- formats a shell buffer with it, and the lines it would rewrite are reported as Flymake diagnostics, so an unformatted script says so before it is saved. It does not have to be installed: where it is absent its backend stays quiet and the format key falls through to whatever else the buffer has rather than refusing to format a script. Both of the modes Emacs opens a shell script in are covered: ~bash-ts-mode~ when the bash grammar is built, and ~sh-mode~ when it is not (and always for a ~.zsh~ or ~.ksh~ file).
+
+** =dd.el=
+Provides an interactive helper for writing ISO/IMG images directly to USB devices using =dd=. It performs an explicit destructive-operation confirmation, runs the write asynchronously, displays progress in an Emacs buffer, and reports successful completion.
+
+** =treesit-grammars.el=
+Builds every tree-sitter grammar this Emacs can be asked for, into ~~/.emacs.d/tree-sitter~, so that no grammar is fetched while a file is being opened. It is a batch script: the configuration starts it in a background Emacs of its own at startup, handing it the directory to install into, the recipes of the languages Emacs ships no mode for, and the directories a grammar may already be in. It can be run by hand as ~emacs -Q --batch -l ~/.emacs.d/treesit-grammars.el~, and a grammar whose repository moved or whose compiler is missing is a line in the script's output rather than the end of the ones after it. Each grammar is tried twice before it is given up on, so a clone that timed out is not a verdict: only a grammar that would not build twice is reported, and one that worked on the second attempt says so.
+
+* Search & Navigation
+
+** =search.el=
+Provides enhanced project/file searching using Ripgrep and Deadgrep.
+
+A search is a list of lines to change as often as it is a list of lines to look at: ~wgrep~ turns the grep or ~deadgrep~ buffer into an editable one, and writing it out makes the change in the files it names, so ~C-c w g~ followed by ~C-c C-p~ is a project-wide rename that a person confirms line by line. The other half of finding a place is jumping to it without knowing its name: ~C-c z j~ asks for a character or two and then a letter, and goes there (~avy~), and ~C-c z J~ does the same for a line, one letter per line on screen.
+
+** =consult.el=
+Acts as the broader navigation layer, integrating searching with buffers, projects, bookmarks, registers, xrefs, and the minibuffer.
+
+** =duplicates.el=
+Finds the code a project writes more than once. The scan reads the files the project says it has, normalizes every line -- indentation and runs of spaces taken out -- drops the blank ones and the comments, indexes every window of ~heks/duplicates-min-lines~ consecutive lines, extends the windows that appear twice as far as the two copies agree, and reports what is left in the order of what it costs: the lines that are written twice and could be written once.
+
+The report is the point of it: ~C-c v D~ shows a buffer with a line per cluster -- how many lines, in how many places, how many of them wasted -- a button per place that opens the file with the clone lit up, the first lines of the block as an excerpt, and ~n~ and ~p~ to walk the clusters. ~s~ shows the copies inside one file as well, which are hidden by default because a block copied within a file is a function waiting to be written and the same block in two files is the one nobody notices. ~g~ scans again.
+
+What it finds is text that repeats, spelled the same way: a copy whose variables were renamed, or one that was reformatted between lines, is not found. That is the honest limit of a comparison that needs no parser and no index, and it is the kind that catches what actually happens -- a block pasted into a second file and then maintained twice.
+
+* Mail & Communication
+
+** =mail.el=
+Configures Emacs mail/news functionality using Gnus and SMTP. Provides Gnus bindings, asynchronous/cached message retrieval, customized thread presentation, and SMTP sending/debugging configuration.
+
+** =irc.el=
+Provides IRC connectivity through Circe. ERC configuration is retained in the module as an alternative/commented configuration.
+
+* Music & Maps
+
+** =music.el=
+Configures music-related functionality. Provides fretboard/chord tooling and the simple ready-player. Nothing here reads a music directory: there is no library to point at and no daemon to keep running.
+
+** =maps.el=
+Provides map functionality through =osm=, integrating OpenStreetMap-related functionality into Emacs.
+
+* Writing & Content
+
+** =proofreading.el=
+Provides proofreading and spelling assistance through =jinx=.
+
+** =snippets.el=
+Configures Tempel as the snippet/template system. Snippets are loaded from the user's Emacs snippets directory and can be completed, inserted, or expanded interactively.
+
+** =render.el=
+Renders what one is reading, from Emacs itself: a Markdown file, an Org file, an OpenAPI specification and a plain text file each become one HTML document, themed with the colours of the current Emacs theme, with no stylesheet to download and no network access. The document is written to a file and shown either inside Emacs, where EWW renders it and the links work, or in the browser, which applies the whole stylesheet and is the one to look at before sharing a document or checking a table's alignment.
+
+An Org note is exported by Org itself, asked for the body of the note and nothing around it, so a note comes out in this configuration's document, with its own list of contents rather than Org's as well; the code in a note is coloured by Org through ~htmlize~, which the configuration installs, and is left as plain text -- rather than warned about -- on a machine where it is not there.
+
+A document shows its code in colour: a fenced block is fontified with the mode the fence's language names, labelled with the language it is, and the stylesheet that wraps the page carries the colours of the *current* theme for each face the code used, so a README looks like the Emacs it was written in and stays readable in a light theme and a dark one. A snippet is escaped before it is coloured, so a ~<~ in code is still a ~<~ on the page. Every heading gets an id and, once a document has enough sections, a list of contents above the body -- which is what makes an OpenAPI page, an operation per heading, navigable as well as searchable -- and the stylesheet ends with a print block (page margins, no fixed navigation on paper) for the reader who prints what they read.
+
+What a document has since Markdown was written down is read too, because a preview that shows less than the page the document was written for is a preview that lies: a link written as ~[text][label]~ is resolved from the ~[label]: url~ line that defines it (and that line is a definition rather than a paragraph); a footnote ~[^1]~ is a link to the note at the end of the page, numbered in the order the notes are *read* rather than the order they are written; ~> [!WARNING]~ is a callout rather than a quote with a marker in it; a task list is a list of checkboxes; ~==this==~ is a highlight and ~:rocket:~ is what it names; and ~$E = mc^2$~ is a formula, transliterated to the text of it -- ~E = mc²~ -- rather than fetched as a typesetting library, because a preview that needs a network is a preview that shows no formula on a train. A backslash is how a document says that an asterisk is an asterisk, and it is read that way here.
+
+~C-c r p~ previews the buffer at point in Emacs, ~C-c r b~ opens the same page in the browser, ~C-c r r~ renders it again after an edit, ~C-c r s~ moves the preview to the section point is in -- the two windows reading the same place, which is what makes a preview worth leaving open -- ~C-c r e~ writes it next to the file being read as a ~.html~ file to keep, and ~C-c r m~ makes the preview follow the buffer: the document is rendered again whenever that buffer is saved.
+
+** =present.el=
+Presents what one has written, from the same family as ~render.el~ and with the keys next to it. An Org note is presented in Emacs itself -- ~org-present~ narrows the buffer to one heading at a time, scales the text up and takes ~SPC~ and the arrow keys for the next and previous heading, ~q~ leaves it, and the mode line is hidden for the duration because it is not part of what is being shown -- while anything else becomes a deck in the browser, one ~section~ per slide.
+
+~C-c r P~ presents the buffer (Org in Emacs, anything else as a deck), ~C-c r d~ opens the deck in the browser, ~C-c r D~ writes it next to the file as a ~.deck.html~ to keep, and ~C-c r n~ starts the next slide where point is, in the document's own way: a line of dashes in Markdown, a heading at the level the file's own slides are at in Org. A deck is walked with the arrow keys, the space bar, Home and End or two buttons, and carries its own stylesheet and its own navigation and fetches nothing, so the exported file opens from a ~file://~ URL on a machine that is not this one -- no server, no network, no Emacs. Printing puts one slide on each page.
+
+** =openapi.el=
+Reads, checks and explains OpenAPI specifications, in JSON or YAML. ~C-c a v~ renders the specification at point the way Swagger UI would -- operations grouped by tag, parameters and responses in tables, schemas listed -- in the same document the module above produces, so a specification is read as documentation instead of as nested brackets. The operations also appear in the imenu menu under their tags.
+
+What the page says is what a reader of a specification asks before reading it: how many operations there are, where the servers are, how a caller is let in (the security schemes, their kind and where the credential goes), what each tag is for and where its guide is. Every schema is described by what a value of it looks like -- its type, the values it may take, the default it takes when none is given, the example the document shows -- and an object is the table of what it holds: one row per property, with its type, whether the document requires it and what it is for. A ~oneOf~ is the alternatives it offers, an ~allOf~ the parts it is made of, and an example is written as the JSON it is, with the keys of a mapping in a defined order so that the YAML specification and the JSON one are the same page.
+
+It checks the document as it is written, and ~C-c a l~ says what is wrong with the file at point. The rules are the mistakes a specification actually makes: a path that is not a path, a key under a path that is not an operation, an identifier used by two operations, a path variable nobody declares, a response code that is not one, a response that says nothing about itself, a body with no shape, and a ~$ref~ that points at nothing. Each one is a Flymake diagnostic on the line it is written on, named ~OpenAPI~ so that it reads ~OpenAPI : ...~ rather than as a sentence with a gap in front of it.
+
+~C-c a r~ calls one of the operations (the server, the method and the parameters come from the document, and the answer is shown in a buffer of its own), and ~C-c a b~ writes one as an Org request block instead, which is what a request with a body or a request worth keeping wants.
+
+** =notes.el=
+/The full guide: [[file:notes.org][docs/notes.org]]./
+
+Notes as plain files: one Org file per note in topic folders under the notes directory (~heks/notes-dir~), linked by relative ~file:~ links, with no database. ~C-c n c~ captures from anywhere -- the region, or with a prefix the latest kill, filed under a topic picked from a completion list that shows how many notes each topic holds, when it last changed and what its index says it is for -- ~C-c n n~ writes a new note, ~C-c n f~ finds one, ~C-c n i~ links one, ~C-c n r~ moves one and repairs the links to it. Every topic folder's ~index.org~ is generated between markers from what is in it, and kept current on save (~C-c n I~ rebuilds them all). The archive of old employers is the dot-folder ~.archive~, kept out of search and the agenda; ~C-c n a~ opens from it.
+
+The prompts are made to be typed in. A list of notes is read far more often than it changes, and it now costs what it changes: the files are scanned once, what the head of each one said is remembered against its modification time and size, and the topic folders and their counts follow them, so the second keystroke of a prompt and every one after it is a lookup rather than a walk of the directory and a page of every file. ~heks/notes-cache-seconds~ says how soon a file that arrived from somewhere else is noticed, and the caches are thrown away by the configuration itself whenever it creates, moves or saves a note.
+
+** =notes-graph.el=
+The shape of the notes: ~C-c n g~ opens a smooth, interactive map in the browser -- notes and topics as a force-directed graph (the links between notes, the folder structure, or both), with a collapsible tree beside it; hovering lights up a note's neighbours, a click inspects it and opening one opens it in this Emacs. It is served by a tiny loopback-only server inside Emacs (token-protected) from =notes-graph.html=, which sits next to the module and needs no library or network. ~C-c n T~ is the tree as a folding Org outline and ~C-c n G~ exports the map as one self-contained HTML file. See [[file:notes.org][docs/notes.org]].
+
+** =contacts.el=, =bookmarks.el=, =agenda.el=
+The personal files at the top of the notes directory, integrated: contacts with their birthdays (in the agenda, and an address completed in a message), the bookmarks start page with a picker and a filing command, and the todo inbox, habits and the day's agenda. See the NEWS entry for the keys.
+
+** =import.el=
+Turns a Markdown document into an Org note, so that a file written for other tools can be one to work in. ~C-c n m~ imports the Markdown file of the buffer, writing the note beside it and leaving the Markdown exactly as it was, or, with a prefix argument, writes it into the notes directory as a note instead -- keeping the identifier a note already carries, making one for a document that has none, and writing the aliases its front matter gives it, so that importing a document twice updates the note rather than making a second one.
+
+What the note says is what the document said. The front matter becomes the keywords a note keeps its own business in, a field with no Org keyword of its own arriving as a keyword of its own name rather than being dropped; the heading a document opens by naming itself with becomes the title rather than a heading repeated under it, and the headings below are shifted up to be sections of the note. The rest keeps its meaning and changes its spelling: headings become headlines, bullets become ~-~ (never ~*~, which is a headline in Org), lists keep their nesting and ordered lists their numbers, task lists become the checkboxes Org reads -- ~[X]~ for a checked one, since Org reads Markdown’s ~[x]~ as text -- fences become source blocks of the language they name, quotes quote blocks, thematic breaks rules, footnotes real footnotes, and raw HTML an export block. A table becomes an Org table, with the alignment row its delimiter row declared and the rule that closes the header; emphasis, code, links and images become Org’s own markup, with a relative link resolved against the document’s directory; and a property drawer is written where Org actually reads one, at the top of the file.
+
+Nothing is written over unasked, an import into the notes registers the note it wrote with ~org-id~ so links to it work at once, and the Markdown file itself is never modified.
+
+** =markdown.el=
+Reads a Markdown document, and only reads it: whether a line and the next are a table, the cells of a row, how deep a list is indented, what a code span keeps out of the rest of a line, and the directory a relative link in the document is resolved against. It is the reading ~render.el~ turns into an HTML page and ~import.el~ turns into an Org note, in one place, so that the file previewed and the file imported cannot disagree about what a table is, how deep a list is nested, or whether a paragraph with a rule under it is a level-two heading rather than a plain one.
+
+** =misc.el=
+Collects useful standalone utilities that do not belong to a larger subsystem, including Prodigy, Dagboek, speed typing, Guix integration, buffer-to-PDF conversion, and font inspection.
+
+* Libraries & Infrastructure
+
+** =libs.el=
+Loads general-purpose Emacs Lisp libraries used throughout HEKS-EMACS, including =transient=, =f=, =queue=, =compat=, =aio=, =page-break-lines=, and =elmacro=.
+
+* Snippets (=.eld=)
+
+Mode-specific Tempel snippets live in =src/snippets/*.eld= (e.g. =lisp.eld=, =emacs-lisp.eld=, =org.eld=, =nix.eld=, =rust.eld=, =java.eld=, =kotlin.eld=, =terraform.eld=, =sql.eld=), one file per mode.

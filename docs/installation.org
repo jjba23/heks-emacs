@@ -1,0 +1,123 @@
+#+title: Installing heks-emacs
+#+author: Josep Bigorra
+#+options: toc:2
+
+* Requirements
+
+| Thing                  | Why you want it                                                                      | Notes                                                             |
+|------------------------+--------------------------------------------------------------------------------------+-------------------------------------------------------------------|
+| GNU/Linux or macOS     | The configuration is developed and lived in there                                    | It is meant to be portable; the bridges are what make it personal |
+| GNU Emacs (29.1 or up) | Eglot, Tree-sitter and the modern APIs the modules are built on                      | I run the ~master~ branch: *32.0.50* at the time of writing       |
+| =git=                  | Elpaca clones and builds every package from its own repository                       |                                                                   |
+| A monospaced font      | Body and code text                                                                   | ~IBM Plex Mono~ by default; ~heks/font-mono~ says otherwise       |
+| =maak= (optional)      | The task runner: install, lint, keys, render, test, golden, verify                   | [[https://codeberg.org/jjba23/maak][Maak, the infinitely extensible command-runner]]                    |
+| Toolchains (optional)  | Language servers, formatters, ~guix~, ~shellcheck~, ~shfmt~, ~terraform~, ~mongosh~… | Every module stays quiet when a tool is absent instead of failing |
+
+This Emacs config is made with compatibility, smoothness and portability in
+mind, and should work pretty much out of the box in a multitude of
+environments.
+
+I usually run on the latest Emacs version, from the ~master~ branch — at the
+time of writing it's Emacs 32.0.50 — so keep in mind some of the configuration
+might be more modern than what you are running. We try to document changes
+properly.
+
+If you are interested in building your own Emacs, you can find the guide here:
+[[https://jointhefreeworld.org/blog/articles/emacs/build-emacs-from-source/index.html][Hacking Freedom: Compiling GNU Emacs from Source]].
+
+* Installation
+
+heks-emacs is a *configuration*, not a package: installing it means putting its
+files into ~~/.emacs.d~. You keep your own settings in a small *bridge* file,
+described [[file:configuration.org][docs/configuration.org]], so that pulling a new version of the
+configuration never touches what is yours.
+
+** With Maak (recommended)
+
+This project uses [[https://codeberg.org/jjba23/maak][Maak, the infinitely extensible command-runner]] as its
+automation system. Install it, clone this repository, and from the checkout:
+
+#+begin_src shell
+# put init.el, early-init.el, the modules and the snippets into ~/.emacs.d,
+# leaving the packages you already have alone
+maak install-emacs-config
+#+end_src
+
+There is also a one-liner that *replaces* your Emacs configuration wholesale --
+it destroys ~/.emacs.d~ and puts heks-emacs in its place. Use it only when you
+mean it, and keep a copy of what was there:
+
+#+begin_src shell
+# ⚠️ destructive: removes ~/.emacs.d first
+maak full-install-emacs-config
+#+end_src
+
+** By hand
+
+If you would rather not use Maak, ~maak.scm~ is short and says exactly which
+files go where; the same thing in one line is:
+
+#+begin_src shell
+cp -rfv src/init.el src/early-init.el src/treesit-grammars.el src/modules src/snippets ~/.emacs.d/
+#+end_src
+
+And if you want a clean slate first (again, destructive):
+
+#+begin_src shell
+rm -rf ~/.emacs.d && mkdir -p ~/.emacs.d
+#+end_src
+
+** Your first start
+
+Start Emacs and let it work. Elpaca clones and builds the packages it needs (you
+can watch it happen in ~*elpaca-log*~), and the Tree-sitter grammars are built
+once, in a background batch Emacs of their own, into ~~/.emacs.d/tree-sitter~ --
+so no grammar is ever fetched while you are opening a file. ~M-x
+heks/treesit-install-grammars~ does the same work in front of you, and what the
+child says is in the ~*heks-emacs tree-sitter grammars*~ buffer.
+
+#+begin_quote
+*Since heks-emacs is a compilation of several packages and libraries, it is very
+likely you may need to restart Emacs a couple of times before everything works
+in harmony*, as packages get installed and loaded and dependency trees resolved.
+Elpaca is extremely reliable, so don't be afraid to restart and try a few
+things.
+#+end_quote
+
+If something looks wrong on the very first start, that is usually the answer:
+restart once more, and check ~*Messages*~ and ~*elpaca-log*~ before anything
+else.
+
+** Quick start: your first five minutes
+
+Once Emacs is up, these are worth pressing. Each one is a real key from the
+[[file:keybindings.org][keybindings reference]], and none of them needs any setup beyond the install:
+
+#+begin_src text
+C-c r p    preview this buffer as a themed HTML page, inside Emacs
+           (a Markdown file, an Org note, an OpenAPI spec or plain text)
+
+C-c i f    format the buffer with whoever knows how: shfmt, terraform fmt,
+           sift, the language server...
+
+C-c n c    capture a note from anywhere, filed under a topic you pick
+           (needs heks/notes-dir -- see [[file:configuration.org][docs/configuration.org]])
+
+C-c v D    the code this project writes more than once
+
+C-c x t    the AI chat window, shown or hidden
+#+end_src
+
+Then learn the rest as you go: every key lives under ~C-c~, and ~which-key~
+tells you what a prefix does while you are still typing it.
+
+** If something is not right
+
+| Symptom                                              | What is usually happening                                                                                                                      |
+|------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------|
+| A package is missing, or a key does nothing          | The first start is still resolving. Restart once, then check ~*elpaca-log*~                                                                    |
+| Code has no colours, or Tree-sitter modes are absent | The grammars are still building in the background: ~M-x heks/treesit-install-grammars~, or read the ~*heks-emacs tree-sitter grammars*~ buffer |
+| The font is not what you expected                    | Set ~heks/font-mono~, ~heks/font-sans~ and ~heks/font-serif~ in your bridge                                                                    |
+| A language feature is quietly not there              | The toolchain is not installed. Modules stay silent when a program is absent on purpose -- install the server or formatter and it appears      |
+| Notes commands do nothing                            | ~heks/notes-dir~ is not set, and no checkout can guess where your notes are                                                                    |
+| Everything is invisible against the background       | Pick a palette with ~heks/theme~; separators and prose sizes are derived from it                                                               |

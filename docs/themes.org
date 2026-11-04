@@ -1,0 +1,50 @@
+#+title: Themes and palettes
+#+author: Josep Bigorra
+#+options: toc:2
+
+Set ~heks/theme~ to any of the names below and the whole configuration follows:
+the faces, the window separators, the sizes of prose, and the colours of a
+rendered document or a deck. A palette you have not listed here is a
+~heks/theme~ that loads with whatever Emacs already had, which is a thing you
+can do and probably do not want.
+
+A curated collection of gorgeous, modern, and highly accessible color palettes
+with custom tweaks and a custom Heks interpretation and styling, aiming for
+harmony and uniformity across the stack.
+
+
+* The Ef Collection
+- *Dark:* ~ef-autumn~, ~ef-bio~, ~ef-dream~
+- *Light:* ~ef-day~, ~ef-kassio~, ~ef-melissa-light~, ~ef-cyprus~
+
+* Accessible & Classic
+- ~modus-vivendi~ & ~modus-operandi~ /(and all their variants: ~-tinted~, ~-deuteranopia~ and ~-tritanopia~)/
+- ~solarized-light~ & ~solarized-dark~
+- ~kaolin-dark~
+
+* 🐈 Catppuccin
+- ~catppuccin-latte~
+- ~catppuccin-mocha~
+
+* Modern & Neon
+- ~dracula~
+- ~tokyo-night~
+- ~heavy-metal~
+
+* 🌲 Earthy & Organic
+- ~everforest-dark~ / ~everforest-light~
+- ~gruvbox-dark~ / ~gruvbox-light~
+
+* Nordic & Pastel
+- ~kanagawa~
+- ~nord~
+- ~rose-pine-moon~
+- ~rose-pine-dawn~
+
+* The Doom Pantheon
+- ~doom-one~ & ~doom-one-light~
+- ~doom-tomorrow-night~
+- ~doom-molokai~ /(similar to monokai)/
+
+* Ayu Themes
+- ~ayu-dark~, ~ayu-mirage~ and ~ayu-light~
