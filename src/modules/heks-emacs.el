@@ -1242,15 +1242,19 @@ formatter rewrote."
           (write-region original nil before nil 'silent)
           (write-region rewritten nil after nil 'silent)
           (with-temp-buffer
-            (call-process "diff" nil t nil
-                          "--old-line-format=%dn\n"
-                          "--new-line-format="
-                          "--unchanged-line-format="
-                          before after)
+            ;; `-U0' hunk headers, not GNU's line formats: BSD diff (macOS)
+            ;; has only the former.
+            (call-process "diff" nil t nil "-U0" before after)
             (let ((lines '()))
               (goto-char (point-min))
-              (while (re-search-forward "\\([0-9]+\\)" nil t)
-                (push (string-to-number (match-string 1)) lines))
+              (while (re-search-forward
+                      "^@@ -\\([0-9]+\\)\\(?:,\\([0-9]+\\)\\)? " nil t)
+                (let ((first (string-to-number (match-string 1)))
+                      (count (if (match-string 2)
+                                 (string-to-number (match-string 2))
+                               1)))
+                  (dotimes (offset count)
+                    (push (+ first offset) lines))))
               (sort lines #'<))))
       (delete-file before)
       (delete-file after))))

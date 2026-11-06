@@ -794,8 +794,10 @@ already answered."
           (make-directory inner t)
           (write-region "" nil (expand-file-name "pom.xml" root) nil 'silent)
           (heks-ert--in inner
-            (should (equal (file-name-as-directory (heks/locate-project-file "pom.xml"))
-                           (file-name-as-directory root))))
+            ;; `file-truename': macOS keeps its temp directory behind a symlink.
+            (should (equal (file-truename
+                            (file-name-as-directory (heks/locate-project-file "pom.xml")))
+                           (file-truename (file-name-as-directory root)))))
           ;; Above the directory holding it there is nothing.
           (heks-ert--in "/"
             (should-not (heks/locate-project-file "heks/no-such-file"))))
@@ -3992,14 +3994,16 @@ is answered only by a repository git initialised."
 
 (ert-deftest heks/onefetch/a-remote-names-the-page-it-is-at ()
   "Every way a remote is written names one page, and a path names none."
-  (should (equal (heks/onefetch-web-url "git@github.com:jjba23/sift.git")
-                 "https://github.com/jjba23/sift"))
-  (should (equal (heks/onefetch-web-url "https://github.com/o2sh/onefetch.git")
-                 "https://github.com/o2sh/onefetch"))
-  (should (equal (heks/onefetch-web-url "ssh://git@codeberg.org/joe/thing.git")
-                 "https://codeberg.org/joe/thing"))
-  (should (equal (heks/onefetch-web-url "/home/joe/Hacking/sift")
-                 "/home/joe/Hacking/sift")))
+  ;; Without the reader's own ssh config, which may alias github.com.
+  (let ((heks/onefetch-ssh-config "/nonexistent/heks-ert-ssh-config"))
+    (should (equal (heks/onefetch-web-url "git@github.com:jjba23/sift.git")
+                   "https://github.com/jjba23/sift"))
+    (should (equal (heks/onefetch-web-url "https://github.com/o2sh/onefetch.git")
+                   "https://github.com/o2sh/onefetch"))
+    (should (equal (heks/onefetch-web-url "ssh://git@codeberg.org/joe/thing.git")
+                   "https://codeberg.org/joe/thing"))
+    (should (equal (heks/onefetch-web-url "/home/joe/Hacking/sift")
+                   "/home/joe/Hacking/sift"))))
 
 (ert-deftest heks/onefetch/a-host-alias-is-the-machine-it-stands-for ()
   "The alias an ssh remote names is looked up in the ssh configuration."
