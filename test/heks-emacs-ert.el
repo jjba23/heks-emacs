@@ -3661,6 +3661,25 @@ lint findings and not formatting ones."
   (heks-ert--with-markdown "a `code` **bold** *it* ~~gone~~ z\n"
     (should (equal (heks-ert--hidden nil) "a code bold it gone z\n"))))
 
+(ert-deftest heks/markdown/heading-marks-are-hidden-except-in-code-and-at-point ()
+  (heks-ert--with-markdown "# One\n## Two\n```\n# not\n```\n"
+    (should (equal (heks-ert--hidden nil) "One\nTwo\n```\n# not\n```\n"))
+    (goto-char 2)
+    (heks/markdown--refresh-line 1 (point))
+    (should (string-prefix-p "# One" (heks-ert--hidden nil)))))
+
+(ert-deftest heks/markdown/links-show-only-their-text-and-know-their-target ()
+  (heks-ert--with-markdown "see [the docs](https://x.y/z) and ![img](a.png)\n"
+    (should (equal (heks-ert--hidden nil) "see the docs and ![img](a.png)\n"))
+    (should (equal (get-text-property 7 'heks-md-url) "https://x.y/z"))))
+
+(ert-deftest heks/markdown/bullets-and-checkboxes-become-glyphs ()
+  (heks-ert--with-markdown "- plain\n* [ ] todo\n+ [x] done\n"
+    (should (equal (get-text-property 1 'display) "•"))
+    (should (equal (get-text-property 11 'display) "☐"))
+    (should (equal (get-text-property 23 'display) "☑"))
+    (should (eq (get-text-property 11 'keymap) heks/markdown-checkbox-map))))
+
 (ert-deftest heks/markdown/code-blocks-keep-their-characters ()
   "Nothing inside a fenced block, nor its fences, is hidden."
   (let ((text "x\n```bash\nls *.md `a` **b** _c_ snake_case_name\n```\ny *z*\n"))

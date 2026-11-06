@@ -1544,8 +1544,9 @@ in snake_case."
                      (if (match-beginning 3) (length (match-string 3)) 1))))))))
 
 (defun heks/markdown-hide-markers (beg end)
-  "Hide the delimiters of inline Markdown markup between BEG and END.
-The delimiters show again while point is inside the markup."
+  "Hide the Markdown markup between BEG and END, and draw its glyphs.
+Inline delimiters, heading marks and link syntax are hidden, bullets and
+checkboxes become glyphs.  The markup shows again while point is in it."
   (when (< (buffer-size) heks/markdown-max-size)
     (with-silent-modifications
       (save-excursion
@@ -1553,45 +1554,140 @@ The delimiters show again while point is inside the markup."
         (goto-char end) (setq end (line-end-position)))
       ;; Start clean, so that a delimiter that stopped being one is shown.
       (remove-text-properties beg end '(invisible nil))
+      (heks/markdown--clear-glyphs beg end)
       (heks/markdown--markers
        beg end
        (lambda (mb me open)
          (put-text-property mb (+ mb open) 'invisible 'heks-md)
          (put-text-property (- me open) me 'invisible 'heks-md)))
-      (heks/markdown--hide-heading-markers beg end))))
+      (heks/markdown--hide-line-markers beg end (point)))))
 
-(defun heks/markdown--hide-heading-markers (beg end &optional pt)
-  "Hide the `#' marks of the ATX headings between BEG and END.
-The heading PT (default point) is on is left showing, so it can be edited."
-  (let ((pt (or pt (point))))
+(defvar heks/markdown-checkbox-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map [mouse-1] #'heks/markdown-click-checkbox)
+    map)
+  "The keymap of a checkbox glyph: a click toggles it.")
+
+(defvar heks/markdown-link-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map [mouse-1] #'heks/markdown-follow-link)
+    (define-key map (kbd "RET") #'heks/markdown-follow-link)
+    map)
+  "The keymap of a link's text: a click or `RET' follows it.")
+
+(defconst heks/markdown-link-regexp
+  "\\[\\([^]\n]+\\)\\](\\([^) \n]+\\)[^)\n]*)"
+  "An inline link: group 1 is its text, group 2 its destination.")
+
+(defun heks/markdown-click-checkbox (event)
+  "Toggle the task-list checkbox that EVENT clicked."
+  (interactive "e")
+  (mouse-set-point event)
+  (markdown-ts-toggle-checkbox))
+
+(defun heks/markdown-follow-link (&optional event)
+  "Follow the link at point, or the one EVENT clicked.
+A destination with a scheme goes to the browser, anything else is a file."
+  (interactive (list last-nonmenu-event))
+  (let* ((pos (if (mouse-event-p event) (posn-point (event-start event)) (point)))
+         (url (get-text-property pos 'heks-md-url)))
+    (cond ((null url) (user-error "No link here"))
+          ((string-match-p "\\`[a-zA-Z][a-zA-Z0-9+.-]*:" url) (browse-url url))
+          (t (find-file (expand-file-name (car (split-string url "#"))
+                                          (if buffer-file-name
+                                              (file-name-directory buffer-file-name)
+                                            default-directory)))))))
+
+(defun heks/markdown--clear-glyphs (beg end)
+  "Remove the glyphs and link buttons drawn between BEG and END."
+  (let ((pos beg))
+    (while (< pos end)
+      (let ((next (next-single-property-change pos 'heks-md-glyph nil end)))
+        (when (get-text-property pos 'heks-md-glyph)
+          (remove-text-properties
+           pos next '(heks-md-glyph nil heks-md-url nil display nil keymap nil
+                                    mouse-face nil face nil)))
+        (setq pos next)))))
+
+(defun heks/markdown--unhide-line (beg end)
+  "Show again what the line markers hid between BEG and END."
+  (let ((pos beg))
+    (while (setq pos (text-property-any pos end 'invisible 'heks-md-line))
+      (let ((stop (or (text-property-not-all pos end 'invisible 'heks-md-line)
+                      end)))
+        (remove-text-properties pos stop '(invisible nil))
+        (setq pos stop)))))
+
+(defun heks/markdown--line-markers (pt)
+  "Mark up the line at point; leave the heading and links alone if PT is on it.
+Hides the `#' of a heading and the brackets and destination of a link,
+turns a list bullet into a dot and a task-list checkbox into a box."
+  (let ((bol (line-beginning-position))
+        (eol (line-end-position)))
+    (unless (heks/markdown--block-at bol)
+      (let ((here (<= bol pt eol)))
+        (cond
+          ((and (not here) (looking-at "#\\{1,6\\}[ \t]+"))
+           (put-text-property bol (match-end 0) 'invisible 'heks-md-line))
+          ((looking-at "[ \t]*\\([-*+]\\)[ \t]+\\(\\[\\([ xX]\\)\\][ \t]\\)?")
+           (let ((bullet (match-beginning 1))
+                 (box (match-beginning 2))
+                 (done (match-string 3)))
+             (add-text-properties bullet (1+ bullet)
+                                  '(heks-md-glyph t display "•"))
+             (when box
+               (add-text-properties
+                box (+ box 3)
+                `(heks-md-glyph t
+                  display ,(if (equal done " ") "☐" "☑")
+                  mouse-face highlight
+                  keymap ,heks/markdown-checkbox-map))))))
+        (unless here
+          (save-excursion
+            (while (re-search-forward heks/markdown-link-regexp eol t)
+              (let ((mb (match-beginning 0)) (me (match-end 0))
+                    (tb (match-beginning 1)) (te (match-end 1))
+                    (url (match-string-no-properties 2)))
+                (unless (eq (char-before mb) ?!)
+                  (put-text-property mb tb 'invisible 'heks-md-line)
+                  (put-text-property te me 'invisible 'heks-md-line)
+                  (add-text-properties
+                   tb te `(heks-md-glyph t heks-md-url ,url face link
+                           mouse-face highlight
+                           keymap ,heks/markdown-link-map)))))))))))
+
+(defun heks/markdown--hide-line-markers (beg end pt)
+  "Mark up every line between BEG and END, see `heks/markdown--line-markers'."
+  (save-excursion
+    (goto-char beg)
+    (while (< (point) end)
+      (heks/markdown--line-markers pt)
+      (forward-line 1))))
+
+(defvar-local heks/markdown--line-revealed nil
+  "Where the line whose markup is showing starts, or nil.")
+
+(defun heks/markdown--refresh-line (pos pt)
+  "Mark up the line at POS again, with point at PT."
+  (with-silent-modifications
     (save-excursion
-      (goto-char beg)
-      (while (re-search-forward "^#\\{1,6\\}[ \t]+" end t)
-        (let ((mb (match-beginning 0)) (me (match-end 0)))
-          (unless (or (<= mb pt (line-end-position))
-                      (heks/markdown--block-at mb))
-            (put-text-property mb me 'invisible 'heks-md)))))))
+      (goto-char pos)
+      (let ((bol (line-beginning-position)) (eol (line-end-position)))
+        (heks/markdown--unhide-line bol eol)
+        (heks/markdown--clear-glyphs bol eol)
+        (goto-char bol)
+        (heks/markdown--line-markers pt)))))
 
-(defvar-local heks/markdown--heading-revealed nil
-  "Where the heading whose `#' marks are showing starts, or nil.")
-
-(defun heks/markdown-reveal-heading ()
-  "Show the `#' marks of the heading point is on, hide the ones left behind."
+(defun heks/markdown-reveal-line ()
+  "Show the heading marks and link syntax on point's line, hide them elsewhere."
   (let ((inhibit-modification-hooks t)
         (line (line-beginning-position)))
-    (unless (eq line heks/markdown--heading-revealed)
-      (when-let* ((old heks/markdown--heading-revealed))
-        (setq heks/markdown--heading-revealed nil)
-        (when (<= old (point-max))
-          (with-silent-modifications
-            (heks/markdown--hide-heading-markers
-             old (save-excursion (goto-char old) (line-end-position)) (point)))))
-      (save-excursion
-        (goto-char line)
-        (when (looking-at "#\\{1,6\\}[ \t]+")
-          (with-silent-modifications
-            (remove-text-properties line (match-end 0) '(invisible nil)))
-          (setq heks/markdown--heading-revealed line))))))
+    (unless (eq line heks/markdown--line-revealed)
+      (when-let* ((old heks/markdown--line-revealed))
+        (setq heks/markdown--line-revealed nil)
+        (heks/markdown--refresh-line (min old (point-max)) (point)))
+      (heks/markdown--refresh-line line (point))
+      (setq heks/markdown--line-revealed line))))
 
 (require 'org-faces)
 
@@ -1615,8 +1711,14 @@ gets a background."
                               (heks/markdown--blocks)))
              (start (apply #'min beg (mapcar (lambda (b) (nth 0 b)) hit)))
              (stop (apply #'max end (mapcar #'heks/markdown--block-end hit))))
-        (remove-text-properties start (min stop (point-max))
-                                '(display nil font-lock-multiline nil))
+        ;; Glyphs (bullets, checkboxes) own their `display'; only the
+        ;; fences' is cleared.
+        (let ((pos start) (limit (min stop (point-max))))
+          (while (< pos limit)
+            (let ((next (next-single-property-change pos 'heks-md-glyph nil limit)))
+              (unless (get-text-property pos 'heks-md-glyph)
+                (remove-text-properties pos next '(display nil font-lock-multiline nil)))
+              (setq pos next))))
         (pcase-dolist (`(,obeg ,oeol ,bbeg ,bend ,cbeg ,cend ,lang) hit)
                       (when cbeg ; an unclosed block is left alone
                         (add-text-properties
@@ -1658,16 +1760,23 @@ gets a background."
 (defun heks/markdown-prettify ()
   "Make a Markdown buffer look like an Org one: hide inline markup."
   (add-to-invisibility-spec 'heks-md)
+  (add-to-invisibility-spec 'heks-md-line)
   (jit-lock-register #'heks/markdown-hide-markers)
   (jit-lock-register #'heks/markdown-prettify-blocks)
   ;; Reveal markup under point like `org-appear'.
   (add-hook 'post-command-hook #'heks/markdown-reveal nil t)
-  (add-hook 'post-command-hook #'heks/markdown-reveal-heading nil t))
+  (add-hook 'post-command-hook #'heks/markdown-reveal-line nil t))
 
 (use-package markdown-ts-mode
   :ensure nil
   :hook ((markdown-ts-mode . heks/markdown-ts-mode))
+  :custom
+  ;; Tables are re-aligned as you type, not only on cell navigation.
+  (markdown-ts-table-auto-align t)
   :config
+  ;; `TAB' on a heading already cycles it (`markdown-ts-outline-cycle');
+  ;; `S-TAB' cycles the whole buffer, as in Org.
+  (keymap-set markdown-ts-mode-map "<backtab>" #'outline-cycle-buffer)
   (defun heks/markdown-ts-mode ()
     (heks/markdown-prettify)
     (variable-pitch-mode 1)
