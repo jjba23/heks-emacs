@@ -1557,7 +1557,41 @@ The delimiters show again while point is inside the markup."
        beg end
        (lambda (mb me open)
          (put-text-property mb (+ mb open) 'invisible 'heks-md)
-         (put-text-property (- me open) me 'invisible 'heks-md))))))
+         (put-text-property (- me open) me 'invisible 'heks-md)))
+      (heks/markdown--hide-heading-markers beg end))))
+
+(defun heks/markdown--hide-heading-markers (beg end &optional pt)
+  "Hide the `#' marks of the ATX headings between BEG and END.
+The heading PT (default point) is on is left showing, so it can be edited."
+  (let ((pt (or pt (point))))
+    (save-excursion
+      (goto-char beg)
+      (while (re-search-forward "^#\\{1,6\\}[ \t]+" end t)
+        (let ((mb (match-beginning 0)) (me (match-end 0)))
+          (unless (or (<= mb pt (line-end-position))
+                      (heks/markdown--block-at mb))
+            (put-text-property mb me 'invisible 'heks-md)))))))
+
+(defvar-local heks/markdown--heading-revealed nil
+  "Where the heading whose `#' marks are showing starts, or nil.")
+
+(defun heks/markdown-reveal-heading ()
+  "Show the `#' marks of the heading point is on, hide the ones left behind."
+  (let ((inhibit-modification-hooks t)
+        (line (line-beginning-position)))
+    (unless (eq line heks/markdown--heading-revealed)
+      (when-let* ((old heks/markdown--heading-revealed))
+        (setq heks/markdown--heading-revealed nil)
+        (when (<= old (point-max))
+          (with-silent-modifications
+            (heks/markdown--hide-heading-markers
+             old (save-excursion (goto-char old) (line-end-position)) (point)))))
+      (save-excursion
+        (goto-char line)
+        (when (looking-at "#\\{1,6\\}[ \t]+")
+          (with-silent-modifications
+            (remove-text-properties line (match-end 0) '(invisible nil)))
+          (setq heks/markdown--heading-revealed line))))))
 
 (require 'org-faces)
 
@@ -1627,7 +1661,8 @@ gets a background."
   (jit-lock-register #'heks/markdown-hide-markers)
   (jit-lock-register #'heks/markdown-prettify-blocks)
   ;; Reveal markup under point like `org-appear'.
-  (add-hook 'post-command-hook #'heks/markdown-reveal nil t))
+  (add-hook 'post-command-hook #'heks/markdown-reveal nil t)
+  (add-hook 'post-command-hook #'heks/markdown-reveal-heading nil t))
 
 (use-package markdown-ts-mode
   :ensure nil

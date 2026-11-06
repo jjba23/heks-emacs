@@ -215,9 +215,36 @@ as they were."
           tsx-ts-mode
           typescript-ts-mode
           yaml-ts-mode
+          markdown-ts-mode
           ) . treesit-fold-mode)
 
   :config
+  ;; treesit-fold ships no Markdown rules.  A `section' node is a heading
+  ;; and everything under it, nested sections included, so folding it from
+  ;; the end of the heading line is Org's per-heading fold.
+  (defun heks/markdown-fold-range (node offset)
+    "Fold range of the Markdown section NODE, below its heading line."
+    (let ((beg (save-excursion
+                 (goto-char (treesit-node-start node))
+                 (line-end-position)))
+          (end (max (treesit-node-start node)
+                    (1- (treesit-node-end node)))))
+      (when (> end beg)
+        (treesit-fold--cons-add (cons beg end) offset))))
+  ;; `treesit-fold' asks for "the" root node, and in a Markdown buffer the
+  ;; first parser is the embedded HTML one, which has no sections.
+  (defun heks/markdown-primary-root (original &optional language)
+    "Call ORIGINAL; in Markdown buffers with no LANGUAGE use the primary parser."
+    (if (and (null language)
+             (derived-mode-p 'markdown-ts-mode)
+             (treesit-parser-p treesit-primary-parser))
+        (treesit-parser-root-node treesit-primary-parser)
+      (funcall original language)))
+  (advice-add 'treesit-buffer-root-node :around
+              #'heks/markdown-primary-root)
+  (with-eval-after-load 'treesit-fold
+    (setf (alist-get 'markdown-ts-mode treesit-fold-range-alist)
+          '((section . heks/markdown-fold-range))))
   ;; Fringe indicators for every foldable node in the Tree-sitter modes.
   (add-hook 'treesit-fold-mode-hook #'treesit-fold-indicators-mode)
   (set-face-attribute 'treesit-fold-replacement-face nil
