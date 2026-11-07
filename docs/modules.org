@@ -215,7 +215,7 @@ Provides IRC connectivity through Circe. ERC configuration is retained in the mo
 * Music & Maps
 
 ** =music.el=
-Configures music-related functionality. Provides fretboard/chord tooling and the simple ready-player. Nothing here reads a music directory: there is no library to point at and no daemon to keep running.
+Configures music-related functionality. Provides fretboard/chord tooling and an orpheus client for an MPD daemon on another machine: the settings are a host and a port rather than a music directory, and the daemon's password is read from =~/.authinfo.gpg= under that same host and port, so it is found by the name orpheus connects to rather than by the address. What plays comes out of the daemon's own audio output, so the visualizer, which listens to this machine, stays flat while a remote daemon is the one playing.
 
 ** =maps.el=
 Provides map functionality through =osm=, integrating OpenStreetMap-related functionality into Emacs.

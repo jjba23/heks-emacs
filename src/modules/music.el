@@ -6,12 +6,14 @@
 ;;; Commentary:
 
 ;;; Music configuration for Emacs: a fretboard to look at while a chord is
-;;; being written down, and a player that plays the file at point where the
-;;; file is, without a library to keep in order first.
+;;; being written down, and a player that is only the client of an MPD daemon
+;;; running on another machine.
 ;;;
 ;;; There is no music directory to point at and no keys of its own under
-;;; `C-c': what played a collection from a library, and held the playlist and
-;;; the daemon that owned the files, is not part of this configuration.
+;;; `C-c': the library, the playlist and the daemon that owns the files are
+;;; the server's, which is why the settings below are a host and a port rather
+;;; than a directory, and why the password is read from ~/.authinfo.gpg under
+;;; that same host and port.
 
 ;;; Code:
 
