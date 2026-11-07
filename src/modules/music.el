@@ -22,7 +22,9 @@
   :ensure (:host github :repo "jjba23/orpheus.el" :branch "trunk")
   :commands (orpheus orpheus-visualizer)
   :config
-  (setq orpheus-backend 'mpd)
+  (setopt orpheus-backend 'mpd
+          orpheus-mpd-host "mpd-server.jointhefreeworld.org"
+          orpheus-mpd-port 6600)
   (orpheus-mode-line-mode 1))
 
 (provide 'heks/music)
