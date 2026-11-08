@@ -24,10 +24,14 @@
   :ensure (:host github :repo "jjba23/orpheus.el" :branch "trunk")
   :commands (orpheus orpheus-visualizer)
   :config
-  (setopt orpheus-backend 'mpd
-          orpheus-mpd-host "mpd-server.jointhefreeworld.org"
-          orpheus-mpd-port 6600)
-  (orpheus-mode-line-mode 1))
+  ;; (setopt orpheus-backend 'mpd
+  ;;         orpheus-mpd-host "mpd-server.jointhefreeworld.org"
+  ;;         orpheus-mpd-port 6600)
+  (setq orpheus-backend 'ssh
+    orpheus-ssh-host "wolk-jjba"
+    orpheus-ssh-directory "/mnt/wolkenschlosslagerung/music")
+  ;;(orpheus-mode-line-mode 1)
+  )
 
 (provide 'heks/music)
 
