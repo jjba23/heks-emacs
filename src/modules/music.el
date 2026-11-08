@@ -28,8 +28,8 @@
   ;;         orpheus-mpd-host "mpd-server.jointhefreeworld.org"
   ;;         orpheus-mpd-port 6600)
   (setq orpheus-backend 'ssh
-    orpheus-ssh-host "wolk-jjba"
-    orpheus-ssh-directory "/mnt/wolkenschlosslagerung/music")
+    orpheus-ssh-host "wolkenschlosslagerung"
+    orpheus-ssh-directory "/home/music")
   ;;(orpheus-mode-line-mode 1)
   )
 
