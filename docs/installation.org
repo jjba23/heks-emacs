@@ -11,7 +11,7 @@
 | =git=                  | Elpaca clones and builds every package from its own repository                       |                                                                   |
 | A monospaced font      | Body and code text                                                                   | ~IBM Plex Mono~ by default; ~heks/font-mono~ says otherwise       |
 | =maak= (optional)      | The task runner: install, lint, keys, render, test, golden, verify                   | [[https://codeberg.org/jjba23/maak][Maak, the infinitely extensible command-runner]]                    |
-| Toolchains (optional)  | Language servers, formatters, ~guix~, ~shellcheck~, ~shfmt~, ~terraform~, ~mongosh~… | Every module stays quiet when a tool is absent instead of failing |
+| Toolchains (optional)  | Language servers, formatters, ~guix~, ~shellcheck~, ~shfmt~, ~delta~, ~terraform~, ~mongosh~… | Every module stays quiet when a tool is absent instead of failing |
 
 This Emacs config is made with compatibility, smoothness and portability in
 mind, and should work pretty much out of the box in a multitude of

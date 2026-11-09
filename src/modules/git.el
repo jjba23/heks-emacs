@@ -42,6 +42,15 @@
   ;; Sign off every commit by default; `-s' in the commit menu still toggles it.
   (setf (alist-get 'magit-commit transient-values) '("--signoff")))
 
+;; `delta' draws the diff, and the mode has nothing to show without the
+;; program, so it is only turned on where it is installed.
+(use-package magit-delta
+  :ensure t
+  :defer t)
+
+(when (executable-find "delta")
+  (add-hook 'magit-mode-hook #'magit-delta-mode))
+
 (use-package git-riddance
   :ensure (:host codeberg :repo "jjba23/git-riddance.el" :branch "trunk"))
 
