@@ -102,7 +102,6 @@
          ("C-c i h" . eglot-inlay-hints-mode))
   :init
   (setq eglot-autoshutdown t
-        eglot-confirm-server-edits nil
         ;; Suppress mode-line progress animations
         eglot-report-progress nil
         eglot-extend-to-xref t
@@ -110,6 +109,11 @@
         eglot-connect-timeout 60
         eglot-autoreconnect t)
   :config
+  ;; Set after Eglot loads, not before: in Emacs 32 it makes
+  ;; `eglot-confirm-server-edits' an alias of `refactor-confirmation', and a
+  ;; `setq' on the old name before that `defvaralias' is a value the alias
+  ;; discards -- with a warning on every start.
+  (setq eglot-confirm-server-edits nil)
   ;; Disable event logging completely (Emacs >= 30)
   (setq eglot-events-buffer-config '(:size 0 :format short))
   ;; For Emacs <= 29
