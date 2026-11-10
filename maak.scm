@@ -6,7 +6,8 @@
 (define-module (maak)
   #:declarative? #t
   #:use-module (maak maak)
-  #:use-module ((ice-9 rdelim) #:select (read-line)))
+  #:use-module ((ice-9 rdelim) #:select (read-line))
+  #:use-module ((ice-9 threads) #:select (current-processor-count)))
 
 (define (default)
   "Default maak task."
@@ -130,6 +131,47 @@ in the README."
   (test)
   (golden)
   (verify))
+
+;; ====== The Emacs build ======
+
+;; The Emacs this configuration is developed in is built from the upstream
+;; `master' branch rather than taken from a distribution: `docs/emacs.org' says
+;; why, and the loop below is that page as one task.  The flags live here, in
+;; one place, because a build is reproducible only if its configure line is the
+;; same on every machine -- and because a flag remembered from a page is a flag
+;; that gets retyped wrong once and then kept.
+
+(define emacs-build-dir
+  (~ "~a/Scratch/emacs-build/" (home-dir)))
+
+(define emacs-configure-flags
+  '("--with-native-compilation=aot"
+    "--with-tree-sitter"
+    "--with-pgtk"
+    "--with-dbus"
+    "--with-imagemagick"
+    "--with-mailutils"))
+
+(define (emacs-update)
+  "Pull Emacs master, build it and install it over the current one.
+
+This is `docs/emacs.org' as a task, from the checkout that page says to
+keep: `git pull', the configure line above, `make' with one job per core,
+and the `make install' that asks for the password of one.  The new binary
+is asked its version before it is installed, so a build that does not run
+is a build that never replaces the one that works."
+  (unless (file-exists? emacs-build-dir)
+    (raise-maak-error
+     (format #f "no Emacs checkout at ~a" emacs-build-dir)
+     #:hint "Clone one first: git clone --depth 1 https://github.com/emacs-mirror/emacs.git ~/Scratch/emacs-build"))
+  (with-directory
+   emacs-build-dir
+   (lambda ()
+     (run (list "git" "pull" "--ff-only"))
+     (run (cons "./configure" emacs-configure-flags))
+     (run (list "make" (format #f "-j~a" (current-processor-count))))
+     (run (list "./src/emacs" "--version"))
+     (run (list "make" "install") #:sudo? #t))))
 
 ;; ====== Agent skills ======
 

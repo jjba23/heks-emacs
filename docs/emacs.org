@@ -172,6 +172,11 @@ make -j"$(nproc)"
 sudo make install
 #+end_src
 
+~maak emacs-update~ in this checkout is that block as one task -- the pull,
+the same configure line, ~make -j~ one job per core, the version check and
+the install -- so the flags are written down once, in =maak.scm=, where a
+build cannot retype them wrong.
+
 Re-running ~configure~ is cheap and it is what picks up a header that
 arrived since the last build; ~make~ then rebuilds what that changed.  The
 ~./src/emacs --version~ before the install is the only gate worth having: it

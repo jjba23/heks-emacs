@@ -8,6 +8,7 @@ the ones CI runs, and they are all [[https://codeberg.org/jjba23/maak][Maak]] ta
 #+begin_src shell
 maak                # list every task
 maak install-emacs-config  # copy the configuration into ~/.emacs.d
+maak emacs-update   # pull Emacs master, rebuild and reinstall it
 maak lint           # parse every file, catch a parenthesis or a module list out of date
 maak keys           # the whole key tree; fail on a key that means two things
 maak keys-update    # write docs/keybindings.org from the keys that are there
@@ -19,6 +20,11 @@ maak stats          # the line, definition and decision counts
 maak verify         # install, load it all in a batch Emacs, assert the invariants
 maak check          # lint, keys, render, test, golden, verify -- everything
 #+end_src
+
+The one task that is not a check is ~maak emacs-update~: it pulls the Emacs
+this configuration is developed in, rebuilds it and installs it, and
+[[file:emacs.org][docs/emacs.org]] is where the flags, the reason for each one and the failure
+they exist to prevent are written down.
 
 Run ~maak check~ before you send a patch. If a golden page changes because you
 meant it to, ~maak golden-update~ is how you say so -- then read the diff it
