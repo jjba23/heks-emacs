@@ -11,6 +11,14 @@ This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic 
 
 -------
 
+** v1.29.1 (2026-11-10)
+
+*** Fixed
+
+- The key audit has no findings left. Nine keys were in the configuration without their sentence in the scheme: ~C-c i D~, ~C-c i H~, ~C-c i n~ and ~C-c i p~ (the complete documentation of the symbol at point, the hover popup's switch and its scrolling), ~C-c w G~ (the Git history of the project) and ~C-c n R~ (every note's backlinks block, brought up to date). Five of them had no description of their own and four spent a letter that neither their topic nor the action alphabet described, which is the same nine =maak keys= reported at v1.28.0. The bindings were right, so what changed is the scheme in =emacs-core.el= -- the letters in =heks/key-letters= and the sentences in =heks/key-descriptions= -- and =docs/keybindings.org=, which is written from those tables rather than edited by hand. ~maak check~ is green: lint 172, keys 0 findings, render 33, golden 5 matched and verify 430.
+
+-------
+
 ** v1.29.0 (2026-11-10)
 
 *** Added
