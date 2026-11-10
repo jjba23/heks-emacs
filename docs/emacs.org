@@ -1,0 +1,249 @@
+#+title: Building Emacs from source
+#+subtitle: the build this configuration is developed against
+#+author: Josep Bigorra
+#+email: jjbigorra@gmail.com
+#+options: toc:2
+
+* What this page is for
+
+A distribution's Emacs is built for everybody: it is a release or two behind
+~master~, and it cannot be the pure GTK build on a system that also runs the
+old X one.  What this configuration is developed in -- and what this page
+documents -- is GNU Emacs built from the upstream ~master~ branch with pure
+GTK, native compilation ahead of time, Tree-sitter and ImageMagick, which is
+also the only way to get a bug in ~master~ fixed and in your hands the same
+day.
+
+The price is honest and worth saying once: the binary is yours to rebuild,
+nothing else on the machine updates it, and a distribution that moves a
+library ahead of it takes it down until you do.  That last case has a section
+of its own below.
+
+* The checkout
+
+The upstream forge is Savannah:
+
+#+begin_src shell
+git clone https://git.savannah.gnu.org/git/emacs.git ~/Scratch/emacs-build
+cd ~/Scratch/emacs-build
+#+end_src
+
+Savannah answers =HTTP 500= on the packfile often enough to be worth knowing
+the mirror, which carries the same commits:
+
+#+begin_src shell
+git clone https://github.com/emacs-mirror/emacs.git ~/Scratch/emacs-build
+cd ~/Scratch/emacs-build
+#+end_src
+
+A shallow clone (=--depth 1=) is a minute instead of several and builds the
+same binary; ~git fetch --unshallow~ in the checkout turns it into the whole
+history whenever a bisect or a ~git log -S~ is wanted.  Whatever the clone,
+the tree is kept: it is what ~make uninstall~ and the next rebuild work from.
+
+Then, once per checkout, the configure scaffold:
+
+#+begin_src shell
+./autogen.sh
+#+end_src
+
+It checks that ~autoconf~ and ~git~ are the versions Emacs needs, builds
+~configure~, and installs the repository's git hooks.
+
+* Dependencies
+
+Each line is a capability, the flag that turns it on, and the development
+packages it needs.  Package names differ between distributions and between
+releases of one distribution -- the JPEG headers are ~libjpeg8-devel~ on
+openSUSE Slowroll, which is not the ~libjpeg-turbo-devel~ the library's own
+name suggests -- so ~zypper se~ or ~apt search~ is how to find the name of
+the day.
+
+| What it unlocks              | openSUSE                                      | Debian                       |
+|------------------------------+-----------------------------------------------+------------------------------|
+| the toolchain and the build  | =gcc= =make= =autoconf= =git= =texinfo=       | =build-essential= =autoconf= =git= =texinfo= |
+| the pure GTK frame           | =gtk3-devel=                                  | =libgtk-3-dev=               |
+| the Tree-sitter modes        | =tree-sitter-devel=                           | =libtree-sitter-dev=         |
+| native compilation           | =libgccjit-devel=                             | =libgccjit0= =libgccjit-15-dev= |
+| =json-parse-string=          | =libjansson-devel=                            | =libjansson-dev=             |
+| images                       | =libjpeg8-devel= =giflib-devel= =libtiff-devel= =libpng16-devel= =librsvg-devel= =libwebp-devel= =ImageMagick-devel= | =libjpeg-dev= =libgif-dev= =libtiff-dev= =libpng-dev= =librsvg2-dev= =libwebp-dev= =libmagickwand-dev= |
+| SQLite                       | =sqlite3-devel=                               | =libsqlite3-dev=             |
+| TLS, XML, fonts, text shaping | =gnutls-devel= =libxml2-devel= =freetype2-devel= =fontconfig-devel= =harfbuzz-devel= | =libgnutls28-dev= =libxml2-dev= =libfreetype-dev= =libfontconfig-dev= =libharfbuzz-dev= |
+| ACLs and extended attributes | =libacl-devel= =libattr-devel=                | =libacl1-dev= =libattr1-dev= |
+| D-Bus and the terminal       | =dbus-1-devel= =ncurses-devel=                | =libdbus-1-dev= =libncurses-dev= |
+
+The two in the last-but-one row are the ones nobody installs until
+~file-acl~ answers nil: without them configure says so and builds anyway.
+
+* The configure flags
+
+#+begin_src shell
+./configure --with-native-compilation=aot \
+            --with-tree-sitter \
+            --with-pgtk \
+            --with-dbus \
+            --with-imagemagick \
+            --with-mailutils
+#+end_src
+
+- =--with-native-compilation=aot= compiles this configuration's Lisp ahead of
+  time rather than at first use, which is what makes the first start of a
+  fresh install the same speed as the hundredth.
+- =--with-tree-sitter= is what the Tree-sitter modes in ~src/modules~ are
+  written against; without it they do not exist.
+- =--with-pgtk= is the pure GTK frame: on Wayland it draws through GTK rather
+  than through XWayland, which is the difference between sharp text and a
+  frame that is a screenshot of yourself.
+- =--with-imagemagick= puts the formats the other image libraries do not read
+  -- SVG and PDF among them -- behind ~image-mode~.
+- =--with-dbus= and =--with-mailutils= are for notifications, the secret
+  service and ~movemail~, which Gnus and the AI module reach for.
+
+Keep the same flags on every machine.  A build is only reproducible if its
+configure line is, and the differences a flag makes are the ones that turn
+into a bug report nobody can reproduce.
+
+What to read in the output is the =Configured for= block:
+
+#+begin_example
+  What window system should Emacs use?                    pgtk
+  Where do we find X Windows libraries?                   Standard dirs
+  Does Emacs use imagemagick?                             yes
+  Does Emacs use -ltree-sitter?                           yes
+  Does Emacs use access control lists?                    yes -lacl -lattr
+#+end_example
+
+A =no= there is a header the machine does not have, not a failure: Emacs
+builds without it and quietly loses the feature.  The =configure: WARNING:
+libacl development library was not found= above those lines is the same
+finding said out loud.
+
+* Compiling
+
+#+begin_src shell
+make -j"$(nproc)"
+#+end_src
+
+The first build takes the longest -- the Lisp compiler and a thousand-odd
+=ELC+ELN= lines -- and every build after it redoes only what changed, so the
+loop that keeps the binary current is minutes rather than the afternoon the
+first one was.
+
+Before installing anything, ask the binary that was just built:
+
+#+begin_src shell
+./src/emacs --version
+#+end_src
+
+#+begin_example
+GNU Emacs 32.0.50
+Development version bc3b33c8bc6f on master branch; build date 2026-11-10.
+#+end_example
+
+The commit it names is the one it was built from, which is the answer to
+"and which ~master~ is this?" three weeks later.
+
+* Installing, and taking it back out
+
+#+begin_src shell
+sudo make install
+#+end_src
+
+That writes ~/usr/local/bin/emacs~, the native-compiled Lisp under
+~/usr/local/lib64/emacs/32.0.50/~ and the rest of the tree beside them --
+the same places a distribution's package keeps its own, without a package
+manager knowing about any of it.  Which is why the build tree stays where it
+is; it is the manifest:
+
+#+begin_src shell
+cd ~/Scratch/emacs-build
+sudo make uninstall
+#+end_src
+
+* Keeping it current
+
+#+begin_src shell
+cd ~/Scratch/emacs-build
+git pull --ff-only
+./configure --with-native-compilation=aot --with-tree-sitter \
+            --with-pgtk --with-dbus --with-imagemagick --with-mailutils
+make -j"$(nproc)"
+./src/emacs --version
+sudo make install
+#+end_src
+
+Re-running ~configure~ is cheap and it is what picks up a header that
+arrived since the last build; ~make~ then rebuilds what that changed.  The
+~./src/emacs --version~ before the install is the only gate worth having: it
+is a build that runs before a build that replaces the working one.
+
+* When the distribution moves a library ahead of you
+
+A built Emacs records the exact library version it was linked against, so a
+distribution upgrade that replaces that library stops Emacs at the loader,
+before any Lisp runs:
+
+#+begin_example
+emacs: error while loading shared libraries: libtree-sitter.so.0.26:
+cannot open shared object file: No such file or directory
+#+end_example
+
+That is what openSUSE Slowroll's move from ~tree-sitter~ 0.26 to 0.27 did to
+the August build of this configuration: the package was replaced, the
+soname Emacs had written down was gone, and ~emacs~ exited 127.  Ask the
+binary what it is missing rather than guessing:
+
+#+begin_src shell
+ldd /usr/local/bin/emacs | grep 'not found'
+ldconfig -p | grep tree-sitter
+#+end_src
+
+The tempting fix is a symlink from the missing soname to the one the
+distribution ships now.  Do not make it: a soname bump is the library saying
+its application binary interface changed, and the symbol list does not show
+the struct that moved.  A parser that reads a struct of the wrong shape is a
+crash in a buffer, not a link error.
+
+The fix is the loop above -- rebuild against the library that is there:
+
+#+begin_src shell
+cd ~/Scratch/emacs-build
+git pull --ff-only
+./configure --with-native-compilation=aot --with-tree-sitter \
+            --with-pgtk --with-dbus --with-imagemagick --with-mailutils
+make -j"$(nproc)"
+sudo make install
+#+end_src
+
+A copy of the exact old library buys time when the rebuild cannot happen
+today: build that version from its own tag, put it where the loader looks,
+run ~ldconfig~, and delete it once the new binary is installed, so the next
+upgrade is diagnosed by the same error message rather than by a mystery.
+The transitive libraries go the same way for the same reason -- ~libxml2~,
+~libjpeg~, ~libgccjit~ and GTK all bump their sonames from time to time.
+
+* Checking a build against this configuration
+
+The binary answers what it was compiled with, before any of ~src/modules~ is
+read:
+
+#+begin_src shell
+emacs -Q --batch --eval '(princ (format "treesit=%s native-comp=%s pgtk=%s acl=%S\n" (treesit-available-p) (native-comp-available-p) (featurep (quote pgtk)) (file-acl "/tmp")))'
+#+end_src
+
+#+begin_example
+treesit=t native-comp=t pgtk=t acl="other::rwx\n"
+#+end_example
+
+Then the configuration itself, which is the check that matters:
+
+#+begin_src shell
+cd ~/Hacking/heks-emacs
+maak lint
+maak verify
+#+end_src
+
+~maak lint~ parses every file of the configuration and ~maak verify~ loads
+it the way Emacs does at startup, so a build whose flags differ from the
+ones above shows up here as a failure rather than as a key that does
+nothing a week later.

@@ -11,6 +11,14 @@ This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic 
 
 -------
 
+** v1.28.1 (2026-11-10)
+
+*** Added
+
+- Added =docs/emacs.org=, which is how the Emacs this configuration is developed in is built: the checkout of the upstream ~master~ branch (with the mirror that answers when Savannah's packfile does not), the dependencies and the package name each one has on openSUSE and Debian, the configure flags with the reason each is there, the compile, the install, and the =make uninstall= that is the reason the build tree is kept. It says what a distribution upgrade that moves a library ahead of the binary looks like -- the ~tree-sitter~ 0.26 to 0.27 move that stopped this Emacs at the loader with ~error while loading shared libraries: libtree-sitter.so.0.26~ -- why a symlink from one soname to the next is not the fix and a rebuild is, and how a build is checked against this configuration before it is trusted (~maak lint~ and ~maak verify~). The requirements in =docs/installation.org= and in the README point at the page instead of at the article it grew from, which stays as the place to start.
+
+-------
+
 ** v1.28.0 (2026-11-09)
 
 *** Added

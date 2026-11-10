@@ -22,8 +22,13 @@ time of writing it's Emacs 32.0.50 — so keep in mind some of the configuration
 might be more modern than what you are running. We try to document changes
 properly.
 
-If you are interested in building your own Emacs, you can find the guide here:
-[[https://jointhefreeworld.org/blog/articles/emacs/build-emacs-from-source/index.html][Hacking Freedom: Compiling GNU Emacs from Source]].
+Building Emacs yourself is a page of its own: [[file:emacs.org][docs/emacs.org]] has the
+checkout, the dependencies and the name each one has on openSUSE and Debian,
+the configure flags with the reason each is there, the install and the
+uninstall that depends on keeping the build tree, the rebuild loop, and what
+to do when the distribution moves a library the binary was linked against.
+It is the longer form of [[https://jointhefreeworld.org/blog/articles/emacs/build-emacs-from-source/index.html][Hacking Freedom: Compiling GNU Emacs from Source]],
+the article it grew from, which is still the place to start.
 
 * Installation
 

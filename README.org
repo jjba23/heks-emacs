@@ -106,6 +106,14 @@ you work in need. Nothing is installed by this file: the configuration is
 cloned and ~maak install-emacs-config~ copies it into ~~/.emacs.d~, where
 ~src/init.el~ reads it and Elpaca installs the packages on the first start.
 
+Building Emacs yourself -- from the upstream ~master~ branch, with native
+compilation, ~pgtk~, Tree-sitter and ImageMagick -- is the build this
+configuration is developed in, and it has a page of its own:
+[[file:docs/emacs.org][docs/emacs.org]] has the checkout, the dependencies and their package names on
+openSUSE and Debian, the flags with the reason each is there, the install and
+the uninstall, the rebuild loop, and what to do when the distribution moves a
+library the binary was linked against.
+
 The requirements in full, both ways to install -- with
 [[https://codeberg.org/jjba23/maak][Maak]], which is the recommended one, or by
 hand -- the first start, a five-minute tour of what to press first, and what to
@@ -200,6 +208,7 @@ The configuration is only half of it; the other half is written down:
 | [[file:docs/github-repo.org][docs/github-repo.org]]   | The GitHub repository settings as a spec, and the three commands that capture, apply and verify them                                         |
 | [[file:NEWS.org][NEWS.org]]               | The changelog: what arrived, what changed and what was removed, per release                                                                  |
 | [[file:docs/installation.org][docs/installation.org]]  | Requirements, the two ways to install, the first start, a five-minute tour and what to do when something is not right                        |
+| [[file:docs/emacs.org][docs/emacs.org]]        | Building Emacs yourself: the checkout, the dependencies, the configure flags, the rebuild loop, and what breaks when a library moves ahead |
 | [[file:docs/configuration.org][docs/configuration.org]] | Every customization variable, what it is for and its default, and how a bridge is written                                                    |
 | [[file:docs/themes.org][docs/themes.org]]        | The palettes, each with the mood it is for                                                                                                   |
 | [[file:docs/modules.org][docs/modules.org]]       | Every module, in its own words: what it does, how it is used, and why it is written that way                                                 |
