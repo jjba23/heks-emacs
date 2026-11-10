@@ -143,6 +143,8 @@ in every other topic.
 | ~h~ | ~F~ | the face at point |
 | ~i~ | ~e~ | Eglot itself, and what it is doing |
 | ~i~ | ~E~ | the server's log of messages |
+| ~i~ | ~D~ | the documentation of the symbol at point, complete in a buffer |
+| ~i~ | ~H~ | the hover popup, on and off |
 | ~i~ | ~r~ | rename the symbol at point |
 | ~i~ | ~R~ | restart the language server |
 | ~i~ | ~s~ | the schema line this file names |
@@ -178,6 +180,7 @@ in every other topic.
 | ~n~ | ~l~ | the notes that link here |
 | ~n~ | ~n~ | a new note, opened for writing |
 | ~n~ | ~r~ | this note, moved to another topic |
+| ~n~ | ~R~ | every note's backlinks, brought up to date |
 | ~n~ | ~s~ | the text of every note, searched |
 | ~n~ | ~t~ | a topic folder, opened |
 | ~n~ | ~T~ | the topics as a folding outline |
@@ -219,6 +222,7 @@ in every other topic.
 | ~w~ | ~c~ | a repository, cloned |
 | ~w~ | ~d~ | the development server |
 | ~w~ | ~D~ | the infrastructure, destroyed |
+| ~w~ | ~G~ | the Git history of the project, summarised |
 | ~w~ | ~g~ | a search of the project |
 | ~w~ | ~i~ | the providers and state, initialised |
 | ~w~ | ~O~ | one repository, as onefetch describes it |
@@ -416,9 +420,9 @@ in every other topic.
 |-----+---------+--------------+----|
 | ~C-c i 0~ | ~heks/eglot-disable~ | the language server, off in this Emacs | eglot.el |
 | ~C-c i 1~ | ~heks/eglot-enable~ | the language server, on in this Emacs | eglot.el |
-| ~C-c i D~ | ~heks/hover-open~ | IDE: language server, formatting, diagnostics | dev-hover.el |
+| ~C-c i D~ | ~heks/hover-open~ | the documentation of the symbol at point, complete in a buffer | dev-hover.el |
 | ~C-c i E~ | ~eglot-events-buffer~ | the server's log of messages | eglot.el |
-| ~C-c i H~ | ~heks/hover-mode~ | IDE: language server, formatting, diagnostics | dev-hover.el |
+| ~C-c i H~ | ~heks/hover-mode~ | the hover popup, on and off | dev-hover.el |
 | ~C-c i R~ | ~eglot-reconnect~ | the language server, reconnected | eglot.el |
 | ~C-c i a~ | ~eglot-code-actions~ | the actions the server offers here | eglot.el |
 | ~C-c i e~ | ~eglot~ | the server, and what it is doing | eglot.el |
@@ -427,8 +431,8 @@ in every other topic.
 | ~C-c i h~ | ~eglot-inlay-hints-mode~ | the server's hints, inside the source | eglot.el |
 | ~C-c i k~ | ~eglot-shutdown-all~ | every language server, stopped | eglot.el |
 | ~C-c i m~ | ~eglot-menu~ | the Eglot menu | eglot.el |
-| ~C-c i n~ | ~heks/hover-scroll-down~ | new, or next | dev-hover.el |
-| ~C-c i p~ | ~heks/hover-scroll-up~ | preview, or previous | dev-hover.el |
+| ~C-c i n~ | ~heks/hover-scroll-down~ | the hover popup, scrolled a few lines further | dev-hover.el |
+| ~C-c i p~ | ~heks/hover-scroll-up~ | the hover popup, scrolled a few lines back | dev-hover.el |
 | ~C-c i r~ | ~eglot-rename~ | the symbol at point, renamed everywhere | eglot.el |
 | ~C-c i s~ | ~heks/yaml-insert-schema-modeline~ | the schema line, written into this file | eglot.el |
 
@@ -484,7 +488,7 @@ in every other topic.
 | ~C-c n I~ | ~heks/notes-regenerate-indexes~ | every index page, regenerated from the notes | notes.el |
 | ~C-c n K~ | ~heks/contact-new~ | a contact, added to the contacts file | contacts.el |
 | ~C-c n M~ | ~heks/markdown-region-to-org~ | the region of Markdown, converted to Org | import.el |
-| ~C-c n R~ | ~heks/notes-related-update-all~ | notes: Org notes | notes-auto.el |
+| ~C-c n R~ | ~heks/notes-related-update-all~ | every note's backlinks block, brought up to date | notes-auto.el |
 | ~C-c n T~ | ~heks/notes-tree~ | the topics and notes as a folding outline in a buffer | notes-graph.el |
 | ~C-c n X~ | ~heks/habit-capture~ | a habit, captured: a todo that repeats | agenda.el |
 | ~C-c n a~ | ~heks/notes-find-archived~ | an archived note, from a former employer | notes.el |
