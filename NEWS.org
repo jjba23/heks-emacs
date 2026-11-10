@@ -11,6 +11,18 @@ This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic 
 
 -------
 
+** v1.29.0 (2026-11-10)
+
+*** Added
+
+- ~maak emacs-update~ pulls the Emacs this configuration is developed in, rebuilds it and installs it over the current one: the pull, the configure line of =docs/emacs.org= (the flags live in =maak.scm= now, so a build cannot retype them wrong), ~make -j~ one job per core, the ~./src/emacs --version~ that has to answer before anything is replaced, and the ~make install~ that asks for the password of one. A checkout that is not there is a maak error whose hint is the clone to run, and [[file:docs/emacs.org][docs/emacs.org]] and =docs/development.org= say the task exists and what it does.
+
+*** Fixed
+
+- A start no longer warns that Eglot's confirmation variable is being overwritten. Emacs 32 makes ~eglot-confirm-server-edits~ an alias of ~refactor-confirmation~, and =eglot.el= set it in ~:init= -- before Eglot was loaded -- so the ~defvaralias~ discarded the value and said so on every start, naming the variable and the alias it was replaced with. It is set in ~:config= now, which is after the alias exists: the same setting, without the warning.
+
+-------
+
 ** v1.28.1 (2026-11-10)
 
 *** Added
