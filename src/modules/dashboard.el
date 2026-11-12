@@ -50,6 +50,8 @@
   (setopt welkomscherm/bookmarks-list joe-welkomscherm/bookmarks-list
           welkomscherm/work-list joe-welkomscherm/work-list
           welkomscherm/actions-list joe-welkomscherm/actions-list
+          welkomscherm/show-banner t
+          welkomscherm/icons t
           welkomscherm/show-system-details t
           welkomscherm/show-recent-files t)
   :config
