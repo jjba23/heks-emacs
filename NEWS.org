@@ -11,6 +11,12 @@ This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic 
 
 -------
 
+** v1.30.1 (2026-11-12)
+
+- *A start no longer fails while fetching MELPA.*  MELPA renamed its default branch from =master= to =main=, and the Elpaca release this configuration bootstraps still fetches =master=: the clone fails, leaves a cache it never retries, and Emacs starts with =Unable to clone MELPA: ... couldn't find remote ref master=.  =init.el= now checks the recipe cache before the first menu lookup and, when it is missing or empty, fetches the recipes with a shallow, sparse clone of =main=; Elpaca's own update is a plain =git pull= and follows the branch.
+
+-------
+
 ** v1.30.0 (2026-11-12)
 
 - *The welcome screen opens with the banner and the icons.*  =dashboard.el= turns on ~welkomscherm/show-banner~ and ~welkomscherm/icons~, so the dashboard draws the GNU Emacs splash logo where the frame can show images, and a plain-text glyph before every bookmark, work link and action. A terminal still gets no banner unless ~welkomscherm/banner-ascii~ asks for one, and both the banner and the glyphs are plain text: no icon font, no extra package.
