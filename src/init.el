@@ -52,6 +52,24 @@
 (add-hook 'after-init-hook #'elpaca-process-queues)
 (elpaca `(,@elpaca-order))
 
+;; MELPA renamed its default branch from master to main, and the Elpaca
+;; release this file bootstraps still fetches master: the clone fails and
+;; leaves a cache it never retries.  Fetch the recipes on main first, so the
+;; menu finds them and its own update -- a plain `git pull' -- follows it.
+(let* ((melpa (expand-file-name "melpa/" elpaca-cache-directory))
+       (recipes (expand-file-name "recipes/" melpa)))
+  (unless (and (file-directory-p recipes)
+               (directory-files recipes nil "\\`[^.]"))
+    (when (file-exists-p melpa) (delete-directory melpa 'recursive))
+    (make-directory melpa t)
+    (let ((log (get-buffer-create "*melpa-recipes*")))
+      (dolist (args '(("clone" "--depth=1" "--filter=blob:none" "--sparse"
+                       "https://github.com/melpa/melpa.git" ".")
+                      ("sparse-checkout" "set" "recipes")))
+        (unless (zerop (apply #'call-process "git" nil log nil "-C" melpa args))
+          (error "MELPA recipes were not fetched into %s:\n%s"
+                 melpa (with-current-buffer log (buffer-string))))))))
+
 ;; Enable integration of use-package with Elpaca
 (elpaca elpaca-use-package (elpaca-use-package-mode))
 
