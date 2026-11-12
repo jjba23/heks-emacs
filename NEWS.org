@@ -11,6 +11,12 @@ This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic 
 
 -------
 
+** v1.30.0 (2026-11-12)
+
+- *The welcome screen opens with the banner and the icons.*  =dashboard.el= turns on ~welkomscherm/show-banner~ and ~welkomscherm/icons~, so the dashboard draws the GNU Emacs splash logo where the frame can show images, and a plain-text glyph before every bookmark, work link and action. A terminal still gets no banner unless ~welkomscherm/banner-ascii~ asks for one, and both the banner and the glyphs are plain text: no icon font, no extra package.
+
+-------
+
 ** v1.29.2 (2026-11-10)
 
 - *The repository carries a Sponsor button.*  =.github/FUNDING.yml= carries a =custom= funding URL that points at [[https://buymeacoffee.com/jjbigorra][Buy Me a Coffee]], so GitHub shows a Sponsor button on the repository.

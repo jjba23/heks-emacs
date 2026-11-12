@@ -45,7 +45,7 @@ It also sizes the base, Org, Markdown and prose faces as multiples of the base f
 Provides the theme system and look-and-feel configuration. Supports a selection of themes including EF/Modus, Everforest, Gruvbox, Dracula, Catppuccin, Rose Pine, Kaolin, Doom, and Kanagawa, selected through the HEKS-EMACS theme configuration.
 
 ** =dashboard.el=
-Configures the HEKS welcome/dashboard screen. Defines project, work, and action bookmarks and makes the welcome screen the initial buffer when possible.
+Configures the HEKS welcome/dashboard screen. Defines project, work, and action bookmarks, turns on welkomscherm's banner and per-item icons, and makes the welcome screen the initial buffer when possible.
 
 ** =editor.el=
 Contains general editor-quality-of-life improvements such as automatic saving, rainbow-mode, and convenient text movement.
