@@ -201,7 +201,8 @@
                            sift
                            snippets
                            theme
-                           ui))
+                           ui
+                           veritas))
 (mapc (lambda(f) (load-user-file (format "modules/%s.el" f))) heks/modules)
 
 ;;; init.el ends here

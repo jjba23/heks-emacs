@@ -7,7 +7,19 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
-*[Unreleased]*
+** v1.31.0 (2026-11-14)
+
+*** Added
+
+- *Veritas, the Guile test runner, is part of the configuration.*  =veritas.el=
+  turns on the package's =veritas-mode= in a Scheme buffer that belongs to a
+  Veritas project, so the vocabulary of a suite is fontified and indexed and
+  the runner's report is built from its JSON stream.  The package's menu would
+  have taken =C-c v=, which is the view topic here; it is moved to =C-c g T=
+  instead, beside =C-c g t= for the project's own tests, so folding and the
+  rest of the view topic keep working in a Veritas buffer.  The package is
+  installed from [[https://github.com/jjba23/veritas.el][jjba23/veritas.el]] and
+  [[file:docs/modules.org][docs/modules.org]] describes it.
 
 -------
 

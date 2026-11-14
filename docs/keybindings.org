@@ -129,6 +129,7 @@ in every other topic.
 | ~f~ | ~s~ | small |
 | ~f~ | ~t~ | tiny |
 | ~g~ | ~b~ | the whole buffer, sent to the REPL |
+| ~g~ | ~T~ | the Veritas menu of test runs |
 | ~g~ | ~L~ | lint it with `guix lint' |
 | ~g~ | ~a~ | the fix of the sift rule reported here |
 | ~g~ | ~A~ | every fix sift has, applied to the buffer |
@@ -387,6 +388,7 @@ in every other topic.
 | ~C-c g H~ | ~sift-explain-at-point~ | what the sift rule reported here wants | sift.el (a mode's own map) |
 | ~C-c g L~ | ~heks/guix-lint-buffer~ | lint it with `guix lint' | guile.el (a mode's own map) |
 | ~C-c g R~ | ~heks/scheme-repl-restart~ | the REPL, restarted | guile.el (a mode's own map) |
+| ~C-c g T~ | ~veritas-dispatch~ | the Veritas menu of test runs | veritas.el (heks/scheme-mode-map) |
 | ~C-c g a~ | ~sift-fix-at-point~ | the fix of the sift rule reported here | sift.el (a mode's own map) |
 | ~C-c g b~ | ~heks/scheme-load-buffer~ | the whole buffer, sent to the REPL | guile.el (a mode's own map) |
 | ~C-c g c~ | ~heks/scheme-callers~ | the callers of this definition | guile.el (a mode's own map) |

@@ -304,7 +304,9 @@ configuration."
                 sift-explain-at-point
                 heks/guile-compile-backend
                 heks/guix-lint-backend
-                sift-flymake))
+                sift-flymake
+                veritas-dispatch
+                veritas-mode))
   (heks-verify--check (format "%s is defined" name) (fboundp name)))
 
 (heks-verify--section "the keys the key scheme promises")
@@ -329,7 +331,7 @@ configuration."
   (dolist (key '("C-c g r" "C-c g R" "C-c g s" "C-c g e" "C-c g E" "C-c g b"
                  "C-c g k" "C-c g x" "C-c g d" "C-c g g" "C-c g h" "C-c g c"
                  "C-c g C" "C-c g m" "C-c g t" "C-c g L" "C-c g f"
-                 "C-c g p" "C-c s p" "C-c s a" "C-c s h"))
+                 "C-c g p" "C-c g T" "C-c s p" "C-c s a" "C-c s h"))
     (heks-verify--check (format "a Scheme buffer has %s" key)
                         (commandp (lookup-key heks/scheme-mode-map (kbd key))))))
 
@@ -354,6 +356,9 @@ configuration."
                         (key-binding (kbd "C-c g H")) 'sift-explain-at-point)
     (heks-verify--check "and the package's own prefix is not bound"
                         (key-binding (kbd "C-c s f")) nil)))
+
+(heks-verify--check "the Veritas menu does not take the view prefix"
+                    (lookup-key veritas-mode-map (kbd "C-c v")) nil)
 
 (dolist (key '("C-c ! n" "C-c ! N" "C-c ! b" "C-c ! a" "C-c ! m"
                "C-c a v" "C-c a l" "C-c a r" "C-c a b"

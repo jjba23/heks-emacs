@@ -8,7 +8,7 @@ The configuration is deliberately split by responsibility:
 
 - *Core* modules establish Emacs behavior and HEKS-specific infrastructure.
 - *UI* modules control presentation, themes, completion, navigation, and interaction.
-- *Development* modules provide language tooling, LSP, Git, containers, formatting, and project workflows.
+- *Development* modules provide language tooling, LSP, Git, containers, formatting, testing, and project workflows.
 - *Knowledge* modules handle Org notes, Markdown, and writing.
 - *System* modules integrate shells, Guix, Dired, USB image writing, and other operating-system workflows.
 - *.eld* files provide lightweight, mode-specific editor configuration and snippets without turning every file type into a standalone module.
@@ -146,6 +146,11 @@ The settings are the package's, so what is set is what it reads: ~sift-executabl
 sift also speaks the Language Server Protocol, and the three Lisps' server is sift: `M-x eglot' (or ~C-c i e~) in a Scheme, Emacs Lisp or Common Lisp buffer now finds ~sift lsp~ -- the same program the Flymake backend runs -- and the code actions the server offers are sift's own fixes, while ~textDocument/formatting~ is ~sift format~. It is registered for the five modes those three open in (Scheme with and without Tree-sitter, Emacs Lisp, Common Lisp and Lisp data), from ~modules/sift.el~ rather than ~eglot.el~ because the contact is the package's. What is *not* handed over is the drift: the server publishes lint findings and not formatting ones, so ~heks/sift-drift-backend~ keeps marking the lines ~sift format~ would rewrite. And nothing is said twice: when the server is sift, the Flymake backend of the same findings stands aside, and it comes back when the server shuts down.
 
 Which rules a file is held to is sift's answer and not this configuration's: ~sift list-checkers~ prints them with their codes, dialects and severities, ~M-x sift-explain~ prints the page of one, and ~C-c g H~ opens that page from the diagnostic that fired. A project that wants a different threshold says so in its own ~sift.yaml~, which the editor reads because sift reads it -- so the buffer and the build agree about what wrong means.
+
+** =veritas.el=
+The editor side of [[https://github.com/jjba23/veritas.el][Veritas]], the Guile Scheme test runner, as part of the Guile topic rather than a keymap of its own.  In a Scheme buffer that belongs to a detected Veritas project the package's =veritas-mode= turns itself on: the vocabulary of a suite -- =suite=, =test=, =benchmark=, =scenario= and their BDD, table, container and snapshot companions -- is fontified, appears in Imenu and in the mode line, and a run is started from the test, suite, tag or benchmark at point.  The report is built from the runner's JSON event stream and cross-referenced with the source, so every test and assertion links to its definition, failures are collected at the top with their expected and actual values, tests that did not run say so, and =next-error= walks the lot.
+
+The package binds its menu to =C-c v=, which is the view topic in this configuration; binding that map directly would shadow =C-c v c= and the rest of folding in exactly the buffers a Veritas project opens.  The menu is moved to =C-c g T= -- the further test key of the Guile topic, beside =C-c g t=, which runs the project's own tests -- and =veritas-dispatch= under it keeps the runner's own letters (=a= project, =f= file, =t= here, =T= a test by name, =s= a suite, =g= a tag, =F= what failed, =l= last, =R= the report, =L= the raw log, =k= stop).  The package's settings are its own: =veritas-command=, =veritas-checkout=, =veritas-test-top-dir=, =veritas-test-module= and the rest decide how a project's runner is found and invoked, and =veritas-auto-enable= is left on so that a Scheme file outside a Veritas project is left alone.
 
 ** =git.el=
 Provides Git integration through Magit and related packages. Handles repository interaction, Git links, Git modes, and Git-related editing conveniences.
