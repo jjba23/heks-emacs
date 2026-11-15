@@ -13,7 +13,7 @@
   "HEKS-EMACS customization group."
   :group 'tools)
 
-(defconst heks/version "1.32.0"
+(defconst heks/version "1.33.0"
   "The version of this configuration.
 
 It is the number in the release notes' newest section and the tag on the
@@ -854,6 +854,28 @@ prefix argument), fetches a new one even over a cached jar."
                         (error-message-string err))
                nil)))))))
 
+(defun heks/jvm-main-class (&optional buffer)
+  "Return the class the main function of BUFFER's file lives in, or nil.
+
+Kotlin puts a file's top-level functions in a class named after the file
+with `Kt' appended, so `Main.kt' in `com.example.app' is
+`com.example.app.MainKt'; a Java file's class is its own name.  The
+package is read from the file, because the class the JVM is asked for is
+the qualified one.  A file that names its class otherwise -- Kotlin's
+`@file:JvmName' -- is what the prefix argument to `heks/jvm-debug' is
+for: the prompt starts with this answer and takes another."
+  (with-current-buffer (or buffer (current-buffer))
+    (when-let* ((file buffer-file-name)
+                (base (file-name-base file)))
+      (let ((package (save-excursion
+                       (goto-char (point-min))
+                       (when (re-search-forward
+                              "^[ \t]*package[ \t]+\\([A-Za-z0-9_.]+\\)" nil t)
+                         (match-string 1)))))
+        (concat (if package (concat package ".") "")
+                base
+                (if (string-match-p "\\.kt\\'" file) "Kt" ""))))))
+
 (defun heks/jvm-debug-agent (port)
   "Return the JVM argument that suspends a JVM for a debugger on PORT.
 
@@ -862,53 +884,154 @@ not run a line of the program until something attaches on PORT, so a
 breakpoint in, say, a Spring `@PostConstruct' is never too late to set."
   (format "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:%d" port))
 
-(defun heks/jvm-debug ()
-  "Debug the JVM project of this buffer with `dape'.
+(defun heks/jvm-debug--port-open-p (port)
+  "Return non-nil when something is listening on PORT.
 
-Starts the project the way `heks/spring-boot-run' and
-`heks/jvm-run' do, except suspended on
-`heks/java-debug-port' until a debugger attaches, and then attaches
-`dape' to it through the `java-debug' adapter, fetched by
-`heks/java-debug-ensure-jar' when nothing else already provides
-one.  Works for Java and for Kotlin alike, because the debugger is
-attached to the running JVM rather than reading either language's source
-directly."
-  (interactive)
+A connection that is accepted and closed at once is the answer wanted: a
+JVM suspended at `suspend=y' accepts the debugger's socket before it runs
+a line."
+  (condition-case nil
+      (let ((process (make-network-process :name "heks/jvm-debug-probe"
+                                           :host "127.0.0.1"
+                                           :service port
+                                           :nowait nil
+                                           :noquery t)))
+        (delete-process process)
+        t)
+    (error nil)))
+
+(defun heks/jvm-debug--attach (root)
+  "Attach `dape' to the JDWP port of the JVM in ROOT."
+  (require 'dape)
+  (let ((jar (heks/java-debug-ensure-jar)))
+    (unless jar
+      (user-error "No `java-debug' adapter found, and none could be fetched; \
+set `heks/java-debug-jar' or `HEKS_JAVA_DEBUG_JAR', or get one \
+yourself and run `M-x heks/java-debug-ensure-jar'"))
+    (dape (list :name "java-attach"
+                :command "java"
+                :command-args (list "-jar" jar)
+                :port heks/java-debug-port
+                :request "attach"
+                :hostName "localhost"
+                :cwd root
+                :sourcePaths (list (expand-file-name "src/main/java" root)
+                                   (expand-file-name "src/main/kotlin" root))))))
+
+(defun heks/jvm-debug--wait-and-attach (root &optional tries)
+  "Attach a debugger to the JVM in ROOT as soon as its port answers.
+
+The build that starts the JVM is asynchronous, so the port is probed
+rather than waited on for a guessed number of seconds: a Gradle boot that
+takes twenty seconds is attached to in twenty seconds, and a build that
+fails says so instead of leaving a debugger that never connects.  TRIES
+bounds the probing at a few seconds over half a minute."
+  (let ((tries (or tries 150)))
+    (cond ((heks/jvm-debug--port-open-p heks/java-debug-port)
+           (heks/jvm-debug--attach root))
+          ((<= tries 0)
+           (message "Nothing is listening on port %d; the compilation buffer says why"
+                    heks/java-debug-port))
+          (t (run-at-time 0.2 nil #'heks/jvm-debug--wait-and-attach root (1- tries))))))
+
+(defun heks/jvm-debug-run (main-class &optional args)
+  "Run MAIN-CLASS of the JVM project suspended for a debugger, then attach.
+
+Where `heks/jvm-debug' starts a Spring Boot application or a Gradle
+`bootRun', this starts any application: Maven runs it with `exec:java'
+in its own JVM, which is why the JDWP agent is put in `MAVEN_OPTS'; Gradle
+runs the `run' task with `--debug-jvm'.  Both stop before the program's
+first line (`suspend=y') so a breakpoint in the first line of `main' is
+not too late, and `heks/jvm-debug--wait-and-attach' connects when the port
+answers.  ARGS are the program's arguments."
   (unless (heks/java-debug-ensure-jar)
     (user-error "No `java-debug' adapter found, and none could be fetched; \
 set `heks/java-debug-jar' or `HEKS_JAVA_DEBUG_JAR', or get one \
 yourself and run `M-x heks/java-debug-ensure-jar'"))
-  (require 'dape)
   (let* ((project (heks/jvm--project))
-         (root (cdr project))
-         (agent (heks/jvm-debug-agent heks/java-debug-port)))
+         (root (and project (cdr project))))
     (unless project
       (user-error "No pom.xml or Gradle build found above %s" default-directory))
     (pcase (car project)
       ('maven
-       (heks/jvm-run-build root
-                              (heks/jvm-build-program root "mvnw" "mvn")
-                              "spring-boot:run"
-                              (shell-quote-argument (format "-Dspring-boot.run.jvmArguments=%s" agent))))
+       (let ((command (format "%s -q compile exec:java -Dexec.mainClass=%s%s"
+                              (shell-quote-argument
+                               (heks/jvm-build-program root "mvnw" "mvn"))
+                              (shell-quote-argument main-class)
+                              (if args
+                                  (concat " -Dexec.args="
+                                          (shell-quote-argument
+                                           (string-join args " ")))
+                                ""))))
+         ;; `exec:java' runs the program in Maven's own JVM, so the agent
+         ;; goes where the `mvn' launcher reads it.
+         (let ((default-directory root)
+               (process-environment
+                (cons (format "MAVEN_OPTS=%s"
+                              (heks/jvm-debug-agent heks/java-debug-port))
+                      process-environment)))
+           (compile command))))
       ('gradle
+       ;; `--debug-jvm' is the `run' task's own suspension switch; the
+       ;; property is what makes it listen on this configuration's port
+       ;; rather than Gradle's 5005.
        (heks/jvm-run-build root
-                              (heks/jvm-build-program root "gradlew" "gradle")
-                              "bootRun"
-                              (format "-Dorg.gradle.jvmargs=%s" (shell-quote-argument agent)))))
+                           (heks/jvm-build-program root "gradlew" "gradle")
+                           (format "-Dorg.gradle.debug.port=%d" heks/java-debug-port)
+                           "run" "--debug-jvm")))
     (message "Waiting for %s to listen on %d before attaching `dape'..."
              (car project) heks/java-debug-port)
-    (run-at-time
-     2 nil
-     (lambda ()
-       (dape (list :name "java-attach"
-                   :command "java"
-                   :command-args (list "-jar" heks/java-debug-jar)
-                   :port heks/java-debug-port
-                   :request "attach"
-                   :hostName "localhost"
-                   :cwd root
-                   :sourcePaths (list (expand-file-name "src/main/java" root)
-                                      (expand-file-name "src/main/kotlin" root))))))))
+    (heks/jvm-debug--wait-and-attach root)))
+
+(defun heks/jvm-debug (&optional main-class)
+  "Debug the JVM project of this buffer with `dape'.
+
+Without a prefix argument this starts the project the way
+`heks/spring-boot-run' and `heks/jvm-run' do -- a Spring Boot
+application, or Gradle's `bootRun' -- except suspended on
+`heks/java-debug-port' until a debugger attaches, and then attaches
+`dape' to it through the `java-debug' adapter, fetched by
+`heks/java-debug-ensure-jar' when nothing else already provides one.
+
+With a prefix argument it asks for the main class instead -- the answer
+starts with the class of the current file (see `heks/jvm-main-class') --
+and runs that with `heks/jvm-debug-run', which is what debugs a Kotlin or
+Java program that is not a Spring Boot application.  Works for Java and
+for Kotlin alike, because the debugger is attached to the running JVM
+rather than reading either language's source directly."
+  (interactive
+   (list (when current-prefix-arg
+           (let ((class (read-string "Main class: "
+                                     (or (heks/jvm-main-class) ""))))
+             (unless (string-empty-p class) class)))))
+  (require 'dape)
+  (let* ((project (heks/jvm--project))
+         (root (and project (cdr project))))
+    (unless project
+      (user-error "No pom.xml or Gradle build found above %s" default-directory))
+    (if main-class
+        (heks/jvm-debug-run main-class)
+      (unless (heks/java-debug-ensure-jar)
+        (user-error "No `java-debug' adapter found, and none could be fetched; \
+set `heks/java-debug-jar' or `HEKS_JAVA_DEBUG_JAR', or get one \
+yourself and run `M-x heks/java-debug-ensure-jar'"))
+      (let ((agent (heks/jvm-debug-agent heks/java-debug-port)))
+        (pcase (car project)
+          ('maven
+           (heks/jvm-run-build root
+                               (heks/jvm-build-program root "mvnw" "mvn")
+                               "spring-boot:run"
+                               (shell-quote-argument
+                                (format "-Dspring-boot.run.jvmArguments=%s" agent))))
+          ('gradle
+           (heks/jvm-run-build root
+                               (heks/jvm-build-program root "gradlew" "gradle")
+                               "bootRun"
+                               (format "-Dorg.gradle.jvmargs=%s"
+                                       (shell-quote-argument agent))))))
+      (message "Waiting for %s to listen on %d before attaching `dape'..."
+               (car project) heks/java-debug-port)
+      (heks/jvm-debug--wait-and-attach root))))
 
 ;;
 ;; ====== Formatting, wherever the buffer is ======

@@ -4442,6 +4442,134 @@ the strokes on the line around point rather than a word."
     (should (string-match-p "&quot;document&quot;" page))
     (should-not (string-match-p "src=\"http" page))))
 
+;;
+;; ====== Broken programs: C, GTK and the JVM ======
+;;
+
+(ert-deftest heks/c/the-build-command-is-the-build-system-s ()
+  "A project says how it is built, and the debugger runs that first."
+  (let ((root (heks-ert--temp-directory)))
+    (unwind-protect
+        (progn
+          (write-region "" nil (expand-file-name "meson.build" root) nil 'silent)
+          (make-directory (expand-file-name "build" root) t)
+          (should (equal (heks/c-debug-build-command root)
+                         "meson compile -C build"))
+          (delete-file (expand-file-name "meson.build" root))
+          (delete-directory (expand-file-name "build" root))
+          (write-region "" nil (expand-file-name "CMakeLists.txt" root) nil 'silent)
+          (make-directory (expand-file-name "build" root) t)
+          (should (equal (heks/c-debug-build-command root)
+                         "cmake --build build"))
+          (delete-file (expand-file-name "CMakeLists.txt" root))
+          (delete-directory (expand-file-name "build" root))
+          (write-region "" nil (expand-file-name "Makefile" root) nil 'silent)
+          (should (equal (heks/c-debug-build-command root) "make"))
+          (delete-file (expand-file-name "Makefile" root))
+          ;; A directory with nothing to build is not a build system.
+          (should-not (heks/c-debug-build-command root)))
+      (delete-directory root t))))
+
+(ert-deftest heks/c/one-binary-in-the-build-directory-is-the-program ()
+  "The program a debugger starts is the one the build produced."
+  (let ((root (heks-ert--temp-directory)))
+    (unwind-protect
+        (progn
+          (make-directory (expand-file-name "build" root) t)
+          (let ((binary (expand-file-name "build/mijn-app" root))
+                (source (expand-file-name "build/main.c" root)))
+            (write-region "#!/bin/sh\n" nil binary nil 'silent)
+            (set-file-modes binary #o755)
+            (write-region "int main (void) { return 0; }\n" nil source nil 'silent)
+            ;; The source is not the program, even in the build directory.
+            (should (equal (heks/c-debug-guess-program root) binary))))
+      (delete-directory root t))))
+
+(ert-deftest heks/c/gtk-warnings-are-fatal-under-the-debugger ()
+  "GTK's own diagnostics are the reason its debugging keys exist."
+  (should (equal (cdr (assoc "G_DEBUG" heks/gtk-debug-environment))
+                 "fatal-criticals"))
+  (should (equal (cdr (assoc "GSK_RENDERER" heks/gtk-debug-environment))
+                 "cairo"))
+  ;; And the alist becomes the plist the debug adapter is given.
+  (should (equal (heks/c-debug--environment-plist heks/gtk-debug-environment)
+                 '(:G_DEBUG "fatal-criticals" :GSK_RENDERER "cairo"))))
+
+(ert-deftest heks/jvm/a-kotlin-file-names-the-class-its-main-function-is-in ()
+  "Kotlin puts a file's top-level functions in the file's own class."
+  (with-temp-buffer
+    (setq buffer-file-name "/tmp/Main.kt")
+    (insert "package com.example.app\n\nfun main () = (display \"hi\")\n")
+    (should (equal (heks/jvm-main-class) "com.example.app.MainKt"))))
+
+(ert-deftest heks/jvm/a-java-file-names-its-own-class ()
+  "A Java main method lives in the class the file is named after."
+  (with-temp-buffer
+    (setq buffer-file-name "/tmp/Main.java")
+    (insert "package com.example.app;\n\npublic class Main { }\n")
+    (should (equal (heks/jvm-main-class) "com.example.app.Main"))))
+
+(ert-deftest heks/jvm/a-file-in-no-package-still-names-a-class ()
+  (with-temp-buffer
+    (setq buffer-file-name "/tmp/Standalone.kt")
+    (insert "fun main () = (display \"hi\")\n")
+    (should (equal (heks/jvm-main-class) "StandaloneKt"))))
+
+;;
+;; ====== Debugging Guile, with and without Artanis ======
+;;
+
+(ert-deftest heks/guile/the-debug-repl-evaluates-guiles-debug-settings ()
+  "The REPL is asked for the settings before the code is."
+  (let ((asked '()))
+    (cl-letf (((symbol-function 'heks/scheme-repl-needed)
+               (lambda (function) (funcall function)))
+              ((symbol-function 'geiser-eval--send/wait)
+               (lambda (code &optional _timeout) (push code asked) nil)))
+      (heks/scheme-debug-repl))
+    (should (= (length asked) (length heks/scheme-debug-forms)))
+    (should (string-match-p "debug-set!"
+                            (format "%S" (car (last asked)))))
+    (should (string-match-p "debug-enable"
+                            (format "%S" (car asked))))))
+
+(ert-deftest heks/guile/the-debugger-menu-says-when-there-is-no-debugger ()
+  (cl-letf (((symbol-function 'geiser-debug-active-p) (lambda () nil)))
+    (should-error (heks/scheme-debugger-menu) :type 'user-error)))
+
+(ert-deftest heks/guile/the-debugger-menu-is-geiser-s-own ()
+  "The debugger's commands are Geiser's; this is the key onto them."
+  (let ((opened nil))
+    (cl-letf (((symbol-function 'geiser-debug-active-p) (lambda () t))
+              ((symbol-function 'geiser-guile-debug-menu)
+               (lambda () (setq opened t))))
+      (heks/scheme-debugger-menu)
+      (should opened))))
+
+(ert-deftest heks/guile/an-artanis-project-is-the-nearest-entry-file ()
+  "Artanis starts at `entry.scm'; a file below it is still in the project."
+  (let* ((root (heks-ert--temp-directory))
+         (inner (expand-file-name "app/views/" root)))
+    (unwind-protect
+        (progn
+          (make-directory inner t)
+          (write-region "" nil (expand-file-name "entry.scm" root) nil 'silent)
+          (heks-ert--in inner
+            (should (equal (file-name-as-directory (heks/artanis-root))
+                           (file-name-as-directory root)))))
+      (delete-directory root t))))
+
+(ert-deftest heks/guile/the-artanis-log-is-the-file-that-exists ()
+  (let ((root (heks-ert--temp-directory)))
+    (unwind-protect
+        (progn
+          (make-directory (expand-file-name "log" root) t)
+          (should-not (heks/artanis-log-file root))
+          (write-region "" nil (expand-file-name "log/artanis.log" root) nil 'silent)
+          (should (equal (heks/artanis-log-file root)
+                         (expand-file-name "log/artanis.log" root))))
+      (delete-directory root t))))
+
 (unless (getenv "HEKS_ERT_NO_RUN")
   (ert-run-tests-batch-and-exit))
 

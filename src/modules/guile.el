@@ -608,6 +608,150 @@ else, which is the point of a debugger that lives in a buffer."
       (geiser-debug-switch-to-buffer)
     (user-error "No debugger to return to; run code that signals an error first")))
 
+(defun heks/scheme-debugger-menu ()
+  "Show Geiser's commands for the debugger level that is active.
+
+The debug buffer answers `,' with the same menu; this is the key scheme's
+way onto it, so that the debugger's commands are found the way every
+other command here is.  It says so when no debugger is active rather than
+opening a menu whose every entry would be refused."
+  (interactive)
+  (unless (and (fboundp 'geiser-debug-active-p) (geiser-debug-active-p))
+    (user-error "No debugger is active; run code that signals an error, then `C-c g d'"))
+  (if (fboundp 'geiser-guile-debug-menu)
+      (geiser-guile-debug-menu)
+    (user-error "The Guile debugger menu is not available until Geiser's Guile support is loaded")))
+
+(defcustom heks/scheme-debug-forms
+  '("(debug-set! stack 200000)"
+    "(debug-set! depth 200)"
+    "(debug-enable 'backtrace)")
+  "The Scheme forms `heks/scheme-debug-repl' evaluates in the REPL.
+
+They are Guile's own debugger settings, not this configuration's: a
+deeper stack and a deeper backtrace are what makes an error in a long
+call chain show the frame that caused it, and `debug-enable' asks for the
+backtrace at all.  The list is a setting so that a project that wants
+different numbers can say so without editing the command."
+  :type '(repeat string)
+  :group 'heks)
+
+(defun heks/scheme-debug-repl ()
+  "Start the project's REPL with Guile's debugger set up for a real hunt.
+
+`C-c g r' starts the REPL; this starts the same one and first tells Guile
+to keep a deeper stack and a deeper backtrace (see
+`heks/scheme-debug-forms').  Evaluating a definition afterwards is
+`C-c g e', an error enters Geiser's debugger, `C-c g d' returns to it and
+`C-c g D' shows its commands."
+  (interactive)
+  (heks/scheme-repl-needed
+   (lambda ()
+     (dolist (form heks/scheme-debug-forms)
+       (condition-case err
+           (geiser-eval--send/wait (list :eval (list :scm form)) 2)
+         (error (message "Guile debugger setting %s: %s"
+                         form (error-message-string err)))))
+     (message "Guile debugger ready: %s" (string-join heks/scheme-debug-forms " ")))))
+
+;;
+;; ====== Artanis: a web application, run and read ======
+;;
+;; Artanis is a Scheme web framework, so debugging one is two things at
+;; once: the code, which is Guile's and is debugged in the REPL Geiser
+;; already gives every project, and the running application, whose errors
+;; arrive as a page in the browser and as lines in its log.  The commands
+;; below are the second half -- start the application from its own
+;; directory and follow the log it writes -- and `C-c g e', `C-c g d' and
+;; `C-c g D' are the first: load a route definition into the REPL, break
+;; it, and return to the debugger with the frame that failed.
+
+(defcustom heks/artanis-entry-file "entry.scm"
+  "The file an Artanis application is started from."
+  :type 'string
+  :group 'heks)
+
+(defcustom heks/artanis-program "artanis"
+  "The Artanis command line program `heks/artanis-run' starts."
+  :type 'string
+  :group 'heks)
+
+(defcustom heks/artanis-arguments "-p %d"
+  "The arguments `heks/artanis-run' gives the Artanis program.
+
+The `%d' is the port.  Artanis' own command line takes the port as
+`-p PORT'; this is a setting so that a project whose launcher differs can
+say how it is started."
+  :type 'string
+  :group 'heks)
+
+(defcustom heks/artanis-port 3000
+  "The port `heks/artanis-run' starts the application on."
+  :type 'integer
+  :group 'heks)
+
+(defun heks/artanis-root (&optional directory)
+  "Return the root of the Artanis project DIRECTORY is in, or signal.
+
+The root is the nearest directory above DIRECTORY that holds
+`heks/artanis-entry-file'; a file deep in `app/views/' is still in the
+project, and the application is started from the root."
+  (let ((root (locate-dominating-file (or directory default-directory)
+                                      heks/artanis-entry-file)))
+    (if root
+        (file-name-as-directory (expand-file-name root))
+      (user-error "No %s above %s; is this an Artanis project?"
+                  heks/artanis-entry-file
+                  (abbreviate-file-name (expand-file-name (or directory default-directory)))))))
+
+(defun heks/artanis-log-file (&optional root)
+  "Return the Artanis log inside ROOT, or nil when there is none.
+
+Artanis writes its log where its own configuration says; the places
+checked here are the ones its templates use, and a project that keeps it
+elsewhere is told so by the `user-error' in `heks/artanis-log' rather than
+by a file this configuration guessed wrong."
+  (let ((root (or root (ignore-errors (heks/artanis-root)) default-directory)))
+    (seq-find #'file-exists-p
+              (mapcar (lambda (name) (expand-file-name name root))
+                      '("log/artanis.log" "logs/artanis.log" "artanis.log")))))
+
+(defun heks/artanis-run (&optional port)
+  "Start the Artanis application of the current project on PORT.
+
+The application runs in its own compilation buffer, in the project root,
+with `GUILE_AUTO_COMPILE' off so that a backtrace names the source file
+rather than a compiled copy.  It is the running application the browser
+talks to; `C-c g O' follows the log it writes, and the scheme itself is
+debugged in the REPL (`C-c g r', `C-c g e', `C-c g d').  With a prefix
+argument, ask for the port."
+  (interactive (list (when current-prefix-arg (read-number "Port: " heks/artanis-port))))
+  (let* ((root (heks/artanis-root))
+         (port (or port heks/artanis-port))
+         (program (or (executable-find heks/artanis-program)
+                      (user-error "Cannot find `%s' on `exec-path'" heks/artanis-program))))
+    (let ((default-directory root)
+          (process-environment (cons "GUILE_AUTO_COMPILE=0" process-environment)))
+      (compile (format "%s %s"
+                       (shell-quote-argument program)
+                       (format heks/artanis-arguments port))))
+    (message "Artanis on http://localhost:%d -- its log is `C-c g O'" port)))
+
+(defun heks/artanis-log ()
+  "Follow the Artanis log of the current project, at its end.
+
+It is opened in `auto-revert-tail-mode', so the page an error produced
+and the line it wrote are read in the same place: reproduce the request
+in the browser and watch what the application says about it."
+  (interactive)
+  (let ((file (heks/artanis-log-file)))
+    (unless file
+      (user-error "No Artanis log under %s; start the application with `C-c g W' first"
+                  (abbreviate-file-name (heks/artanis-root))))
+    (find-file file)
+    (auto-revert-tail-mode 1)
+    (goto-char (point-max))))
+
 (defun heks/scheme-documentation ()
   "Show the documentation of the symbol at point."
   (interactive)
@@ -1500,6 +1644,13 @@ which is the command it is everywhere else too."
     (define-key map (kbd "C-c g k") #'heks/scheme-interrupt)
     (define-key map (kbd "C-c g x") #'heks/scheme-run-script)
     (define-key map (kbd "C-c g d") #'heks/scheme-debugger)
+    (define-key map (kbd "C-c g D") #'heks/scheme-debugger-menu)
+    (define-key map (kbd "C-c g B") #'heks/scheme-debug-repl)
+    ;; Artanis is a web application: `W' starts it, `O' follows the log it
+    ;; writes.  The Scheme inside it is debugged in the same REPL as any
+    ;; other Guile, with the same keys.
+    (define-key map (kbd "C-c g W") #'heks/artanis-run)
+    (define-key map (kbd "C-c g O") #'heks/artanis-log)
     ;; Navigation, from Geiser's own database.
     ;; `C-c g g' is the same command `M-.' is -- `xref-find-definitions' --
     ;; because what finds a Scheme definition is the backend this module

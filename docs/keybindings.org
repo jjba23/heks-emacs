@@ -62,12 +62,12 @@ described only by a letter.
 | ~SPC~ | dashboard |
 | ~U~ | Kubernetes: kubed, from a menu |
 | ~a~ | API and HTTP: OpenAPI specs and requests |
-| ~b~ | breakpoints and the debugger: dape |
+| ~b~ | breakpoints and the debugger: dape, gdb and the GTK inspector |
 | ~c~ | containers: Docker |
 | ~d~ | databases: PostgreSQL and MongoDB |
 | ~e~ | environment: direnv |
 | ~f~ | fonts and text size |
-| ~g~ | Guile and Guix |
+| ~g~ | Guile, Guix and Artanis |
 | ~h~ | help and documentation |
 | ~i~ | IDE: language server, formatting, diagnostics |
 | ~j~ | JVM: Maven, Gradle, Spring, Java and Kotlin |
@@ -114,6 +114,9 @@ in every other topic.
 | ~a~ | ~b~ | the request written as a block to paste |
 | ~b~ | ~b~ | a breakpoint at point, toggled |
 | ~b~ | ~c~ | the program, continued to the next breakpoint |
+| ~b~ | ~d~ | the C program of this project, debugged |
+| ~b~ | ~g~ | the GTK program, debugged with GTK's warnings fatal |
+| ~b~ | ~I~ | the GTK inspector, in the running program |
 | ~b~ | ~i~ | into the call at point, stepped |
 | ~b~ | ~o~ | out of the current function, stepped |
 | ~c~ | ~d~ | Docker |
@@ -130,6 +133,10 @@ in every other topic.
 | ~f~ | ~s~ | small |
 | ~f~ | ~t~ | tiny |
 | ~g~ | ~b~ | the whole buffer, sent to the REPL |
+| ~g~ | ~B~ | the REPL, started with Guile's debugger set up |
+| ~g~ | ~D~ | the Guile debugger's own commands |
+| ~g~ | ~O~ | the Artanis log, tailed |
+| ~g~ | ~W~ | the Artanis application, started |
 | ~g~ | ~T~ | the Veritas menu of test runs |
 | ~g~ | ~L~ | lint it with `guix lint' |
 | ~g~ | ~a~ | the fix of the sift rule reported here |
@@ -342,12 +349,15 @@ in every other topic.
 | ~C-c a r~ | ~heks/openapi-request~ | the operation, sent as a live request | openapi.el |
 | ~C-c a v~ | ~heks/openapi-view~ | the spec, rendered to read | openapi.el |
 
-** ~C-c b~ breakpoints and the debugger: dape
+** ~C-c b~ breakpoints and the debugger: dape, gdb and the GTK inspector
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
+| ~C-c b I~ | ~heks/gtk-inspector~ | the GTK inspector, in the running program | dev-formats.el |
 | ~C-c b b~ | ~dape-breakpoint-toggle~ | a breakpoint at point, toggled | dev-formats.el |
 | ~C-c b c~ | ~dape-continue~ | the program, continued to the next breakpoint | dev-formats.el |
+| ~C-c b d~ | ~heks/c-debug~ | the C program of this project, debugged | dev-formats.el |
+| ~C-c b g~ | ~heks/gtk-debug~ | the GTK program, debugged with GTK's warnings fatal | dev-formats.el |
 | ~C-c b i~ | ~dape-step-in~ | into the call at point, stepped | dev-formats.el |
 | ~C-c b k~ | ~dape-kill~ | the debug session, killed | dev-formats.el |
 | ~C-c b n~ | ~dape-next~ | the next line, stepped over | dev-formats.el |
@@ -387,17 +397,21 @@ in every other topic.
 | ~C-c f s~ | ~tekengrootte-set-scale-small~ | small | ui.el |
 | ~C-c f t~ | ~tekengrootte-set-scale-tiny~ | tiny | ui.el |
 
-** ~C-c g~ Guile and Guix
+** ~C-c g~ Guile, Guix and Artanis
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
 | ~C-c g A~ | ~sift-fix-buffer~ | every fix sift has, applied to the buffer | sift.el (a mode's own map) |
+| ~C-c g B~ | ~heks/scheme-debug-repl~ | the REPL, started with Guile's debugger set up | guile.el (a mode's own map) |
 | ~C-c g C~ | ~heks/scheme-callees~ | the callees of this definition | guile.el (a mode's own map) |
+| ~C-c g D~ | ~heks/scheme-debugger-menu~ | the Guile debugger's own commands | guile.el (a mode's own map) |
 | ~C-c g E~ | ~heks/scheme-eval-region-or-buffer~ | the region, or the whole buffer | guile.el (a mode's own map) |
 | ~C-c g H~ | ~sift-explain-at-point~ | what the sift rule reported here wants | sift.el (a mode's own map) |
 | ~C-c g L~ | ~heks/guix-lint-buffer~ | lint it with `guix lint' | guile.el (a mode's own map) |
+| ~C-c g O~ | ~heks/artanis-log~ | the Artanis log, tailed | guile.el (a mode's own map) |
 | ~C-c g R~ | ~heks/scheme-repl-restart~ | the REPL, restarted | guile.el (a mode's own map) |
 | ~C-c g T~ | ~veritas-dispatch~ | the Veritas menu of test runs | veritas.el (heks/scheme-mode-map) |
+| ~C-c g W~ | ~heks/artanis-run~ | the Artanis application, started | guile.el (a mode's own map) |
 | ~C-c g a~ | ~sift-fix-at-point~ | the fix of the sift rule reported here | sift.el (a mode's own map) |
 | ~C-c g b~ | ~heks/scheme-load-buffer~ | the whole buffer, sent to the REPL | guile.el (a mode's own map) |
 | ~C-c g c~ | ~heks/scheme-callers~ | the callers of this definition | guile.el (a mode's own map) |

@@ -10,6 +10,9 @@
 
 ;;; Code:
 
+(require 'seq)
+(require 'subr-x)
+
 ;; Configures Emacs for editing JSON files, providing
 ;; syntax highlighting and formatting.
 (use-package json-mode
@@ -115,14 +118,256 @@ against the Maven schema."
 ;; JVM project is the `java-debug' adapter that `heks/jvm-debug'
 ;; (see `heks-emacs.el') runs and attaches to -- see
 ;; `heks/java-debug-jar' for where that jar comes from.
+;;
+;; For C and C++ the server is `gdb' itself: since version 14.1 it speaks
+;; the Debug Adapter Protocol (`gdb --interpreter=dap'), so the same dape
+;; buffer and the same `C-c b' keys drive a C program and a JVM one.  What
+;; this module adds is the part a debugger cannot guess: which binary the
+;; build produced, how the project is rebuilt, and -- for a GTK
+;; application -- the environment variables that turn a GTK warning from a
+;; line in the terminal into a breakpoint that is caught.
+
+(defcustom heks/c-debug-program nil
+  "The program `heks/c-debug' starts, or nil to use the one it finds.
+
+Nil means the single executable in the project's build directory, or --
+when the build holds several -- the one named after the project.  A
+prefix argument to `heks/c-debug' asks for a file instead, which is the
+escape hatch for a layout the guess does not know."
+  :type '(choice (const :tag "find the built program" nil)
+                 (file :tag "a program"))
+  :group 'heks)
+
+(defcustom heks/c-debug-args nil
+  "The arguments `heks/c-debug' gives the program, in order."
+  :type '(repeat string)
+  :group 'heks)
+
+(defconst heks/c-debug-build-directories
+  '("build" "builddir" "cmake-build-debug" "cmake-build-release")
+  "The directories a C project's build output is looked in.
+
+Meson writes to `build/' or `builddir/', CMake to a directory of its
+own naming, and this configuration's guess is the four names that cover
+what a checkout usually has.")
+
+(defcustom heks/gtk-debug-environment
+  '(("G_DEBUG" . "fatal-criticals")
+    ("GSK_RENDERER" . "cairo"))
+  "The environment `heks/gtk-debug' gives a GTK application.
+
+`G_DEBUG=fatal-criticals' turns a GTK critical -- a widget used after it
+was destroyed, a signal connected to nothing -- into an abort, which is
+what lets the debugger stop on it instead of printing a line nobody
+reads.  `GSK_RENDERER=cairo' asks GTK 4 for its software renderer, so the
+program does not start a GPU driver's threads under the debugger; remove
+it to debug the renderer itself."
+  :type '(alist :key-type string :value-type string)
+  :group 'heks)
+
+(defun heks/c-debug-root (&optional directory)
+  "Return the root of the project DIRECTORY is in, or its directory."
+  (let ((directory (file-name-as-directory
+                    (expand-file-name (or directory default-directory)))))
+    (or (ignore-errors
+          (when-let* ((project (project-current nil directory)))
+            (file-name-as-directory
+             (expand-file-name (if (fboundp 'project-root)
+                                   (project-root project)
+                                 (car (with-no-warnings (project-roots project))))))))
+        directory)))
+
+(defun heks/c-debug-source-p (file)
+  "Return non-nil when FILE is a source or build artefact, not a program."
+  (string-match-p "\\.\\(?:c\\|h\\|cc\\|cpp\\|cxx\\|hpp\\|hh\\|o\\|a\\|so\\(?:\\.[0-9.]+\\)?\\|el\\|py\\|sh\\|txt\\|json\\|md\\|cmake\\|ninja\\|mk\\|log\\)\\'"
+                  file))
+
+(defun heks/c-debug-guess-program (&optional root)
+  "Return the program this project's build produced, or nil.
+
+The build directories are read for executables that are not sources or
+object files.  One is the answer; several are only answered when one is
+named after the project, and none is nil -- the caller asks, rather than
+starting a debugger on a file that was a guess."
+  (or heks/c-debug-program
+      (let* ((root (or root (heks/c-debug-root)))
+             (binaries
+              (seq-mapcat
+               (lambda (name)
+                 (let ((directory (expand-file-name name root)))
+                   (when (file-directory-p directory)
+                     (seq-filter (lambda (file)
+                                   (and (file-regular-p file)
+                                        (file-executable-p file)
+                                        (not (heks/c-debug-source-p file))))
+                                 (directory-files directory t "\\`[^.].*")))))
+               heks/c-debug-build-directories)))
+        (cond ((= (length binaries) 1)
+               (car binaries))
+              ((> (length binaries) 1)
+               (let ((name (file-name-nondirectory (directory-file-name root))))
+                 (seq-find (lambda (binary)
+                             (equal (file-name-nondirectory binary) name))
+                           binaries)))
+              (t nil)))))
+
+(defun heks/c-debug-build-command (&optional root)
+  "Return the command that rebuilds the project at ROOT, or nil.
+
+Meson, CMake and a plain Makefile are the three build systems this
+configuration knows how to ask; a project that uses none of them is
+built by hand, and the debugger starts the program that is already
+there."
+  (let* ((root (or root (heks/c-debug-root)))
+         (meson (file-exists-p (expand-file-name "meson.build" root)))
+         (cmake (file-exists-p (expand-file-name "CMakeLists.txt" root))))
+    (cond ((and meson (file-directory-p (expand-file-name "build" root)))
+           "meson compile -C build")
+          ((and meson (file-directory-p (expand-file-name "builddir" root)))
+           "meson compile -C builddir")
+          ((and cmake (file-directory-p (expand-file-name "build" root)))
+           "cmake --build build")
+          ((file-exists-p (expand-file-name "Makefile" root))
+           "make")
+          (t nil))))
+
+(defun heks/c-debug--environment-plist (environment)
+  "Return ENVIRONMENT as the plist dape wants for `:env'."
+  (apply #'append
+         (mapcar (lambda (entry)
+                   (list (intern (concat ":" (car entry))) (cdr entry)))
+                 environment)))
+
+(defun heks/c-debug--dap-capable-p ()
+  "Return non-nil when the gdb on `exec-path' speaks the DAP."
+  (and (executable-find "gdb")
+       (let ((version (ignore-errors (shell-command-to-string "gdb --version"))))
+         (and version
+              (string-match "GNU gdb[^0-9]*\\([0-9]+\\)\\.\\([0-9]+\\)" version)
+              (let ((major (string-to-number (match-string 1 version)))
+                    (minor (string-to-number (match-string 2 version))))
+                (or (> major 14) (and (= major 14) (>= minor 1))))))))
+
+(defun heks/c-debug--gud (program args root environment)
+  "Start PROGRAM under GUD, in ROOT, with ENVIRONMENT set."
+  (require 'gdb-mi)
+  (let* ((default-directory (file-name-as-directory root))
+         (assignments (mapconcat (lambda (entry)
+                                   (format "%s=%s"
+                                           (car entry)
+                                           (shell-quote-argument (cdr entry))))
+                                 environment " "))
+         (command (concat (if (string-empty-p assignments)
+                              ""
+                            (concat assignments " "))
+                          "gdb -i=mi --args "
+                          (mapconcat #'shell-quote-argument
+                                     (cons program args) " "))))
+    (gdb command)))
+
+(defun heks/c-debug (&optional program args environment)
+  "Debug the C program of this project, with dape or GUD.
+
+PROGRAM defaults to the one `heks/c-debug-guess-program' finds in the
+build directory; a prefix argument asks for a file instead.  ARGS and
+ENVIRONMENT default to `heks/c-debug-args' and no extra environment; the
+GTK key passes the variables in `heks/gtk-debug-environment'.
+
+When the gdb is 14.1 or newer, dape drives it over the Debug Adapter
+Protocol, so the session is the same `C-c b' buffer and the same
+breakpoints as a JVM's; an older gdb is driven by GUD, which is the same
+Emacs debugger with fewer faces.  The project is rebuilt first when
+`heks/c-debug-build-command' knows how, because debugging a binary from
+before the edit is the classic way to chase a bug that is no longer
+there."
+  (interactive
+   (let* ((root (heks/c-debug-root))
+          (default (heks/c-debug-guess-program root))
+          (program (if (or current-prefix-arg (null default))
+                       (read-file-name "Program: " root nil t default)
+                     default)))
+     (list program nil nil)))
+  (let* ((root (heks/c-debug-root))
+         (program (expand-file-name
+                   (or program
+                       (heks/c-debug-guess-program root)
+                       (read-file-name "Program: " root nil t))))
+         (args (or args heks/c-debug-args))
+         (environment (or environment nil))
+         (build (heks/c-debug-build-command root)))
+    (unless (file-executable-p program)
+      (user-error "%s is not an executable" program))
+    (if (heks/c-debug--dap-capable-p)
+        (let ((config (list :name "gdb"
+                            :request "launch"
+                            :program program
+                            :args (vconcat args)
+                            :cwd root
+                            :command "gdb"
+                            :command-args '("--interpreter=dap")
+                            :stopAtBeginningOfMainSubprogram nil)))
+          (when build
+            (setq config (plist-put config :compile build)))
+          (when environment
+            (setq config (plist-put config :env
+                                    (heks/c-debug--environment-plist environment))))
+          (dape config))
+      (heks/c-debug--gud program args root environment))))
+
+(defun heks/gtk-debug (&optional program)
+  "Debug the GTK 4 program of this project, with GTK's warnings fatal.
+
+It is `heks/c-debug' with `heks/gtk-debug-environment': a GTK critical
+aborts the program and the debugger stops where it was raised, which is the
+only reliable way to get a stack for a warning that would otherwise be a
+line on a terminal.  The software renderer is asked for as well, so the
+session does not begin inside a GPU driver."
+  (interactive
+   (let* ((root (heks/c-debug-root))
+          (default (heks/c-debug-guess-program root)))
+     (list (if (or current-prefix-arg (null default))
+               (read-file-name "GTK program: " root nil t default)
+             default))))
+  (heks/c-debug program nil heks/gtk-debug-environment))
+
+(defun heks/gtk-inspector (&optional program)
+  "Run the GTK 4 program of this project with the GTK inspector open.
+
+`GTK_DEBUG=interactive' opens the inspector inside the running program:
+its picker selects a widget on screen, and the inspector shows that
+widget's properties, its CSS and its layout, which is the question a GTK
+bug asks first -- what is this widget, and why is it where it is.  The
+program runs in a compilation buffer, so its own output is still there."
+  (interactive
+   (let* ((root (heks/c-debug-root))
+          (default (heks/c-debug-guess-program root)))
+     (list (if (or current-prefix-arg (null default))
+               (read-file-name "GTK program: " root nil t default)
+             default))))
+  (let* ((root (heks/c-debug-root))
+         (program (expand-file-name
+                   (or program
+                       (heks/c-debug-guess-program root)
+                       (read-file-name "GTK program: " root nil t)))))
+    (unless (file-executable-p program)
+      (user-error "%s is not an executable" program))
+    (let ((default-directory (file-name-as-directory root)))
+      (compile (format "GTK_DEBUG=interactive %s" (shell-quote-argument program))))
+    (message "GTK inspector: its picker selects a widget in the running application")))
+
 (use-package dape
   :ensure t
   :init (setq dape-buffer-window-arrangement 'right)
   ;; `C-c j d' starts and attaches a JVM project's debugger
   ;; (`heks/jvm-debug'); `C-c b' is `dape''s own commands once
   ;; attached -- to any debuggee, JVM or otherwise, which is why it is its
-  ;; own topic rather than folded into `j'.
+  ;; own topic rather than folded into `j'.  The same topic starts the two
+  ;; native debuggers: `d' a C program, `g' a GTK one with its warnings
+  ;; fatal, `I' the GTK inspector in a running one.
   :bind (("C-c j d" . heks/jvm-debug)
+         ("C-c b d" . heks/c-debug)
+         ("C-c b g" . heks/gtk-debug)
+         ("C-c b I" . heks/gtk-inspector)
          ("C-c b b" . dape-breakpoint-toggle)
          ("C-c b c" . dape-continue)
          ("C-c b n" . dape-next)

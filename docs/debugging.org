@@ -1,0 +1,312 @@
+#+title: Debugging
+#+author: Josep Bigorra
+#+options: toc:2
+
+Three kinds of program are debugged here, and each has the same shape: one
+key starts the program with a debugger attached, the session's own keys are
+the same for all three, and everything the debugger cannot guess -- which
+binary, which main class, which environment -- is a setting with a name.
+This page is how to use it, and what to do when a session does not start.
+
+* What is set up, and where
+
+| What | Where it lives | What drives it |
+|------+----------------+----------------|
+| Guile Scheme, and Artanis | ~guile.el~ | Geiser's REPL and debugger |
+| C, C++ and GTK 4 | ~dev-formats.el~ | `dape` over `gdb --interpreter=dap`, or GUD |
+| Java, Kotlin, Maven and Gradle | ~heks-emacs.el~ | `dape` over Eclipse `java-debug` |
+
+A debug session is one topic, ~C-c b~, whichever debugger is behind it:
+once attached, ~C-c b b~ toggles a breakpoint, ~C-c b c~ continues, ~C-c b n~
+steps over, ~C-c b i~ steps in, ~C-c b o~ steps out, ~C-c b r~ opens the
+debugger's REPL and ~C-c b k~ ends the session.  What differs is the key that
+*starts* it: ~C-c g B~ for Guile, ~C-c b d~ for C, ~C-c b g~ for GTK, and
+~C-c j d~ for the JVM.
+
+If a session does nothing, ~C-c ! d~ (the doctor) says whether ~gdb~,
+~guile~, ~java~ or the adapter jar is there at all; a missing program is a
+line in that report rather than a key that fails silently.
+
+* Guile Scheme
+
+** The debug REPL
+
+~C-c g B~ starts the project's REPL -- the same one ~C-c g r~ starts -- and
+first evaluates Guile's own debugger settings there:
+
+#+begin_src scheme
+(debug-set! stack 200000)
+(debug-set! depth 200)
+(debug-enable 'backtrace)
+#+end_src
+
+A deeper stack and a deeper backtrace are what make an error in a long call
+chain show the frame that caused it.  They are a setting, not a constant:
+~heks/scheme-debug-forms~ is the list, so a project that wants different
+numbers says so without editing the command.
+
+The rest is the workflow the REPL already gives every project:
+
+| Key | What it does |
+|-----+--------------|
+| ~C-c g e~ | Evaluate the definition at point. |
+| ~C-c g E~ | Evaluate the region, or the whole buffer. |
+| ~C-c g b~ | Load the file into the REPL. |
+| ~C-c g k~ | Interrupt a runaway evaluation. |
+| ~C-c g R~ | Restart the REPL, for a fresh image. |
+| ~C-c g s~ | Point the REPL at the module of this buffer. |
+
+The habit that finds a bug fastest is the smallest loop: load the file
+once, then evaluate the one definition being changed and call it at the
+prompt.  The REPL is one per project, with the project root on Guile's load
+path, so `(use-modules (my project))` works from the first prompt.
+
+** An error, and the debugger
+
+An error raised by an evaluation does not just print: Geiser enters its
+debugger, which shows the backtrace, the frame you are in, and Guile's
+restarts.  ~C-c g d~ returns to that buffer after you have looked at
+something else -- the point of a debugger that lives in a buffer rather than
+in a terminal that has scrolled away.
+
+~C-c g D~ is the debugger's own menu, the same one the debug buffer opens
+with ~,~: backtrace, the error, the local variables, the registers, the
+source buffer of the frame, the next and previous error, and quitting one
+debug level.  It says so when no debugger is active rather than opening a
+menu whose every entry would be refused.
+
+The settings that decide how much the debugger shows are Geiser's:
+~geiser-guile-debug-show-bt~ and ~geiser-guile-debug-show-full-bt~ are on,
+so a backtrace arrives complete and with local variables, and
+~geiser-guile-debug-backwards-backtrace~ puts the innermost frame last, the
+way a Guile backtrace is read.
+
+** The REPL is the debugger
+
+Geiser's debugger is a *REPL* debugger: the program is running in the same
+image as the prompt, so a frame can be inspected by evaluating in it.  That
+is why there is no separate "attach" command for Scheme, and why the
+recipe for a bug is the same as for a change:
+
+1. ~C-c g B~ once, for the debug settings.
+2. ~C-c g b~ to load the file under suspicion.
+3. Evaluate the call that fails -- from the buffer with ~C-c g e~, or by
+   typing it at the prompt.
+4. When it raises, ~C-c g d~ and ~C-c g D~; the backtrace names the file and
+   line, and the frames can be walked with ~n~ and ~p~.
+5. Fix the definition, evaluate it with ~C-c g e~, and call it again
+   without restarting anything.
+
+** Artanis
+
+Artanis is a Scheme web framework, so debugging one is two things at once:
+the Scheme, which is debugged in the REPL above, and the running application,
+whose errors arrive as a page in the browser and as lines in its log.
+
+| Key | What it does |
+|-----+--------------|
+| ~C-c g W~ | Start the project's Artanis application (prefix: ask for the port). |
+| ~C-c g O~ | Follow the Artanis log, tailed, at its end. |
+| ~C-c g r~ / ~C-c g B~ | The project's REPL, for the code. |
+| ~C-c g d~ / ~C-c g D~ | The debugger after a failing evaluation. |
+
+The application is started from the directory holding ~entry.scm~ (see
+~heks/artanis-entry-file~), with ~GUILE_AUTO_COMPILE=0~ so a backtrace names
+the source file rather than a compiled copy, and on the port
+~heks/artanis-port~ (3000 by default).  The command line is
+~heks/artanis-program~ with ~heks/artanis-arguments~, a format string whose
+~%d~ is the port, for a project whose launcher differs.
+
+The log is the first of ~log/artanis.log~, ~logs/artanis.log~ and
+~artanis.log~ that exists; ~C-c g O~ opens it in ~auto-revert-tail-mode~, so
+the procedure is: reproduce the request in the browser, then read the line
+the application wrote about it.
+
+The code behind a failing route is debugged like any other Scheme.  Load the
+module that defines the route into the REPL, call the handler with the
+arguments the request would give it, and the error enters the debugger with
+the frame that failed.  A route that is only wrong when the server is
+running is usually a state bug: the same evaluation against the values the
+handler sees is the shortest way to it.
+
+* C, with GTK 4
+
+** The build, and the program
+
+A debugger needs a program with debug information, built after the last
+edit.  ~C-c b d~ rebuilds when it recognises the build system, using the
+same directory the program is found in:
+
+| Build system | What the key runs |
+|--------------+-------------------|
+| Meson | ~meson compile -C build~ (or ~builddir~) |
+| CMake | ~cmake --build build~ |
+| Make | ~make~ |
+
+For a debug build, configure once with the debug type:
+
+#+begin_src sh
+meson setup build --buildtype=debug
+#+end_src
+
+or
+
+#+begin_src sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+#+end_src
+
+The program is the single executable in ~build/~, ~builddir/~,
+~cmake-build-debug/~ or ~cmake-build-release/~; when a build holds several,
+the one named after the project is chosen, and when that is not decisive the
+key asks.  A prefix argument (~C-u C-c b d~) always asks, which is the
+escape hatch for a layout the guess does not know.  ~heks/c-debug-program~
+pins the program and ~heks/c-debug-args~ is the argument list, so a program
+that needs a file or a flag at startup is a setting rather than a prompt
+every time.
+
+** The session
+
+~C-c b d~ starts the program under gdb.  When the gdb is 14.1 or newer --
+the version that speaks the Debug Adapter Protocol -- `dape` drives it, so
+the session is the same buffer, the same breakpoints and the same keys as a
+JVM's:
+
+| Key | What it does |
+|-----+--------------|
+| ~C-c b b~ | Toggle a breakpoint on the current line. |
+| ~C-c b c~ | Continue to the next breakpoint. |
+| ~C-c b n~ | Step over the next line. |
+| ~C-c b i~ | Step into the call at point. |
+| ~C-c b o~ | Step out of the current function. |
+| ~C-c b r~ | Open the debugger's REPL, for evaluating in the program. |
+| ~C-c b k~ | End the session. |
+
+An older gdb is driven by GUD, the debugger Emacs has had for decades: the
+same commands, a different window.  Which one is in use is decided by
+~heks/c-debug--dap-capable-p~, so nothing has to be configured either way.
+
+** GTK's warnings, and the inspector
+
+A GTK application's worst bugs are often warnings: a widget used after it
+was destroyed, a signal connected to nothing, a size allocated for a widget
+that is not there.  On a terminal they are a line that scrolls past; under
+~C-c b g~ they are a breakpoint.  It is ~C-c b d~ with
+~heks/gtk-debug-environment~:
+
+#+begin_src emacs-lisp
+'(("G_DEBUG" . "fatal-criticals")
+  ("GSK_RENDERER" . "cairo"))
+#+end_src
+
+~G_DEBUG=fatal-criticals~ makes a GTK critical abort the program, so gdb
+stops on the frame that raised it and the backtrace is the answer to "where
+did this come from".  ~GSK_RENDERER=cairo~ asks GTK 4 for its software
+renderer, so the session does not begin inside a GPU driver; remove it when
+the renderer itself is what is being debugged.  The list is a setting, so a
+project can add its own variables -- ~GDK_BACKEND~, ~WAYLAND_DEBUG~,
+~GSK_DEBUG~ -- without a new command.
+
+~C-c b I~ runs the program with ~GTK_DEBUG=interactive~ and opens GTK's
+inspector.  Its picker selects a widget on screen and the inspector shows
+what that widget is: its class and CSS name, its properties, its CSS, and
+the box it was allocated.  It is the first thing to reach for when a layout
+is wrong and the code looks right; the debugger is for when the code is
+what is wrong.
+
+** When there is no debug information
+
+A session that stops in a frame called ~??~ is a program built without
+~-g~, or stripped.  Build a debug configuration (above), and make sure the
+binary being debugged is the one that was just built -- the classic version
+of this bug is a prefix argument pointing at an older copy.  A program that
+was compiled with optimisation keeps its variables in registers and some of
+them are shown as ~<optimized out>~; a debug build is what makes the locals
+readable.
+
+* Kotlin, Java and Maven
+
+The JVM is debugged over JDWP, and `dape` speaks the Debug Adapter Protocol,
+so Eclipse `java-debug` translates one into the other.
+~heks/java-debug-jar~ is the adapter, looked for in the usual places and
+fetched by ~M-x heks/java-debug-ensure-jar~ when it is not there;
+~heks/java-debug-port~ is the JDWP port (5005 by default).
+
+** Spring Boot, and Gradle's bootRun
+
+~C-c j d~ starts the project the way the rest of the JVM keys do -- Maven's
+~spring-boot:run~, or Gradle's ~bootRun~ -- suspended on the debug port
+until the debugger attaches, so a breakpoint in a `@PostConstruct` is not
+too late.  `dape` attaches as soon as the port answers (not after a guessed
+number of seconds), and the session is then the ~C-c b~ keys above.
+
+** Any main class
+
+~C-u C-c j d~ asks for the main class and runs *that*, which is how a
+Kotlin or Java program that is not a Spring Boot application is debugged.
+The prompt starts with the class of the current file, and
+~heks/jvm-main-class~ is what works it out:
+
+- a Kotlin file `Main.kt` in `com.example.app` is `com.example.app.MainKt`,
+  because Kotlin puts a file's top-level functions in a class named after
+  the file;
+- a Java file `Main.java` in the same package is
+  `com.example.app.Main`.
+
+A file that names its class otherwise -- Kotlin's `@file:JvmName` -- is
+what the prompt is for: it takes another answer.  The class runs
+differently by build tool, and the command follows the project:
+
+| Build tool | What is run | How the agent arrives |
+|------------+-------------+-----------------------|
+| Maven | ~mvn compile exec:java -Dexec.mainClass=...~ | ~MAVEN_OPTS~, so the agent is on the JVM `exec:java` runs in |
+| Gradle | ~gradle run --debug-jvm~ | Gradle's own suspension switch, on `heks/java-debug-port` |
+
+The program's arguments are ~Dexec.args~ for Maven and the `run` task's own
+arguments for Gradle; ~heks/jvm-debug-run~ takes them when called from Lisp,
+and the prompt is the class because that is the one thing a project cannot
+tell from a file.
+
+** When the debugger does not attach
+
+- *The app is waiting, and nothing connects.*  That is `suspend=y` doing
+  its job: the JVM does not run until the debugger attaches.  If `dape`
+  never starts, the compile buffer is where the build failed.
+- *The port is taken.*  Another JVM is already listening on
+  ~heks/java-debug-port~; end it, or set the variable to another port and
+  start again.
+- *Maven cannot find `exec:java`.*  The `exec-maven-plugin` is not in the
+  project and Maven cannot fetch it; add it to the POM, or use the Spring
+  Boot key when the program is a Boot application.
+- *The breakpoint is not hit.*  The class that ran is not the class that was
+  compiled: check the main class the prompt offered, then look at what
+  ~mvn compile~ or ~gradle run~ put in ~target/classes~ or ~build/classes~.
+- *Kotlin steps look odd.*  Coroutines and inline functions make one source
+  line several frames; the debugger is honest about the frames the JVM has,
+  and a breakpoint on the statement inside a coroutine is the reliable one.
+
+* The keys, in one table
+
+| Key | What it starts |
+|-----+----------------|
+| ~C-c g B~ | Guile's REPL with the debug settings, for a hunt. |
+| ~C-c g d~ | Back to Geiser's debugger after an error. |
+| ~C-c g D~ | The debugger's own commands (also ~,~ in the debug buffer). |
+| ~C-c b d~ | The C program of this project, under gdb. |
+| ~C-c b g~ | The GTK program, with its warnings fatal. |
+| ~C-c b I~ | The GTK inspector, in the running program. |
+| ~C-c j d~ | Spring Boot, or Gradle's bootRun, under the JVM debugger. |
+| ~C-u C-c j d~ | Any main class of the project, under the JVM debugger. |
+| ~C-c g W~ | The Artanis application, started. |
+| ~C-c g O~ | The Artanis log, tailed. |
+
+The complete list, generated from the code, is
+[[file:keybindings.org][the keybindings reference]]; the modules that own each of these are described
+in [[file:modules.org][docs/modules.org]].
+
+* What to read next
+
+- [[file:modules.org][docs/modules.org]] -- the ~guile.el~, ~dev-formats.el~ and
+  ~heks-emacs.el~ sections, with the reason each command is written that
+  way.
+- [[file:keybindings.org][docs/keybindings.org]] -- every key under ~C-c~, and both letters of it.
+- [[file:development.org][docs/development.org]] -- the checks a change to any of this is held to.

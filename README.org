@@ -78,6 +78,11 @@ Two stills from the same GIF recording:
 - *Read and present from Emacs:* ~C-c r p~ previews a Markdown file, an Org
   note, an OpenAPI specification or a plain text file as a themed HTML page with
   no network, and ~C-c r P~ turns the same document into a deck.
+- *Debugging that knows the language:* Guile and Artanis in Geiser's REPL and
+  debugger, C and GTK 4 under gdb with GTK's warnings fatal and the GTK
+  inspector one key away, and Kotlin, Java or Spring Boot under the JVM
+  debugger -- all with the same ~C-c b~ session keys.
+  [[file:docs/debugging.org][docs/debugging.org]] is the whole of it.
 - *It can tell you about itself:* ~C-c h a~ answers what Emacs, palette, font,
   modules and version are running, ~C-c h t~ walks the five keys a new reader
   needs, ~C-c h d~ explains the key written at point wherever you read one, and
@@ -209,6 +214,7 @@ The configuration is only half of it; the other half is written down:
 | Document               | What is in it                                                                                                                                |
 |------------------------+----------------------------------------------------------------------------------------------------------------------------------------------|
 | [[file:docs/keybindings.org][docs/keybindings.org]]   | Every topic, every key, and what both letters of it mean -- generated from the configuration itself                                          |
+| [[file:docs/debugging.org][docs/debugging.org]]     | Debugging Guile and Artanis, C with GTK 4, and Kotlin, Java and Maven: the keys, the settings, and what to do when a session does not attach    |
 | [[file:docs/notes.org][docs/notes.org]]         | The whole note-taking system: the philosophy, the layout, every file format, each workflow, index pages, syncing, setup, tweaking and an FAQ |
 | [[file:docs/gnus.org][docs/gnus.org]]          | How mail and news are set up with Gnus in this configuration                                                                                 |
 | [[file:docs/github-repo.org][docs/github-repo.org]]   | The GitHub repository settings as a spec, and the three commands that capture, apply and verify them                                         |
