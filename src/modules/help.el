@@ -22,6 +22,9 @@
          ("C-c h f" . helpful-callable)
          ("C-c h v" . helpful-variable)
          ("C-c h k" . helpful-key)
+         ("C-c h a" . heks/about)
+         ("C-c h d" . heks/key-describe-at-point)
+         ("C-c h t" . heks/tour)
          ("C-h F" . helpful-function)
          ("C-h C" . helpful-command)))
 

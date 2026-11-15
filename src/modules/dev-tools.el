@@ -139,6 +139,100 @@
 (use-package request
   :ensure t)
 
+;;
+;; ====== The doctor: the programs this configuration expects ======
+;;
+;; A language server, a formatter and a search are programs outside Emacs,
+;; and a module that needs one stays silent when it is absent -- which is
+;; the right behaviour at load time and the wrong one when somebody asks
+;; why a key does nothing.  This is the same knowledge said once, as a
+;; report: which program, which module wants it, what that module does
+;; without it, and the version the program answers with.
+
+(defvar heks/doctor-programs
+  '(("rg" "search and consult" . "the project and note search falls back to `grep'")
+    ("fd" "dired and search" . "directories are listed by find(1) instead")
+    ("aspell" "proofreading" . "spell checking is off")
+    ("git" "git, the project and onefetch" . "there is no history, no diff and no repository screen")
+    ("gh" "github-repo" . "the repository settings cannot be captured, applied or verified")
+    ("guile" "guile" . "there is no Geiser REPL and no Guix")
+    ("guild" "guile" . "the Scheme compiler backend cannot check a file")
+    ("sift" "sift" . "the Scheme formatter, lint and drift tools are off")
+    ("eca" "ai" . "the ECA chat does not start; GPTel still answers")
+    ("onefetch" "onefetch" . "the repository screens have nothing to draw")
+    ("terraform" "dev-project" . "the Terraform commands say what is missing")
+    ("mongosh" "databases" . "the MongoDB shell is not offered")
+    ("docker" "containers" . "the Docker menu is not offered")
+    ("shfmt" "shell" . "shell scripts are not formatted")
+    ("shellcheck" "shell" . "shell scripts are not checked")
+    ("ruff" "dev-formats" . "Python files are not formatted or checked by ruff")
+    ("java" "JVM" . "Maven and Gradle projects cannot be built or debugged")
+    ("node" "dev-langs" . "the JavaScript language server cannot run")
+    ("pandoc" "dev-formats" . "documents are not converted between formats"))
+  "The external programs this configuration expects, and why.
+
+Each entry is (PROGRAM MODULE . WHAT-THE-MODULE-DOES-WITHOUT-IT).  The
+table is the whole knowledge: a program that arrives is found on
+`exec-path', a program that is absent is a line in the report rather than
+an error at startup, and the module beside it says what is lost.")
+
+(defun heks/doctor-version (program)
+  "Return the version line PROGRAM answers with, or nil.
+
+Not every program has a `--version' that exits successfully, and a
+program that does not is still installed; the report says so rather than
+turning a missing version into a missing program."
+  (when (executable-find program)
+    (with-temp-buffer
+      (let ((status (ignore-errors
+                      (call-process program nil t nil "--version"))))
+        (when (and status (zerop status))
+          (let ((line (car (split-string (string-trim (buffer-string)) "\n" t))))
+            (and line (not (string-empty-p line)) line)))))))
+
+(defun heks/doctor ()
+  "Report the external programs this configuration expects.
+
+The report says where each one is, the version it answers with, and what
+the module that wants it does without it -- the answer to a key that
+quietly does nothing, said once for every program rather than once per
+module.  Return the buffer it made."
+  (interactive)
+  (let ((buffer (get-buffer-create "*heks doctor*"))
+        (missing 0))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer))
+      (insert (format "heks-emacs %s on Emacs %s\n\n" heks/version emacs-version)
+              "The programs the modules here expect, the version each answers with,\n"
+              "and what its module does without it.  A missing program is not an\n"
+              "error: the module says so and the rest of the configuration works.\n\n"
+              (format "%-14s %-46s %s\n" "Program" "Status" "Without it")
+              (format "%-14s %-46s %s\n" "-------" "------" "----------"))
+      (dolist (entry heks/doctor-programs)
+        (let* ((program (car entry))
+               (module (cadr entry))
+               ;; The fallback is the tail of the pair, so that a row reads
+               ;; as `(program module . what-is-lost)'.
+               (fallback (cddr entry))
+               (path (executable-find program))
+               (version (and path (heks/doctor-version program)))
+               (status (if path
+                           (format "%s%s" path
+                                   (if version (format " (%s)" version) ""))
+                         "missing")))
+          (unless path (setq missing (1+ missing)))
+          (insert (format "%-14s %-46s %s\n" program status
+                          (format "%s: %s" module fallback)))))
+      (insert (format "\n%d of %d programs are missing.\n"
+                      missing (length heks/doctor-programs)))
+      (special-mode)
+      (goto-char (point-min)))
+    (display-buffer buffer)
+    buffer))
+
+(global-set-key (kbd "C-c ! d") #'heks/doctor)
+
 ;; What a file says it still has to do: `TODO', `FIXME', `XXX', `NOTE',
 ;; `HACK' and the rest are coloured wherever they are written, and walked
 ;; one at a time under the text tools, where the other things one does to

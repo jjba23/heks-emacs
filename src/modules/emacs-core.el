@@ -142,6 +142,7 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
   '(("!" ("n" . "the next diagnostic")
      ("N" . "the previous diagnostic")
      ("b" . "the diagnostics of this buffer")
+     ("d" . "the doctor: every program this configuration expects")
      ("a" . "all the diagnostics of the project"))
     ("#" ("j" . "his own configuration")
      ("s" . "the system")
@@ -184,7 +185,10 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
     ("h" ("f" . "the function at point, as `C-h f'")
      ("v" . "the variable at point, as `C-h v'")
      ("k" . "the key at point, as `C-h k'")
-     ("F" . "the face at point"))
+     ("F" . "the face at point")
+     ("a" . "this configuration: what is running")
+     ("d" . "the key at point, explained in the scheme's own words")
+     ("t" . "the five keys a new reader needs, one at a time"))
     ("i" ("e" . "Eglot itself, and what it is doing")
      ("E" . "the server's log of messages")
      ("D" . "the documentation of the symbol at point, complete in a buffer")
@@ -221,6 +225,8 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
      ("I" . "the index pages, regenerated")
      ("k" . "a contact, found")
      ("K" . "a contact, added")
+     ("j" . "today's journal entry, created when it is not there")
+     ("q" . "the notes, asked a question: tag, TODO and age")
      ("l" . "the notes that link here")
      ("n" . "a new note, opened for writing")
      ("r" . "this note, moved to another topic")
@@ -242,6 +248,7 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
      ("d" . "the deck, in the browser")
      ("D" . "the deck, written next to the file")
      ("e" . "keep it as a file")
+     ("g" . "every palette, rendered as one page to compare")
      ("m" . "follow the buffer, re-rendering on save")
      ("n" . "a slide boundary, inserted")
      ("P" . "the buffer, presented")
@@ -275,7 +282,8 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
      ("s" . "a random order for the standup"))
     ("x" ("t" . "the chat window, shown or hidden")
      ("m" . "the model, chosen")
-     ("p" . "the provider, chosen"))
+     ("p" . "the provider, chosen")
+     ("P" . "the provider this project uses, recorded in its `.dir-locals.el'"))
     ("z" ("e" . "the region, grown to the next thing around it")
      ("s" . "the region, shrunk back to what it was")
      ("o" . "the symbol at point, lit up at every occurrence")
@@ -302,6 +310,7 @@ of its own and prints, for every key, what this scheme calls it.")
     ("C-c ! a" . "all the diagnostics of the project")
     ("C-c ! b" . "the diagnostics of this buffer")
     ("C-c ! m" . "the background checking, on and off")
+    ("C-c ! d" . "the doctor: every program this configuration expects, and what is missing")
     ("C-c ! n" . "the next diagnostic")
     ("C-c # f" . "everything: his configuration and the system")
     ("C-c # e" . "this file, edited as root")
@@ -371,6 +380,9 @@ of its own and prints, for every key, what this scheme calls it.")
     ("C-c h h" . "the documentation of what is at point")
     ("C-c h k" . "the key at point, as `C-h k'")
     ("C-c h v" . "the variable at point, as `C-h v'")
+    ("C-c h a" . "this configuration: what is running")
+    ("C-c h d" . "the key at point, explained in the scheme's own words")
+    ("C-c h t" . "the five keys a new reader needs, one at a time")
     ("C-c i 0" . "the language server, off in this Emacs")
     ("C-c i 1" . "the language server, on in this Emacs")
     ("C-c i D" . "the documentation of the symbol at point, complete in a buffer")
@@ -418,6 +430,9 @@ of its own and prints, for every key, what this scheme calls it.")
     ("C-c n I" . "every index page, regenerated from the notes")
     ("C-c n R" . "every note's backlinks block, brought up to date")
     ("C-c n K" . "a contact, added to the contacts file")
+    ("C-c n j" . "today's journal entry, created from the template when it is not there")
+    ("C-c n q" . "the notes, asked a question by tag, TODO and age")
+    ("C-c n ?" . "the notes topic, from one menu")
     ("C-c n B" . "a bookmark, filed under a category picked with completion")
     ("C-c n X" . "a habit, captured: a todo that repeats")
     ("C-c n a" . "an archived note, from a former employer")
@@ -449,6 +464,7 @@ of its own and prints, for every key, what this scheme calls it.")
     ("C-c r b" . "this document, in the browser")
     ("C-c r d" . "the deck, in the browser")
     ("C-c r e" . "this document, kept as an HTML file")
+    ("C-c r g" . "every palette, rendered as one page to compare")
     ("C-c r m" . "follow the buffer, re-rendering on save")
     ("C-c r n" . "a slide boundary, inserted")
     ("C-c r p" . "this buffer, rendered in Emacs")
@@ -505,6 +521,7 @@ of its own and prints, for every key, what this scheme calls it.")
     ("C-c x m" . "the model, chosen")
     ("C-c x n" . "a new chat")
     ("C-c x p" . "the provider, chosen")
+    ("C-c x P" . "the provider this project uses, recorded in its `.dir-locals.el'")
     ("C-c x s" . "a chat, switched to by name")
     ("C-c x t" . "the chat window, shown or hidden")
     ("C-c z e" . "the region, grown to the next thing around it")
@@ -564,6 +581,120 @@ letter means everywhere."
                          (cdr (assoc topic heks/key-letters #'equal)) #'equal)))
         (and letter (cdr (assoc letter heks/key-actions #'equal)))
         (and topic (cdr (assoc topic heks/key-topics #'equal))))))
+
+(defun heks/key--clean (token)
+  "Return TOKEN without the punctuation a document wraps a key in."
+  (string-trim token "\\`[~|\"']+" "[~|\"',.;:]+\\'"))
+
+(defun heks/key--stroke-p (text)
+  "Return non-nil when TEXT is one stroke of a key, like `n' or `C-#'."
+  (and (stringp text)
+       (or (string-match-p "\\`C-.\\'" text)
+           (equal text "SPC")
+           (string-match-p "\\`[[:alnum:]!#$%&*+./:<=>?@^_-]\\'" text))))
+
+(defun heks/key-at-point ()
+  "Return the key written around point, as the scheme spells it, or nil.
+
+A key is written in this configuration's documents the way Emacs writes
+it -- `C-c', a topic and an action -- so the line is read as tokens and
+the strokes that follow a `C-c' are taken while each one is a stroke.
+Prose after a key is not part of it: `and' is not a stroke, which is what
+stops the reading before a sentence that happens to start with a letter.
+The key written in an Org code span is closed by its `~' and one written
+in a table by its `|', and both are stripped before the reading."
+  (save-excursion
+    (let* ((start (line-beginning-position))
+           (line (buffer-substring-no-properties start (line-end-position)))
+           (here (- (point) start))
+           (regexp "[^ \t]+")
+           (position 0)
+           (tokens '())
+           (best nil))
+      (while (string-match regexp line position)
+        ;; The match data is read before `heks/key--clean', because trimming
+        ;; a token matches a regexp of its own and would move it.
+        (let ((begin (match-beginning 0))
+              (end (match-end 0))
+              (text (heks/key--clean (match-string 0 line))))
+          (push (list begin end text) tokens)
+          (setq position end)))
+      (setq tokens (nreverse tokens))
+      (while tokens
+        (when (equal (nth 2 (car tokens)) "C-c")
+          (let ((first (car tokens))
+                (rest (cdr tokens))
+                (last (car tokens))
+                (key "C-c"))
+            (while (and rest (heks/key--stroke-p (nth 2 (car rest))))
+              (setq key (concat key " " (nth 2 (car rest)))
+                    last (car rest)
+                    rest (cdr rest)))
+            (when (and (<= (nth 0 first) here)
+                       (<= here (nth 1 last))
+                       (or (null best) (> (length key) (length best))))
+              (setq best key))))
+        (setq tokens (cdr tokens)))
+      best)))
+
+(defun heks/key-describe-at-point ()
+  "Explain the key written at point, in the words the scheme gives it.
+
+`which-key' shows the same sentence while the key is being typed; this is
+that sentence for a key that is being read -- in the reference, in a note,
+or in a bug report -- without leaving the buffer."
+  (interactive)
+  (let* ((key (heks/key-at-point))
+         (description (and key (heks/key-description key))))
+    (unless key
+      (user-error "No key under or after point"))
+    (unless description
+      (user-error "The scheme has no sentence for %s" key))
+    (message "%s" description)))
+
+(defconst heks/tour-keys
+  '(("C-c SPC SPC" . "Start here: the dashboard, and the five places a session begins.")
+    ("C-c n c" . "Capture a note from anywhere, filed under a topic you pick.")
+    ("C-c n s" . "Search the text of every note you have.")
+    ("C-c w g" . "Search the project the current buffer belongs to.")
+    ("C-c r p" . "Render the buffer as a themed page, with no network."))
+  "The five keys the tour walks, each with what pressing it does.
+
+They are the five a new reader needs -- the dashboard, notes capture, the
+search, the project and the renderer -- and the sentence under each is
+read from `heks/key-descriptions' rather than written here, so the tour
+cannot say something the reference does not.")
+
+(defun heks/tour ()
+  "Open the tour: the first five keys, each with the scheme's sentence.
+
+The menu of a prefix is shown by `which-key' while the prefix is being
+typed; the tour is the same teaching for the keys one does not yet know
+to press.  Return the buffer it made."
+  (interactive)
+  (let ((buffer (get-buffer-create "*heks tour*"))
+        (number 0))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer))
+      (insert "# A tour of heks-emacs\n\n"
+              "Five keys, each one a real command from the keybindings reference.\n"
+              "Press them in order, or read the sentence under each and press the\n"
+              "one you need; nothing here is a demo mode.\n")
+      (dolist (step heks/tour-keys)
+        (setq number (1+ number))
+        (insert (format "\n%d. ~%s~\n\n   %s\n\n   %s\n"
+                        number (car step) (cdr step)
+                        (or (heks/key-description (car step)) ""))))
+      (insert "\nThen press ~C-c~ and let which-key explain the rest; every\n"
+              "topic, every key and both letters of it are in the reference:\n"
+              "~C-c h d~ explains a key wherever you read one.\n")
+      (special-mode)
+      (goto-char (point-min)))
+    (display-buffer buffer)
+    (when (fboundp 'which-key-mode)
+      (which-key-mode 1))
+    buffer))
 
 (defconst heks/key-root-description
   "this configuration: a letter for the topic, then one for the action"

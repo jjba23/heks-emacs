@@ -93,9 +93,11 @@ Everything above is explained in [[#workflows][Workflows]]; the full key list is
 | ~C-c n l~ | *Links to* this note: every note that links here. |
 | ~C-c n r~ | *Relocate* this note to another topic; links to it, and inside it, are repaired. |
 | ~C-c n s~ | *Search* the text of every note. |
+| ~C-c n q~ | *Query*: the notes with a tag, an open TODO and an age, as one list. |
 | ~C-c n t~ | *Topic*: open a topic folder in Dired. |
 | ~C-c n I~ | *Index* pages: regenerate all of them. |
 | ~C-c n d~ | *Today*: agenda, habits, birthdays, what is in progress, the inbox. |
+| ~C-c n j~ | *Journal*: today's diary entry, created from the template when it is not there. |
 | ~C-c n x~ | A todo, captured into the inbox. |
 | ~C-c n X~ | A habit, captured. |
 | ~C-c n h~ | The *habits*, with their consistency graphs. |
@@ -108,6 +110,7 @@ Everything above is explained in [[#workflows][Workflows]]; the full key list is
 | ~C-c n b~ / ~C-c n B~ | Open a *bookmark* / file one. |
 | ~C-c n m~ / ~C-c n M~ | Import a Markdown file / region as an Org note (see [[#import][Importing]]). |
 | ~C-c n v~ | Toggle how Org links are displayed. |
+| ~C-c n ?~ | The whole notes topic as one menu: write, find, today, the journal, this note, the collection. |
 
 The authoritative list, generated from the code, is [[file:keybindings.org][the keybindings reference]].
 
@@ -327,6 +330,23 @@ one says are read once and remembered (see ~heks/notes-cache-seconds~ below), so
 the second keystroke of a prompt, and every one after it, costs a lookup rather
 than a directory walk and a page of every file.
 
+** Asking a question (~C-c n q~)
+
+Past a few hundred notes, finding is a question rather than a title: /every note
+tagged engineering that still has an open TODO and has not been touched in a
+month/.  ~C-c n q~ asks the three parts and lists what answers -- a tag, an open
+keyword (~~TODO~, ~NEXT~, ~WAIT~, ~WIP~, ~REVIEWING~, or the ones
+~heks/notes-query-keywords~ says), and the fewest whole days since the file was
+last written.  Leave a prompt empty and the question does not ask it; press
+~RET~ three times for every note.
+
+The answer is a buffer of links, one per note with its topic and age, in the
+order of the oldest first -- so it is read, jumped from and then closed, not
+kept.  It is a scan of the heads the prompts already read, plus the text of the
+files the TODO asks about; nothing is indexed and nothing is kept in step, and a
+question that takes a second on a directory of a few thousand notes takes a
+second the first time and less after it, because the heads are remembered.
+
 ** Linking (~C-c n i~, ~C-c n l~)
 
 ~C-c n i~ asks for a note (a title that does not exist creates one, in a topic you pick) and inserts =[[file:<relative path>][Title]]=, relative to the note you are in.  ~C-c n l~ lists every note that links to the current one -- backlinks, with no index: it is a ~grep~ for the file name.
@@ -370,6 +390,17 @@ One screen, in this order:
 3. *Inbox*: what you have captured and not yet filed.
 
 ~C-c n h~ shows just the habits; ~C-c n u~ the birthdays of the next 60 days; ~C-c n A~ is the ordinary agenda dispatcher (~t~ lists every todo, by file).
+
+** The journal (~C-c n j~)
+
+The diary is a folder of one file a day, inside the notes directory (~~/diary~,
+with a folder for the year and the month), written by the =dagboek= package:
+today's file opens with the questions the package asks -- how the day was, what
+inspired or upset you, what is planned, what the conclusions are -- and the
+answers are the entry.  ~C-c n j~ opens today's, creating it from that template
+when it is not there yet; ~C-c ; v~ and ~C-c ; g~ are the same entry and
+yesterday's under the diary topic, for when the journal is what one is thinking
+about rather than the notes.
 
 ** Capturing a todo (~C-c n x~)
 

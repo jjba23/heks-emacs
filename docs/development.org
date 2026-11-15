@@ -17,6 +17,7 @@ maak test           # the configuration's own ERT suite
 maak golden         # compare the renderers with the pages they produced last time
 maak golden-update  # write those pages again, deliberately, then read the diff
 maak stats          # the line, definition and decision counts
+maak themes         # one page with the sample rendered in every palette
 maak verify         # install, load it all in a batch Emacs, assert the invariants
 maak check          # lint, keys, render, test, golden, verify -- everything
 #+end_src
@@ -24,7 +25,10 @@ maak check          # lint, keys, render, test, golden, verify -- everything
 The one task that is not a check is ~maak emacs-update~: it pulls the Emacs
 this configuration is developed in, rebuilds it and installs it, and
 [[file:emacs.org][docs/emacs.org]] is where the flags, the reason for each one and the failure
-they exist to prevent are written down.
+they exist to prevent are written down.  ~maak themes~ is a report as well:
+it writes =reports/themes.html=, the sample document rendered in every palette
+the machine has, so that choosing one is a comparison rather than a sequence of
+~load-theme~ calls.
 
 Run ~maak check~ before you send a patch. If a golden page changes because you
 meant it to, ~maak golden-update~ is how you say so -- then read the diff it

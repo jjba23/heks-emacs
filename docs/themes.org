@@ -48,3 +48,20 @@ harmony and uniformity across the stack.
 
 * Ayu Themes
 - ~ayu-dark~, ~ayu-mirage~ and ~ayu-light~
+
+* Seeing them side by side
+
+Loading a palette to see it is a sequence, and a sequence is a bad way to
+compare.  ~maak themes~ renders one sample document -- prose, a link, inline
+code, a list, a quote, a table and a fenced block -- in every palette the
+configuration offers and writes =reports/themes.html=: one frame per palette,
+each the whole page the renderer produces with that theme loaded, and no
+network anywhere in it, so it opens from a ~file://~ URL and works on a train.
+~C-c r g~ does the same in a running Emacs and opens the page.
+
+That is the same renderer as ~C-c r p~, so what the gallery shows is what a
+preview, a deck and an exported note will look like in that palette, rather
+than a swatch of six colours.  A palette that is not installed is skipped and
+the page says how many it rendered; the names are the ones Emacs loads
+(~doom-nord~ for what the list above calls ~nord~), which is what
+~heks/themes~ holds.

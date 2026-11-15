@@ -116,11 +116,19 @@ C-c x t    the AI chat window, shown or hidden
 Then learn the rest as you go: every key lives under ~C-c~, and ~which-key~
 tells you what a prefix does while you are still typing it.
 
+~C-c h t~ is the same tour as a command, with each key's own sentence beside
+it; ~C-c h d~ explains the key written at point, anywhere you read one; and
+~C-c h a~ is one buffer saying what this Emacs is running -- the Emacs, the
+palette, the font, the modules, the AI provider and the version of this
+configuration -- which is what a bug report asks for first.
+
 ** If something is not right
 
 | Symptom                                              | What is usually happening                                                                                                                      |
 |------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------|
 | A package is missing, or a key does nothing          | The first start is still resolving. Restart once, then check ~*elpaca-log*~                                                                    |
+| A key does nothing, and it used to                  | ~C-c ! d~ is the doctor: every program the modules expect, the version it answers with and what its module does without it |
+| You do not know what you are running                 | ~C-c h a~ says which Emacs, palette, font, modules and version, in one buffer                                                                  |
 | Code has no colours, or Tree-sitter modes are absent | The grammars are still building in the background: ~M-x heks/treesit-install-grammars~, or read the ~*heks-emacs tree-sitter grammars*~ buffer |
 | The font is not what you expected                    | Set ~heks/font-mono~, ~heks/font-sans~ and ~heks/font-serif~ in your bridge                                                                    |
 | A language feature is quietly not there              | The toolchain is not installed. Modules stay silent when a program is absent on purpose -- install the server or formatter and it appears      |

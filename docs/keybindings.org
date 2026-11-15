@@ -99,6 +99,7 @@ in every other topic.
 | ~!~ | ~n~ | the next diagnostic |
 | ~!~ | ~N~ | the previous diagnostic |
 | ~!~ | ~b~ | the diagnostics of this buffer |
+| ~!~ | ~d~ | the doctor: every program this configuration expects |
 | ~!~ | ~a~ | all the diagnostics of the project |
 | ~#~ | ~j~ | his own configuration |
 | ~#~ | ~s~ | the system |
@@ -142,6 +143,9 @@ in every other topic.
 | ~h~ | ~v~ | the variable at point, as `C-h v' |
 | ~h~ | ~k~ | the key at point, as `C-h k' |
 | ~h~ | ~F~ | the face at point |
+| ~h~ | ~a~ | this configuration: what is running |
+| ~h~ | ~d~ | the key at point, explained in the scheme's own words |
+| ~h~ | ~t~ | the five keys a new reader needs, one at a time |
 | ~i~ | ~e~ | Eglot itself, and what it is doing |
 | ~i~ | ~E~ | the server's log of messages |
 | ~i~ | ~D~ | the documentation of the symbol at point, complete in a buffer |
@@ -178,6 +182,8 @@ in every other topic.
 | ~n~ | ~I~ | the index pages, regenerated |
 | ~n~ | ~k~ | a contact, found |
 | ~n~ | ~K~ | a contact, added |
+| ~n~ | ~j~ | today's journal entry, created when it is not there |
+| ~n~ | ~q~ | the notes, asked a question: tag, TODO and age |
 | ~n~ | ~l~ | the notes that link here |
 | ~n~ | ~n~ | a new note, opened for writing |
 | ~n~ | ~r~ | this note, moved to another topic |
@@ -197,6 +203,7 @@ in every other topic.
 | ~r~ | ~d~ | the deck, in the browser |
 | ~r~ | ~D~ | the deck, written next to the file |
 | ~r~ | ~e~ | keep it as a file |
+| ~r~ | ~g~ | every palette, rendered as one page to compare |
 | ~r~ | ~m~ | follow the buffer, re-rendering on save |
 | ~r~ | ~n~ | a slide boundary, inserted |
 | ~r~ | ~P~ | the buffer, presented |
@@ -231,6 +238,7 @@ in every other topic.
 | ~x~ | ~t~ | the chat window, shown or hidden |
 | ~x~ | ~m~ | the model, chosen |
 | ~x~ | ~p~ | the provider, chosen |
+| ~x~ | ~P~ | the provider this project uses, recorded in its `.dir-locals.el' |
 | ~z~ | ~e~ | the region, grown to the next thing around it |
 | ~z~ | ~s~ | the region, shrunk back to what it was |
 | ~z~ | ~o~ | the symbol at point, lit up at every occurrence |
@@ -250,6 +258,7 @@ in every other topic.
 | ~C-c ! N~ | ~flymake-goto-prev-error~ | the previous diagnostic | emacs-core.el |
 | ~C-c ! a~ | ~flymake-show-project-diagnostics~ | all the diagnostics of the project | emacs-core.el |
 | ~C-c ! b~ | ~flymake-show-buffer-diagnostics~ | the diagnostics of this buffer | emacs-core.el |
+| ~C-c ! d~ | ~heks/doctor~ | the doctor: every program this configuration expects, and what is missing | dev-tools.el |
 | ~C-c ! m~ | ~flymake-mode~ | the background checking, on and off | emacs-core.el |
 | ~C-c ! n~ | ~flymake-goto-next-error~ | the next diagnostic | emacs-core.el |
 
@@ -411,9 +420,12 @@ in every other topic.
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
 | ~C-c h F~ | ~describe-face~ | the face at point | emacs-core.el |
+| ~C-c h a~ | ~heks/about~ | this configuration: what is running | help.el |
+| ~C-c h d~ | ~heks/key-describe-at-point~ | the key at point, explained in the scheme's own words | help.el |
 | ~C-c h f~ | ~helpful-callable~ | the function at point, as `C-h f' | help.el |
 | ~C-c h h~ | ~helpful-at-point~ | the documentation of what is at point | help.el |
 | ~C-c h k~ | ~helpful-key~ | the key at point, as `C-h k' | help.el |
+| ~C-c h t~ | ~heks/tour~ | the five keys a new reader needs, one at a time | help.el |
 | ~C-c h v~ | ~helpful-variable~ | the variable at point, as `C-h v' | help.el |
 
 ** ~C-c i~ IDE: language server, formatting, diagnostics
@@ -483,6 +495,7 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
+| ~C-c n ?~ | ~heks/notes-menu-open~ | the notes topic, from one menu | notes.el |
 | ~C-c n A~ | ~org-agenda~ | the agenda: every note's dates and TODOs, in one list | org.el |
 | ~C-c n B~ | ~heks/bookmark-add~ | a bookmark, filed under a category picked with completion | bookmarks.el |
 | ~C-c n F~ | ~heks/notes-find-or-create~ | a note by title, created when none has it | notes.el |
@@ -502,10 +515,12 @@ in every other topic.
 | ~C-c n g~ | ~heks/notes-graph~ | the notes as a smooth graph (links, topics, or both) and a tree, in the browser; clicking a note opens it here | notes-graph.el |
 | ~C-c n h~ | ~heks/agenda-habits~ | the habits, with their consistency graphs | agenda.el |
 | ~C-c n i~ | ~heks/notes-insert~ | a link to another note, inserted | notes.el |
+| ~C-c n j~ | ~heks/journal-today~ | today's journal entry, created from the template when it is not there | notes.el |
 | ~C-c n k~ | ~heks/contact-find~ | a contact, found by name (prefix: inserted as Name <email>) | contacts.el |
 | ~C-c n l~ | ~heks/notes-backlinks~ | the notes that link to this one | notes.el |
 | ~C-c n m~ | ~heks/import-markdown~ | the Markdown file of this buffer, imported as an Org note | import.el |
 | ~C-c n n~ | ~heks/notes-new~ | a new note, opened for writing, in a topic you pick | notes.el |
+| ~C-c n q~ | ~heks/notes-query~ | the notes, asked a question by tag, TODO and age | notes.el |
 | ~C-c n r~ | ~heks/notes-move~ | this note, moved to another topic, its links repaired | notes.el |
 | ~C-c n s~ | ~heks/notes-search~ | the text of every note, searched | notes.el |
 | ~C-c n t~ | ~heks/notes-topic~ | a topic folder, opened | notes.el |
@@ -535,6 +550,7 @@ in every other topic.
 | ~C-c r b~ | ~heks/preview-browser~ | this document, in the browser | render.el |
 | ~C-c r d~ | ~heks/present-deck~ | the deck, in the browser | present.el |
 | ~C-c r e~ | ~heks/preview-export~ | this document, kept as an HTML file | render.el |
+| ~C-c r g~ | ~heks/theme-gallery~ | every palette, rendered as one page to compare | theme.el |
 | ~C-c r m~ | ~heks/preview-toggle-follow~ | follow the buffer, re-rendering on save | render.el |
 | ~C-c r n~ | ~heks/present-insert-slide~ | a slide boundary, inserted | present.el |
 | ~C-c r p~ | ~heks/preview~ | this buffer, rendered in Emacs | render.el |
@@ -611,6 +627,7 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
+| ~C-c x P~ | ~heks/ai-project-provider~ | the provider this project uses, recorded in its `.dir-locals.el' | ai.el |
 | ~C-c x a~ | ~eca-chat-add-context-to-user-prompt~ | the context, added to the prompt | ai.el |
 | ~C-c x k~ | ~eca-chat-stop-prompt~ | the running prompt, stopped | ai.el |
 | ~C-c x m~ | ~eca-chat-select-model~ | the model, chosen | ai.el |

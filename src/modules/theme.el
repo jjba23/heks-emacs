@@ -177,6 +177,172 @@
   :config
   (load-theme 'kanagawa t))
 
+;;
+;; ====== Every palette, on one page ======
+;;
+;; Choosing a palette was a sequence: load a theme, look at the buffer,
+;; load the next.  The renderer already turns a document into a page from
+;; the colours of the current theme, so the comparison is the same
+;; renderer run once per theme: one page, one frame per palette, and no
+;; network anywhere in it.
+;;
+;; The sample is written in Markdown because the renderer reads it, and it
+;; has one of each thing a palette can get wrong -- prose, bold, a link,
+;; inline code, a list, a quote, a table and a fenced block.
+
+(defconst heks/themes
+  '(ef-autumn ef-bio ef-dream ef-day ef-kassio ef-melissa-light ef-cyprus
+    modus-vivendi modus-operandi
+    doom-solarized-light doom-solarized-dark kaolin-dark
+    catppuccin
+    dracula doom-tokyo-night
+    everforest-hard-dark everforest-hard-light
+    gruvbox-dark-hard gruvbox-light-hard
+    kanagawa doom-nord rose-pine-moon rose-pine-dawn
+    doom-one doom-one-light doom-tomorrow-night doom-molokai
+    ayu-dark ayu-grey ayu-light)
+  "The palettes this configuration offers, by the name Emacs loads.
+
+This is the list the gallery renders and the names `load-theme' answers
+to; `docs/themes.org' lists the same palettes under the names a person
+sets `heks/theme' to, which are sometimes the package's own (the `nord'
+of the documentation is `doom-nord' here, its palette).  A theme that is
+not installed is skipped by the gallery rather than failing it, so this
+list may name a palette a machine has not got.")
+
+(defconst heks/theme-gallery-sample
+  (concat "# A page in this palette\n\n"
+          "A paragraph with **bold**, *italic*, `inline code` and a "
+          "[link](https://example.org).\n\n"
+          "- the first item\n"
+          "- the second item\n\n"
+          "> A quotation, which the palette should make quiet.\n\n"
+          "| Column | Value |\n"
+          "|--------+-------|\n"
+          "| one | the first |\n"
+          "| two | the second |\n\n"
+          "```elisp\n"
+          "(defun greet (name)\n"
+          "  (message \"hello, %s\" name))\n"
+          "```\n")
+  "The one document the theme gallery renders in every palette.")
+
+(defcustom heks/theme-gallery-file nil
+  "Where `heks/theme-gallery' writes its page, or nil for the checkout.
+Nil means `reports/themes.html' under this configuration's own directory,
+which is what `maak themes' writes and what the command opens."
+  :type '(choice (const :tag "the checkout's reports directory" nil)
+                 (file :tag "a file of its own"))
+  :group 'heks)
+
+(defun heks/theme-gallery-target (&optional file)
+  "Return the file the gallery is written to, FILE when it is given."
+  (or file heks/theme-gallery-file
+      (expand-file-name "reports/themes.html"
+                        (or (and (boundp 'heks/clone-dir) heks/clone-dir)
+                            default-directory))))
+
+(defun heks/theme-gallery-html (entries &optional title)
+  "Return one HTML page that shows each of ENTRIES in its own frame.
+
+ENTRIES is a list of (NAME . DOCUMENT), where a document is the whole
+page the renderer produces for the palette NAME.  Each one goes into an
+`iframe' whose `srcdoc' is the document itself: a rendered page carries a
+stylesheet for `body', so two of them cannot share one document without
+one repainting the other.  Nothing is fetched, so the page opens from a
+`file:' URL."
+  (format "<!DOCTYPE html>
+<html lang=\"en\">
+<head>
+<meta charset=\"utf-8\">
+<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+<title>%s</title>
+<style>
+:root { color-scheme: light dark; }
+body { margin: 0; padding: 2rem; font-family: system-ui, sans-serif;
+       background: #f4f4f4; color: #222; }
+@media (prefers-color-scheme: dark) {
+  body { background: #17181a; color: #e8e8e8; }
+  iframe { border-color: #ffffff22 !important; }
+}
+header { max-width: 70rem; margin: 0 auto 2rem; }
+h1 { margin: 0 0 0.4rem; font-size: 1.6rem; }
+p { margin: 0; opacity: 0.75; }
+nav { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 1rem; }
+nav a { color: inherit; text-decoration: none; border: 1px solid currentColor;
+        border-radius: 999px; padding: 0.15rem 0.6rem; font-size: 0.85rem;
+        opacity: 0.8; }
+section { max-width: 70rem; margin: 0 auto 2rem; }
+h2 { font-size: 1rem; margin: 0 0 0.4rem; font-weight: 600; }
+iframe { display: block; width: 100%%; height: 24rem; border: 1px solid #00000022;
+         border-radius: 8px; background: white; }
+</style>
+</head>
+<body>
+<header>
+<h1>%s</h1>
+<p>One page, rendered by the same renderer as <code>C-c r p</code>, in every palette
+this Emacs can load.  Press <code>C-c r g</code> again to render it again.</p>
+<nav>%s</nav>
+</header>
+%s
+</body>
+</html>
+"
+          (heks/render--escape (or title "heks-emacs: every palette"))
+          (heks/render--escape (or title "heks-emacs: every palette"))
+          (mapconcat (lambda (entry)
+                       (format "<a href=\"#%s\">%s</a>"
+                               (heks/render--escape (car entry) t)
+                               (heks/render--escape (car entry))))
+                     entries "\n")
+          (mapconcat (lambda (entry)
+                       (format "<section id=\"%s\">\n<h2>%s</h2>\n\
+<iframe title=\"%s\" loading=\"lazy\" srcdoc=\"%s\"></iframe>\n</section>"
+                               (heks/render--escape (car entry) t)
+                               (heks/render--escape (car entry))
+                               (heks/render--escape (car entry) t)
+                               (heks/render--escape (cdr entry) t)))
+                     entries "\n")))
+
+(defun heks/theme-gallery (&optional file)
+  "Render `heks/theme-gallery-sample' in every available theme, as one page.
+
+Each theme is loaded, rendered and disabled in turn, so the palette a
+document carries is that theme's own; the themes that were enabled when
+the gallery was asked for are enabled again at the end.  A theme that
+will not load is left out of the page rather than failing the run, and
+the file is written where `heks/theme-gallery-target' says.  Return it."
+  (interactive)
+  (require 'custom)
+  (require 'heks/render nil t)
+  (let* ((original (copy-sequence custom-enabled-themes))
+         (entries
+          (delq nil
+                (mapcar
+                 (lambda (theme)
+                   (condition-case nil
+                       (progn
+                         (load-theme theme t)
+                         (prog1 (cons (symbol-name theme)
+                                      (heks/html-document
+                                       (format "heks-emacs in %s" theme)
+                                       (heks/render--markdown
+                                        heks/theme-gallery-sample)))
+                           (disable-theme theme)))
+                     (error nil)))
+                 (sort heks/themes
+                       (lambda (a b) (string< (symbol-name a) (symbol-name b)))))))
+         (target (heks/theme-gallery-target file)))
+    (make-directory (file-name-directory target) t)
+    (with-temp-file target
+      (insert (heks/theme-gallery-html entries)))
+    (mapc #'enable-theme original)
+    (message "Rendered %d palettes into %s" (length entries) target)
+    target))
+
+(global-set-key (kbd "C-c r g") #'heks/theme-gallery)
+
 (provide 'heks/theme)
 
 ;;; theme.el ends here

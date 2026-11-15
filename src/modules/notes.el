@@ -973,6 +973,164 @@ Notes bigger than `heks/notes-agenda-max-size' are left out too."
   (heks/notes--sync-agenda-files)
   (advice-add 'org-agenda :before #'heks/notes--sync-agenda-files))
 
+;;
+;; ====== Asking the notes a question ======
+;;
+;; A file store stays usable past a few hundred notes only if it can be
+;; asked something narrower than a title: which notes are tagged this,
+;; still have a TODO, and have not been touched since.  It is a scan of the
+;; heads the prompts already read and of the text of the few files the
+;; TODO asks about, not a database and not an index to keep in step.
+
+(defcustom heks/notes-query-keywords '("TODO" "NEXT" "WAIT" "WIP" "REVIEWING")
+  "The keywords that count as an open TODO in `heks/notes-query'.
+A finished state is not here: the question a query asks is what is still
+to do, and a note whose only heading is `DONE' answers nothing."
+  :type '(repeat string)
+  :group 'heks)
+
+(defun heks/notes--days-since (file)
+  "Return how many whole days have passed since FILE was last written."
+  (let ((attributes (file-attributes file)))
+    (when-let* ((time (and attributes (file-attribute-modification-time attributes))))
+      (floor (/ (float-time (time-subtract (current-time) time)) 86400)))))
+
+(defun heks/notes--open-todo-p (file keyword)
+  "Return non-nil when FILE has a heading in KEYWORD or in an open keyword.
+KEYWORD nil asks whether the note still has anything to do."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (goto-char (point-min))
+    (if keyword
+        (re-search-forward (format "^\\*+ %s\\_>" (regexp-quote keyword)) nil t)
+      (re-search-forward (concat "^\\*+ "
+                                 (regexp-opt heks/notes-query-keywords)
+                                 "\\_>")
+                         nil t))))
+
+(defun heks/notes-query--sentence (tag todo days)
+  "Return the question a query with TAG, TODO and DAYS asked, as a sentence."
+  (let ((parts (delq nil (list (and tag (format "tagged %s" tag))
+                               (and todo (format "with an open %s" todo))
+                               (and days (format "not touched in %d days" days))))))
+    (if parts
+        (concat "Notes " (string-join parts ", ") ".")
+      "Every note.")))
+
+;;;###autoload
+(defun heks/notes-query (&optional tag todo days)
+  "List the notes that answer the question TAG, TODO and DAYS ask.
+
+TAG is a tag the note has, TODO an open keyword it still has a heading
+for, and DAYS the fewest whole days since it was last written; nil means
+the question does not ask that.  The answer is a buffer of links rather
+than a table: the notes are files, and a question is a scan of their
+heads -- plus the text of the ones a TODO asks about."
+  (interactive
+   (list (let ((answer (string-trim (read-string "Tag (empty for any): "))))
+           (unless (string-empty-p answer) answer))
+         (let ((answer (completing-read "Open TODO (empty for any): "
+                                        (cons "" heks/notes-query-keywords)
+                                        nil t)))
+           (unless (string-empty-p answer) answer))
+         (let ((answer (string-trim
+                        (read-string "Not touched in days (empty for any): "))))
+           (unless (string-empty-p answer)
+             (string-to-number answer)))))
+  (let ((root (heks/notes--root))
+        (matches '()))
+    (dolist (file (heks/notes-files))
+      (let* ((header (heks/notes--header file))
+             (tags (split-string (or (alist-get 'tags header) "") ":" t))
+             (days-since (heks/notes--days-since file)))
+        (when (and (or (null tag) (member tag tags))
+                   (or (null days) (and days-since (>= days-since days)))
+                   (or (null todo) (heks/notes--open-todo-p file todo)))
+          (push (list file
+                      (or (alist-get 'title header) (file-name-base file))
+                      days-since
+                      (directory-file-name
+                       (or (file-name-directory (file-relative-name file root)) "")))
+                matches))))
+    (setq matches
+          (sort matches (lambda (a b) (> (or (nth 2 a) 0) (or (nth 2 b) 0)))))
+    (let ((buffer (get-buffer-create "*Notes query*")))
+      (with-current-buffer buffer
+        (let ((inhibit-read-only t))
+          (erase-buffer))
+        (insert (format "#+title: Notes query\n#+options: toc:nil\n\n%s\n\n"
+                        (heks/notes-query--sentence tag todo days)))
+        (if (null matches)
+            (insert "No note answers this question.\n")
+          (dolist (match matches)
+            (insert (format "- [[file:%s][%s]] -- %s, %d days old\n"
+                            (nth 0 match) (nth 1 match)
+                            (if (string-empty-p (nth 3 match))
+                                "the top"
+                              (nth 3 match))
+                            (or (nth 2 match) 0)))))
+        (org-mode)
+        (goto-char (point-min)))
+      (display-buffer buffer)
+      buffer)))
+
+;;
+;; ====== Today's journal ======
+;;
+;; The diary is a folder of one file a day inside the notes directory, and
+;; `dagboek' is the package that knows its naming and its questions.  The
+;; notes topic gets a key of its own onto it, so the journal is one letter
+;; away from the agenda rather than a package command to remember.
+
+(defun heks/journal-today ()
+  "Open today's journal entry, creating it from the template when it is not there."
+  (interactive)
+  (require 'dagboek nil t)
+  (unless (fboundp 'dagboek-today-entry)
+    (user-error "The dagboek package is not installed, so the journal has no entry file"))
+  (dagboek-today-entry))
+
+;;
+;; ====== The notes topic as one menu ======
+;;
+
+(when (bound-and-true-p byte-compile-current-file)
+  (require 'transient nil t))
+(with-eval-after-load 'transient
+  (transient-define-prefix heks/notes-menu ()
+    "The notes: capture, find, today, the journal, the backlinks."
+    ["Write"
+     ("c" "capture from anywhere" heks/notes-capture)
+     ("n" "a new note" heks/notes-new)
+     ("e" "add text to an existing note" heks/notes-extend)
+     ("i" "insert a link to a note" heks/notes-insert)]
+    ["Find"
+     ("f" "find a note" heks/notes-find)
+     ("F" "find, or create it" heks/notes-find-or-create)
+     ("s" "search every note" heks/notes-search)
+     ("q" "ask by tag, TODO and age" heks/notes-query)]
+    ["Today"
+     ("d" "today's agenda" heks/agenda-today)
+     ("j" "today's journal" heks/journal-today)]
+    ["This note"
+     ("l" "the notes that link here" heks/notes-backlinks)
+     ("r" "move it to another topic" heks/notes-move)]
+    ["The collection"
+     ("I" "regenerate the index pages" heks/notes-regenerate-indexes)
+     ("g" "the notes as a graph" heks/notes-graph)]))
+
+(defun heks/notes-menu-open ()
+  "Open the notes topic's menu.
+
+The menu itself is defined when `transient' loads, and nothing loads it
+until a menu is asked for: this is the command a key can be bound to, and
+the one that makes the menu exist before calling it."
+  (interactive)
+  (require 'transient nil t)
+  (unless (fboundp 'heks/notes-menu)
+    (user-error "The transient package is not installed, so the notes menu has no menu"))
+  (call-interactively #'heks/notes-menu))
+
 (global-set-key (kbd "C-c n c") #'heks/notes-capture)
 (global-set-key (kbd "C-c n n") #'heks/notes-new)
 (global-set-key (kbd "C-c n e") #'heks/notes-extend)
@@ -985,6 +1143,9 @@ Notes bigger than `heks/notes-agenda-max-size' are left out too."
 (global-set-key (kbd "C-c n r") #'heks/notes-move)
 (global-set-key (kbd "C-c n t") #'heks/notes-topic)
 (global-set-key (kbd "C-c n I") #'heks/notes-regenerate-indexes)
+(global-set-key (kbd "C-c n q") #'heks/notes-query)
+(global-set-key (kbd "C-c n j") #'heks/journal-today)
+(global-set-key (kbd "C-c n ?") #'heks/notes-menu-open)
 
 (provide 'heks/notes)
 

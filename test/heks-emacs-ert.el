@@ -55,7 +55,7 @@
   (load (expand-file-name (format "modules/%s.el" name) heks-ert--source) nil t))
 
 (dolist (module '("markdown" "render" "import" "present" "heks-emacs" "emacs-core"
-                 "notes" "notes-graph" "notes-auto" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "dev-hover" "openapi" "sift" "duplicates" "shell" "guile" "ui" "ai" "github-repo" "onefetch"))
+                 "notes" "notes-graph" "notes-auto" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "dev-hover" "openapi" "sift" "duplicates" "shell" "guile" "theme" "ui" "ai" "github-repo" "onefetch"))
   (heks-ert--module module))
 
 ;; `htmlize' is what Org colours the code in a note with, and the
@@ -4251,6 +4251,196 @@ is answered only by a repository git initialised."
                                      heks/onefetch--repositories)
                              '("alpha"))))
           (kill-buffer buffer))))))
+
+;;
+;; ====== Explaining a key where it is written ======
+;;
+
+(ert-deftest heks/key-scheme/the-key-at-point-is-the-sequence-around-it ()
+  "A key written in a document is read back as the key the scheme knows.
+
+The reference and the notes write keys the way Emacs does -- `C-c', then
+a topic, then an action -- so the command that explains one has to read
+the strokes on the line around point rather than a word."
+  (with-temp-buffer
+    (insert "| ~C-c n f~ | a note, found by title |\n")
+    (search-backward "n f")
+    (should (equal (heks/key-at-point) "C-c n f"))
+    (goto-char (point-min))
+    (should-not (heks/key-at-point))))
+
+(ert-deftest heks/key-scheme/a-topic-prefix-is-read-too ()
+  "`C-c n' is a key the scheme describes, and the reading stops there."
+  (with-temp-buffer
+    (insert "press C-c n and then f")
+    (search-backward "C-c n")
+    (should (equal (heks/key-at-point) "C-c n"))))
+
+(ert-deftest heks/key-scheme/explaining-a-key-says-its-sentence ()
+  "The sentence comes from the same table which-key shows while typing."
+  (with-temp-buffer
+    (insert "C-c n f")
+    (goto-char (point-min))
+    (let ((said nil))
+      (cl-letf (((symbol-function 'message)
+                 (lambda (format &rest args)
+                   (setq said (apply #'format format args)))))
+        (heks/key-describe-at-point))
+      (should (equal said (heks/key-description "C-c n f"))))))
+
+;;
+;; ====== What this Emacs is running ======
+;;
+
+(ert-deftest heks/about/it-answers-what-is-running ()
+  "One buffer answers the question a bug report starts with."
+  (let ((buffer (heks/about)))
+    (unwind-protect
+        (with-current-buffer buffer
+          (should (string-match-p (regexp-quote heks/version) (buffer-string)))
+          (should (string-match-p (regexp-quote emacs-version) (buffer-string)))
+          (should (string-match-p "theme" (buffer-string)))
+          (should (string-match-p "module" (buffer-string))))
+      (kill-buffer buffer))))
+
+(ert-deftest heks/tour/it-walks-the-first-five-keys ()
+  "The tour is the five keys a beginner needs, with their own sentences."
+  (let ((buffer (heks/tour)))
+    (unwind-protect
+        (with-current-buffer buffer
+          (dolist (key '("C-c SPC SPC" "C-c n c" "C-c n s" "C-c w g" "C-c r p"))
+            (should (string-match-p (regexp-quote key) (buffer-string))))
+          (should (string-match-p
+                   (regexp-quote (heks/key-description "C-c n c"))
+                   (buffer-string))))
+      (kill-buffer buffer))))
+
+;;
+;; ====== The doctor ======
+;;
+
+(ert-deftest heks/doctor/a-missing-program-is-a-line-not-an-error ()
+  "A program nobody installed is what the report is for."
+  (let ((heks/doctor-programs
+         '(("heks-no-such-program" . ("a test" . "nothing works")))))
+    (let ((buffer (heks/doctor)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (should (string-match-p "heks-no-such-program" (buffer-string)))
+            (should (string-match-p "missing" (buffer-string)))
+            (should (string-match-p "nothing works" (buffer-string))))
+        (kill-buffer buffer)))))
+
+(ert-deftest heks/doctor/a-version-is-read-from-the-program ()
+  "A program that is there is asked its version rather than guessed at."
+  (skip-unless (executable-find "git"))
+  (let ((version (heks/doctor-version "git")))
+    (should (stringp version))
+    (should (string-match-p "[0-9]" version))))
+
+;;
+;; ====== Asking the notes a question ======
+;;
+
+(ert-deftest heks/notes/a-query-answers-with-the-notes-that-fit ()
+  "A tag, an open TODO and an age are the question a file store can answer."
+  (let ((root (heks-ert--temp-directory)))
+    (unwind-protect
+        (heks-ert--with-notes root
+          (let ((wanted (expand-file-name "engineering/old.org" root))
+                (recent (expand-file-name "engineering/recent.org" root))
+                (personal (expand-file-name "personal/old.org" root)))
+            (dolist (note (list (cons wanted "engineering")
+                                (cons recent "engineering")
+                                (cons personal "personal")))
+              (make-directory (file-name-directory (car note)) t)
+              (write-region (format "#+title: %s\n#+filetags: :%s:\n\n* TODO something\n"
+                                    (file-name-base (car note)) (cdr note))
+                            nil (car note) nil 'silent)
+              (set-file-times (car note) (time-subtract nil (* 60 86400))))
+            (set-file-times recent (current-time))
+            (let ((buffer (heks/notes-query "engineering" "TODO" 30)))
+              (unwind-protect
+                  (with-current-buffer buffer
+                    (should (string-match-p "old" (buffer-string)))
+                    (should-not (string-match-p "recent" (buffer-string)))
+                    ;; The personal note is old and has a TODO, and is not
+                    ;; tagged engineering: the tag is the question.
+                    (should-not (string-match-p "personal" (buffer-string))))
+                (kill-buffer buffer)))))
+      (delete-directory root t))))
+
+(ert-deftest heks/notes/a-query-with-no-answer-says-so ()
+  "An empty list is a result, and the buffer says which question was asked."
+  (let ((root (heks-ert--temp-directory)))
+    (unwind-protect
+        (heks-ert--with-notes root
+          (heks-ert--write-note (expand-file-name "work/one.org" root) "One")
+          (let ((buffer (heks/notes-query "nosuchtag" nil nil)))
+            (unwind-protect
+                (with-current-buffer buffer
+                  (should (string-match-p "No note" (buffer-string))))
+              (kill-buffer buffer))))
+      (delete-directory root t))))
+
+(ert-deftest heks/journal/today-is-the-entry-dagboek-opens ()
+  "The journal is dagboek's: this is the notes topic's key onto it."
+  (let ((called nil))
+    (cl-letf (((symbol-function 'dagboek-today-entry)
+               (lambda () (interactive) (setq called t))))
+      (heks/journal-today)
+      (should called))))
+
+;;
+;; ====== A provider per project ======
+;;
+
+(ert-deftest heks/ai/the-provider-is-recorded-for-the-project ()
+  "Choosing a provider for a project writes the project's own setting."
+  (let ((root (heks-ert--temp-directory)))
+    (unwind-protect
+        (progn
+          (make-directory (expand-file-name ".git" root) t)
+          (let ((file (heks/ai-project-provider 'deepseek root)))
+            (should (equal file (expand-file-name ".dir-locals.el" root)))
+            (with-temp-buffer
+              (insert-file-contents file)
+              (should (string-match-p "heks/ai-provider" (buffer-string)))
+              (should (string-match-p "deepseek" (buffer-string))))))
+      (delete-directory root t))))
+
+(ert-deftest heks/ai/a-project-setting-is-not-applied-twice ()
+  "Opening a second file of the project does not restart the choice."
+  (let ((applied '()))
+    (cl-letf (((symbol-function 'heks/ai-use-provider)
+               (lambda (provider) (push provider applied)))
+              ((symbol-function 'local-variable-p)
+               (lambda (_) t)))
+      (let ((heks/ai-provider 'copilot)
+            (heks/ai--current 'deepseek))
+        (heks/ai--apply-local-provider)
+        (should (equal applied '(copilot)))
+        ;; The same value again is not a choice, it is a file being opened.
+        (heks/ai--apply-local-provider)
+        (should (equal applied '(copilot)))))))
+
+;;
+;; ====== A page of every palette ======
+;;
+
+(ert-deftest heks/theme/the-gallery-shows-every-palette-it-is-given ()
+  "The gallery is one page, one section per palette, with no network."
+  (let ((page (heks/theme-gallery-html
+               '(("one" . "<p>the first \"document\"</p>")
+                 ("two" . "<p>the second</p>")))))
+    (should (equal (heks-ert--count "<iframe" page) 2))
+    (should (string-match-p "id=\"one\"" page))
+    (should (string-match-p "id=\"two\"" page))
+    (should (string-match-p "the second" page))
+    ;; The document is an attribute value, so its quotes are escaped rather
+    ;; than ending the attribute.
+    (should (string-match-p "&quot;document&quot;" page))
+    (should-not (string-match-p "src=\"http" page))))
 
 (unless (getenv "HEKS_ERT_NO_RUN")
   (ert-run-tests-batch-and-exit))

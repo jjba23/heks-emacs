@@ -67,7 +67,8 @@ Two stills from the same GIF recording:
   that agree with each other instead of reporting every line twice.
 - *32+ palettes*, from Modus and the Ef collection to Catppuccin, Gruvbox,
   Kanagawa and Doom, with separators, faces and prose sizes derived from the
-  theme so that nothing goes invisible when you switch.
+  theme so that nothing goes invisible when you switch -- and ~maak themes~,
+  which renders one sample in every palette as a single page to compare.
 - *An Eshell worth living in:* a prompt with user, host, path and Git branch,
   aliases for the things you actually type, and project shells opened next to
   the code they belong to.
@@ -77,6 +78,11 @@ Two stills from the same GIF recording:
 - *Read and present from Emacs:* ~C-c r p~ previews a Markdown file, an Org
   note, an OpenAPI specification or a plain text file as a themed HTML page with
   no network, and ~C-c r P~ turns the same document into a deck.
+- *It can tell you about itself:* ~C-c h a~ answers what Emacs, palette, font,
+  modules and version are running, ~C-c h t~ walks the five keys a new reader
+  needs, ~C-c h d~ explains the key written at point wherever you read one, and
+  ~C-c ! d~ is the doctor -- every program the modules expect, its version, and
+  what each module does without it.
 - *Reproducible by construction:* Elpaca manages the packages, ~maak~ runs the
   tasks, and the whole configuration is held to its own lint, key audit,
   renderer checks, ERT suite, golden pages and a batch verification.

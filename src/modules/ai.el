@@ -211,6 +211,13 @@ which is not how this configuration names the account: `copilot' is
 (defvar heks/ai--gptel-backends nil
   "The GPTel backends made so far, as an alist of provider to backend.")
 
+(defvar heks/ai--current nil
+  "The provider last applied to GPTel and ECA.
+
+A project can record a provider of its own in its `.dir-locals.el', and
+this is how a buffer of that project knows the choice has already been
+applied: opening a second file is not a second choice.")
+
 (defun heks/ai-gptel-backend (provider)
   "Return the GPTel backend for PROVIDER, making it the first time it is asked for.
 
@@ -257,8 +264,77 @@ next chat starts on the one chosen here."
          (model (heks/ai-model provider)))
     (setq gptel-backend (heks/ai-gptel-backend provider)
           gptel-model model
-          eca-chat-custom-model (heks/ai-eca-model provider))
+          eca-chat-custom-model (heks/ai-eca-model provider)
+          heks/ai--current provider)
     (message "AI: %s (%s)" provider model)))
+
+(defun heks/ai--known-provider-p (value)
+  "Return non-nil when VALUE is a provider this configuration knows."
+  (memq value heks/ai--providers))
+
+;; A project's `.dir-locals.el' may say which account to use, and the value
+;; is one of the two providers: that is the whole of what it may say, so it
+;; is safe to accept without asking on every visit.
+(put 'heks/ai-provider 'safe-local-variable #'heks/ai--known-provider-p)
+
+(defun heks/ai-project-provider (provider &optional root)
+  "Record PROVIDER for the project at ROOT, and use it now.
+
+The choice is written into the project's own `.dir-locals.el' rather than
+into this checkout, because which account a repository is worked on with
+is a fact about that repository: `C-c x p' moves the session, and this
+makes the move stick for the files of the project.  ROOT defaults to the
+project of the current buffer, and its `.dir-locals.el' is written with
+`add-dir-local-variable' so that a file that already has one keeps it."
+  (interactive
+   (let ((current (heks/ai-provider)))
+     (list (intern (completing-read
+                    (format "AI provider for this project (now %s): " current)
+                    (mapcar #'symbol-name heks/ai--providers)
+                    nil t nil nil (symbol-name current))))))
+  (unless (heks/ai--known-provider-p provider)
+    (user-error "Unknown AI provider: %S" provider))
+  (let* ((root (or root
+                   (heks/ai--project-root)
+                   (user-error "This buffer is in no project to record a provider for")))
+         (file (expand-file-name ".dir-locals.el" root)))
+    (require 'files-x)
+    (let ((visiting (find-buffer-visiting file)))
+      (add-dir-local-variable nil 'heks/ai-provider provider file)
+      ;; `add-dir-local-variable' visits the file and leaves the change in a
+      ;; buffer; nothing is on disk until that buffer is saved.  Older
+      ;; Emacsen wrote the file themselves, and then there is nothing to
+      ;; save.  A buffer this opened is closed again after the save: the
+      ;; file is a setting, not something the key was pressed to read.
+      (when-let* ((buffer (find-buffer-visiting file)))
+        (with-current-buffer buffer
+          (when (buffer-modified-p) (save-buffer)))
+        (unless (eq buffer visiting)
+          (kill-buffer buffer))))
+    (message "AI: %s is now this project's provider, recorded in %s" provider file)
+    ;; The buffer that asked is already in the project, so the choice is
+    ;; applied now as well as the next time one of its files is opened.
+    (condition-case err
+        (heks/ai-use-provider provider)
+      (error (message "Recorded %s; it applies when a file of the project is opened (%s)"
+                      provider (error-message-string err))))
+    file))
+
+(defun heks/ai--apply-local-provider ()
+  "Use the provider this buffer's project records, when it is not in use.
+
+`hack-local-variables-hook' runs after the project's `.dir-locals.el' has
+been read, which is the moment the choice is known and the right one to
+apply it at.  A file of the same project opened after that has the same
+value and changes nothing."
+  (when (and (local-variable-p 'heks/ai-provider)
+             (heks/ai--known-provider-p heks/ai-provider)
+             (not (eq heks/ai-provider heks/ai--current)))
+    (let ((provider heks/ai-provider))
+      (setq heks/ai--current provider)
+      (heks/ai-use-provider provider))))
+
+(add-hook 'hack-local-variables-hook #'heks/ai--apply-local-provider)
 
 ;; GPTel answers a prompt about what is at point.
 (use-package gptel
@@ -276,7 +352,8 @@ next chat starts on the one chosen here."
          ("C-c x a" . eca-chat-add-context-to-user-prompt)
          ("C-c x k" . eca-chat-stop-prompt)
          ("C-c x m" . eca-chat-select-model)
-         ("C-c x p" . heks/ai-use-provider))
+         ("C-c x p" . heks/ai-use-provider)
+         ("C-c x P" . heks/ai-project-provider))
   :config
   (heks/ai-use-provider))
 

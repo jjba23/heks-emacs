@@ -13,6 +13,14 @@
   "HEKS-EMACS customization group."
   :group 'tools)
 
+(defconst heks/version "1.32.0"
+  "The version of this configuration.
+
+It is the number in the release notes' newest section and the tag on the
+commit, and `heks/about' is where a reader finds it without opening the
+changelog.  One number, named in one place: the release is the diff
+between this and the tag before it.")
+
 (defcustom heks/clone-dir nil
   "The directory where the HEKS-EMACS source code is located."
   :type 'string)
@@ -35,6 +43,46 @@ the notes at an empty string would do."
                         (string-trim heks/notes-dir))))
     (when (and directory (not (string-empty-p directory)))
       (file-truename (string-replace "$HOME" "~" directory)))))
+
+(defun heks/about ()
+  "Show what this Emacs is running, in one buffer.
+
+Which Emacs, which modules are loaded, which palette and font, which AI
+provider a session uses and which version of this configuration it is:
+the question a bug report starts with, answered from the running Emacs
+rather than from this file's prose.  It is the one place the answers are
+read together, so nothing here is a setting a second time; a value that
+was never given -- no theme, no provider, no notes directory -- says so
+rather than being left out."
+  (interactive)
+  (let* ((buffer (get-buffer-create "*heks about*"))
+         (theme (or (car custom-enabled-themes) heks/theme))
+         (provider (ignore-errors (heks/ai-provider)))
+         (modules (if (boundp 'heks/modules) (length heks/modules) 0))
+         (notes (ignore-errors (heks/notes-directory)))
+         (rows (list (cons "The configuration" heks/version)
+                     (cons "Emacs" emacs-version)
+                     (cons "Built for" system-configuration)
+                     (cons "The palette (a theme)" (or theme "the default"))
+                     (cons "The font" (format "%s %s" heks/font-mono heks/base-font-size))
+                     (cons "The modules loaded" modules)
+                     (cons "The AI provider" (or provider "none"))
+                     (cons "The notes" (or notes "not set"))
+                     (cons "This directory" user-emacs-directory))))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer))
+      (insert (format "heks-emacs %s\n\n" heks/version)
+              "Everything below is read from the running Emacs, which is what a bug\n"
+              "report asks for first; `C-c h f' and `C-c h v' answer the rest.\n\n")
+      (dolist (row rows)
+        (insert (format "%-24s %s\n" (car row) (cdr row))))
+      (insert "\nThe keys, and what each letter of one means: ~C-c h d~ explains\n"
+              "the key at point, and ~C-c h t~ walks the first five.\n")
+      (special-mode)
+      (goto-char (point-min)))
+    (display-buffer buffer)
+    buffer))
 
 (defcustom heks/theme nil
   "The name of the Emacs theme to use, acording to HEKS-EMACS palette."

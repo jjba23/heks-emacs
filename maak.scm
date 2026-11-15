@@ -123,6 +123,15 @@ definitions of the modules contain.  This is what refreshes the numbers
 in the README."
   (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-stats.el")))
 
+(define (themes)
+  "Render the sample buffer in every palette, as one page to compare.
+
+Writes `reports/themes.html': one frame per palette, each the whole page
+the renderer produces with that theme loaded, and no network.  A theme
+that is not installed is skipped, so this is a report about the themes a
+machine has rather than a check that the list is complete."
+  (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-themes.el")))
+
 (define (check)
   "Everything: parse the source, then check the installed configuration."
   (lint)
