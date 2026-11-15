@@ -7,6 +7,82 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** v1.32.0 (2026-11-15)
+
+*** Added
+
+- *The key scheme explains itself where it is read.*  ~C-c h d~ reads the key
+  written around point -- in the reference, in a note, in a bug report -- and
+  echoes the sentence =which-key= shows while the key is being typed.  The
+  reading is of the strokes on the line rather than of a word, so
+  =| ~C-c n f~ | a note, found by title |= and a key followed by a sentence both
+  work, and a key the scheme does not describe says so instead of guessing.
+  ~C-c h t~ is the five-minute tour made executable: the five keys a new reader
+  needs -- the dashboard, notes capture, the search, the project and the
+  renderer -- one per heading, each with its own sentence, with which-key on
+  while they are pressed.
+
+- *An about for the configuration.*  ~C-c h a~ is one buffer that answers what
+  this Emacs is running: the configuration's version, Emacs, the palette, the
+  font, the modules loaded, the AI provider and where the notes are.  The
+  version is now `heks/version`, the one number the release notes and the tag
+  also name, so the question a bug report starts with has an answer read from
+  the running Emacs rather than from the README.
+
+- *A doctor.*  ~C-c ! d~ lists the programs the modules expect -- =rg=, =fd=,
+  =aspell=, =git=, =gh=, =guile=, =guild=, =sift=, =eca=, =onefetch=,
+  =terraform=, =mongosh=, =docker=, =shfmt=, =shellcheck=, =ruff=, =java=,
+  =node= and =pandoc= -- with where each one is, the version it answers with and
+  what its module does without it.  A missing program is a line in the report
+  rather than an error: the rest of the configuration works, and the report says
+  what it costs.
+
+- *A question for the notes.*  ~C-c n q~ asks for a tag, an open TODO keyword
+  and the fewest days since a note was written, and answers with a buffer of
+  links -- oldest first, each with its topic and age -- or with the sentence
+  that no note answers it.  An empty prompt is a part of the question that was
+  not asked.  It is a scan of the heads the prompts already read plus the text
+  of the files a TODO asks about, so nothing is indexed and nothing can drift.
+
+- *The notes topic as one menu.*  ~C-c n ?~ is a transient menu over the topic:
+  capture, a new note, extend, insert a link; find, find-or-create, search, the
+  query; today's agenda and the journal; the backlinks and the move; the index
+  pages and the graph.  The keys already existed; this is the day the letters
+  are not remembered.
+
+- *Today's journal.*  ~C-c n j~ opens today's diary entry, creating it from the
+  =dagboek= template when it is not there.  The diary lives inside the notes
+  directory (~~/diary~, a folder for the year and the month) and ~C-c ; v~ and
+  ~C-c ; g~ still open today's and yesterday's under the diary topic.
+
+- *A provider per project.*  ~C-c x P~ records the AI provider for the project
+  of the current buffer in its own =.dir-locals.el= and applies it at once;
+  opening a file of that project applies it from then on, and the same value is
+  not a second choice.  The setting may only name one of the two providers, so
+  a directory-local value cannot run code, and a project that records nothing
+  still uses what ~heks/ai-provider~ resolves to.
+
+- *A gallery of the palettes.*  ~maak themes~ renders one sample document --
+  prose, a link, inline code, a list, a quote, a table and a fenced block -- in
+  every palette in `heks/themes` and writes =reports/themes.html=: one frame per
+  palette, each the whole page the renderer produces with that theme loaded, and
+  nothing fetched, so it opens from a ~file://~ URL.  ~C-c r g~ does the same in
+  a running Emacs and opens the page.  A palette that is not installed is
+  skipped rather than failing the page.  The deck already carried the colours of
+  the current theme; the gallery is the same path, asked once per palette.
+
+*** Checks
+
+- The new commands have tests in =test/heks-emacs-ert.el= -- the key at point,
+  the about buffer, the tour, the doctor against a program that is not there, a
+  query over three notes, the provider recorded for a project and applied once,
+  the journal's delegation and the gallery's page -- and ~maak check~ is green:
+  lint 176, keys 0 findings (2 deliberate conflicts), render 33, test 273 (one
+  skipped: no ~terraform~ on this machine), golden 5 matched and verify 436.
+  =docs/keybindings.org= was written by ~maak keys-update~ from the new keys.
+
+-------
+
 ** v1.31.0 (2026-11-14)
 
 *** Added
