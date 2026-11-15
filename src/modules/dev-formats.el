@@ -161,9 +161,34 @@ was destroyed, a signal connected to nothing -- into an abort, which is
 what lets the debugger stop on it instead of printing a line nobody
 reads.  `GSK_RENDERER=cairo' asks GTK 4 for its software renderer, so the
 program does not start a GPU driver's threads under the debugger; remove
-it to debug the renderer itself."
+it to debug the renderer itself.  The variables here are added to the
+display variables in `heks/gtk-debug-passthrough', because the launch
+request's environment is the one the program gets."
   :type '(alist :key-type string :value-type string)
   :group 'heks)
+
+(defconst heks/gtk-debug-passthrough
+  '("DISPLAY" "WAYLAND_DISPLAY" "XDG_RUNTIME_DIR" "XDG_SESSION_TYPE"
+    "DBUS_SESSION_BUS_ADDRESS" "XAUTHORITY")
+  "The environment a GTK program needs to reach the display.
+
+The launch request of a debug adapter describes the program's whole
+environment, so the variables the session inherited from the desktop --
+which display, which Wayland socket, which session bus -- have to be
+named again; without them the program starts under the debugger and
+cannot open a window.")
+
+(defun heks/gtk-debug--environment ()
+  "Return `heks/gtk-debug-environment' plus the display it was started in."
+  (append heks/gtk-debug-environment
+          (delq nil
+                (mapcar (lambda (name)
+                          (let ((value (getenv name)))
+                            (and value
+                                 (not (string-empty-p value))
+                                 (cons name value))))
+                        heks/gtk-debug-passthrough))))
+
 
 (defun heks/c-debug-root (&optional directory)
   "Return the root of the project DIRECTORY is in, or its directory."
@@ -231,6 +256,23 @@ there."
            "make")
           (t nil))))
 
+(defun heks/c-debug--debug-build-hint (&optional root)
+  "Return the command that would give the project at ROOT a debug build.
+
+Only a build system that has a debug configuration to ask for gets a
+hint; a Makefile's flags are the project's own, and this configuration
+does not guess them."
+  (let* ((root (or root (heks/c-debug-root)))
+         (meson (file-exists-p (expand-file-name "meson.build" root)))
+         (cmake (file-exists-p (expand-file-name "CMakeLists.txt" root))))
+    (cond ((and meson (file-directory-p (expand-file-name "build" root)))
+           "meson configure build -Dbuildtype=debug -Ddebug=true")
+          ((and meson (file-directory-p (expand-file-name "builddir" root)))
+           "meson configure builddir -Dbuildtype=debug -Ddebug=true")
+          ((and cmake (file-directory-p (expand-file-name "build" root)))
+           "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug")
+          (t nil))))
+
 (defun heks/c-debug--environment-plist (environment)
   "Return ENVIRONMENT as the plist dape wants for `:env'."
   (apply #'append
@@ -247,6 +289,23 @@ there."
               (let ((major (string-to-number (match-string 1 version)))
                     (minor (string-to-number (match-string 2 version))))
                 (or (> major 14) (and (= major 14) (>= minor 1))))))))
+
+(defun heks/c-debug--line-info-p (program)
+  "Return non-nil when PROGRAM has a line table for its main function.
+
+gdb answers whether a line breakpoint can ever be placed: a binary
+compiled without `-g', or stripped, has symbols but no line table, and a
+line breakpoint in it stays pending forever.  It is worth one gdb
+startup to say so before a session starts, because the session otherwise
+looks like it is working while the program runs past every line
+breakpoint."
+  (when (executable-find "gdb")
+    (with-temp-buffer
+      (let ((status (ignore-errors
+                      (call-process "gdb" nil t nil "-q" "-batch"
+                                    "-ex" "info line main" program))))
+        (and status (zerop status)
+             (string-match-p "^Line [0-9]+ of " (buffer-string)))))))
 
 (defun heks/c-debug--gud (program args root environment)
   "Start PROGRAM under GUD, in ROOT, with ENVIRONMENT set."
@@ -297,17 +356,28 @@ there."
          (build (heks/c-debug-build-command root)))
     (unless (file-executable-p program)
       (user-error "%s is not an executable" program))
+    (unless (heks/c-debug--line-info-p program)
+      (message "%s has no line information: line breakpoints will stay pending.%s"
+               (file-name-nondirectory program)
+               (if-let* ((hint (heks/c-debug--debug-build-hint root)))
+                   (format "  Rebuild it with: %s" hint)
+                 "")))
     (if (heks/c-debug--dap-capable-p)
         (let ((config (list :name "gdb"
                             :request "launch"
                             :program program
                             :args (vconcat args)
                             :cwd root
-                            :command "gdb"
-                            :command-args '("--interpreter=dap")
-                            :stopAtBeginningOfMainSubprogram nil)))
+                            ;; dape's connection keys are symbols, not
+                            ;; keywords: `command', `command-args',
+                            ;; `command-cwd' and `compile' are read with
+                            ;; `plist-get' against those symbols, and a
+                            ;; `:command' is a key dape never looks at.
+                            'command "gdb"
+                            'command-args (list "--interpreter=dap")
+                            'command-cwd root)))
           (when build
-            (setq config (plist-put config :compile build)))
+            (setq config (plist-put config 'compile build)))
           (when environment
             (setq config (plist-put config :env
                                     (heks/c-debug--environment-plist environment))))
@@ -328,7 +398,7 @@ session does not begin inside a GPU driver."
      (list (if (or current-prefix-arg (null default))
                (read-file-name "GTK program: " root nil t default)
              default))))
-  (heks/c-debug program nil heks/gtk-debug-environment))
+  (heks/c-debug program nil (heks/gtk-debug--environment)))
 
 (defun heks/gtk-inspector (&optional program)
   "Run the GTK 4 program of this project with the GTK inspector open.

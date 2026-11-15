@@ -465,10 +465,33 @@ there."
     ;; Ask Eclipse JDT LS to re-import Maven/Gradle projects automatically
     ;; when their build files change.  The function is called with the
     ;; server and the JDT LS version, hence the ignored arguments.
+    ;;
+    ;; The `:bundles' entry is the `java-debug' plugin: a JDT LS bundle,
+    ;; not a standalone DAP server, which is what gives `dape''s `jdtls'
+    ;; configuration the `vscode.java.resolveClasspath' and
+    ;; `vscode.java.startDebugSession' commands it calls.  A jar that is
+    ;; not on the machine adds nothing, and `heks/jvm-debug' says so.
     (defun heks/eglot-java-init-opts (&rest _)
       "JDT LS initialization options for HEKS-EMACS."
-      '(:settings (:java (:configuration (:updateBuildConfiguration "automatic")))))
+      (let ((jar (heks/java-debug-jar-available)))
+        (append (when jar (list :bundles (vector jar)))
+                '(:settings (:java (:configuration
+                                    (:updateBuildConfiguration "automatic")))))))
     (setq eglot-java-user-init-opts-fn #'heks/eglot-java-init-opts)))
+
+;; `eglot-java--init' looks for the Java entry of `eglot-server-programs'
+;; with `assq', which cannot match the list key `(java-mode java-ts-mode)'
+;; that Emacs uses: the entry stays the default contact, which looks for a
+;; `jdtls' executable on `PATH' and never for the server `eglot-java'
+;; installed.  Set the contact here, when Eglot is loaded, so JDT LS is
+;; the installed one and gets `heks/eglot-java-init-opts', `:bundles'
+;; included.  The function is a symbol at this point; `eglot-java' defines
+;; it when the Java mode loads, which is before a server is started.
+(with-eval-after-load 'eglot
+  (setf (alist-get '(java-mode java-ts-mode) eglot-server-programs
+                   nil nil #'equal)
+        (lambda (interactive)
+          (eglot-java--eclipse-contact interactive))))
 
 (use-package jarchive
   :ensure t

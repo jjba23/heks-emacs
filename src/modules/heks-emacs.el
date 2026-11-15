@@ -770,6 +770,10 @@ own goal."
               (car (file-expand-wildcards
                     "~/.local/share/nvim/mason/packages/java-debug-adapter/extension/server/com.microsoft.java.debug.plugin-*.jar"))
               (car (file-expand-wildcards
+                    "~/.vscode/extensions/vscjava.vscode-java-debug-*/extension/server/com.microsoft.java.debug.plugin-*.jar"))
+              (car (file-expand-wildcards
+                    "~/.vscode-server/extensions/vscjava.vscode-java-debug-*/extension/server/com.microsoft.java.debug.plugin-*.jar"))
+              (car (file-expand-wildcards
                     "~/.cache/lsp-java/*/com.microsoft.java.debug.plugin-*.jar"))
               (car (file-expand-wildcards
                     "~/.emacs.d/.cache/lsp/java-debug/com.microsoft.java.debug.plugin-*.jar")))))
@@ -790,69 +794,36 @@ nil and none of its own auto-detected paths holds one either."
   :type 'directory
   :group 'heks)
 
-(defcustom heks/java-debug-port 5005
-  "The JDWP port a JVM run by `heks/jvm-debug' listens on.
-
-`heks/jvm-debug' starts the project suspended on this port and
-attaches `dape' to it through `heks/java-debug-jar'."
-  :type 'integer
-  :group 'heks)
-
 (defun heks/java-debug-cached-jar ()
   "Return a `java-debug' jar already sitting in the cache dir, or nil."
   (car (file-expand-wildcards
         (expand-file-name "com.microsoft.java.debug.plugin-*.jar"
                            heks/java-debug-cache-dir))))
 
-(defun heks/java-debug-latest-asset-url ()
-  "Return the download URL of the latest `java-debug' adapter jar, or nil.
+(defun heks/java-debug-jar-available ()
+  "Return the `java-debug' plugin jar that is already on this machine, or nil.
 
-Asks GitHub's release API for the project's latest release and picks out
-the one asset shaped like the adapter jar.  Returns nil, rather than
-signalling, on anything unexpected -- no network, a changed API, no
-matching asset -- because fetching the jar is a convenience and never
-the only way to get one (see `heks/java-debug-jar')."
-  (condition-case nil
-      (with-temp-buffer
-        (url-insert-file-contents
-         "https://api.github.com/repos/microsoft/java-debug/releases/latest")
-        (let* ((json (json-parse-buffer :object-type 'alist :array-type 'list))
-               (assets (alist-get 'assets json)))
-          (cl-loop for asset in assets
-                   for name = (alist-get 'name asset)
-                   when (and name
-                             (string-match-p
-                              "\\`com\\.microsoft\\.java\\.debug\\.plugin-.*\\.jar\\'"
-                              name))
-                   return (alist-get 'browser_download_url asset))))
-    (error nil)))
+`heks/java-debug-jar' is the configured or auto-detected one;
+`heks/java-debug-cached-jar' is a jar put in `heks/java-debug-cache-dir'
+by hand.  Neither is downloaded: the plugin is distributed inside the
+VS Code Java extension and the `java-debug-adapter' mason package, not
+as a release asset of its own."
+  (or heks/java-debug-jar (heks/java-debug-cached-jar)))
 
-(defun heks/java-debug-ensure-jar (&optional force)
-  "Return a `java-debug' adapter jar, fetching one if none is known yet.
+(defun heks/java-debug-ensure-jar (&optional _force)
+  "Return the `java-debug' plugin jar, or nil when it is not installed.
 
-Prefers `heks/java-debug-jar' and whatever it auto-detected, then a
-jar already cached from a previous fetch, and only then downloads the
-latest one into `heks/java-debug-cache-dir' -- quietly, and never
-signalling an error itself, so that `heks/jvm-debug' stays the one
-place that reports not having a debugger to run.  With FORCE (or a
-prefix argument), fetches a new one even over a cached jar."
+The jar is a plugin for Eclipse JDT LS, not a standalone DAP server: it
+is what gives JDT LS the `vscode.java.resolveClasspath' and
+`vscode.java.startDebugSession' commands that `dape''s `jdtls'
+configuration calls.  It is distributed inside the VS Code Java
+extension and the `java-debug-adapter' mason package, so this looks where
+those unpack it (see `heks/java-debug-jar') and in
+`heks/java-debug-cache-dir'; it does not fetch from the network, because
+the project publishes no release asset.  With FORCE, the same answer is
+returned -- there is nothing to refresh."
   (interactive "P")
-  (or (and (not force) heks/java-debug-jar)
-      (and (not force) (heks/java-debug-cached-jar))
-      (let ((url (heks/java-debug-latest-asset-url)))
-        (when url
-          (make-directory heks/java-debug-cache-dir t)
-          (let ((target (expand-file-name (file-name-nondirectory url)
-                                           heks/java-debug-cache-dir)))
-            (condition-case err
-                (progn
-                  (url-copy-file url target t)
-                  (message "Fetched the `java-debug' adapter into %s" target)
-                  (setq heks/java-debug-jar target))
-              (error
-               (message "Could not fetch the `java-debug' adapter: %s"
-                        (error-message-string err))
-               nil)))))))
+  (heks/java-debug-jar-available))
 
 (defun heks/jvm-main-class (&optional buffer)
   "Return the class the main function of BUFFER's file lives in, or nil.
@@ -876,129 +847,82 @@ for: the prompt starts with this answer and takes another."
                 base
                 (if (string-match-p "\\.kt\\'" file) "Kt" ""))))))
 
-(defun heks/jvm-debug-agent (port)
-  "Return the JVM argument that suspends a JVM for a debugger on PORT.
+(defun heks/jvm--java-files (directory)
+  "Return the Java files under DIRECTORY, or nil when it is not there."
+  (when (file-directory-p directory)
+    (directory-files-recursively directory "\\.java\\'")))
 
-`suspend=y' is what makes this reliable rather than a race: the JVM does
-not run a line of the program until something attaches on PORT, so a
-breakpoint in, say, a Spring `@PostConstruct' is never too late to set."
-  (format "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:%d" port))
+(defun heks/jvm--java-host (&optional root)
+  "Return a buffer visiting a Java file of the project at ROOT, or nil.
 
-(defun heks/jvm-debug--port-open-p (port)
-  "Return non-nil when something is listening on PORT.
-
-A connection that is accepted and closed at once is the answer wanted: a
-JVM suspended at `suspend=y' accepts the debugger's socket before it runs
-a line."
-  (condition-case nil
-      (let ((process (make-network-process :name "heks/jvm-debug-probe"
-                                           :host "127.0.0.1"
-                                           :service port
-                                           :nowait nil
-                                           :noquery t)))
-        (delete-process process)
-        t)
-    (error nil)))
-
-(defun heks/jvm-debug--attach (root)
-  "Attach `dape' to the JDWP port of the JVM in ROOT."
-  (require 'dape)
-  (let ((jar (heks/java-debug-ensure-jar)))
-    (unless jar
-      (user-error "No `java-debug' adapter found, and none could be fetched; \
-set `heks/java-debug-jar' or `HEKS_JAVA_DEBUG_JAR', or get one \
-yourself and run `M-x heks/java-debug-ensure-jar'"))
-    (dape (list :name "java-attach"
-                :command "java"
-                :command-args (list "-jar" jar)
-                :port heks/java-debug-port
-                :request "attach"
-                :hostName "localhost"
-                :cwd root
-                :sourcePaths (list (expand-file-name "src/main/java" root)
-                                   (expand-file-name "src/main/kotlin" root))))))
-
-(defun heks/jvm-debug--wait-and-attach (root &optional tries)
-  "Attach a debugger to the JVM in ROOT as soon as its port answers.
-
-The build that starts the JVM is asynchronous, so the port is probed
-rather than waited on for a guessed number of seconds: a Gradle boot that
-takes twenty seconds is attached to in twenty seconds, and a build that
-fails says so instead of leaving a debugger that never connects.  TRIES
-bounds the probing at a few seconds over half a minute."
-  (let ((tries (or tries 150)))
-    (cond ((heks/jvm-debug--port-open-p heks/java-debug-port)
-           (heks/jvm-debug--attach root))
-          ((<= tries 0)
-           (message "Nothing is listening on port %d; the compilation buffer says why"
-                    heks/java-debug-port))
-          (t (run-at-time 0.2 nil #'heks/jvm-debug--wait-and-attach root (1- tries))))))
-
-(defun heks/jvm-debug-run (main-class &optional args)
-  "Run MAIN-CLASS of the JVM project suspended for a debugger, then attach.
-
-Where `heks/jvm-debug' starts a Spring Boot application or a Gradle
-`bootRun', this starts any application: Maven runs it with `exec:java'
-in its own JVM, which is why the JDWP agent is put in `MAVEN_OPTS'; Gradle
-runs the `run' task with `--debug-jvm'.  Both stop before the program's
-first line (`suspend=y') so a breakpoint in the first line of `main' is
-not too late, and `heks/jvm-debug--wait-and-attach' connects when the port
-answers.  ARGS are the program's arguments."
-  (unless (heks/java-debug-ensure-jar)
-    (user-error "No `java-debug' adapter found, and none could be fetched; \
-set `heks/java-debug-jar' or `HEKS_JAVA_DEBUG_JAR', or get one \
-yourself and run `M-x heks/java-debug-ensure-jar'"))
+JDT LS is started for a Java buffer, and that buffer's Eglot server is
+what `dape' asks for the classpath and for a debug port.  The current
+buffer is used when it is a Java one; otherwise the first Java file of
+`src/main/java', `src/test/java' or the project, leaving out the build
+directories.  A Kotlin-only project has no such buffer, which is the one
+case this configuration cannot debug through JDT LS."
   (let* ((project (heks/jvm--project))
-         (root (and project (cdr project))))
-    (unless project
-      (user-error "No pom.xml or Gradle build found above %s" default-directory))
-    (pcase (car project)
-      ('maven
-       (let ((command (format "%s -q compile exec:java -Dexec.mainClass=%s%s"
-                              (shell-quote-argument
-                               (heks/jvm-build-program root "mvnw" "mvn"))
-                              (shell-quote-argument main-class)
-                              (if args
-                                  (concat " -Dexec.args="
-                                          (shell-quote-argument
-                                           (string-join args " ")))
-                                ""))))
-         ;; `exec:java' runs the program in Maven's own JVM, so the agent
-         ;; goes where the `mvn' launcher reads it.
-         (let ((default-directory root)
-               (process-environment
-                (cons (format "MAVEN_OPTS=%s"
-                              (heks/jvm-debug-agent heks/java-debug-port))
-                      process-environment)))
-           (compile command))))
-      ('gradle
-       ;; `--debug-jvm' is the `run' task's own suspension switch; the
-       ;; property is what makes it listen on this configuration's port
-       ;; rather than Gradle's 5005.
-       (heks/jvm-run-build root
-                           (heks/jvm-build-program root "gradlew" "gradle")
-                           (format "-Dorg.gradle.debug.port=%d" heks/java-debug-port)
-                           "run" "--debug-jvm")))
-    (message "Waiting for %s to listen on %d before attaching `dape'..."
-             (car project) heks/java-debug-port)
-    (heks/jvm-debug--wait-and-attach root)))
+         (root (file-name-as-directory
+                (or root (and project (cdr project)) default-directory))))
+    (cond ((derived-mode-p 'java-mode 'java-ts-mode)
+           (current-buffer))
+          (t
+           (let ((file (or (car (heks/jvm--java-files
+                                 (expand-file-name "src/main/java" root)))
+                           (car (heks/jvm--java-files
+                                 (expand-file-name "src/test/java" root)))
+                           (car (seq-remove
+                                 (lambda (file)
+                                   (string-match-p "/\\(?:target\\|build\\|out\\)/"
+                                                   file))
+                                 (heks/jvm--java-files root))))))
+             (and file (find-file-noselect file)))))))
+
+(defun heks/jvm--eglot-server (buffer)
+  "Return BUFFER's Eglot/JDT LS server, starting it when it is not running.
+
+The `java-debug' plugin is a JDT LS bundle, so the server has to have
+been started with it: `heks/eglot-java-init-opts' puts it in the
+initialization options, and the capability check here says whether this
+server got it.  A server started before the jar was found does not, and
+is restarted with `C-c i R'."
+  (require 'eglot)
+  (require 'eglot-java nil t)
+  (with-current-buffer buffer
+    (when (fboundp 'eglot-java-mode)
+      (eglot-java-mode 1))
+    (unless (eglot-current-server)
+      (eglot-ensure))
+    (let ((tries 300))
+      (while (and (not (eglot-current-server)) (> tries 0))
+        (sit-for 0.2)
+        (setq tries (1- tries))))
+    (let ((server (eglot-current-server)))
+      (unless server
+        (user-error "Eglot did not start for %s; its log is `C-c i E'"
+                    (buffer-file-name buffer)))
+      (unless (seq-contains-p (eglot--server-capable
+                               :executeCommandProvider :commands)
+                              "vscode.java.resolveClasspath")
+        (user-error "JDT LS is running without the `java-debug' plugin; set `heks/java-debug-jar' and restart the server with `C-c i R'"))
+      server)))
 
 (defun heks/jvm-debug (&optional main-class)
-  "Debug the JVM project of this buffer with `dape'.
+  "Debug the JVM project of this buffer with `dape' and JDT LS.
 
-Without a prefix argument this starts the project the way
-`heks/spring-boot-run' and `heks/jvm-run' do -- a Spring Boot
-application, or Gradle's `bootRun' -- except suspended on
-`heks/java-debug-port' until a debugger attaches, and then attaches
-`dape' to it through the `java-debug' adapter, fetched by
-`heks/java-debug-ensure-jar' when nothing else already provides one.
+The session is dape's `jdtls' configuration: it asks Eglot's JDT LS for
+the project's classpath and for a debug port (`vscode.java.resolveClasspath'
+and `vscode.java.startDebugSession'), and attaches to that port.  The
+`java-debug' plugin is what gives JDT LS those commands; it is loaded as
+a JDT LS bundle by `heks/eglot-java-init-opts', from the jar
+`heks/java-debug-jar' names or finds.
 
-With a prefix argument it asks for the main class instead -- the answer
-starts with the class of the current file (see `heks/jvm-main-class') --
-and runs that with `heks/jvm-debug-run', which is what debugs a Kotlin or
-Java program that is not a Spring Boot application.  Works for Java and
-for Kotlin alike, because the debugger is attached to the running JVM
-rather than reading either language's source directly."
+Eglot runs in a Java buffer of the project, because that is what JDT LS
+manages.  Without a prefix argument the main class is the one JDT LS
+finds; with one, the prompt offers `heks/jvm-main-class' -- a Kotlin
+`Main.kt' is `MainKt' -- and the class named is the one debugged.  A
+Kotlin-only project has no Java buffer for JDT LS, and says so rather
+than starting a session that cannot work."
   (interactive
    (list (when current-prefix-arg
            (let ((class (read-string "Main class: "
@@ -1006,32 +930,25 @@ rather than reading either language's source directly."
              (unless (string-empty-p class) class)))))
   (require 'dape)
   (let* ((project (heks/jvm--project))
-         (root (and project (cdr project))))
+         (root (and project (cdr project)))
+         (host (and root (heks/jvm--java-host root))))
     (unless project
       (user-error "No pom.xml or Gradle build found above %s" default-directory))
-    (if main-class
-        (heks/jvm-debug-run main-class)
-      (unless (heks/java-debug-ensure-jar)
-        (user-error "No `java-debug' adapter found, and none could be fetched; \
-set `heks/java-debug-jar' or `HEKS_JAVA_DEBUG_JAR', or get one \
-yourself and run `M-x heks/java-debug-ensure-jar'"))
-      (let ((agent (heks/jvm-debug-agent heks/java-debug-port)))
-        (pcase (car project)
-          ('maven
-           (heks/jvm-run-build root
-                               (heks/jvm-build-program root "mvnw" "mvn")
-                               "spring-boot:run"
-                               (shell-quote-argument
-                                (format "-Dspring-boot.run.jvmArguments=%s" agent))))
-          ('gradle
-           (heks/jvm-run-build root
-                               (heks/jvm-build-program root "gradlew" "gradle")
-                               "bootRun"
-                               (format "-Dorg.gradle.jvmargs=%s"
-                                       (shell-quote-argument agent))))))
-      (message "Waiting for %s to listen on %d before attaching `dape'..."
-               (car project) heks/java-debug-port)
-      (heks/jvm-debug--wait-and-attach root))))
+    (unless host
+      (user-error "No Java source in %s; JDT LS debugs through a Java buffer.  Add one, or use a Kotlin debug adapter"
+                  root))
+    (unless (heks/java-debug-ensure-jar)
+      (user-error "No `java-debug' plugin jar found; JDT LS needs it.  Put one in %s or set `heks/java-debug-jar'"
+                  heks/java-debug-cache-dir))
+    (heks/jvm--eglot-server host)
+    (with-current-buffer host
+      (let ((config (copy-tree (alist-get 'jdtls dape-configs))))
+        (unless config
+          (user-error "This dape has no `jdtls' configuration; update dape"))
+        (setq config (plist-put config :filePath (buffer-file-name host)))
+        (when main-class
+          (setq config (plist-put config :mainClass main-class)))
+        (dape config)))))
 
 ;;
 ;; ====== Formatting, wherever the buffer is ======
@@ -1697,7 +1614,6 @@ otherwise `mongosh' connects to the default local server."
 (define-obsolete-variable-alias 'heks-emacs-standup-buffer-name 'heks/standup-buffer-name "2026-10")
 (define-obsolete-variable-alias 'heks-emacs-java-debug-jar 'heks/java-debug-jar "2026-10")
 (define-obsolete-variable-alias 'heks-emacs-java-debug-cache-dir 'heks/java-debug-cache-dir "2026-10")
-(define-obsolete-variable-alias 'heks-emacs-java-debug-port 'heks/java-debug-port "2026-10")
 (define-obsolete-variable-alias 'heks-emacs-import-into-notes 'heks/import-into-notes "2026-10")
 (define-obsolete-variable-alias 'heks-emacs-import-title-from-heading 'heks/import-title-from-heading "2026-10")
 (define-obsolete-variable-alias 'heks-emacs-preview-buffer-name 'heks/preview-buffer-name "2026-10")

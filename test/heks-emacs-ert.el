@@ -4455,12 +4455,16 @@ the strokes on the line around point rather than a word."
           (make-directory (expand-file-name "build" root) t)
           (should (equal (heks/c-debug-build-command root)
                          "meson compile -C build"))
+          (should (equal (heks/c-debug--debug-build-hint root)
+                         "meson configure build -Dbuildtype=debug -Ddebug=true"))
           (delete-file (expand-file-name "meson.build" root))
           (delete-directory (expand-file-name "build" root))
           (write-region "" nil (expand-file-name "CMakeLists.txt" root) nil 'silent)
           (make-directory (expand-file-name "build" root) t)
           (should (equal (heks/c-debug-build-command root)
                          "cmake --build build"))
+          (should (equal (heks/c-debug--debug-build-hint root)
+                         "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug"))
           (delete-file (expand-file-name "CMakeLists.txt" root))
           (delete-directory (expand-file-name "build" root))
           (write-region "" nil (expand-file-name "Makefile" root) nil 'silent)
@@ -4494,6 +4498,29 @@ the strokes on the line around point rather than a word."
   ;; And the alist becomes the plist the debug adapter is given.
   (should (equal (heks/c-debug--environment-plist heks/gtk-debug-environment)
                  '(:G_DEBUG "fatal-criticals" :GSK_RENDERER "cairo"))))
+
+(ert-deftest heks/c/the-gtk-environment-keeps-the-display ()
+  "A program started under the debugger still has the desktop's display."
+  (let ((process-environment (cons "DISPLAY=:7" process-environment)))
+    (let ((environment (heks/gtk-debug--environment)))
+      (should (equal (cdr (assoc "DISPLAY" environment)) ":7"))
+      (should (equal (cdr (assoc "G_DEBUG" environment)) "fatal-criticals")))))
+
+(ert-deftest heks/c/a-binary-without-debug-information-is-recognised ()
+  "A binary without a line table cannot take a line breakpoint."
+  (skip-unless (and (executable-find "gcc") (executable-find "gdb")))
+  (let* ((root (heks-ert--temp-directory))
+         (source (expand-file-name "hello.c" root))
+         (debug (expand-file-name "hello-debug" root))
+         (stripped (expand-file-name "hello-stripped" root)))
+    (unwind-protect
+        (progn
+          (write-region "int main(void) { return 0; }\n" nil source nil 'silent)
+          (should (zerop (call-process "gcc" nil nil nil "-g" "-O0" "-o" debug source)))
+          (should (zerop (call-process "gcc" nil nil nil "-s" "-O0" "-o" stripped source)))
+          (should (heks/c-debug--line-info-p debug))
+          (should-not (heks/c-debug--line-info-p stripped)))
+      (delete-directory root t))))
 
 (ert-deftest heks/jvm/a-kotlin-file-names-the-class-its-main-function-is-in ()
   "Kotlin puts a file's top-level functions in the file's own class."
@@ -4547,16 +4574,33 @@ the strokes on the line around point rather than a word."
       (should opened))))
 
 (ert-deftest heks/guile/an-artanis-project-is-the-nearest-entry-file ()
-  "Artanis starts at `entry.scm'; a file below it is still in the project."
+  "Artanis starts at `ENTRY', the name its own template uses."
   (let* ((root (heks-ert--temp-directory))
          (inner (expand-file-name "app/views/" root)))
     (unwind-protect
         (progn
           (make-directory inner t)
-          (write-region "" nil (expand-file-name "entry.scm" root) nil 'silent)
+          ;; `ENTRY', with no extension, is the real Artanis name.
+          (write-region "" nil (expand-file-name "ENTRY" root) nil 'silent)
           (heks-ert--in inner
             (should (equal (file-name-as-directory (heks/artanis-root))
                            (file-name-as-directory root)))))
+      (delete-directory root t))))
+
+(ert-deftest heks/guile/the-artanis-log-with-no-file-is-what-the-app-prints ()
+  "Artanis writes to standard output by default; that is its log too."
+  (let ((root (heks-ert--temp-directory)))
+    (unwind-protect
+        (progn
+          (write-region "" nil (expand-file-name "ENTRY" root) nil 'silent)
+          (heks-ert--in root
+            (let ((buffer (get-buffer-create heks/artanis-buffer-name)))
+              (unwind-protect
+                  (progn
+                    (with-current-buffer buffer (insert "the application's output"))
+                    (heks/artanis-log)
+                    (should (eq (current-buffer) buffer)))
+                (kill-buffer buffer)))))
       (delete-directory root t))))
 
 (ert-deftest heks/guile/the-artanis-log-is-the-file-that-exists ()

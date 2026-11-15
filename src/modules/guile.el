@@ -666,10 +666,20 @@ to keep a deeper stack and a deeper backtrace (see
 ;; `C-c g D' are the first: load a route definition into the REPL, break
 ;; it, and return to the debugger with the frame that failed.
 
-(defcustom heks/artanis-entry-file "entry.scm"
-  "The file an Artanis application is started from."
-  :type 'string
+(defcustom heks/artanis-entry-file '("ENTRY" "entry.scm")
+  "The files an Artanis application is started from, in order.
+
+Artanis' own template calls it ~ENTRY~, with no extension; a project
+that renamed it to ~entry.scm~ is found too.  A project that renamed it
+to something else sets this to that name (or to a list of names)."
+  :type '(choice (repeat string) string)
   :group 'heks)
+
+(defun heks/artanis-entry-names ()
+  "Return the entry file names `heks/artanis-root' looks for."
+  (if (listp heks/artanis-entry-file)
+      heks/artanis-entry-file
+    (list heks/artanis-entry-file)))
 
 (defcustom heks/artanis-program "artanis"
   "The Artanis command line program `heks/artanis-run' starts."
@@ -690,19 +700,23 @@ say how it is started."
   :type 'integer
   :group 'heks)
 
+(defconst heks/artanis-buffer-name "*artanis*"
+  "The compilation buffer `heks/artanis-run' starts the application in.")
+
 (defun heks/artanis-root (&optional directory)
   "Return the root of the Artanis project DIRECTORY is in, or signal.
 
-The root is the nearest directory above DIRECTORY that holds
-`heks/artanis-entry-file'; a file deep in `app/views/' is still in the
+The root is the nearest directory above DIRECTORY that holds one of
+`heks/artanis-entry-names'; a file deep in `app/views/' is still in the
 project, and the application is started from the root."
-  (let ((root (locate-dominating-file (or directory default-directory)
-                                      heks/artanis-entry-file)))
+  (let* ((directory (or directory default-directory))
+         (root (seq-some (lambda (name) (locate-dominating-file directory name))
+                         (heks/artanis-entry-names))))
     (if root
         (file-name-as-directory (expand-file-name root))
       (user-error "No %s above %s; is this an Artanis project?"
-                  heks/artanis-entry-file
-                  (abbreviate-file-name (expand-file-name (or directory default-directory)))))))
+                  (string-join (heks/artanis-entry-names) " or ")
+                  (abbreviate-file-name (expand-file-name directory))))))
 
 (defun heks/artanis-log-file (&optional root)
   "Return the Artanis log inside ROOT, or nil when there is none.
@@ -731,26 +745,36 @@ argument, ask for the port."
          (program (or (executable-find heks/artanis-program)
                       (user-error "Cannot find `%s' on `exec-path'" heks/artanis-program))))
     (let ((default-directory root)
-          (process-environment (cons "GUILE_AUTO_COMPILE=0" process-environment)))
+          (process-environment (cons "GUILE_AUTO_COMPILE=0" process-environment))
+          (compilation-buffer-name-function
+           (lambda (_mode) heks/artanis-buffer-name)))
       (compile (format "%s %s"
                        (shell-quote-argument program)
                        (format heks/artanis-arguments port))))
-    (message "Artanis on http://localhost:%d -- its log is `C-c g O'" port)))
+    (message "Artanis on http://localhost:%d -- its output is `C-c g O'" port)))
 
 (defun heks/artanis-log ()
-  "Follow the Artanis log of the current project, at its end.
+  "Follow what the Artanis application says, at its end.
 
-It is opened in `auto-revert-tail-mode', so the page an error produced
-and the line it wrote are read in the same place: reproduce the request
-in the browser and watch what the application says about it."
+A project that writes a log file gets that file, opened in
+`auto-revert-tail-mode'; Artanis' default is to write to its standard
+output, which is the ~*artanis*~ buffer `C-c g W' starts it in, so that
+is what is shown when there is no file.  Either way the procedure is the
+same: reproduce the request in the browser and watch what the application
+says about it."
   (interactive)
-  (let ((file (heks/artanis-log-file)))
-    (unless file
-      (user-error "No Artanis log under %s; start the application with `C-c g W' first"
-                  (abbreviate-file-name (heks/artanis-root))))
-    (find-file file)
-    (auto-revert-tail-mode 1)
-    (goto-char (point-max))))
+  (if-let* ((file (heks/artanis-log-file)))
+      (progn
+        (find-file file)
+        (auto-revert-tail-mode 1)
+        (goto-char (point-max)))
+    (let ((buffer (get-buffer heks/artanis-buffer-name)))
+      (if (buffer-live-p buffer)
+          (progn
+            (pop-to-buffer buffer)
+            (goto-char (point-max)))
+        (user-error "No Artanis log or running application under %s; start it with `C-c g W' first"
+                    (abbreviate-file-name (heks/artanis-root)))))))
 
 (defun heks/scheme-documentation ()
   "Show the documentation of the symbol at point."
