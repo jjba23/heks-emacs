@@ -7,6 +7,63 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** v1.33.0 (2026-11-15)
+
+*** Added
+
+- *Guile, and Artanis.*  ~C-c g B~ starts the project's REPL with Guile's
+  debugger set up for a real hunt: a deeper stack, a deeper backtrace and the
+  settings themselves, read from ~heks/scheme-debug-forms~.  ~C-c g D~ is the
+  debugger's own menu -- backtrace, locals, registers, the error, the source
+  frame, one level of quit -- the same one the debug buffer opens with ~,~, and
+  it says so when no debugger is active.  For Artanis, ~C-c g W~ starts the
+  application from the directory holding ~entry.scm~, on
+  ~heks/artanis-port~, with ~GUILE_AUTO_COMPILE=0~ so a backtrace names the
+  source; ~C-c g O~ follows the log it writes, tailed.  The Scheme behind a
+  failing route is debugged in the same REPL as any other Guile, with the same
+  keys.
+
+- *C and GTK 4.*  ~C-c b d~ finds the C program a Meson, CMake or Make project
+  built -- the single executable in ~build/~, ~builddir/~ or a
+  ~cmake-build-*~ directory, or the one named after the project -- rebuilds it
+  with the build system it found, and starts gdb.  When gdb is 14.1 or newer
+  dape drives it over the Debug Adapter Protocol, so the session is the same
+  ~C-c b~ buffer and the same breakpoints as a JVM's; an older gdb is driven by
+  GUD.  ~C-c b g~ is the same with ~heks/gtk-debug-environment~:
+  ~G_DEBUG=fatal-criticals~ turns a GTK critical into an abort the debugger
+  stops on, and ~GSK_RENDERER=cairo~ asks for the software renderer so the
+  session does not begin inside a GPU driver.  ~C-c b I~ runs the program with
+  ~GTK_DEBUG=interactive~ and opens the GTK inspector.  The program and its
+  arguments are ~heks/c-debug-program~ and ~heks/c-debug-args~, and a prefix
+  argument asks for a program the guess does not know.
+
+- *Kotlin, Java and Maven.*  ~C-u C-c j d~ asks for a main class and runs that
+  under the JVM debugger: the prompt starts with the answer
+  ~heks/jvm-main-class~ works out (~com.example.MainKt~ for ~Main.kt~ in
+  Kotlin, ~com.example.Main~ for ~Main.java~), Maven runs it with
+  ~compile exec:java~ and the JDWP agent in ~MAVEN_OPTS~, and Gradle with
+  ~run --debug-jvm~ on ~heks/java-debug-port~.  ~C-c j d~ without a prefix is
+  still Spring Boot or Gradle's ~bootRun~, and both now attach when the debug
+  port actually answers rather than after a fixed two seconds -- a slow Gradle
+  build is attached to when it is ready, and a failed one says so.
+
+- *[[file:docs/debugging.org][docs/debugging.org]].*  One page for the three: the debug REPL and the
+  debugger's commands, the Artanis log, the C/GTK build types and the
+  inspector, the JVM adapter and main classes, and what each failure means --
+  a frame called ~??~, a program waiting for a debugger that never comes, a
+  port already taken, Maven without ~exec:java~.
+
+*** Checks
+
+- Tests for the build detection, the binary guess, the GTK environment, the
+  main class of a Kotlin and a Java file, the debug REPL's forms, the debugger
+  menu, and the Artanis project root and log.  ~maak check~ is green: lint
+  176, keys 0 findings (2 deliberate conflicts), render 33, test 284 (one
+  skipped: no ~terraform~ on this machine), golden 5 matched and verify 436.
+  =docs/keybindings.org= was written by ~maak keys-update~ from the new keys.
+
+-------
+
 ** v1.32.0 (2026-11-15)
 
 *** Added
