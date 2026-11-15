@@ -13,7 +13,7 @@
   "HEKS-EMACS customization group."
   :group 'tools)
 
-(defconst heks/version "1.33.0"
+(defconst heks/version "1.33.1"
   "The version of this configuration.
 
 It is the number in the release notes' newest section and the tag on the
@@ -891,8 +891,11 @@ is restarted with `C-c i R'."
   (with-current-buffer buffer
     (when (fboundp 'eglot-java-mode)
       (eglot-java-mode 1))
+    ;; `eglot-ensure' is a no-op in some non-interactive paths; the
+    ;; `eglot' command is the one that guesses the contact and starts the
+    ;; server, and it is what a person would run.
     (unless (eglot-current-server)
-      (eglot-ensure))
+      (call-interactively #'eglot))
     (let ((tries 300))
       (while (and (not (eglot-current-server)) (> tries 0))
         (sit-for 0.2)
@@ -906,6 +909,21 @@ is restarted with `C-c i R'."
                               "vscode.java.resolveClasspath")
         (user-error "JDT LS is running without the `java-debug' plugin; set `heks/java-debug-jar' and restart the server with `C-c i R'"))
       server)))
+
+(defun heks/jvm--main-class (server root &optional named)
+  "Return NAMED, or the Java main class JDT LS finds in ROOT.
+
+`vscode.java.resolveMainClass' is the JDT LS command that lists the main
+classes of the project named by ROOT's directory.  The first is the
+answer when the user did not name one; a Kotlin-only project has none,
+and the caller says to use a prefix argument."
+  (or named
+      (ignore-errors
+        (let ((classes (eglot-execute-command
+                        server "vscode.java.resolveMainClass"
+                        (file-name-nondirectory (directory-file-name root)))))
+          (and (> (length classes) 0)
+               (plist-get (aref classes 0) :mainClass))))))
 
 (defun heks/jvm--project-name (server root)
   "Return the JDT LS project name for ROOT, or its directory name.
@@ -965,10 +983,17 @@ than starting a session that cannot work."
           ;; are strings here: the functions in it are not JSON, and the
           ;; `fn' it runs would send them to JDT LS as they are.
           (setq config (plist-put config :filePath (buffer-file-name host)))
+          ;; Start the program paused: a session that runs to the end before
+          ;; the first breakpoint can be placed is a session that cannot be
+          ;; debugged, and a breakpoint in `main' is the one every trip
+          ;; starts with.
+          (setq config (plist-put config :stopOnEntry t))
           (setq config (plist-put config :projectName
                                   (heks/jvm--project-name server root)))
-          (when main-class
-            (setq config (plist-put config :mainClass main-class)))
+          (let ((class (heks/jvm--main-class server root main-class)))
+            (unless class
+              (user-error "No main class found; name one with `C-u C-c j d'"))
+            (setq config (plist-put config :mainClass class)))
           (dape config))))))
 
 ;;

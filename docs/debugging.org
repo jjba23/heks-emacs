@@ -65,9 +65,10 @@ path, so `(use-modules (my project))` works from the first prompt.
 
 An error raised by an evaluation does not just print: Geiser enters its
 debugger, which shows the backtrace, the frame you are in, and Guile's
-restarts.  ~C-c g d~ returns to that buffer after you have looked at
-something else -- the point of a debugger that lives in a buffer rather than
-in a terminal that has scrolled away.
+restarts.  The debugger's state lives in the `*Geiser Debug*` buffer, not
+in the buffer the evaluation came from, so ~C-c g d~ goes to that buffer --
+the point of a debugger that lives in a buffer rather than in a terminal
+that has scrolled away.
 
 ~C-c g D~ is the debugger's own menu, the same one the debug buffer opens
 with ~,~: backtrace, the error, the local variables, the registers, the
@@ -110,17 +111,20 @@ whose errors arrive as a page in the browser and as lines in its log.
 | ~C-c g r~ / ~C-c g B~ | The project's REPL, for the code. |
 | ~C-c g d~ / ~C-c g D~ | The debugger after a failing evaluation. |
 
-The application is started from the directory holding ~entry.scm~ (see
-~heks/artanis-entry-file~), with ~GUILE_AUTO_COMPILE=0~ so a backtrace names
-the source file rather than a compiled copy, and on the port
+The application is started from the directory holding ~ENTRY~ -- Artanis'
+own name for it; ~entry.scm~ is found too (see
+~heks/artanis-entry-file~) -- with ~GUILE_AUTO_COMPILE=0~ so a backtrace
+names the source file rather than a compiled copy, and on the port
 ~heks/artanis-port~ (3000 by default).  The command line is
 ~heks/artanis-program~ with ~heks/artanis-arguments~, a format string whose
 ~%d~ is the port, for a project whose launcher differs.
 
 The log is the first of ~log/artanis.log~, ~logs/artanis.log~ and
-~artanis.log~ that exists; ~C-c g O~ opens it in ~auto-revert-tail-mode~, so
-the procedure is: reproduce the request in the browser, then read the line
-the application wrote about it.
+~artanis.log~ that exists; a project that writes none (Artanis' default is
+its standard output) is followed in the ~*artanis*~ buffer ~C-c g W~
+starts it in.  Either way ~C-c g O~ puts point at the end and follows it,
+so the procedure is: reproduce the request in the browser, then read the
+line the application wrote about it.
 
 The code behind a failing route is debugged like any other Scheme.  Load the
 module that defines the route into the REPL, call the handler with the
@@ -154,6 +158,12 @@ or
 #+begin_src sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
 #+end_src
+
+A build directory made by an older Meson refuses the current one
+(~Build directory has been generated with Meson version ...~); reconfigure
+it once with ~meson setup --reconfigure build~, and the key builds again.
+The debugger starts only after the build succeeds, so a failed compile is a
+session that does not start -- the compilation buffer says why.
 
 The program is the single executable in ~build/~, ~builddir/~,
 ~cmake-build-debug/~ or ~cmake-build-release/~; when a build holds several,
@@ -206,6 +216,13 @@ the renderer itself is what is being debugged.  The list is a setting, so a
 project can add its own variables -- ~GDK_BACKEND~, ~WAYLAND_DEBUG~,
 ~GSK_DEBUG~ -- without a new command.
 
+The launch request's environment is the program's whole environment, so the
+key also passes the display variables the session inherited -- ~DISPLAY~,
+~WAYLAND_DISPLAY~, ~XDG_RUNTIME_DIR~, the session bus and ~XAUTHORITY~ (see
+~heks/gtk-debug-passthrough~).  Without them a GTK program started under
+the debugger cannot open a window, and says ~Failed to open display~ in the
+debugger's output.
+
 ~C-c b I~ runs the program with ~GTK_DEBUG=interactive~ and opens GTK's
 inspector.  Its picker selects a widget on screen and the inspector shows
 what that widget is: its class and CSS name, its properties, its CSS, and
@@ -223,66 +240,72 @@ was compiled with optimisation keeps its variables in registers and some of
 them are shown as ~<optimized out>~; a debug build is what makes the locals
 readable.
 
-* Kotlin, Java and Maven
+~heks/c-debug~ checks the binary before it starts: a program with no line
+table is reported, with the command that would reconfigure the build for
+debugging when the build system is Meson or CMake (~heks/c-debug--debug-build-hint~).
+A line breakpoint in such a binary stays pending, which looks like a
+breakpoint that never fires; a function breakpoint still works.
 
-The JVM is debugged over JDWP, and `dape` speaks the Debug Adapter Protocol,
-so Eclipse `java-debug` translates one into the other.
-~heks/java-debug-jar~ is the adapter, looked for in the usual places and
-fetched by ~M-x heks/java-debug-ensure-jar~ when it is not there;
-~heks/java-debug-port~ is the JDWP port (5005 by default).
+* Java, Kotlin and Maven
 
-** Spring Boot, and Gradle's bootRun
+The JVM is debugged with `dape`'s `jdtls` configuration: Eclipse JDT LS
+serves the project, and the `java-debug` plugin gives it the
+`vscode.java.resolveClasspath` and `vscode.java.startDebugSession`
+commands that `dape` calls for the classpath and a debug port.
 
-~C-c j d~ starts the project the way the rest of the JVM keys do -- Maven's
-~spring-boot:run~, or Gradle's ~bootRun~ -- suspended on the debug port
-until the debugger attaches, so a breakpoint in a `@PostConstruct` is not
-too late.  `dape` attaches as soon as the port answers (not after a guessed
-number of seconds), and the session is then the ~C-c b~ keys above.
+The plugin is a JDT LS *bundle*, not a standalone program: it is loaded
+from the jar `heks/java-debug-jar` names (or finds) by
+`heks/eglot-java-init-opts` when Eglot starts JDT LS.  It is distributed
+inside the VS Code Java extension and the `java-debug-adapter` mason
+package; `heks/java-debug-cache-dir` is where a jar put there by hand is
+found.  The project publishes no release asset, so nothing is fetched from
+the network.
 
-** Any main class
+** One key
 
-~C-u C-c j d~ asks for the main class and runs *that*, which is how a
-Kotlin or Java program that is not a Spring Boot application is debugged.
-The prompt starts with the class of the current file, and
-~heks/jvm-main-class~ is what works it out:
+~C-c j d~ debugs the project of the current buffer.  It finds a Java buffer
+of the project, starts Eglot/JDT LS in it if it is not running, and starts
+a `dape` session that stops at the program's entry (`stopOnEntry`), so the
+first stop is there and breakpoints can be set with ~C-c b b~ before
+~C-c b c~ continues.
 
-- a Kotlin file `Main.kt` in `com.example.app` is `com.example.app.MainKt`,
-  because Kotlin puts a file's top-level functions in a class named after
-  the file;
-- a Java file `Main.java` in the same package is
-  `com.example.app.Main`.
+Without a prefix the main class is the one JDT LS finds.  ~C-u C-c j d~
+asks for one, with `heks/jvm-main-class`'s answer as the default:
+`com.example.MainKt` for `Main.kt` in Kotlin, `com.example.Main` for
+`Main.java`.  Kotlin is launched through the same classpath (Maven's
+`target/classes`); Kotlin *source* breakpoints depend on the adapter's
+Kotlin support, and a Kotlin debug adapter is the reliable way to step
+through Kotlin sources.
 
-A file that names its class otherwise -- Kotlin's `@file:JvmName` -- is
-what the prompt is for: it takes another answer.  The class runs
-differently by build tool, and the command follows the project:
+** Why a Java buffer
 
-| Build tool | What is run | How the agent arrives |
-|------------+-------------+-----------------------|
-| Maven | ~mvn compile exec:java -Dexec.mainClass=...~ | ~MAVEN_OPTS~, so the agent is on the JVM `exec:java` runs in |
-| Gradle | ~gradle run --debug-jvm~ | Gradle's own suspension switch, on `heks/java-debug-port` |
+JDT LS is started for a Java file, and that buffer's Eglot server is what
+`dape` asks for the classpath and the port.  A project with no Java source
+has no buffer for it, and ~C-c j d~ says so instead of starting a session
+that cannot work.  For a Kotlin-only project, add a Java source (or a
+Kotlin debug adapter); the main-class prompt is already there.
 
-The program's arguments are ~Dexec.args~ for Maven and the `run` task's own
-arguments for Gradle; ~heks/jvm-debug-run~ takes them when called from Lisp,
-and the prompt is the class because that is the one thing a project cannot
-tell from a file.
+** When it does not start
 
-** When the debugger does not attach
-
-- *The app is waiting, and nothing connects.*  That is `suspend=y` doing
-  its job: the JVM does not run until the debugger attaches.  If `dape`
-  never starts, the compile buffer is where the build failed.
-- *The port is taken.*  Another JVM is already listening on
-  ~heks/java-debug-port~; end it, or set the variable to another port and
-  start again.
-- *Maven cannot find `exec:java`.*  The `exec-maven-plugin` is not in the
-  project and Maven cannot fetch it; add it to the POM, or use the Spring
-  Boot key when the program is a Boot application.
-- *The breakpoint is not hit.*  The class that ran is not the class that was
-  compiled: check the main class the prompt offered, then look at what
-  ~mvn compile~ or ~gradle run~ put in ~target/classes~ or ~build/classes~.
-- *Kotlin steps look odd.*  Coroutines and inline functions make one source
-  line several frames; the debugger is honest about the frames the JVM has,
-  and a breakpoint on the statement inside a coroutine is the reliable one.
+- *"No `java-debug' plugin jar found".*  Put the jar in
+  `heks/java-debug-cache-dir` or set `heks/java-debug-jar`; the VS Code
+  Java extension and the mason `java-debug-adapter` package both ship one.
+- *"JDT LS is running without the java-debug plugin".*  The server was
+  started before the jar was found; ~C-c i R~ restarts it with the bundle.
+- *"Eglot did not start".*  ~C-c i E~ is the server's log; a first start
+  also downloads/extracts JDT LS and imports the Maven project.
+- *No main class.*  ~C-u C-c j d~ and name one; a Kotlin-only project has
+  no Java main class for JDT LS to find.
+- *The breakpoint is not hit.*  The session starts paused at its entry:
+  set the breakpoint after that, then continue.  The class that runs is
+  the one in `target/classes` (or Gradle's `build/classes`), so compile
+  before the session when the source changed.  Kotlin coroutines and
+  inline functions make one source line several frames.
+- *The app is waiting, and nothing connects.*  That is `stopOnEntry` doing
+  its job; if `dape` never connects, the JDT LS log (~C-c i E~) says why.
+- *The port is taken.*  JDT LS chooses the debug port with
+  `vscode.java.startDebugSession`; another JVM on that port is a server
+  that needs restarting (~C-c i R~).
 
 * The keys, in one table
 
@@ -294,7 +317,7 @@ tell from a file.
 | ~C-c b d~ | The C program of this project, under gdb. |
 | ~C-c b g~ | The GTK program, with its warnings fatal. |
 | ~C-c b I~ | The GTK inspector, in the running program. |
-| ~C-c j d~ | Spring Boot, or Gradle's bootRun, under the JVM debugger. |
+| ~C-c j d~ | The Java project, debugged through JDT LS, paused at entry. |
 | ~C-u C-c j d~ | Any main class of the project, under the JVM debugger. |
 | ~C-c g W~ | The Artanis application, started. |
 | ~C-c g O~ | The Artanis log, tailed. |

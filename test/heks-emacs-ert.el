@@ -4551,27 +4551,42 @@ the strokes on the line around point rather than a word."
   (let ((asked '()))
     (cl-letf (((symbol-function 'heks/scheme-repl-needed)
                (lambda (function) (funcall function)))
-              ((symbol-function 'geiser-eval--send/wait)
-               (lambda (code &optional _timeout) (push code asked) nil)))
+              ((symbol-function 'heks/scheme--repl-buffer)
+               (lambda () (current-buffer)))
+              ((symbol-function 'geiser-repl--send)
+               (lambda (form &optional _history) (push form asked))))
       (heks/scheme-debug-repl))
     (should (= (length asked) (length heks/scheme-debug-forms)))
-    (should (string-match-p "debug-set!"
-                            (format "%S" (car (last asked)))))
-    (should (string-match-p "debug-enable"
-                            (format "%S" (car asked))))))
+    (should (equal (reverse asked) heks/scheme-debug-forms))
+    (should (string-match-p "debug-set!" (car (last asked))))
+    (should (string-match-p "debug-enable" (car asked)))))
 
 (ert-deftest heks/guile/the-debugger-menu-says-when-there-is-no-debugger ()
-  (cl-letf (((symbol-function 'geiser-debug-active-p) (lambda () nil)))
-    (should-error (heks/scheme-debugger-menu) :type 'user-error)))
+  (let ((buffer (get-buffer "*Geiser Debug*")))
+    (when buffer (kill-buffer buffer))
+    (cl-letf (((symbol-function 'geiser-debug-active-p) (lambda () nil)))
+      (should-error (heks/scheme-debugger-menu) :type 'user-error))))
 
 (ert-deftest heks/guile/the-debugger-menu-is-geiser-s-own ()
   "The debugger's commands are Geiser's; this is the key onto them."
-  (let ((opened nil))
-    (cl-letf (((symbol-function 'geiser-debug-active-p) (lambda () t))
-              ((symbol-function 'geiser-guile-debug-menu)
-               (lambda () (setq opened t))))
-      (heks/scheme-debugger-menu)
-      (should opened))))
+  (let ((opened nil)
+        (buffer (get-buffer-create "*Geiser Debug*")))
+    (unwind-protect
+        (cl-letf (((symbol-function 'geiser-debug-active-p) (lambda () t))
+                  ((symbol-function 'geiser-guile-debug-menu)
+                   (lambda () (setq opened t))))
+          (heks/scheme-debugger-menu)
+          (should opened))
+      (kill-buffer buffer))))
+
+(ert-deftest heks/guile/the-debugger-is-the-buffer-it-lives-in ()
+  "`C-c g d' goes to the debug buffer, where Geiser's state is."
+  (let ((buffer (get-buffer-create "*Geiser Debug*")))
+    (unwind-protect
+        (cl-letf (((symbol-function 'geiser-debug-active-p) (lambda () t)))
+          (heks/scheme-debugger)
+          (should (eq (current-buffer) buffer)))
+      (kill-buffer buffer))))
 
 (ert-deftest heks/guile/an-artanis-project-is-the-nearest-entry-file ()
   "Artanis starts at `ENTRY', the name its own template uses."

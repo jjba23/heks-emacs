@@ -478,7 +478,7 @@ in every other topic.
 | ~C-c j b~ | ~eglot-java-project-build-task~ | a build task of this project | eglot.el (a mode's own map) |
 | ~C-c j b~ | ~heks/jvm-build~ | a build task of this project | emacs-core.el |
 | ~C-c j c~ | ~heks/jvm-clean~ | the build output, deleted | emacs-core.el |
-| ~C-c j d~ | ~heks/jvm-debug~ | debugged, suspended until `dape' attaches | dev-formats.el |
+| ~C-c j d~ | ~heks/jvm-debug~ | the Java project, debugged through JDT LS | dev-formats.el |
 | ~C-c j g~ | ~heks/gradle-run~ | a Gradle task of this project | emacs-core.el |
 | ~C-c j m~ | ~heks/maven-run~ | a Maven goal of this project | emacs-core.el |
 | ~C-c j n~ | ~eglot-java-file-new~ | a Java file, created | eglot.el (a mode's own map) |

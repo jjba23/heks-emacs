@@ -7,6 +7,76 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** v1.33.1 (2026-11-15)
+
+*** Fixed
+
+- *The JVM debugger now uses JDT LS, which is what the `java-debug' plugin
+  is for.*  v1.33.0 ran the plugin jar with `java -jar', but the jar is a
+  JDT LS *bundle*, not a standalone DAP server: the session never attached.
+  ~C-c j d~ now starts `dape''s `jdtls' configuration, which asks Eglot's
+  JDT LS for the classpath and for a debug port
+  (`vscode.java.resolveClasspath', `vscode.java.startDebugSession'), and
+  stops at the program's entry (`stopOnEntry') so a breakpoint can be set
+  with ~C-c b b~ before ~C-c b c~ continues.  ~C-u C-c j d~ asks for a main
+  class, which is how a Kotlin class is launched; Kotlin *source*
+  breakpoints depend on the adapter's Kotlin support.  ~heks/java-debug-port~
+  is gone (JDT LS chooses the port), and nothing is downloaded: the plugin
+  is found in `heks/java-debug-jar' (the VS Code Java extension, the mason
+  `java-debug-adapter' package, `~/.cache/lsp-java') or in
+  `heks/java-debug-cache-dir'.  `eglot-java' is given the jar as an
+  initialization bundle (`heks/eglot-java-init-opts'), and its contact is
+  set when Eglot loads, because its own lookup cannot match Emacs' list
+  key for the Java modes.
+
+- *GTK debugging keeps the display.*  `heks/gtk-debug-environment' is the
+  launch request's whole environment, so passing only `G_DEBUG' and
+  `GSK_RENDERER' made the program start under the debugger and fail with
+  ~Failed to open display~.  The key now passes ~DISPLAY~,
+  ~WAYLAND_DISPLAY~, ~XDG_RUNTIME_DIR~, the session bus and ~XAUTHORITY~
+  as well (`heks/gtk-debug-passthrough`).  `heks/c-debug' also asks gdb
+  whether the binary has a line table before it starts, and reports a
+  release build with the command that would reconfigure it, instead of a
+  line breakpoint that stays pending.
+
+- *`C-c g d' and `C-c g D' reach Geiser's debugger.*  The debugger's
+  active state lives in the `*Geiser Debug*` buffer, not in the buffer the
+  evaluation came from, so checking it in the current buffer said "no
+  debugger" everywhere but the debug one.  Both keys now look in the debug
+  buffer, and ~C-c g D~ opens Geiser's menu there.  ~C-c g B~ sends its
+  settings to the REPL *prompt* (`geiser-repl--send`) rather than as an
+  evaluation request, which is the path that leaves the result in the REPL
+  where a reader expects it.
+
+- *Artanis projects are found by `ENTRY'.*  Artanis' own template names
+  the entry file ~ENTRY~, with no extension; `heks/artanis-entry-file` was
+  ~entry.scm~ only, so a real project such as pingwing was not found.  It
+  now accepts both (and a list), ~C-c g W~ starts the application, and
+  ~C-c g O~ follows the log file when there is one or the ~*artanis*~
+  output buffer when the application writes to standard output, which is
+  Artanis' default.
+
+*** Checks
+
+- Exercised end to end against the projects in ~~/Hacking~: heks-toon,
+  lambdock and whelk (GTK 4 C, gdb 16.3; a stale Meson build directory was
+  the one thing that stopped a session, and reconfiguring it fixed that),
+  hygguile (Guile 3.0.11: the debug REPL's settings and an error in
+  Geiser's debugger buffer), and symbanta (Kotlin/Maven: JDT LS 1.63 with
+  java-debug 0.53.2 loaded as a bundle, the Kotlin main compiled and
+  launched to its Spring start).  The JDT LS session's entry stop was
+  checked on a small Maven Java project.  Kotlin source breakpoints did not
+  stop in that setup, which is why the documentation says a Kotlin debug
+  adapter is the reliable option for stepping through Kotlin.  Tests: the
+  build detection and its debug hint, the binary guess, the GTK environment
+  and its display passthrough, a binary without line information, the main
+  class of a Kotlin and a Java file, the debug REPL's forms, the debugger
+  buffer and menu, and the Artanis project and log.  ~maak check~ is green
+  with lint 176, keys 0 findings, render 33, test 288 (one skipped: no
+  ~terraform~), golden 5 matched and verify 436.
+
+-------
+
 ** v1.33.0 (2026-11-15)
 
 *** Added

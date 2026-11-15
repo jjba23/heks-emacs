@@ -602,11 +602,19 @@ The REPL is started if there is none, as `C-c g e' starts it."
 
 A failed evaluation drops into the debugger, which shows the backtrace and
 Guile's restarts; this comes back to it after having looked at something
-else, which is the point of a debugger that lives in a buffer."
+else, which is the point of a debugger that lives in a buffer.
+
+The debugger's state -- whether a level is active, and the buffer that
+sent the evaluation -- lives in `*Geiser Debug*', not in the buffer the
+evaluation came from, so that is where this looks.  Checking the current
+buffer would say no debugger from every buffer but the debug one."
   (interactive)
-  (if (and (fboundp 'geiser-debug-active-p) (geiser-debug-active-p))
-      (geiser-debug-switch-to-buffer)
-    (user-error "No debugger to return to; run code that signals an error first")))
+  (let ((buffer (get-buffer "*Geiser Debug*")))
+    (if (and buffer
+             (with-current-buffer buffer
+               (and (fboundp 'geiser-debug-active-p) (geiser-debug-active-p))))
+        (pop-to-buffer buffer)
+      (user-error "No debugger to return to; run code that signals an error first"))))
 
 (defun heks/scheme-debugger-menu ()
   "Show Geiser's commands for the debugger level that is active.
@@ -614,13 +622,18 @@ else, which is the point of a debugger that lives in a buffer."
 The debug buffer answers `,' with the same menu; this is the key scheme's
 way onto it, so that the debugger's commands are found the way every
 other command here is.  It says so when no debugger is active rather than
-opening a menu whose every entry would be refused."
+opening a menu whose every entry would be refused.  The menu is opened in
+the debug buffer, which is where Geiser's debugger state lives."
   (interactive)
-  (unless (and (fboundp 'geiser-debug-active-p) (geiser-debug-active-p))
-    (user-error "No debugger is active; run code that signals an error, then `C-c g d'"))
-  (if (fboundp 'geiser-guile-debug-menu)
-      (geiser-guile-debug-menu)
-    (user-error "The Guile debugger menu is not available until Geiser's Guile support is loaded")))
+  (let ((buffer (get-buffer "*Geiser Debug*")))
+    (unless (and buffer
+                 (with-current-buffer buffer
+                   (and (fboundp 'geiser-debug-active-p) (geiser-debug-active-p))))
+      (user-error "No debugger is active; run code that signals an error, then `C-c g d'"))
+    (with-current-buffer buffer
+      (if (fboundp 'geiser-guile-debug-menu)
+          (geiser-guile-debug-menu)
+        (user-error "The Guile debugger menu is not available until Geiser's Guile support is loaded")))))
 
 (defcustom heks/scheme-debug-forms
   '("(debug-set! stack 200000)"
@@ -636,6 +649,30 @@ different numbers can say so without editing the command."
   :type '(repeat string)
   :group 'heks)
 
+(defun heks/scheme--repl-buffer ()
+  "Return a live Guile REPL buffer for this project, or nil.
+
+Geiser keeps its REPLs in `geiser-repl--repls'; the one whose
+`default-directory' is this project's root is the one the buffer's
+evaluations use, and the first live Guile REPL is the fallback when the
+project has no REPL yet."
+  (let* ((root (ignore-errors
+                 (file-name-as-directory
+                  (expand-file-name (project-root (project-current nil))))))
+         (live (seq-filter
+                (lambda (buffer)
+                  (with-current-buffer buffer
+                    (and (eq major-mode 'geiser-repl-mode)
+                         (eq geiser-impl--implementation 'guile)
+                         (get-buffer-process buffer))))
+                geiser-repl--repls)))
+    (or (seq-find (lambda (buffer)
+                    (with-current-buffer buffer
+                      (and root (equal (file-name-as-directory default-directory)
+                                       root))))
+                  live)
+        (car live))))
+
 (defun heks/scheme-debug-repl ()
   "Start the project's REPL with Guile's debugger set up for a real hunt.
 
@@ -647,12 +684,17 @@ to keep a deeper stack and a deeper backtrace (see
   (interactive)
   (heks/scheme-repl-needed
    (lambda ()
-     (dolist (form heks/scheme-debug-forms)
-       (condition-case err
-           (geiser-eval--send/wait (list :eval (list :scm form)) 2)
-         (error (message "Guile debugger setting %s: %s"
-                         form (error-message-string err)))))
-     (message "Guile debugger ready: %s" (string-join heks/scheme-debug-forms " ")))))
+     (let ((repl (heks/scheme--repl-buffer)))
+       (unless repl
+         (user-error "No Guile REPL buffer to set the debugger up in"))
+       ;; The forms go in as if they were typed at the prompt: that is the
+       ;; path Geiser's own evaluations take, and the one that leaves the
+       ;; result in the REPL buffer where a reader expects it.
+       (with-current-buffer repl
+         (dolist (form heks/scheme-debug-forms)
+           (geiser-repl--send form t)))
+       (message "Guile debugger ready: %s"
+                (string-join heks/scheme-debug-forms " "))))))
 
 ;;
 ;; ====== Artanis: a web application, run and read ======
