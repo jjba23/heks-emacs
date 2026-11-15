@@ -907,6 +907,22 @@ is restarted with `C-c i R'."
         (user-error "JDT LS is running without the `java-debug' plugin; set `heks/java-debug-jar' and restart the server with `C-c i R'"))
       server)))
 
+(defun heks/jvm--project-name (server root)
+  "Return the JDT LS project name for ROOT, or its directory name.
+
+JDT LS names an imported project after the Maven/Gradle project, and
+`vscode.java.resolveMainClass' is the command that says which one the
+main class belongs to.  A Kotlin-only project has no Java main class for
+that command to answer with, so the directory name is the fallback --
+which is the artifactId in the projects this is used on."
+  (or (ignore-errors
+        (let ((classes (eglot-execute-command
+                        server "vscode.java.resolveMainClass"
+                        (file-name-nondirectory (directory-file-name root)))))
+          (and (> (length classes) 0)
+               (plist-get (aref classes 0) :projectName))))
+      (file-name-nondirectory (directory-file-name root))))
+
 (defun heks/jvm-debug (&optional main-class)
   "Debug the JVM project of this buffer with `dape' and JDT LS.
 
@@ -940,15 +956,20 @@ than starting a session that cannot work."
     (unless (heks/java-debug-ensure-jar)
       (user-error "No `java-debug' plugin jar found; JDT LS needs it.  Put one in %s or set `heks/java-debug-jar'"
                   heks/java-debug-cache-dir))
-    (heks/jvm--eglot-server host)
-    (with-current-buffer host
-      (let ((config (copy-tree (alist-get 'jdtls dape-configs))))
-        (unless config
-          (user-error "This dape has no `jdtls' configuration; update dape"))
-        (setq config (plist-put config :filePath (buffer-file-name host)))
-        (when main-class
-          (setq config (plist-put config :mainClass main-class)))
-        (dape config)))))
+    (let ((server (heks/jvm--eglot-server host)))
+      (with-current-buffer host
+        (let ((config (copy-tree (alist-get 'jdtls dape-configs))))
+          (unless config
+            (user-error "This dape has no `jdtls' configuration; update dape"))
+          ;; The three values the `jdtls' configuration normally computes
+          ;; are strings here: the functions in it are not JSON, and the
+          ;; `fn' it runs would send them to JDT LS as they are.
+          (setq config (plist-put config :filePath (buffer-file-name host)))
+          (setq config (plist-put config :projectName
+                                  (heks/jvm--project-name server root)))
+          (when main-class
+            (setq config (plist-put config :mainClass main-class)))
+          (dape config))))))
 
 ;;
 ;; ====== Formatting, wherever the buffer is ======
