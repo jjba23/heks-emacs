@@ -1269,7 +1269,7 @@ turns a thing off and is read better the other way round."
       ("d" "the fields shown" heks/onefetch-set-fields)]]))
 
 ;;;###autoload
-(global-set-key (kbd "C-c w o") #'heks/onefetch)
+(keymap-set global-map "C-c w o" #'heks/onefetch)
 
 ;;;###autoload
 (defun heks/onefetch ()
@@ -1290,7 +1290,7 @@ under the rule at the top of the buffer, and `m' is onefetch's own options."
     (pop-to-buffer buffer)))
 
 ;;;###autoload
-(global-set-key (kbd "C-c w O") #'heks/onefetch-project)
+(keymap-set global-map "C-c w O" #'heks/onefetch-project)
 
 ;;;###autoload
 (defun heks/onefetch-project (&optional directory)

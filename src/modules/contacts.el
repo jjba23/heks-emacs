@@ -201,8 +201,8 @@ point instead, which is what a message wants."
 (add-hook 'message-mode-hook
           (lambda () (add-hook 'completion-at-point-functions #'heks/contacts-capf nil t)))
 
-(global-set-key (kbd "C-c n k") #'heks/contact-find)
-(global-set-key (kbd "C-c n K") #'heks/contact-new)
+(keymap-set global-map "C-c n k" #'heks/contact-find)
+(keymap-set global-map "C-c n K" #'heks/contact-new)
 
 (provide 'heks/contacts)
 

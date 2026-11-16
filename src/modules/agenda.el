@@ -125,11 +125,11 @@
   (heks/agenda--setup)
   (org-capture nil "h"))
 
-(global-set-key (kbd "C-c n d") #'heks/agenda-today)
-(global-set-key (kbd "C-c n h") #'heks/agenda-habits)
-(global-set-key (kbd "C-c n u") #'heks/agenda-birthdays)
-(global-set-key (kbd "C-c n x") #'heks/todo-capture)
-(global-set-key (kbd "C-c n X") #'heks/habit-capture)
+(keymap-set global-map "C-c n d" #'heks/agenda-today)
+(keymap-set global-map "C-c n h" #'heks/agenda-habits)
+(keymap-set global-map "C-c n u" #'heks/agenda-birthdays)
+(keymap-set global-map "C-c n x" #'heks/todo-capture)
+(keymap-set global-map "C-c n X" #'heks/habit-capture)
 
 (provide 'heks/agenda)
 

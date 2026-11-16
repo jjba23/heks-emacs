@@ -601,9 +601,9 @@ scroll it, search it, `q' closes it."
            (goto-char (point-min)))
          (display-buffer (current-buffer)))))))
 
-(global-set-key (kbd "C-c i D") #'heks/hover-open)
-(global-set-key (kbd "C-c i n") #'heks/hover-scroll-down)
-(global-set-key (kbd "C-c i p") #'heks/hover-scroll-up)
+(keymap-set global-map "C-c i D" #'heks/hover-open)
+(keymap-set global-map "C-c i n" #'heks/hover-scroll-down)
+(keymap-set global-map "C-c i p" #'heks/hover-scroll-up)
 
 ;;;###autoload
 (define-minor-mode heks/hover-mode
@@ -640,7 +640,7 @@ scroll it, search it, `q' closes it."
 (add-hook 'emacs-lisp-mode-hook #'heks/hover-mode)
 (add-hook 'lisp-interaction-mode-hook #'heks/hover-mode)
 
-(global-set-key (kbd "C-c i H") #'heks/hover-mode)
+(keymap-set global-map "C-c i H" #'heks/hover-mode)
 
 (provide 'heks/dev-hover)
 

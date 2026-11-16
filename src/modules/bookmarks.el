@@ -216,8 +216,8 @@ name that is not there yet makes a new category."
                             (split-string category " / " t))
     (message "Bookmarked under %s" category)))
 
-(global-set-key (kbd "C-c n b") #'heks/bookmark-open)
-(global-set-key (kbd "C-c n B") #'heks/bookmark-add)
+(keymap-set global-map "C-c n b" #'heks/bookmark-open)
+(keymap-set global-map "C-c n B" #'heks/bookmark-add)
 
 (provide 'heks/bookmarks)
 

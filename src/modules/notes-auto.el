@@ -182,7 +182,7 @@ Also usable from a shell: emacs --batch -l init.el -f heks/notes-related-update-
   (advice-add 'heks/notes-move :after
               (lambda (&rest _) (ignore-errors (heks/notes-related-update-all)))))
 
-(global-set-key (kbd "C-c n R") #'heks/notes-related-update-all)
+(keymap-set global-map "C-c n R" #'heks/notes-related-update-all)
 
 (provide 'heks/notes-auto)
 

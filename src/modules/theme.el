@@ -341,7 +341,7 @@ the file is written where `heks/theme-gallery-target' says.  Return it."
     (message "Rendered %d palettes into %s" (length entries) target)
     target))
 
-(global-set-key (kbd "C-c r g") #'heks/theme-gallery)
+(keymap-set global-map "C-c r g" #'heks/theme-gallery)
 
 (provide 'heks/theme)
 

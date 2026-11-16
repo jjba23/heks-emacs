@@ -449,9 +449,9 @@ argument ARCHIVE the archive is part of it."
           (setq buffer-read-only t))))
     (pop-to-buffer buffer)))
 
-(global-set-key (kbd "C-c n g") #'heks/notes-graph)
-(global-set-key (kbd "C-c n G") #'heks/notes-graph-export)
-(global-set-key (kbd "C-c n T") #'heks/notes-tree)
+(keymap-set global-map "C-c n g" #'heks/notes-graph)
+(keymap-set global-map "C-c n G" #'heks/notes-graph-export)
+(keymap-set global-map "C-c n T" #'heks/notes-tree)
 
 (provide 'heks/notes-graph)
 
