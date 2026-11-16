@@ -388,6 +388,23 @@ configuration."
 (heks-verify--check "C-c u is kubed's prefix"
                     (keymapp (key-binding (kbd "C-c u"))))
 
+;; The debugger is one topic with one set of keys, and what it starts is
+;; worth checking where the keys are actually bound: the four debuggers it
+;; dispatches to are loaded lazily (dape when a session starts, GUD then,
+;; Geiser when a Scheme file is opened), so a key that is only bound when
+;; one of them loads is a key nobody finds.  `C-c R d' is the Rust one,
+;; and its thirteen are in `modules/rust.el'.
+(heks-verify--section "the debugger's keys are bound for every debuggee")
+(dolist (key '("C-c b b" "C-c b c" "C-c b n" "C-c b i" "C-c b o"
+               "C-c b r" "C-c b k" "C-c b s" "C-c b d" "C-c b g" "C-c b I"
+               "C-c j d" "C-c R d" "C-c R b" "C-c R t" "C-c R l"))
+  (heks-verify--check (format "%s is bound" key)
+                      (commandp (key-binding (kbd key)))))
+(heks-verify--check "the breakpoint key is the one every debugger answers"
+                    (key-binding (kbd "C-c b b")) 'heks/debug-toggle-breakpoint)
+(heks-verify--check "and the stepping key asks whichever is live"
+                    (key-binding (kbd "C-c b n")) 'heks/debug-next)
+
 
 ;;; A definition spread over several lines, which is what a real one looks
 ;;; like: Hideshow does not offer to hide a form that fits on one line, since

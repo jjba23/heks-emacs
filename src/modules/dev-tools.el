@@ -167,6 +167,8 @@
     ("shellcheck" "shell" . "shell scripts are not checked")
     ("ruff" "dev-formats" . "Python files are not formatted or checked by ruff")
     ("java" "JVM" . "Maven and Gradle projects cannot be built or debugged")
+    ("cargo" "rust" . "the Rust keys say what is missing")
+    ("lldb-dap" "rust" . "a Rust program is debugged with gdb, or with GUD when that gdb is older than 14.1")
     ("node" "dev-langs" . "the JavaScript language server cannot run")
     ("pandoc" "dev-formats" . "documents are not converted between formats"))
   "The external programs this configuration expects, and why.
@@ -231,7 +233,7 @@ module.  Return the buffer it made."
     (display-buffer buffer)
     buffer))
 
-(global-set-key (kbd "C-c ! d") #'heks/doctor)
+(keymap-set global-map "C-c ! d" #'heks/doctor)
 
 ;; What a file says it still has to do: `TODO', `FIXME', `XXX', `NOTE',
 ;; `HACK' and the rest are coloured wherever they are written, and walked

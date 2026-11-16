@@ -55,7 +55,7 @@
   (load (expand-file-name (format "modules/%s.el" name) heks-ert--source) nil t))
 
 (dolist (module '("markdown" "render" "import" "present" "heks-emacs" "emacs-core"
-                 "notes" "notes-graph" "notes-auto" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "dev-hover" "openapi" "sift" "duplicates" "shell" "guile" "theme" "ui" "ai" "github-repo" "onefetch"))
+                 "notes" "notes-graph" "notes-auto" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "dev-hover" "openapi" "sift" "duplicates" "shell" "guile" "rust" "theme" "ui" "ai" "github-repo" "onefetch"))
   (heks-ert--module module))
 
 ;; `htmlize' is what Org colours the code in a note with, and the
@@ -4496,7 +4496,7 @@ the strokes on the line around point rather than a word."
   (should (equal (cdr (assoc "GSK_RENDERER" heks/gtk-debug-environment))
                  "cairo"))
   ;; And the alist becomes the plist the debug adapter is given.
-  (should (equal (heks/c-debug--environment-plist heks/gtk-debug-environment)
+  (should (equal (heks/debug--environment-plist heks/gtk-debug-environment)
                  '(:G_DEBUG "fatal-criticals" :GSK_RENDERER "cairo"))))
 
 (ert-deftest heks/c/the-gtk-environment-keeps-the-display ()
@@ -4628,6 +4628,269 @@ the strokes on the line around point rather than a word."
           (should (equal (heks/artanis-log-file root)
                          (expand-file-name "log/artanis.log" root))))
       (delete-directory root t))))
+
+;;
+;; ====== One set of debugger keys, whichever debugger answers ======
+;;
+
+(ert-deftest heks/debug/a-key-with-no-session-says-what-to-press ()
+  "A debugger key with nothing to drive fails in the words of the scheme."
+  (cl-letf (((symbol-function 'heks/debug--dape-p) (lambda () nil))
+            ((symbol-function 'heks/debug--gud-p) (lambda () nil))
+            ((symbol-function 'heks/debug--scheme-p) (lambda () nil)))
+    (should-error (heks/debug-next) :type 'user-error)
+    (should-error (heks/debug-toggle-breakpoint) :type 'user-error)))
+
+(ert-deftest heks/debug/dape-answers-when-it-has-the-session ()
+  "The key is the same one; dape is asked when it is what is running."
+  (let ((ran nil))
+    (cl-letf (((symbol-function 'heks/debug--dape-p) (lambda () t))
+              ((symbol-function 'heks/debug--gud-p) (lambda () nil))
+              ((symbol-function 'heks/debug--scheme-p) (lambda () nil))
+              ((symbol-function 'dape-next) (lambda (&rest _) (setq ran 'next))))
+      (heks/debug-next)
+      (should (eq ran 'next)))))
+
+(ert-deftest heks/debug/gud-answers-when-that-is-what-is-running ()
+  "An older gdb is driven by GUD, and the keys are still `C-c b'."
+  (let ((ran nil))
+    (cl-letf (((symbol-function 'heks/debug--dape-p) (lambda () nil))
+              ((symbol-function 'heks/debug--gud-p) (lambda () t))
+              ((symbol-function 'heks/debug--scheme-p) (lambda () nil))
+              ((symbol-function 'gud-step) (lambda (&rest _) (setq ran 'step)))
+              ((symbol-function 'gud-finish) (lambda (&rest _) (setq ran 'finish))))
+      (heks/debug-step-in)
+      (should (eq ran 'step))
+      (heks/debug-step-out)
+      (should (eq ran 'finish)))))
+
+(ert-deftest heks/debug/guile-is-given-guiles-own-debugger-commands ()
+  "Scheme steps with the same four keys, as Guile's debugger spells them."
+  (let ((sent nil))
+    (cl-letf (((symbol-function 'heks/debug--dape-p) (lambda () nil))
+              ((symbol-function 'heks/debug--gud-p) (lambda () nil))
+              ((symbol-function 'heks/debug--scheme-p) (lambda () t))
+              ((symbol-function 'heks/scheme-repl--command)
+               (lambda (command) (setq sent command))))
+      (dolist (step '((heks/debug-next . ",next")
+                      (heks/debug-step-in . ",step")
+                      (heks/debug-step-out . ",finish")
+                      (heks/debug-continue . ",q")))
+        (funcall (car step))
+        (should (equal sent (cdr step)))))))
+
+(ert-deftest heks/guile/no-repl-is-not-a-debug-prompt ()
+  "A question about a debugger nobody started answers no, rather than failing.
+
+The shared debugger keys ask this from every buffer, so it has to be safe
+where Geiser was never loaded."
+  (cl-letf (((symbol-function 'heks/scheme-repl-connected-p) (lambda () nil)))
+    (should-not (heks/scheme-debug-prompt-p))))
+
+(ert-deftest heks/guile/traps-are-read-out-of-what-guile-prints ()
+  "Guile's own trap list is what says a breakpoint is there.
+
+Both of the shapes Guile prints are read: the line that places a trap, and
+the indented one `,traps' lists it with."
+  (should (equal (heks/scheme--traps-in
+                  "Trap 0: Breakpoint at /tmp/a.scm:3.\nTrap 1: Breakpoint at /tmp/b.scm:12\n")
+                 '((0 "/tmp/a.scm" 3) (1 "/tmp/b.scm" 12))))
+  (should (equal (heks/scheme--traps-in "  0: Breakpoint at /tmp/a.scm:3\n")
+                 '((0 "/tmp/a.scm" 3))))
+  (should-not (heks/scheme--traps-in "No traps.\n")))
+
+(ert-deftest heks/guile/a-breakpoint-is-a-trap-on-the-line-at-point ()
+  "Setting one asks the REPL for the trap list, then breaks at the source."
+  (let ((sent '()))
+    (with-temp-buffer
+      (setq buffer-file-name "/tmp/heks-trap.scm")
+      (insert "(define (f x) x)\n(display (f 1))\n")
+      (goto-char (point-min))
+      (forward-line 1)
+      (cl-letf (((symbol-function 'heks/scheme-repl-needed)
+                 (lambda (function) (funcall function)))
+                ((symbol-function 'heks/scheme-repl--command)
+                 (lambda (command) (push command sent) "")))
+        (heks/scheme-breakpoint-toggle))
+      (should (equal (reverse sent)
+                     '(",traps" ",break-at-source \"/tmp/heks-trap.scm\" 2"))))))
+
+(ert-deftest heks/guile/a-breakpoint-taken-off-is-the-trap-deleted ()
+  "Pressing it again deletes the trap the REPL says is on that line."
+  (let ((sent '()))
+    (with-temp-buffer
+      (setq buffer-file-name "/tmp/heks-trap.scm")
+      (insert "(define (f x) x)\n")
+      (goto-char (point-min))
+      (cl-letf (((symbol-function 'heks/scheme-repl-needed)
+                 (lambda (function) (funcall function)))
+                ((symbol-function 'heks/scheme-repl--command)
+                 (lambda (command)
+                   (push command sent)
+                   (if (equal command ",traps")
+                       "Trap 4: Breakpoint at /tmp/heks-trap.scm:1.\n"
+                     ""))))
+        (heks/scheme-breakpoint-toggle))
+      (should (equal (reverse sent) '(",traps" ",delete 4"))))))
+
+;;
+;; ====== Rust: the crate, its program and what cargo runs ======
+;;
+
+(ert-deftest heks/rust/the-crate-is-the-nearest-cargo-toml ()
+  "A file in a crate is in the crate whatever directory it is in."
+  (let* ((root (heks-ert--temp-directory))
+         (inner (expand-file-name "src/deep" root)))
+    (unwind-protect
+        (progn
+          (make-directory inner t)
+          (write-region "[package]\nname = \"app\"\n" nil
+                        (expand-file-name "Cargo.toml" root) nil 'silent)
+          (should (equal (file-name-as-directory (heks/rust-root inner))
+                         (file-name-as-directory root))))
+      (delete-directory root t))))
+
+(ert-deftest heks/rust/no-cargo-toml-is-no-crate ()
+  "A directory with no manifest anywhere above it is not a Rust project."
+  (let ((root (heks-ert--temp-directory)))
+    (unwind-protect
+        (should-not (heks/rust-root root))
+      (delete-directory root t))))
+
+(ert-deftest heks/rust/the-program-is-the-crate-s-own-binary ()
+  "`cargo metadata' says which targets are binaries, and where they land."
+  (let ((metadata
+         '((target_directory . "/tmp/target")
+           (workspace_default_members . ("app 0.1.0"))
+           (packages
+            . (((name . "app") (id . "app 0.1.0")
+                (manifest_path . "/tmp/project/Cargo.toml")
+                (targets . (((name . "app") (kind . ("bin"))
+                             (src_path . "/tmp/project/src/main.rs"))
+                            ((name . "helper") (kind . ("bin"))
+                             (src_path . "/tmp/project/src/bin/helper.rs"))
+                            ((name . "app") (kind . ("lib"))
+                             (src_path . "/tmp/project/src/lib.rs"))))))))))
+    (should (equal (heks/rust-program-from metadata "/tmp/project/")
+                   "/tmp/target/debug/app"))
+    ;; A buffer in another binary target debugs that one.
+    (should (equal (heks/rust-program-from metadata "/tmp/project"
+                                            "/tmp/project/src/bin/helper.rs")
+                   "/tmp/target/debug/helper"))))
+
+(ert-deftest heks/rust/cargo-is-run-in-the-crate-the-buffer-is-in ()
+  "The keys run cargo, in the crate, and say so in a compilation buffer."
+  (let* ((root (heks-ert--temp-directory))
+         (ran nil))
+    (unwind-protect
+        (progn
+          (write-region "[package]\nname = \"app\"\n" nil
+                        (expand-file-name "Cargo.toml" root) nil 'silent)
+          (heks-ert--in root
+            (cl-letf (((symbol-function 'compile)
+                       (lambda (command &rest _) (setq ran command)))
+                      ((symbol-function 'executable-find)
+                       (lambda (program) (and (equal program "cargo") "/usr/bin/cargo"))))
+              (heks/rust-test)
+              (should (equal ran "cargo test"))
+              ;; clippy is asked for every target: the tests are code too.
+              (heks/rust-clippy)
+              (should (equal ran "cargo clippy --all-targets"))
+              ;; a run is asked for a backtrace, because a panic without one
+              ;; is a note that says to set the variable and try again.
+              (heks/rust-run)
+              (should (equal ran "RUST_BACKTRACE=1 cargo run --")))))
+      (delete-directory root t))))
+
+(ert-deftest heks/rust/the-adapter-is-the-debugger-this-machine-has ()
+  "lldb first, then a gdb that speaks DAP, and nothing when neither does."
+  (let ((heks/rust-debug-adapter 'auto))
+    (cl-letf (((symbol-function 'executable-find) (lambda (_) nil))
+              ((symbol-function 'heks/c-debug--dap-capable-p) (lambda () nil)))
+      (should-not (heks/rust-adapter)))
+    (cl-letf (((symbol-function 'executable-find) (lambda (_) nil))
+              ((symbol-function 'heks/c-debug--dap-capable-p) (lambda () t)))
+      (should (eq (heks/rust-adapter) 'gdb)))
+    (cl-letf (((symbol-function 'executable-find)
+               (lambda (program) (and (equal program "lldb-dap") "/usr/bin/lldb-dap"))))
+      (should (eq (heks/rust-adapter) 'lldb-dap)))))
+
+(ert-deftest heks/rust/the-adapter-can-be-named ()
+  "A machine with several debuggers says which one it wants."
+  (let ((heks/rust-debug-adapter 'lldb-vscode))
+    (cl-letf (((symbol-function 'executable-find)
+               (lambda (program) (and (equal program "lldb-vscode") "/usr/bin/lldb-vscode")))
+              ((symbol-function 'heks/c-debug--dap-capable-p) (lambda () t)))
+      (should (eq (heks/rust-adapter) 'lldb-vscode)))
+    ;; named and absent: GUD, rather than a session that cannot start
+    (cl-letf (((symbol-function 'executable-find) (lambda (_) nil)))
+      (should-not (heks/rust-adapter))))
+  ;; and GUD can be asked for by name
+  (let ((heks/rust-debug-adapter 'gud))
+    (cl-letf (((symbol-function 'executable-find) (lambda (_) "/usr/bin/lldb-dap")))
+      (should-not (heks/rust-adapter)))))
+
+;;
+;; ====== The project's own tasks: dev, test, fmt, repl ======
+;;
+
+(ert-deftest heks/project/root-is-the-project-or-nothing ()
+  "A directory in no project has no root, rather than a guessed one."
+  (let ((root (heks-ert--temp-directory)))
+    (unwind-protect
+        (progn
+          (should-not (heks/project-root root))
+          ;; The `project' API is what answers, and its answer is a directory.
+          (cl-letf (((symbol-function 'project-current)
+                     (lambda (&rest _) '(vc Git "/the/project/"))))
+            (should (equal (heks/project-root root) "/the/project/"))))
+      (delete-directory root t))))
+
+(ert-deftest heks/project/a-task-runs-in-the-project-root ()
+  "The project keys run the project's task there, as one quoted command."
+  (let ((root (heks-ert--temp-directory))
+        (ran nil))
+    (unwind-protect
+        (heks-ert--in root
+          (cl-letf (((symbol-function 'heks/project-root) (lambda (&optional _) root))
+                    ((symbol-function 'compile)
+                     (lambda (command &optional comint)
+                       (setq ran (list command comint default-directory)))))
+            (heks/project-start-test)
+            (should (equal (car ran) "maak test"))
+            (should-not (cadr ran))
+            (should (equal (file-name-as-directory (nth 2 ran))
+                           (file-name-as-directory root)))
+            ;; the REPL is the one that is typed at
+            (heks/project-start-repl-process)
+            (should (equal (car ran) "maak repl"))
+            (should (cadr ran))))
+      (delete-directory root t))))
+
+(ert-deftest heks/project/a-task-that-is-running-is-shown-not-started-again ()
+  "Pressing the key again on a live server puts point in its buffer."
+  (let ((root (heks-ert--temp-directory))
+        (buffer (get-buffer-create "test:the-project"))
+        (started nil)
+        (shown nil))
+    (unwind-protect
+        (heks-ert--in root
+          (cl-letf (((symbol-function 'heks/project-root) (lambda (&optional _) root))
+                    ((symbol-function 'compile) (lambda (&rest _) (setq started t)))
+                    ((symbol-function 'get-buffer) (lambda (_) buffer))
+                    ((symbol-function 'get-buffer-process) (lambda (_) 'a-process))
+                    ((symbol-function 'pop-to-buffer) (lambda (b) (setq shown b))))
+            (heks/project-start-dev)
+            (should-not started)
+            (should (eq shown buffer))))
+      (kill-buffer buffer)
+      (delete-directory root t))))
+
+(ert-deftest heks/project/a-task-can-be-called-something-else ()
+  "A project whose target is named differently says so, and keeps the keys."
+  (let ((heks/project-task-names '((dev . "serve"))))
+    (should (equal (heks/project-task 'dev) "serve"))
+    (should (equal (heks/project-task 'fmt) "fmt"))))
 
 (unless (getenv "HEKS_ERT_NO_RUN")
   (ert-run-tests-batch-and-exit))

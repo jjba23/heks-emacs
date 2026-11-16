@@ -32,6 +32,21 @@
 ;; whatever buffer is current, and `C-c j t' runs the tests of a JVM
 ;; project.
 ;;
+;; Two topics are build tools rather than languages, and they are the same
+;; tool seen twice: a JVM project is built by Maven or Gradle (`C-c j')
+;; and a crate by Cargo (`C-c R').  So the two say the same thing with the
+;; same letters -- `b' builds, `t' tests, `p' packages, `c' cleans, `T'
+;; shows the dependency tree -- and a letter that is the build tool's own
+;; word and not the alphabet's (Maven's `clean' under the alphabet's
+;; "callers") is declared in that topic's letters below rather than left
+;; for the reader to reconcile.
+;;
+;; The debugger is one topic for every debugger here (`C-c b'): dape for
+;; C, GTK, Rust and the JVM, GUD for an older gdb, and Geiser for Guile.
+;; What differs is only the key that *starts* a session; the keys that
+;; step, continue, break and quit ask whichever session is live, so the
+;; hand that learned them knows them everywhere.
+;;
 ;; Some topics key something that is not one of those verbs at all, and
 ;; the letter is then the first letter of what it names: the font sizes
 ;; (`C-c f t' is tiny, `C-c f c' colossal), what the system topic
@@ -71,7 +86,7 @@
     ("C-d" . "diagrams: Mermaid")
     ("SPC" . "dashboard")
     ("a" . "API and HTTP: OpenAPI specs and requests")
-    ("b" . "breakpoints and the debugger: dape, gdb and the GTK inspector")
+    ("b" . "breakpoints and the debugger: dape, GUD and Guile")
     ("c" . "containers: Docker")
     ("d" . "databases: PostgreSQL and MongoDB")
     ("e" . "environment: direnv")
@@ -86,6 +101,7 @@
     ("o" . "mail: Gnus")
     ("p" . "completion at point: cape")
     ("r" . "render, preview and present")
+    ("R" . "Rust: Cargo, its tools and the debugger")
     ("s" . "snippets and recorded macros")
     ("t" . "text tools")
     ("u" . "Kubernetes: kubed, by its own mnemonic letters")
@@ -161,7 +177,8 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
      ("g" . "the GTK program, debugged with GTK's warnings fatal")
      ("I" . "the GTK inspector, in the running program")
      ("i" . "into the call at point, stepped")
-     ("o" . "out of the current function, stepped"))
+     ("o" . "out of the current function, stepped")
+     ("s" . "the Guile REPL, started with its debugger set up"))
     ("c" ("d" . "Docker"))
     ("d" ("p" . "PostgreSQL")
      ("m" . "the MongoDB shell"))
@@ -213,7 +230,13 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
      ("B" . "the project, built again")
      ("D" . "the dependencies of this project")
      ("T" . "the tree of this project's dependencies")
-     ("R" . "the project's classpath, reloaded"))
+     ("R" . "the project's classpath, reloaded")
+     ;; `c' and `p' are the build tool's own words -- Maven's `clean' and
+     ;; `package' phases, which is what the keys run through Gradle as well
+     ;; -- and not the alphabet's "callers" and "preview".  Rust's `C-c R c'
+     ;; is the same clean, because it is the same tool in another language.
+     ("c" . "the build output, deleted (the build tool's `clean')")
+     ("p" . "the artefact of this project, built (the build tool's `package')"))
     ("l" ("l" . "a library, opened by name")
      ("L" . "a library, loaded from disk")
      ("p" . "the parentheses of this buffer"))
@@ -259,7 +282,13 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
      ("m" . "follow the buffer, re-rendering on save")
      ("n" . "a slide boundary, inserted")
      ("P" . "the buffer, presented")
-     ("r" . "render it again"))
+     ("r" . "render it again")
+     ;; `s' is sync: the preview follows the section point is in.
+     ("s" . "the preview, moved to the section point is in"))
+    ("R" ("B" . "the project, built for release")
+     ("D" . "the documentation of this crate, built and opened")
+     ("T" . "the tree of this project's dependencies")
+     ("c" . "the build output, deleted (the build tool's `clean')"))
     ("s" ("a" . "an alist accessor out of a string one")
      ("c" . "the snippet at point, completed")
      ("h" . "a hygguile class set out of a list of classes")
@@ -267,6 +296,11 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
      ("x" . "the named snippet, expanded"))
     ("t" ("a" . "the lines, sorted")
      ("c" . "the fill column indicator")
+     ;; `i' generates a UUID and puts it on the kill ring instead of
+     ;; inserting it: what one does with an identifier is paste it into a
+     ;; file that is not this one, so the letter is declared rather than
+     ;; read as the alphabet's "insert".
+     ("i" . "a UUID, generated onto the kill ring")
      ("o" . "Olivetti, writing in the middle of the window")
      ("r" . "colour names, shown as colours")
      ("w" . "the whitespace at the end of the lines")
@@ -285,6 +319,11 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
      ("G" . "the Git history of the project, summarised")
      ("g" . "a search of the project")
      ("i" . "the providers and state, initialised")
+     ;; `l' is the languages the project is written in -- the first letter
+     ;; of what it names -- rather than the alphabet's "lint": what lints a
+     ;; project is the project's own tool, `C-c R l' for clippy and
+     ;; `C-c j v' for a JVM.
+     ("l" . "the languages of the project, measured")
      ("O" . "one repository, as onefetch describes it")
      ("s" . "a random order for the standup"))
     ("x" ("t" . "the chat window, shown or hidden")
@@ -334,6 +373,19 @@ of its own and prints, for every key, what this scheme calls it.")
     ("C-c C-d o" . "the rendered diagram in the browser")
     ("C-c C-d r" . "the diagram in the region")
     ("C-c SPC SPC" . "the dashboard")
+    ("C-c R B" . "the project, built for release")
+    ("C-c R D" . "the documentation of this crate, built and opened")
+    ("C-c R T" . "the tree of this project's dependencies")
+    ("C-c R a" . "a dependency, added to this crate")
+    ("C-c R b" . "the project, built")
+    ("C-c R c" . "the build output, deleted")
+    ("C-c R d" . "the program of this crate, debugged")
+    ("C-c R f" . "the code, formatted by `cargo fmt'")
+    ("C-c R l" . "the project, linted by clippy")
+    ("C-c R r" . "the program, run by `cargo run'")
+    ("C-c R t" . "the tests, run by `cargo test'")
+    ("C-c R u" . "the dependencies, updated")
+    ("C-c R v" . "the project, checked by `cargo check'")
     ("C-c a b" . "the request written as a block to paste")
     ("C-c a l" . "the spec's problems, listed")
     ("C-c a m" . "the spec, read as a spec")
@@ -349,6 +401,7 @@ of its own and prints, for every key, what this scheme calls it.")
     ("C-c b n" . "the next line, stepped over")
     ("C-c b o" . "out of the current function, stepped")
     ("C-c b r" . "a REPL into the debuggee")
+    ("C-c b s" . "the Guile REPL, started with its debugger set up")
     ("C-c c d" . "the Docker transient")
     ("C-c d m" . "the MongoDB shell")
     ("C-c d p" . "a PostgreSQL prompt")
@@ -381,7 +434,7 @@ of its own and prints, for every key, what this scheme calls it.")
     ("C-c g g" . "the definition of the symbol at point")
     ("C-c g h" . "the documentation of the symbol at point")
     ("C-c g k" . "the running Guile, interrupted")
-    ("C-c g m" . "the generic methods of this symbol")
+    ("C-c g m" . "the generic methods of this symbol, from a menu")
     ("C-c g o" . "a REPL that is already running")
     ("C-c g p" . "the package at the mark")
     ("C-c g r" . "a Geiser REPL for this project")

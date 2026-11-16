@@ -196,6 +196,7 @@
                            present
                            proofreading
                            render
+                           rust
                            search
                            shell
                            sift

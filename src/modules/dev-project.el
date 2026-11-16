@@ -84,11 +84,10 @@
 (defun heks/terraform-root ()
   "Return the directory the Terraform configuration lives in.
 
-That is the project root when the file being edited is in one, and the
-file's own directory otherwise, so that the commands work in a project
-Emacs does not recognise as well."
-  (or (when-let* ((project (project-current)))
-        (project-root project))
+That is the project root when the file being edited is in one
+(`heks/project-root'), and the file's own directory otherwise, so that
+the commands work in a project Emacs does not recognise as well."
+  (or (heks/project-root)
       (and buffer-file-name (file-name-directory buffer-file-name))
       default-directory))
 
@@ -155,7 +154,7 @@ prompt here is the second one, in the vocabulary of the person asking."
   "Alist mapping file extensions to the language shown in the breakdown.
 Files with an extension that is not listed here are not counted.")
 
-(global-set-key (kbd "C-c w l") #'heks/project-languages)
+(keymap-set global-map "C-c w l" #'heks/project-languages)
 
 (defun heks/git-output (root &rest args)
   "Return the trimmed output of `git ARGS' run in ROOT, or nil on failure."
@@ -209,7 +208,7 @@ commits and the top contributors, in a small window below the current one."
         (set-window-buffer win buf)
         (select-window win)))))
 
-(global-set-key (kbd "C-c w G") #'heks/project-git-stats)
+(keymap-set global-map "C-c w G" #'heks/project-git-stats)
 
 (defun heks/language-files (root)
   "Return the files under ROOT, honouring `.gitignore' when in a git repo."

@@ -191,16 +191,13 @@ cannot open a window.")
 
 
 (defun heks/c-debug-root (&optional directory)
-  "Return the root of the project DIRECTORY is in, or its directory."
+  "Return the root of the project DIRECTORY is in, or its directory.
+
+A debugger started from a file in no project still needs a directory to
+run in, so the directory itself is the answer there."
   (let ((directory (file-name-as-directory
                     (expand-file-name (or directory default-directory)))))
-    (or (ignore-errors
-          (when-let* ((project (project-current nil directory)))
-            (file-name-as-directory
-             (expand-file-name (if (fboundp 'project-root)
-                                   (project-root project)
-                                 (car (with-no-warnings (project-roots project))))))))
-        directory)))
+    (or (heks/project-root directory) directory)))
 
 (defun heks/c-debug-source-p (file)
   "Return non-nil when FILE is a source or build artefact, not a program."
@@ -273,7 +270,7 @@ does not guess them."
            "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug")
           (t nil))))
 
-(defun heks/c-debug--environment-plist (environment)
+(defun heks/debug--environment-plist (environment)
   "Return ENVIRONMENT as the plist dape wants for `:env'."
   (apply #'append
          (mapcar (lambda (entry)
@@ -307,8 +304,13 @@ breakpoint."
         (and status (zerop status)
              (string-match-p "^Line [0-9]+ of " (buffer-string)))))))
 
-(defun heks/c-debug--gud (program args root environment)
-  "Start PROGRAM under GUD, in ROOT, with ENVIRONMENT set."
+(defun heks/debug--gud (program args root environment &optional command)
+  "Start PROGRAM under GUD, in ROOT, with ENVIRONMENT set.
+
+COMMAND is the debugger to run it with -- `gdb' -- and a language that
+ships a wrapper of its own names that instead (Rust's `rust-gdb' is gdb
+with its pretty printers loaded), which is the one thing GUD cannot guess
+from the program."
   (require 'gdb-mi)
   (let* ((default-directory (file-name-as-directory root))
          (assignments (mapconcat (lambda (entry)
@@ -319,7 +321,7 @@ breakpoint."
          (command (concat (if (string-empty-p assignments)
                               ""
                             (concat assignments " "))
-                          "gdb -i=mi --args "
+                          (or command "gdb") " -i=mi --args "
                           (mapconcat #'shell-quote-argument
                                      (cons program args) " "))))
     (gdb command)))
@@ -380,9 +382,9 @@ there."
             (setq config (plist-put config 'compile build)))
           (when environment
             (setq config (plist-put config :env
-                                    (heks/c-debug--environment-plist environment))))
+                                    (heks/debug--environment-plist environment))))
           (dape config))
-      (heks/c-debug--gud program args root environment))))
+      (heks/debug--gud program args root environment))))
 
 (defun heks/gtk-debug (&optional program)
   "Debug the GTK 4 program of this project, with GTK's warnings fatal.
@@ -425,26 +427,161 @@ program runs in a compilation buffer, so its own output is still there."
       (compile (format "GTK_DEBUG=interactive %s" (shell-quote-argument program))))
     (message "GTK inspector: its picker selects a widget in the running application")))
 
+;;
+;; ====== The debugger's keys, whichever debugger answers ======
+;;
+;; `C-c b' is one topic with one set of keys, and four debuggers live
+;; under it: dape (for C, GTK, Rust and the JVM), GUD for a gdb older than
+;; 14.1, Geiser's Guile debugger, and Guile's own traps and stepping
+;; commands.  A key that does nothing because a *different* debugger is
+;; the one that is running is the thing this section is for: each command
+;; asks which session is live and gives it the command it would have had
+;; from its own keymap, and says which key starts one when there is none.
+;;
+;; The breakpoint key is the exception that is not one: dape keeps its
+;; breakpoints without a session, so a breakpoint can be placed before the
+;; program is started -- which is how a trip through a bug usually begins.
+
+(defun heks/debug--dape-p ()
+  "Non-nil when a dape session is live."
+  (and (fboundp 'dape--live-connections)
+       (dape--live-connections)
+       t))
+
+(defun heks/debug--gud-p ()
+  "Non-nil when a GUD session is running."
+  (and (bound-and-true-p gud-comint-buffer)
+       (buffer-live-p gud-comint-buffer)
+       (get-buffer-process gud-comint-buffer)
+       t))
+
+(defun heks/debug--scheme-p ()
+  "Non-nil when Guile is stopped and waiting for a debugger command."
+  (and (fboundp 'heks/scheme-debug-prompt-p)
+       (heks/scheme-debug-prompt-p)))
+
+(defun heks/debug--start-key ()
+  "Return the key that would start a debug session in this buffer."
+  (cond ((derived-mode-p 'scheme-mode 'geiser-repl-mode) "`C-c b s'")
+        ((and (fboundp 'heks/rust-root) (heks/rust-root)) "`C-c R d'")
+        ((and (fboundp 'heks/jvm--project) (heks/jvm--project)) "`C-c j d'")
+        (t "`C-c b d'")))
+
+(defun heks/debug--nothing-running (what)
+  "Say that there is nothing to WHAT here, and what would start one."
+  (user-error "Nothing to %s: no debug session is running.  %s starts one in this buffer"
+              what (heks/debug--start-key)))
+
+(defun heks/debug--gud-breakpoint-p ()
+  "Non-nil when gdb's breakpoint list has one on this line."
+  (let ((file (and buffer-file-name (file-truename buffer-file-name)))
+        (line (line-number-at-pos))
+        (buffer (get-buffer "*gdb-breakpoints*")))
+    (and file
+         (buffer-live-p buffer)
+         (with-current-buffer buffer
+           (and (boundp 'gdb-breakpoints-list)
+                (seq-some (lambda (entry)
+                            (let ((breakpoint (cdr entry)))
+                              (and (equal (gdb-mi--field breakpoint 'fullname) file)
+                                   (equal (gdb-mi--field breakpoint 'line)
+                                          (number-to-string line)))))
+                          gdb-breakpoints-list))))))
+
+(defun heks/debug-toggle-breakpoint ()
+  "Toggle a breakpoint on this line, in whichever debugger is here.
+
+dape keeps its breakpoints without a session, so in a C, Rust or JVM
+buffer this also *places* one before the program is started, which is the
+way a trip through a bug begins.  A Scheme buffer gets Guile's trap on the
+line instead (see `heks/scheme-breakpoint-toggle')."
+  (interactive)
+  (cond ((heks/debug--dape-p) (dape-breakpoint-toggle))
+        ((heks/debug--gud-p) (if (heks/debug--gud-breakpoint-p)
+                                 (gud-remove)
+                               (gud-break)))
+        ((derived-mode-p 'scheme-mode) (heks/scheme-breakpoint-toggle))
+        ((fboundp 'dape-breakpoint-toggle) (dape-breakpoint-toggle))
+        (t (heks/debug--nothing-running "break"))))
+
+(defun heks/debug-continue ()
+  "Continue the program to the next breakpoint, in whichever debugger."
+  (interactive)
+  (cond ((heks/debug--dape-p) (dape-continue))
+        ((heks/debug--gud-p) (gud-cont))
+        ((heks/debug--scheme-p) (heks/scheme-debug-continue))
+        (t (heks/debug--nothing-running "continue"))))
+
+(defun heks/debug-next ()
+  "Step over the next line, in whichever debugger."
+  (interactive)
+  (cond ((heks/debug--dape-p) (dape-next))
+        ((heks/debug--gud-p) (gud-next))
+        ((heks/debug--scheme-p) (heks/scheme-debug-next))
+        (t (heks/debug--nothing-running "step over"))))
+
+(defun heks/debug-step-in ()
+  "Step into the call at point, in whichever debugger."
+  (interactive)
+  (cond ((heks/debug--dape-p) (dape-step-in))
+        ((heks/debug--gud-p) (gud-step))
+        ((heks/debug--scheme-p) (heks/scheme-debug-step-in))
+        (t (heks/debug--nothing-running "step into"))))
+
+(defun heks/debug-step-out ()
+  "Step out of the current function, in whichever debugger."
+  (interactive)
+  (cond ((heks/debug--dape-p) (dape-step-out))
+        ((heks/debug--gud-p) (gud-finish))
+        ((heks/debug--scheme-p) (heks/scheme-debug-step-out))
+        (t (heks/debug--nothing-running "step out"))))
+
+(defun heks/debug-repl ()
+  "Show the debugger's own prompt, in whichever debugger."
+  (interactive)
+  (cond ((heks/debug--dape-p) (dape-repl))
+        ((heks/debug--gud-p) (pop-to-buffer gud-comint-buffer))
+        ((heks/debug--scheme-p) (heks/scheme-repl-show))
+        (t (heks/debug--nothing-running "evaluate in"))))
+
+(defun heks/debug-kill ()
+  "End the debug session, in whichever debugger."
+  (interactive)
+  (cond ((heks/debug--dape-p) (dape-kill))
+        ;; GUD has no session object to terminate: the debugger's own
+        ;; buffer is the session, and Emacs asks before killing a process.
+        ((heks/debug--gud-p) (kill-buffer gud-comint-buffer))
+        ((heks/debug--scheme-p) (heks/scheme-interrupt))
+        (t (heks/debug--nothing-running "kill"))))
+
 (use-package dape
   :ensure t
-  :init (setq dape-buffer-window-arrangement 'right)
-  ;; `C-c j d' starts and attaches a JVM project's debugger
-  ;; (`heks/jvm-debug'); `C-c b' is `dape''s own commands once
-  ;; attached -- to any debuggee, JVM or otherwise, which is why it is its
-  ;; own topic rather than folded into `j'.  The same topic starts the two
-  ;; native debuggers: `d' a C program, `g' a GTK one with its warnings
-  ;; fatal, `I' the GTK inspector in a running one.
-  :bind (("C-c j d" . heks/jvm-debug)
-         ("C-c b d" . heks/c-debug)
-         ("C-c b g" . heks/gtk-debug)
-         ("C-c b I" . heks/gtk-inspector)
-         ("C-c b b" . dape-breakpoint-toggle)
-         ("C-c b c" . dape-continue)
-         ("C-c b n" . dape-next)
-         ("C-c b i" . dape-step-in)
-         ("C-c b o" . dape-step-out)
-         ("C-c b r" . dape-repl)
-         ("C-c b k" . dape-kill)))
+  :init (setq dape-buffer-window-arrangement 'right))
+
+;; The keys are bound here rather than inside the package's `:bind': these
+;; commands are this module's own, defined above, and they answer for every
+;; debugger rather than for dape alone -- there is no package to wait for
+;; and nothing dape-specific about them.  `C-c j d' starts and attaches a
+;; JVM project's debugger (`heks/jvm-debug'), `C-c R d' a Rust one
+;; (`heks/rust-debug'), and `C-c b' is the session's own commands once
+;; something is attached: the seven below ask whichever debugger is live, so
+;; the same hand steps a C program, a GTK one, a JVM, a Rust crate and
+;; Guile.  The same topic starts them: `d' a C program, `g' a GTK one with
+;; its warnings fatal, `I' the GTK inspector in a running one, and `s' the
+;; Guile REPL with its debugger set up -- the key `C-c g B' is, said in the
+;; topic where somebody hunting a bug looks for it.
+(keymap-set global-map "C-c j d" #'heks/jvm-debug)
+(keymap-set global-map "C-c b d" #'heks/c-debug)
+(keymap-set global-map "C-c b g" #'heks/gtk-debug)
+(keymap-set global-map "C-c b I" #'heks/gtk-inspector)
+(keymap-set global-map "C-c b s" #'heks/scheme-debug-repl)
+(keymap-set global-map "C-c b b" #'heks/debug-toggle-breakpoint)
+(keymap-set global-map "C-c b c" #'heks/debug-continue)
+(keymap-set global-map "C-c b n" #'heks/debug-next)
+(keymap-set global-map "C-c b i" #'heks/debug-step-in)
+(keymap-set global-map "C-c b o" #'heks/debug-step-out)
+(keymap-set global-map "C-c b r" #'heks/debug-repl)
+(keymap-set global-map "C-c b k" #'heks/debug-kill)
 
 (use-package graphql-mode
   :ensure t

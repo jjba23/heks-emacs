@@ -229,10 +229,9 @@ sub-directory)."
 
 The Guix project root wins when there is one (it is the more specific
 answer, and it is the one a channel wants); otherwise the project Emacs
-knows about from `project.el'."
+knows about (`heks/project-root')."
   (or (heks/guix-project-root dir)
-      (when (fboundp 'project-root)
-        (ignore-errors (project-root (project-current nil dir))))))
+      (heks/project-root dir)))
 
 (defun heks/scheme-load-path ()
   "Return the directory to put on Guile's load path for this buffer.
@@ -597,24 +596,45 @@ The REPL is started if there is none, as `C-c g e' starts it."
   (interactive)
   (geiser-repl-interrupt))
 
+(defun heks/scheme-debug-active-p ()
+  "Non-nil when Geiser's debugger has been entered.
+
+The debugger's state -- whether a level is active, and the buffer that
+sent the evaluation -- lives in `*Geiser Debug*', not in the buffer the
+evaluation came from, so that is where this looks.  Checking the current
+buffer would say no debugger from every buffer but the debug one."
+  (let ((buffer (get-buffer "*Geiser Debug*")))
+    (and buffer
+         (with-current-buffer buffer
+           (and (fboundp 'geiser-debug-active-p) (geiser-debug-active-p))))))
+
+(defun heks/scheme-debug-prompt-p ()
+  "Non-nil when the REPL is waiting at Guile's debugger prompt.
+
+Stepping and continuing are commands of that prompt, so this is the
+question the shared debugger keys ask: `heks/scheme-debug-active-p' says
+a failed evaluation is being looked at, and this says the program is
+stopped and can still be moved.  A project with no REPL answers no rather
+than failing -- the keys ask this from every buffer, Geiser or no."
+  (and (heks/scheme-repl-connected-p)
+       (let ((repl (heks/scheme--repl-buffer)))
+         (and repl
+              (with-current-buffer repl
+                (and (fboundp 'geiser-repl--is-debugging)
+                     (ignore-errors (geiser-repl--is-debugging))
+                     t))))))
+
 (defun heks/scheme-debugger ()
   "Switch to the Geiser debugger buffer of the last failed evaluation.
 
 A failed evaluation drops into the debugger, which shows the backtrace and
 Guile's restarts; this comes back to it after having looked at something
 else, which is the point of a debugger that lives in a buffer.
-
-The debugger's state -- whether a level is active, and the buffer that
-sent the evaluation -- lives in `*Geiser Debug*', not in the buffer the
-evaluation came from, so that is where this looks.  Checking the current
-buffer would say no debugger from every buffer but the debug one."
+See `heks/scheme-debug-active-p' for where that state lives."
   (interactive)
-  (let ((buffer (get-buffer "*Geiser Debug*")))
-    (if (and buffer
-             (with-current-buffer buffer
-               (and (fboundp 'geiser-debug-active-p) (geiser-debug-active-p))))
-        (pop-to-buffer buffer)
-      (user-error "No debugger to return to; run code that signals an error first"))))
+  (if (heks/scheme-debug-active-p)
+      (pop-to-buffer (get-buffer "*Geiser Debug*"))
+    (user-error "No debugger to return to; run code that signals an error first")))
 
 (defun heks/scheme-debugger-menu ()
   "Show Geiser's commands for the debugger level that is active.
@@ -625,15 +645,12 @@ other command here is.  It says so when no debugger is active rather than
 opening a menu whose every entry would be refused.  The menu is opened in
 the debug buffer, which is where Geiser's debugger state lives."
   (interactive)
-  (let ((buffer (get-buffer "*Geiser Debug*")))
-    (unless (and buffer
-                 (with-current-buffer buffer
-                   (and (fboundp 'geiser-debug-active-p) (geiser-debug-active-p))))
-      (user-error "No debugger is active; run code that signals an error, then `C-c g d'"))
-    (with-current-buffer buffer
-      (if (fboundp 'geiser-guile-debug-menu)
-          (geiser-guile-debug-menu)
-        (user-error "The Guile debugger menu is not available until Geiser's Guile support is loaded")))))
+  (unless (heks/scheme-debug-active-p)
+    (user-error "No debugger is active; run code that signals an error, then `C-c g d'"))
+  (with-current-buffer (get-buffer "*Geiser Debug*")
+    (if (fboundp 'geiser-guile-debug-menu)
+        (geiser-guile-debug-menu)
+      (user-error "The Guile debugger menu is not available until Geiser's Guile support is loaded"))))
 
 (defcustom heks/scheme-debug-forms
   '("(debug-set! stack 200000)"
@@ -695,6 +712,157 @@ to keep a deeper stack and a deeper backtrace (see
            (geiser-repl--send form t)))
        (message "Guile debugger ready: %s"
                 (string-join heks/scheme-debug-forms " "))))))
+
+;;
+;; ====== Stepping, and breakpoints that are Guile's traps ======
+;;
+;; Guile is debugged where it runs: the REPL is the debugger, so stepping
+;; and breaking are things said *to the REPL*, in Guile's own debugger
+;; language -- `,next', `,step', `,finish', `,break-at-source'.  Those are
+;; REPL commands rather than expressions, which is why they are typed at
+;; the prompt instead of evaluated, and why the reply is read back out of
+;; the REPL buffer rather than returned by an evaluation.
+;;
+;; The keys are the ones every other debugger here answers to
+;; (`C-c b n', `C-c b i', `C-c b o', `C-c b c'); what changes between them
+;; is only which debugger is asked (see `heks/debug--scheme-p').
+
+(defun heks/scheme-repl--command (command)
+  "Send COMMAND to the project's Guile REPL, and return what it printed.
+
+The prompt is where a person would type COMMAND, and what comes back is
+the REPL's answer: the trap list, the frame Guile stopped in, the
+complaint that there is no breakpoint there.  The reading starts at the
+end of the last prompt, so the answer is this command's and not the
+history's before it.
+
+Two things make this a wait rather than an insert.  Geiser drops input
+sent while an evaluation is pending -- it says so in the echo area and
+sends nothing -- so the REPL is waited for first, which is what pressing
+a key right after `C-c g b' does.  And the answer is waited for after:
+Geiser's `geiser-repl--wait-for-prompt' searches forward from point for a
+prompt that is already behind it, so the prompt marker is watched
+instead.  A prompt Geiser was not told to expect runs the wait out rather
+than failing: what is read is the trap list and the frames, not the
+prompt."
+  (let ((repl (heks/scheme--repl-buffer)))
+    (unless repl
+      (user-error "No Guile REPL for this project; `C-c g r' starts one"))
+    (with-current-buffer repl
+      (let ((tries 100))
+        (while (and (> tries 0) (geiser-eval--pending-requests-p))
+          (accept-process-output nil 0.05)
+          (setq tries (1- tries))))
+      (let ((start (point-max))
+            (tries 100)
+            (answer ""))
+        (geiser-repl--send command t)
+        ;; The answer is over when the REPL has printed its prompt again,
+        ;; which is a prompt at the end of what it has said since -- not a
+        ;; prompt *marker* that has moved, because comint moves the marker
+        ;; when it re-inserts the prompt after the echoed input, before a
+        ;; word of the answer has arrived.
+        (while (and (> tries 0)
+                    (progn
+                      (accept-process-output nil 0.05)
+                      (not (string-match-p
+                            (concat "\\(?:" comint-prompt-regexp "\\)\\'")
+                            (setq answer (buffer-substring-no-properties
+                                          (min start (point-max)) (point-max)))))))
+          (setq tries (1- tries)))
+        (string-trim answer)))))
+
+(defconst heks/scheme-trap-regexp
+  "^[ \t]*\\(?:Trap \\)?\\([0-9]+\\): Breakpoint at \\(.*\\):\\([0-9]+\\)\\.?$"
+  "What Guile says about one of its traps.
+
+The line that places a trap reads `Trap 0: Breakpoint at file:3.', and the
+one `,traps' lists it with has no `Trap' in front of it and is indented;
+both are the same trap, and both are read here.")
+
+(defun heks/scheme--traps-in (text)
+  "Return the traps TEXT names, as a list of (INDEX FILE LINE)."
+  (let ((position 0)
+        (traps '()))
+    (while (string-match heks/scheme-trap-regexp text position)
+      (push (list (string-to-number (match-string 1 text))
+                  (match-string 2 text)
+                  (string-to-number (match-string 3 text)))
+            traps)
+      (setq position (match-end 0)))
+    (nreverse traps)))
+
+(defun heks/scheme-breakpoint-toggle ()
+  "Put a breakpoint on this line, or take it off.
+
+In Guile a breakpoint is a trap: `,break-at-source' asks the debugger to
+stop when control reaches a source location, and `,delete' takes it away.
+The REPL's own trap list is what says which one is already there, so the
+key asks the REPL rather than keeping a second record of its own that
+would drift from it.  The trap does not stop the program for good --
+`,next' steps from it and `C-c b c' runs on -- which is what makes it a
+breakpoint rather than a pause.
+
+A project with no REPL gets one, the way evaluating a definition does
+(see `heks/scheme-repl-needed'): the trap lives in the running image, so
+there is nothing to set it in until that image exists."
+  (interactive)
+  (unless buffer-file-name
+    (user-error "A breakpoint needs a file to break in"))
+  (let* ((file (buffer-file-name))
+         (line (line-number-at-pos)))
+    (heks/scheme-repl-needed
+     (lambda ()
+       (let ((trap (seq-find (lambda (trap)
+                               (and (equal (expand-file-name (nth 1 trap))
+                                           (expand-file-name file))
+                                    (= line (nth 2 trap))))
+                             (heks/scheme--traps-in
+                              (heks/scheme-repl--command ",traps")))))
+         (if trap
+             (progn
+               (heks/scheme-repl--command (format ",delete %d" (car trap)))
+               (message "Breakpoint removed: %s:%d"
+                        (file-name-nondirectory file) line))
+           (heks/scheme-repl--command
+            (format ",break-at-source %s %d" (prin1-to-string file) line))
+           (message "Breakpoint set: %s:%d -- Guile stops when control reaches it"
+                    (file-name-nondirectory file) line)))))))
+
+(defun heks/scheme-repl-show ()
+  "Show the project's REPL, which is where its debugger is."
+  (interactive)
+  (heks/scheme-repl-needed
+   (lambda ()
+     (let ((repl (heks/scheme--repl-buffer)))
+       (unless repl
+         (user-error "No Guile REPL buffer for this project"))
+       (pop-to-buffer repl)))))
+
+(defun heks/scheme-debug-continue ()
+  "Run on from where Guile stopped.
+
+The REPL's debugger answers `,q' by dropping the debug level, which is
+how a trap is resumed and how an error's level is left; it is the
+debugger's own word for continuing, and the key is the one every other
+debugger here has for it."
+  (interactive)
+  (heks/scheme-repl--command ",q"))
+
+(defun heks/scheme-debug-next ()
+  "Step until Guile reaches the next source location in this frame."
+  (interactive)
+  (heks/scheme-repl--command ",next"))
+
+(defun heks/scheme-debug-step-in ()
+  "Step into the call at point, as Guile's debugger steps."
+  (interactive)
+  (heks/scheme-repl--command ",step"))
+
+(defun heks/scheme-debug-step-out ()
+  "Run until the current frame of Guile returns."
+  (interactive)
+  (heks/scheme-repl--command ",finish"))
 
 ;;
 ;; ====== Artanis: a web application, run and read ======

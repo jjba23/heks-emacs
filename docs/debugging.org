@@ -2,37 +2,50 @@
 #+author: Josep Bigorra
 #+options: toc:2
 
-Three kinds of program are debugged here, and each has the same shape: one
+Four kinds of program are debugged here, and each has the same shape: one
 key starts the program with a debugger attached, the session's own keys are
-the same for all three, and everything the debugger cannot guess -- which
-binary, which main class, which environment -- is a setting with a name.
-This page is how to use it, and what to do when a session does not start.
+the same for all four, and everything the debugger cannot guess -- which
+binary, which main class, which environment, which crate -- is a setting
+with a name.  This page is how to use it, and what to do when a session
+does not start.
 
 * What is set up, and where
 
 | What | Where it lives | What drives it |
 |------+----------------+----------------|
-| Guile Scheme, and Artanis | ~guile.el~ | Geiser's REPL and debugger |
+| Guile Scheme, and Artanis | ~guile.el~ | Geiser's REPL, Guile's traps and its debugger commands |
 | C, C++ and GTK 4 | ~dev-formats.el~ | `dape` over `gdb --interpreter=dap`, or GUD |
+| Rust | ~rust.el~ | `dape` over `lldb-dap` or a `gdb` that speaks DAP, or GUD with `rust-gdb` |
 | Java, Kotlin, Maven and Gradle | ~heks-emacs.el~ | `dape` over Eclipse `java-debug` |
 
 A debug session is one topic, ~C-c b~, whichever debugger is behind it:
-once attached, ~C-c b b~ toggles a breakpoint, ~C-c b c~ continues, ~C-c b n~
-steps over, ~C-c b i~ steps in, ~C-c b o~ steps out, ~C-c b r~ opens the
-debugger's REPL and ~C-c b k~ ends the session.  What differs is the key that
-*starts* it: ~C-c g B~ for Guile, ~C-c b d~ for C, ~C-c b g~ for GTK, and
-~C-c j d~ for the JVM.
+once something is stopped, ~C-c b b~ toggles a breakpoint, ~C-c b c~
+continues, ~C-c b n~ steps over, ~C-c b i~ steps in, ~C-c b o~ steps out,
+~C-c b r~ opens the debugger's prompt and ~C-c b k~ ends the session.
+
+Those seven keys ask *whichever* debugger is live rather than naming one
+(`heks/debug--dape-p', `heks/debug--gud-p', `heks/debug--scheme-p'), so the
+hand that learned them on a C program knows them in a Scheme buffer, in a
+Rust crate and in a JVM.  What differs is only the key that *starts* it:
+~C-c b d~ for C, ~C-c b g~ for GTK, ~C-c b I~ for the GTK inspector,
+~C-c b s~ for Guile, ~C-c R d~ for Rust and ~C-c j d~ for the JVM.
+
+A key with nothing to drive says so, and names the key that would start a
+session in the buffer it was pressed in.
 
 If a session does nothing, ~C-c ! d~ (the doctor) says whether ~gdb~,
-~guile~, ~java~ or the adapter jar is there at all; a missing program is a
-line in that report rather than a key that fails silently.
+~lldb-dap~, ~cargo~, ~guile~, ~java~ or the adapter jar is there at all; a
+missing program is a line in that report rather than a key that fails
+silently.
 
 * Guile Scheme
 
 ** The debug REPL
 
-~C-c g B~ starts the project's REPL -- the same one ~C-c g r~ starts -- and
-first evaluates Guile's own debugger settings there:
+~C-c b s~ starts the project's REPL with the debugger set up for a hunt;
+so does ~C-c g B~, which is the same command said in the topic the rest of
+the Scheme keys live in.  Either way it is the REPL ~C-c g r~ starts, and
+it first evaluates Guile's own debugger settings there:
 
 #+begin_src scheme
 (debug-set! stack 200000)
@@ -60,6 +73,39 @@ The habit that finds a bug fastest is the smallest loop: load the file
 once, then evaluate the one definition being changed and call it at the
 prompt.  The REPL is one per project, with the project root on Guile's load
 path, so `(use-modules (my project))` works from the first prompt.
+
+** Breakpoints, stepping and continuing
+
+A Guile breakpoint is a *trap*: `,break-at-source' asks the debugger to stop
+when control reaches a source location.  ~C-c b b~ in a Scheme buffer sends
+that for the line at point, and pressing it again on a line that already has
+one sends `,delete' for it -- the REPL's own `,traps' list is what says
+which is which, so the key and the REPL cannot disagree
+(`heks/scheme-breakpoint-toggle`).  A project with no REPL gets one, the way
+evaluating a definition does.
+
+When the trap fires the program is stopped at the debugger prompt, and the
+same four keys the other debuggers answer to move it on:
+
+| Key | What it does | What it sends |
+|-----+--------------+---------------|
+| ~C-c b n~ | Steps over the next expression. | `,next` |
+| ~C-c b i~ | Steps into the call at point. | `,step` |
+| ~C-c b o~ | Runs until the frame returns. | `,finish` |
+| ~C-c b c~ | Runs on past the trap. | `,q` |
+
+The key *sends the command to the prompt*, because Guile's debugger
+commands are REPL commands rather than expressions: `,next` is what one
+types at the prompt, and `heks/scheme-repl--command` types it there and
+reads what came back.  It waits for the REPL first -- Geiser drops input
+sent while an evaluation is pending -- and waits for the prompt to return
+before reading, so a key pressed at the wrong moment says nothing rather
+than acting on a guess.
+
+A trap does not kill the program: `,q` resumes it, which is what makes this
+a breakpoint rather than a pause.  The trap list belongs to the running
+image, so a restarted REPL (~C-c g R~) starts with none -- worth knowing
+before wondering why a breakpoint never fires.
 
 ** An error, and the debugger
 
@@ -246,6 +292,84 @@ debugging when the build system is Meson or CMake (~heks/c-debug--debug-build-hi
 A line breakpoint in such a binary stays pending, which looks like a
 breakpoint that never fires; a function breakpoint still works.
 
+* Rust, with Cargo
+
+** The build, the program and the debugger
+
+~C-c R d~ debugs this crate.  It is a `dape` session like the others, so the
+seven ~C-c b~ keys are the ones that move the program, and what it does
+before it starts is the part a debugger cannot guess:
+
+1. The crate is the nearest ~Cargo.toml~ walking up from the buffer
+   (`heks/rust-root`), which is the crate the file belongs to rather than
+   the workspace at the top of a checkout.
+2. The crate is rebuilt with `cargo build`, run by `dape` and waited for: a
+   session on a binary from before the edit is the classic way to chase a
+   bug that is no longer there.  A build that fails is a session that does
+   not start, with the compiler's own errors in the compilation buffer.
+3. The program is the one the manifest says this crate produces: `cargo
+   metadata --no-deps` names the binary targets and the directory the build
+   goes in, so `target/debug/<name>` is an answer rather than a guess.  A
+   crate with several binaries is debugged in the one the buffer is in,
+   then the one named after the crate, then the first.
+4. The adapter is `lldb-dap` when the machine has it, then the older
+   `lldb-vscode`, then the `gdb` on the path if it is 14.1 or newer (the
+   version that speaks the Debug Adapter Protocol).  None of them is a
+   fallback to nothing: an older gdb runs the program under GUD with
+   `rust-gdb`, which is gdb with Rust's pretty printers loaded.
+
+The program and its arguments are settings -- `heks/rust-debug-program` and
+`heks/rust-debug-args` -- and a prefix argument (~C-u C-c R d~) asks for a
+file instead, which is the escape hatch for a layout the guess does not
+know.
+
+** Cargo, one key a task
+
+The crate's own tool is the topic, and the letters are the scheme's:
+
+| Key | What it runs |
+|-----+--------------|
+| ~C-c R b~ | `cargo build` |
+| ~C-c R B~ | `cargo build --release` |
+| ~C-c R t~ | `cargo test` (prefix: `-- --nocapture`) |
+| ~C-c R v~ | `cargo check` -- the fast half of a build |
+| ~C-c R l~ | `cargo clippy --all-targets` |
+| ~C-c R f~ | `cargo fmt` |
+| ~C-c R r~ | `cargo run`, with `RUST_BACKTRACE=1` (prefix: arguments) |
+| ~C-c R c~ | `cargo clean` |
+| ~C-c R a~ | `cargo add` |
+| ~C-c R u~ | `cargo update` |
+| ~C-c R T~ | `cargo tree` |
+| ~C-c R D~ | `cargo doc --no-deps --open` |
+| ~C-c R d~ | the program of this crate, debugged |
+
+Every one of them writes to a compilation buffer, so ~C-c ! n~ walks the
+errors and ~g~ runs the same command again.  Emacs reads rustc's own
+output -- `error[E0308]` and the `-->` line under it, and the
+`thread 'main' panicked at src/main.rs:3:5` a test or a runmode prints --
+with its `rust` and `rust-panic` rules, so both are links to the line and
+not text to read.
+
+** When no breakpoint is hit
+
+The three usual reasons, in the order they are worth checking:
+
+- *The binary is from before the edit.*  It should not happen -- the key
+  builds first -- but a `heks/rust-debug-program` pointing somewhere else
+  skips the crate's own answer.
+- *The code has no line table.*  A debug profile does: `cargo build` builds
+  `dev` unless a profile says otherwise, and a `[profile.dev]` with
+  `debug = 0` takes the line table away.  A `--release` binary has no
+  useful locals, which is what `C-c R B` is for and `C-c R b` is not.
+- *The line is optimised away.*  Even a debug profile inlines small
+  functions; breaking on the line inside one lands on its caller, or
+  nowhere.  A function breakpoint on the enclosing function is the
+  reliable version when a line breakpoint stays pending.
+
+A panic in a `cargo run` is not a debugger problem: `RUST_BACKTRACE=1` is
+already set for ~C-c R r~, so the frames it came through are printed with
+the panic rather than described as a variable to set and try again.
+
 * Java, Kotlin and Maven
 
 The JVM is debugged with `dape`'s `jdtls` configuration: Eclipse JDT LS
@@ -311,16 +435,30 @@ Kotlin debug adapter); the main-class prompt is already there.
 
 | Key | What it starts |
 |-----+----------------|
-| ~C-c g B~ | Guile's REPL with the debug settings, for a hunt. |
+| ~C-c b s~ | Guile's REPL with the debug settings, for a hunt. |
 | ~C-c g d~ | Back to Geiser's debugger after an error. |
 | ~C-c g D~ | The debugger's own commands (also ~,~ in the debug buffer). |
 | ~C-c b d~ | The C program of this project, under gdb. |
 | ~C-c b g~ | The GTK program, with its warnings fatal. |
 | ~C-c b I~ | The GTK inspector, in the running program. |
+| ~C-c R d~ | The Rust program of this crate, under lldb-dap or gdb. |
+| ~C-u C-c R d~ | Another program of the crate. |
 | ~C-c j d~ | The Java project, debugged through JDT LS, paused at entry. |
 | ~C-u C-c j d~ | Any main class of the project, under the JVM debugger. |
 | ~C-c g W~ | The Artanis application, started. |
 | ~C-c g O~ | The Artanis log, tailed. |
+
+And, once something is stopped, the same seven keys for all of them:
+
+| Key | What it does |
+|-----+--------------|
+| ~C-c b b~ | Toggle a breakpoint on this line. |
+| ~C-c b c~ | Continue to the next breakpoint. |
+| ~C-c b n~ | Step over the next line. |
+| ~C-c b i~ | Step into the call at point. |
+| ~C-c b o~ | Step out of the current function. |
+| ~C-c b r~ | The debugger's own prompt. |
+| ~C-c b k~ | End the session. |
 
 The complete list, generated from the code, is
 [[file:keybindings.org][the keybindings reference]]; the modules that own each of these are described
@@ -328,7 +466,7 @@ in [[file:modules.org][docs/modules.org]].
 
 * What to read next
 
-- [[file:modules.org][docs/modules.org]] -- the ~guile.el~, ~dev-formats.el~ and
+- [[file:modules.org][docs/modules.org]] -- the ~guile.el~, ~dev-formats.el~, ~rust.el~ and
   ~heks-emacs.el~ sections, with the reason each command is written that
   way.
 - [[file:keybindings.org][docs/keybindings.org]] -- every key under ~C-c~, and both letters of it.

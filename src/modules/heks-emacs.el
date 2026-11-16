@@ -183,171 +183,115 @@ palette."
     (message (format "generated UUID: %s" uid))
     (kill-new uid)))
 
-(defun heks/uuidgen-string ()
-  "Generate a UUID (Universally Unique Identifier) string.
+(defun heks/project-root (&optional directory)
+  "Return the root of the project DIRECTORY is in, or nil when it is in none.
 
-This function executes the `uuidgen` command-line utility and returns
-the generated UUID as a string, removing any trailing newline character
-that the command might produce.  It relies on the `uuidgen` program
-being available in your system's `exec-path`."
-  (string-replace "\n" "" (shell-command-to-string "uuidgen")))
+The `project' API answers -- the same `project-root' that
+`project-find-file' uses -- so a project is found the way Emacs finds one
+rather than by a rule of this configuration's own.  DIRECTORY defaults to
+`default-directory', and a directory in no project answers nil instead of
+guessing: the callers that can work without a project say so themselves
+(see `heks/terraform-root').
 
-(defun heks/do-in-project (f)
-  "Execute a function F with the root directory of a project as its argument.
+This replaced `vc-root-dir', which is asked the same question and answers
+nil unless VC happens to be turned on in the buffer (`vc-deduce-backend'
+looks at the buffer's own VC state), so a key pressed in a buffer that had
+no file answered nothing at all."
+  (let ((directory (expand-file-name (or directory default-directory))))
+    (when-let* ((project (project-current nil directory)))
+      (file-name-as-directory (expand-file-name (project-root project))))))
 
-F: A function that accepts a single argument, which will be the root
-   directory of the current version control project (a string).
+(defcustom heks/project-task-command "maak"
+  "The command that runs a task of the project a buffer is in.
 
-This function uses `vc-root-dir` to determine the root directory of the
-version control system (like Git, Mercurial, etc.) associated with the
-currently visited file or the current directory.  If a project root is
-found, it then calls the provided function F, passing the root directory
-as the sole argument.  If no version control root directory is found, F
-will be called with `nil`.
+It is `maak' because that is what the projects this configuration is
+developed with call their task runner.  A project whose tasks are a
+`Makefile`'s sets this to \"make\", and one whose runner is named
+something else sets it to that: the keys do not change."
+  :type 'string
+  :group 'heks)
 
-This function is useful for performing actions that need to be executed
-within the context of a project's root directory, such as running build
-commands, formatters, or linters."
-  (funcall f (vc-root-dir)))
+(defcustom heks/project-task-names
+  '((dev . "dev") (test . "test") (fmt . "fmt") (repl . "repl"))
+  "What each project task is called where the project defines it.
 
-(defun async-shell-to-buffer (cmd buf-name)
-  "Execute a shell command asynchronously and display its output in a buffer.
+The keys name what a task is *for* -- `heks/project-start-test' is the
+tests -- and this says what the project calls that task, so a project
+whose target is `serve' rather than `dev' says so here instead of being
+edited."
+  :type '(alist :key-type symbol :value-type string)
+  :group 'heks)
 
-CMD: The shell command to execute (a string).
-BUF-NAME: The name of the buffer to display the output in (a string).
+(defun heks/project-task (task)
+  "Return the name the current project gives TASK."
+  (or (alist-get task heks/project-task-names) (symbol-name task)))
 
-This function creates a new buffer with the given BUF-NAME and then
-executes the CMD using `async-shell-command`.  The standard output and
-standard error of the command are redirected to the newly created
-buffer, allowing the user to continue working in Emacs while the
-command runs in the background.  The buffer will be displayed when the
-command starts producing output."
-  (let ((output-buffer (generate-new-buffer buf-name)))
-    (async-shell-command cmd output-buffer output-buffer)))
+(defun heks/project-run (task &optional interactive)
+  "Run the project's TASK, showing what it says in a compilation buffer.
+
+TASK is a symbol: `dev', `test', `fmt' or `repl'.  It runs in the
+project's root (`heks/project-root') with the command and the task quoted
+one by one rather than pasted into a command line, and its output is a
+compilation buffer like every other build here: `C-c ! n' walks the
+errors, `g' runs it again, and the escape codes a tool writes are colours.
+
+INTERACTIVE runs the task in a comint buffer instead
+(`compilation-shell-minor-mode'), which is what a REPL or a server needs:
+its output is still a compilation buffer's, and what it asks for can be
+typed at it.
+
+A task that is still running is shown rather than started a second time --
+pressing the key while the development server is up puts point in its
+buffer, which is the answer one wants -- and pressing it after the task
+ended runs it again."
+  (let ((root (heks/project-root)))
+    (unless root
+      (user-error "No project above %s" default-directory))
+    (let* ((name (heks/project-task task))
+           (buffer-name (format "%s:%s" name (abbreviate-file-name root)))
+           (running (get-buffer buffer-name)))
+      (if (and running (get-buffer-process running))
+          (pop-to-buffer running)
+        (let ((default-directory root)
+              (compilation-buffer-name-function
+               (lambda (_mode) buffer-name)))
+          (compile (concat (shell-quote-argument heks/project-task-command)
+                           " " (shell-quote-argument name))
+                   interactive))))))
 
 (defun heks/project-start-repl-process ()
-  "Start a REPL process for the current project using `make repl`.
+  "Start the project's REPL task, `repl' unless the project says otherwise.
 
-This command attempts to locate the root directory of the current project
-and then executes `make repl` within that directory in an asynchronous
-shell process.  The output and interaction will be
-available in a dedicated buffer named \"repl:PROJECT-ROOT\", where
-PROJECT-ROOT is the name of the project's root directory.
-
-It relies on `heks/do-in-project` to determine the project root. Before
-running the `make` command, it inserts a separator and a message
-indicating the start of the project REPL session, along with the
-project directory, into the output buffer. If a buffer with the same
-name already exists, it is automatically closed without prompting.
-
-This command is designed to easily initiate a project-specific REPL
-environment defined by a `Makefile` with a `repl` target, facilitating
-interactive development and testing."
+It runs in a comint buffer (see `heks/project-run'), so the REPL can be
+typed at, and a REPL that is already running is shown rather than started
+twice."
   (interactive)
-  (heks/do-in-project (lambda(root-dir)
-                       (let* ((sep "==============================================")
-                              (msg (format "%s\nstarting a project REPL process for %s\n%s\n" sep root-dir sep))
-                              (cmd (format "echo \"%s\" && cd %s && maak repl" msg root-dir))
-                              (buf-name (format "repl:%s" root-dir)))
-                         (ignore-errors
-                           (with-current-buffer buf-name
-                             (progn
-                               (set-buffer-modified-p nil)
-                               (kill-matching-buffers-no-ask buf-name))))
-                         (async-shell-to-buffer cmd buf-name)))))
+  (heks/project-run 'repl 'interactive))
 
 (defun heks/project-fmt ()
-  "Start the formatting process for the current project using `make fmt`.
+  "Run the project's formatting task, `fmt' unless the project says otherwise.
 
-This command attempts to find the root directory of the current project
-and then executes `make fmt` within that directory in an asynchronous
-shell process.  The output of the formatting process will be displayed
-in a dedicated buffer named \"fmt:PROJECT-ROOT\", where PROJECT-ROOT is
-the name of the project's root directory.
-
-It uses `heks/do-in-project` to identify the project root. Before
-running the `make` command, it prints a separator and a message
-indicating the start of the formatting process, along with the project
-directory, in the output buffer. If a buffer with the same name
-already exists, it is automatically closed without prompting.
-
-This command is intended to easily initiate a project-wide code
-formatting procedure defined by a `Makefile` with an `fmt` target,
-helping to maintain consistent code style across the project."
+The output is a compilation buffer (see `heks/project-run'), which is
+where a formatter's complaints arrive as lines to walk with `C-c ! n'."
   (interactive)
-  (heks/do-in-project (lambda(root-dir)
-                       (let* ((sep "==============================================")
-                              (msg (format "%s\nstarting format process for %s\n%s\n" sep root-dir sep))
-                              (cmd (format "echo \"%s\" && cd %s && maak fmt" msg root-dir))
-                              (buf-name (format "fmt:%s" root-dir)))
-                         (ignore-errors
-                           (with-current-buffer buf-name
-                             (progn
-                               (set-buffer-modified-p nil)
-                               (kill-matching-buffers-no-ask buf-name))))
-                         (async-shell-to-buffer cmd buf-name)))))
+  (heks/project-run 'fmt))
 
 (defun heks/project-start-dev ()
-  "Start a development session for the current project using `make dev`.
+  "Start the project's development task, `dev' unless the project says so.
 
-This command attempts to locate the root directory of the current project
-and then executes `make dev` within that directory in an asynchronous
-shell process.  The output and interaction will be
-available in a dedicated buffer named \"dev:PROJECT-ROOT\", where
-PROJECT-ROOT is the name of the project's root directory.
-
-It relies on `heks/do-in-project` to determine the project root. Before
-running the `make` command, it inserts a separator and a message
-indicating the start of the project DEV session, along with the
-project directory, into the output buffer. If a buffer with the same
-name already exists, it is automatically closed without prompting.
-
-This command is designed to easily initiate a project-specific DEV
-environment defined by a `Makefile` with a `dev` target, facilitating
-interactive development and testing."
+It runs in a comint buffer (see `heks/project-run'), so a server that
+asks something can be answered, and a server that is already up is shown
+rather than started twice."
   (interactive)
-  (heks/do-in-project (lambda(root-dir)
-                       (let* ((sep "==============================================")
-                              (msg (format "%s\nstarting a dev session for %s\n%s\n" sep root-dir sep))
-                              (cmd (format "echo \"%s\" && cd %s && maak dev" msg root-dir))
-                              (buf-name (format "dev:%s" root-dir)))
-                         (ignore-errors
-                           (with-current-buffer buf-name
-                             (progn
-                               (set-buffer-modified-p nil)
-                               (kill-matching-buffers-no-ask buf-name))))
-                         (async-shell-to-buffer cmd buf-name)))))
+  (heks/project-run 'dev 'interactive))
 
 (defun heks/project-start-test ()
-  "Start the test suite for the current project using `make test`.
+  "Run the project's tests, which is its `test' task unless it says otherwise.
 
-This command attempts to locate the root directory of the current project
-and then executes `make test` within that directory in an asynchronous
-shell process.  The output of the test execution will be displayed in a
-dedicated buffer named \"test:PROJECT-ROOT\", where PROJECT-ROOT is the
-name of the project's root directory.
-
-It uses `heks/do-in-project` to identify the project root. Before
-running the `make` command, it prints a separator and a message
-indicating the start of the testing process, along with the project
-directory, in the output buffer. If a buffer with the same name
-already exists, it is automatically closed without prompting.
-
-This command is intended to easily initiate the project's test suite,
-as defined by a `Makefile` with a `test` target, facilitating the
-process of verifying the project's functionality."
+The output is a compilation buffer (see `heks/project-run'), so a failing
+test is a line `C-c ! n' walks to rather than text to read."
   (interactive)
-  (heks/do-in-project (lambda(root-dir)
-                       (let* ((sep "==============================================")
-                              (msg (format "%s\nstarting tests for %s\n%s\n" sep root-dir sep))
-                              (cmd (format "echo \"%s\" && cd %s && maak test" msg root-dir))
-                              (buf-name (format "test:%s" root-dir)))
-                         (ignore-errors
-                           (with-current-buffer buf-name
-                             (progn
-                               (set-buffer-modified-p nil)
-                               (kill-matching-buffers-no-ask buf-name))))
-                         (async-shell-to-buffer cmd buf-name)))))
+  (heks/project-run 'test))
 
 
 (defun heks/new-buffer-with-json (buffer-name data)

@@ -59,10 +59,11 @@ described only by a letter.
 | ~C-f~ | JSON log view: filtering, kept off `C-c f' (font sizes) |
 | ~C-g~ | JSON log view: filtering by raw text, kept off `C-c g' (Guile and Guix) |
 | ~C-t~ | JSON log view: the menu of its own commands |
+| ~R~ | Rust: Cargo, its tools and the debugger |
 | ~SPC~ | dashboard |
 | ~U~ | Kubernetes: kubed, from a menu |
 | ~a~ | API and HTTP: OpenAPI specs and requests |
-| ~b~ | breakpoints and the debugger: dape, gdb and the GTK inspector |
+| ~b~ | breakpoints and the debugger: dape, GUD and Guile |
 | ~c~ | containers: Docker |
 | ~d~ | databases: PostgreSQL and MongoDB |
 | ~e~ | environment: direnv |
@@ -111,6 +112,10 @@ in every other topic.
 | ~C-d~ | ~r~ | the diagram in the region |
 | ~C-d~ | ~b~ | the diagrams in this buffer |
 | ~C-d~ | ~f~ | the diagrams in this file |
+| ~R~ | ~B~ | the project, built for release |
+| ~R~ | ~D~ | the documentation of this crate, built and opened |
+| ~R~ | ~T~ | the tree of this project's dependencies |
+| ~R~ | ~c~ | the build output, deleted (the build tool's `clean') |
 | ~a~ | ~b~ | the request written as a block to paste |
 | ~b~ | ~b~ | a breakpoint at point, toggled |
 | ~b~ | ~c~ | the program, continued to the next breakpoint |
@@ -119,6 +124,7 @@ in every other topic.
 | ~b~ | ~I~ | the GTK inspector, in the running program |
 | ~b~ | ~i~ | into the call at point, stepped |
 | ~b~ | ~o~ | out of the current function, stepped |
+| ~b~ | ~s~ | the Guile REPL, started with its debugger set up |
 | ~c~ | ~d~ | Docker |
 | ~d~ | ~p~ | PostgreSQL |
 | ~d~ | ~m~ | the MongoDB shell |
@@ -171,6 +177,8 @@ in every other topic.
 | ~j~ | ~D~ | the dependencies of this project |
 | ~j~ | ~T~ | the tree of this project's dependencies |
 | ~j~ | ~R~ | the project's classpath, reloaded |
+| ~j~ | ~c~ | the build output, deleted (the build tool's `clean') |
+| ~j~ | ~p~ | the artefact of this project, built (the build tool's `package') |
 | ~l~ | ~l~ | a library, opened by name |
 | ~l~ | ~L~ | a library, loaded from disk |
 | ~l~ | ~p~ | the parentheses of this buffer |
@@ -215,6 +223,7 @@ in every other topic.
 | ~r~ | ~n~ | a slide boundary, inserted |
 | ~r~ | ~P~ | the buffer, presented |
 | ~r~ | ~r~ | render it again |
+| ~r~ | ~s~ | the preview, moved to the section point is in |
 | ~s~ | ~a~ | an alist accessor out of a string one |
 | ~s~ | ~c~ | the snippet at point, completed |
 | ~s~ | ~h~ | a hygguile class set out of a list of classes |
@@ -222,6 +231,7 @@ in every other topic.
 | ~s~ | ~x~ | the named snippet, expanded |
 | ~t~ | ~a~ | the lines, sorted |
 | ~t~ | ~c~ | the fill column indicator |
+| ~t~ | ~i~ | a UUID, generated onto the kill ring |
 | ~t~ | ~o~ | Olivetti, writing in the middle of the window |
 | ~t~ | ~r~ | colour names, shown as colours |
 | ~t~ | ~w~ | the whitespace at the end of the lines |
@@ -240,6 +250,7 @@ in every other topic.
 | ~w~ | ~G~ | the Git history of the project, summarised |
 | ~w~ | ~g~ | a search of the project |
 | ~w~ | ~i~ | the providers and state, initialised |
+| ~w~ | ~l~ | the languages of the project, measured |
 | ~w~ | ~O~ | one repository, as onefetch describes it |
 | ~w~ | ~s~ | a random order for the standup |
 | ~x~ | ~t~ | the chat window, shown or hidden |
@@ -327,6 +338,24 @@ in every other topic.
 |-----+---------+--------------+----|
 | ~C-c C-t~ | ~json-log-view-transient~ | the log view commands in this buffer, from a menu | dev-kubernetes.el (a mode's own map) |
 
+** ~C-c R~ Rust: Cargo, its tools and the debugger
+
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c R B~ | ~heks/rust-build-release~ | the project, built for release | rust.el |
+| ~C-c R D~ | ~heks/rust-doc~ | the documentation of this crate, built and opened | rust.el |
+| ~C-c R T~ | ~heks/rust-tree~ | the tree of this project's dependencies | rust.el |
+| ~C-c R a~ | ~heks/rust-add~ | a dependency, added to this crate | rust.el |
+| ~C-c R b~ | ~heks/rust-build~ | the project, built | rust.el |
+| ~C-c R c~ | ~heks/rust-clean~ | the build output, deleted | rust.el |
+| ~C-c R d~ | ~heks/rust-debug~ | the program of this crate, debugged | rust.el |
+| ~C-c R f~ | ~heks/rust-fmt~ | the code, formatted by `cargo fmt' | rust.el |
+| ~C-c R l~ | ~heks/rust-clippy~ | the project, linted by clippy | rust.el |
+| ~C-c R r~ | ~heks/rust-run~ | the program, run by `cargo run' | rust.el |
+| ~C-c R t~ | ~heks/rust-test~ | the tests, run by `cargo test' | rust.el |
+| ~C-c R u~ | ~heks/rust-update~ | the dependencies, updated | rust.el |
+| ~C-c R v~ | ~heks/rust-check~ | the project, checked by `cargo check' | rust.el |
+
 ** ~C-c SPC~ dashboard
 
 | Key | Command | What it does | In |
@@ -349,20 +378,21 @@ in every other topic.
 | ~C-c a r~ | ~heks/openapi-request~ | the operation, sent as a live request | openapi.el |
 | ~C-c a v~ | ~heks/openapi-view~ | the spec, rendered to read | openapi.el |
 
-** ~C-c b~ breakpoints and the debugger: dape, gdb and the GTK inspector
+** ~C-c b~ breakpoints and the debugger: dape, GUD and Guile
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
 | ~C-c b I~ | ~heks/gtk-inspector~ | the GTK inspector, in the running program | dev-formats.el |
-| ~C-c b b~ | ~dape-breakpoint-toggle~ | a breakpoint at point, toggled | dev-formats.el |
-| ~C-c b c~ | ~dape-continue~ | the program, continued to the next breakpoint | dev-formats.el |
+| ~C-c b b~ | ~heks/debug-toggle-breakpoint~ | a breakpoint at point, toggled | dev-formats.el |
+| ~C-c b c~ | ~heks/debug-continue~ | the program, continued to the next breakpoint | dev-formats.el |
 | ~C-c b d~ | ~heks/c-debug~ | the C program of this project, debugged | dev-formats.el |
 | ~C-c b g~ | ~heks/gtk-debug~ | the GTK program, debugged with GTK's warnings fatal | dev-formats.el |
-| ~C-c b i~ | ~dape-step-in~ | into the call at point, stepped | dev-formats.el |
-| ~C-c b k~ | ~dape-kill~ | the debug session, killed | dev-formats.el |
-| ~C-c b n~ | ~dape-next~ | the next line, stepped over | dev-formats.el |
-| ~C-c b o~ | ~dape-step-out~ | out of the current function, stepped | dev-formats.el |
-| ~C-c b r~ | ~dape-repl~ | a REPL into the debuggee | dev-formats.el |
+| ~C-c b i~ | ~heks/debug-step-in~ | into the call at point, stepped | dev-formats.el |
+| ~C-c b k~ | ~heks/debug-kill~ | the debug session, killed | dev-formats.el |
+| ~C-c b n~ | ~heks/debug-next~ | the next line, stepped over | dev-formats.el |
+| ~C-c b o~ | ~heks/debug-step-out~ | out of the current function, stepped | dev-formats.el |
+| ~C-c b r~ | ~heks/debug-repl~ | a REPL into the debuggee | dev-formats.el |
+| ~C-c b s~ | ~heks/scheme-debug-repl~ | the Guile REPL, started with its debugger set up | dev-formats.el |
 
 ** ~C-c c~ containers: Docker
 
@@ -421,7 +451,7 @@ in every other topic.
 | ~C-c g g~ | ~xref-find-definitions~ | the definition of the symbol at point | guile.el (a mode's own map) |
 | ~C-c g h~ | ~heks/scheme-documentation~ | the documentation of the symbol at point | guile.el (a mode's own map) |
 | ~C-c g k~ | ~heks/scheme-interrupt~ | the running Guile, interrupted | guile.el (a mode's own map) |
-| ~C-c g m~ | ~heks/scheme-generic-methods~ | the generic methods of this symbol | guile.el (a mode's own map) |
+| ~C-c g m~ | ~heks/scheme-generic-methods~ | the generic methods of this symbol, from a menu | guile.el (a mode's own map) |
 | ~C-c g o~ | ~geiser-connect~ | a REPL that is already running | guile.el (a mode's own map) |
 | ~C-c g p~ | ~guix-package-location-on-mark~ | the package at the mark | guile.el (a mode's own map) |
 | ~C-c g r~ | ~heks/scheme-repl~ | a Geiser REPL for this project | guile.el (a mode's own map) |
