@@ -169,6 +169,7 @@
     ("java" "JVM" . "Maven and Gradle projects cannot be built or debugged")
     ("cargo" "rust" . "the Rust keys say what is missing")
     ("lldb-dap" "rust" . "a Rust program is debugged with gdb, or with GUD when that gdb is older than 14.1")
+    ("delta" "git" . "Magit draws its own diff, without delta's colours")
     ("node" "dev-langs" . "the JavaScript language server cannot run")
     ("pandoc" "dev-formats" . "documents are not converted between formats"))
   "The external programs this configuration expects, and why.

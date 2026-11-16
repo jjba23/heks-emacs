@@ -21,6 +21,199 @@ commit, and `heks/about' is where a reader finds it without opening the
 changelog.  One number, named in one place: the release is the diff
 between this and the tag before it.")
 
+(defconst heks/module-declarations
+  '(
+    ;; `heks-emacs.el' is loaded by `init.el' before the list -- it is where
+    ;; the settings, the version and this table live -- and `darwin.el' is
+    ;; loaded by name on macOS only; the check wants a declaration for every
+    ;; file in `src/modules', so the two are declared first.
+    (:module heks-emacs
+     :purpose "The configuration itself: its version, its settings, its about, its project tasks."
+     :topics ())
+    (:module darwin
+     :purpose "The things that are only true on macOS, loaded before the modules that read them."
+     :topics ())
+    (:module ai
+     :purpose "Two front ends, GPTel and ECA, over the provider a project records."
+     :topics ("x"))
+    (:module common-lisp
+     :purpose "Common Lisp, through SLY and SBCL."
+     :topics ())
+    (:module completion
+     :purpose "The minibuffer and the completion at point: Vertico and Corfu."
+     :topics ("p"))
+    (:module consult
+     :purpose "Consult's searching commands, which read whatever has been typed."
+     :topics ())
+    (:module dashboard
+     :purpose "The start screen, which says where a session can begin."
+     :topics ("SPC"))
+    (:module dev-langs
+     :purpose "The modes of the languages this configuration edits."
+     :topics ())
+    (:module dev-tools
+     :purpose "Editing helpers, the doctor, and the tools that belong to no language."
+     :topics ("!" "c" "e" "t" "z"))
+    (:module dev-flymake
+     :purpose "Flymake's checkers, and keeping them beside a language server."
+     :topics ())
+    (:module dev-hover
+     :purpose "The documentation that follows the pointer."
+     :topics ("i"))
+    (:module dev-formats
+     :purpose "Data formats, the JVM languages, and the debugger."
+     :topics ("b" "j"))
+    (:module dev-kubernetes
+     :purpose "Kubernetes, and reading the JSON log a container writes."
+     :topics ("C-c" "C-f" "C-g" "C-t" "U" "u"))
+    (:module dev-folding
+     :purpose "Folding and navigation, by Hideshow and Tree-sitter."
+     :topics ())
+    (:module dev-project
+     :purpose "The project: its tasks, EditorConfig, Maak, Terraform, SQL and the languages in it."
+     :topics ("m" "w"))
+    (:module dd
+     :purpose "Burning an ISO to a device, for when there is no dd in the muscle memory."
+     :topics ())
+    (:module dired
+     :purpose "Dired, with the extras that make a directory a place to work."
+     :topics ())
+    (:module duplicates
+     :purpose "The code a project writes more than once."
+     :topics ())
+    (:module editor
+     :purpose "The editor itself: editing as root, growing the region, jumping by its letter."
+     :topics ("#" "z"))
+    (:module eglot
+     :purpose "The language server, and which server each language gets."
+     :topics ("i" "j"))
+    (:module emacs-core
+     :purpose "The key scheme, the settings, and the base the other modules are read on."
+     :topics ("!" "#" "d" "h" "i" "j" "l" "t" "v" "w"))
+    (:module irc
+     :purpose "IRC, through Circe."
+     :topics ())
+    (:module git
+     :purpose "Git, through Magit, with delta drawing its diffs."
+     :topics ())
+    (:module github-repo
+     :purpose "A GitHub repository's settings, captured, applied and verified."
+     :topics ())
+    (:module go
+     :purpose "Go, through go-mode."
+     :topics ())
+    (:module guile
+     :purpose "Guile, Guix and Artanis: the REPL, the debugger and its traps."
+     :topics ("g" "s"))
+    (:module help
+     :purpose "The documentation of what is at point, and the tour for a new reader."
+     :topics ("h"))
+    (:module import
+     :purpose "A Markdown file or region, read into the notes as Org."
+     :topics ("n"))
+    (:module libs
+     :purpose "The libraries the rest of the packages are built on."
+     :topics ())
+    (:module notes
+     :purpose "The notes: one Org file per note, its topics and its index pages."
+     :topics ("n"))
+    (:module notes-graph
+     :purpose "The notes as a graph in the browser, and as a folding outline."
+     :topics ("n"))
+    (:module notes-auto
+     :purpose "The two things a note used to need a person for: its tags and its backlinks."
+     :topics ("n"))
+    (:module agenda
+     :purpose "The day: the agenda, the habits and the birthdays."
+     :topics ("n"))
+    (:module bookmarks
+     :purpose "bookmarks.org: the categories a bookmark is filed under, and the way in."
+     :topics ("n"))
+    (:module contacts
+     :purpose "contacts.org: the people, their addresses and their birthdays."
+     :topics ("n"))
+    (:module macros
+     :purpose "Recorded macros, and the package that shows how one was recorded."
+     :topics ())
+    (:module mail
+     :purpose "Gnus."
+     :topics ("o"))
+    (:module maps
+     :purpose "Maps, through osm."
+     :topics ())
+    (:module markdown
+     :purpose "Markdown, read twice: rendered to look at, and imported to work in."
+     :topics ())
+    (:module misc
+     :purpose "The odds and ends: the diary, speed-type, a PDF of a buffer."
+     :topics (";"))
+    (:module music
+     :purpose "A fretboard to write a chord on, and orpheus over MPD to play it."
+     :topics ())
+    (:module onefetch
+     :purpose "A repository as onefetch describes it."
+     :topics ("w"))
+    (:module openapi
+     :purpose "An OpenAPI specification: read, checked, and the request it describes."
+     :topics ("a"))
+    (:module org
+     :purpose "Org, and the agenda's own commands."
+     :topics ("C-#" "n"))
+    (:module plot
+     :purpose "Diagrams, through Mermaid."
+     :topics ("C-d"))
+    (:module present
+     :purpose "A document presented, and a deck exported."
+     :topics ("r"))
+    (:module proofreading
+     :purpose "Spelling, wherever a sentence is being written."
+     :topics ("t"))
+    (:module render
+     :purpose "A document as a themed page, with no network."
+     :topics ("r"))
+    (:module rust
+     :purpose "Rust: Cargo's tasks, and a debugged crate."
+     :topics ("R"))
+    (:module search
+     :purpose "The search, the jumps, and the occurrences of the symbol at point."
+     :topics ("w" "z"))
+    (:module shell
+     :purpose "Eshell with this configuration's prompt, and how a shell script is checked."
+     :topics ())
+    (:module sift
+     :purpose "sift: the formatter and the linter of the three Lisps."
+     :topics ("g"))
+    (:module snippets
+     :purpose "Tempel's snippets, and the Scheme ones written for this configuration."
+     :topics ("s"))
+    (:module theme
+     :purpose "The palettes, and the gallery that compares them."
+     :topics ("r"))
+    (:module ui
+     :purpose "The look of it: faces, separators, the readable faces, text scale and padding."
+     :topics ("f" "t"))
+    (:module veritas
+     :purpose "The Veritas test runner, from a Scheme buffer."
+     :topics ("g")))
+  "What each module is, and the part of the key scheme it owns.
+
+A module is a file in `src/modules/', and this is what it says about
+itself: the sentence a reader needs to know whether it is the file they
+want, and the topic letters of `heks/key-topics' whose keys may be bound
+in it.  The rule the check holds it to is the one the key scheme has
+always implied -- a key about notes goes in `notes.el' -- so the topics
+are declared here, `test/heks-emacs-modules.el' fails when a module binds
+a key under a topic it did not declare, when a topic has no owner, and
+when a module file and a declaration disagree, and `docs/modules.org'
+carries the same table for a reader.
+
+A topic may have several owners, because a topic is a subject rather than
+a file: `C-c n' is the notes system, and `agenda.el', `notes.el',
+`bookmarks.el' and the rest of that system each own it because each binds
+keys under it.  What is not allowed is a key under a topic nobody
+declared, which is what makes the sentence above a claim rather than a
+comment.")
+
 (defcustom heks/clone-dir nil
   "The directory where the HEKS-EMACS source code is located."
   :type 'string)

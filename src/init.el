@@ -73,6 +73,27 @@
 ;; Enable integration of use-package with Elpaca
 (elpaca elpaca-use-package (elpaca-use-package-mode))
 
+;; ====== The lock file ======
+;;
+;; Every package after the bootstrap is pinned by commit in
+;; `src/elpaca-lock.eld', which `maak lock-update' writes and `maak lock'
+;; checks.  It is a *menu*: `elpaca-menu-lock-file' answers for an
+;; identifier with the recipe the lock recorded, and putting it first is
+;; what makes a recipe resolve from the lock before MELPA's, so a clone on
+;; another machine builds the set this repository says rather than the set
+;; MELPA is serving today.  A package the lock does not know -- one just
+;; added -- falls through to the menus after it and is resolved the old
+;; way, which is why adding one is two steps (`use-package' it, then
+;; `maak lock-update') and not a wall.
+;;
+;; The bootstrap is deliberately not in it: `elpaca' and
+;; `elpaca-use-package' are read before this file's queue is processed, so
+;; their recipes (above) are the pin, and the lock starts where they end.
+(let ((lock (expand-file-name "elpaca-lock.eld" user-emacs-directory)))
+  (when (file-exists-p lock)
+    (setq elpaca-lock-file lock)
+    (add-to-list 'elpaca-menu-functions #'elpaca-menu-lock-file)))
+
 ;; `transient' is loaded the moment the first package that wants a menu is
 ;; read -- `justl' in `modules/dev-formats.el', `magit' in `modules/git.el',
 ;; `kubed' in `modules/dev-kubernetes.el', `pandoc-mode' -- and Elpaca

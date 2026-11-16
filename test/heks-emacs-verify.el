@@ -405,6 +405,26 @@ configuration."
 (heks-verify--check "and the stepping key asks whichever is live"
                     (key-binding (kbd "C-c b n")) 'heks/debug-next)
 
+;;; The lock file, in the installed configuration
+;;;
+;;; `src/elpaca-lock.eld' is Elpaca's state in the tree.  It having been
+;;; copied is one thing; being the menu Elpaca resolves a package from is
+;;; the one that makes it a pin, so both are checked -- an installed lock
+;;; that nothing reads is a file with a good name.
+(heks-verify--section "the package set has a lock, and it is the one in use")
+(heks-verify--check "the lock is installed"
+                    (file-exists-p (expand-file-name "elpaca-lock.eld" heks-verify--dir)))
+(heks-verify--check "`init.el' points Elpaca at it"
+                    (equal (ignore-errors elpaca-lock-file)
+                           (expand-file-name "elpaca-lock.eld" heks-verify--dir)))
+(heks-verify--check "and it is asked before the menus it was written from"
+                    (and (boundp 'elpaca-menu-functions)
+                         (eq (car elpaca-menu-functions) #'elpaca-menu-lock-file)))
+(when (boundp 'elpaca-menu-functions)
+  (let ((locked (ignore-errors (elpaca-menu-lock-file 'index))))
+    (heks-verify--check "the lock answers for the packages it names"
+                        (and (listp locked) (> (length locked) 100)))))
+
 
 ;;; A definition spread over several lines, which is what a real one looks
 ;;; like: Hideshow does not offer to hide a form that fits on one line, since

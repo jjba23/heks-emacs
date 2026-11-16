@@ -30,6 +30,11 @@
   ;; The script the configuration runs in a batch Emacs to build the
   ;; tree-sitter grammars, next to the configuration it belongs to.
   (cp "src/treesit-grammars.el" emacs-config-install-dir)
+  ;; The package lock: `init.el' reads it from the configuration directory
+  ;; and puts it in front of Elpaca's menu functions, so a package is
+  ;; installed from the commit the repository pinned rather than the one
+  ;; MELPA is serving.
+  (cp "src/elpaca-lock.eld" emacs-config-install-dir)
   (cp "src/modules" emacs-config-install-dir)
   (cp "src/snippets" emacs-config-install-dir))
 
@@ -88,6 +93,80 @@ Fast, and without loading any of the configuration: the renderer is a
 pure function from a string to HTML, so it is checked as one."
   (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-render.el")))
 
+(define (contrast)
+  "Check that no face goes invisible in the palettes that are installed.
+
+Reads each palette's own face specs -- the colours it writes for a
+true-colour display -- and computes the contrast between every foreground
+and the background behind it: the body text is held to WCAG AA (4.5:1),
+the faces a palette may paint faintly only to the point of being visible
+at all, and the separators, which are this configuration's own blend, to
+1.5:1.  A face a palette made nearly invisible is repainted at load
+(`heks/set-readable-faces'), and this reads the colour it ends up with, so
+a correction that stops working fails here.  A palette the machine does
+not have is skipped."
+  (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-contrast.el")))
+
+(define (lock)
+  "Check that the package set has a lock in the tree.
+
+`src/elpaca-lock.eld' is Elpaca's state promoted into the repository: one
+recipe per package, each pinned to a ref, so a clone on another machine
+builds the set this repository says.  This fails when a package the
+`use-package' forms ask for is not in the lock, and when an entry has no
+ref -- a lock entry that is not a pin is a line that looks like one."
+  (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-lock.el")))
+
+(define (lock-update)
+  "Write src/elpaca-lock.eld from the installed packages.
+
+Run it on a machine whose packages are where they should be, then read the
+diff: a bump is one commit per package, which is the reviewable shape a
+lock file is for.  The lock is a menu function of Elpaca's, and `init.el'
+puts it in front of the others, so the refs it records are what the next
+machine installs."
+  (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-lock.el")
+       #:env '("HEKS_LOCK_WRITE=1")))
+
+(define (modules)
+  "Check the module declarations against the modules and the keys.
+
+`heks/module-declarations', in `heks-emacs.el', says what each module is
+and which part of the key scheme it owns.  This reads it with the modules
+on disk, with `heks/key-topics' and with the bindings the key audit reads,
+and fails when a module has no declaration, when a declaration has no
+module, when a key is bound under a topic its own module did not declare,
+or when a topic has no module to answer for it.  It also fails while
+`docs/modules.org' and the declarations disagree."
+  (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-modules.el")))
+
+(define (modules-update)
+  "Write the table of modules into docs/modules.org from the declarations.
+
+Run it after changing `heks/module-declarations', then read the diff: the
+table is between the two markers, and nothing else of the page is touched."
+  (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-modules.el")
+       #:env '("HEKS_MODULES_WRITE=1")))
+
+(define (doctor)
+  "Check that the manual lists the programs the modules expect.
+
+`heks/doctor-programs', in `modules/dev-tools.el', is the knowledge;
+`docs/installation.org' carries the same table for a machine that is not
+running yet.  This fails while the two disagree, and on a program named
+twice, so a module cannot start needing something without the page a
+person reads before installing saying so."
+  (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-doctor.el")))
+
+(define (doctor-update)
+  "Write the doctor's table into docs/installation.org.
+
+Run it after adding a program to `heks/doctor-programs', then read the
+diff: the table is between the two markers, and nothing else of the page
+is touched."
+  (run (list "emacs" "-Q" "--batch" "-l" "test/heks-emacs-doctor.el")
+       #:env '("HEKS_DOCTOR_WRITE=1")))
+
 (define (test)
   "Run the configuration's own test suite.
 
@@ -136,7 +215,11 @@ machine has rather than a check that the list is complete."
   "Everything: parse the source, then check the installed configuration."
   (lint)
   (keys)
+  (modules)
+  (doctor)
+  (lock)
   (render)
+  (contrast)
   (test)
   (golden)
   (verify))

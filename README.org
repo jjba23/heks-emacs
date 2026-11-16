@@ -67,8 +67,11 @@ Two stills from the same GIF recording:
   that agree with each other instead of reporting every line twice.
 - *32+ palettes*, from Modus and the Ef collection to Catppuccin, Gruvbox,
   Kanagawa and Doom, with separators, faces and prose sizes derived from the
-  theme so that nothing goes invisible when you switch -- and ~maak themes~,
-  which renders one sample in every palette as a single page to compare.
+  theme so that nothing goes invisible when you switch -- which ~maak contrast~
+  checks: it reads every installed palette's own face specs, holds the body
+  text to WCAG AA and the separators to a visible line, repairs the faces a
+  palette paints the colour of its own background, and ~maak themes~ renders
+  one sample in every palette as a single page to compare.
 - *An Eshell worth living in:* a prompt with user, host, path and Git branch,
   aliases for the things you actually type, and project shells opened next to
   the code they belong to.
@@ -127,9 +130,12 @@ library the binary was linked against.
 
 The requirements in full, both ways to install -- with
 [[https://codeberg.org/jjba23/maak][Maak]], which is the recommended one, or by
-hand -- the first start, a five-minute tour of what to press first, and what to
-do when something is not right are in
-[[file:docs/installation.org][docs/installation.org]].
+hand -- the programs the modules expect (a table generated from
+`heks/doctor-programs`), the first start, a five-minute tour of what to press
+first, and what to do when something is not right are in
+[[file:docs/installation.org][docs/installation.org]].  The tour is executable as well as written: ~C-c h t~
+opens the five keys a beginner needs as one buffer, each one a button that
+runs the key it shows, and Which-Key beside it explains the rest.
 
 * Configuration
 

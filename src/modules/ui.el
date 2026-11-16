@@ -246,6 +246,132 @@ Emacs color format and a 16-bit hex string is returned."
   (seq-some (lambda (theme) (alist-get theme heks/window-divider-colors))
             themes))
 
+;;
+;; ====== Faces a palette may paint faintly, but not invisibly ======
+;;
+;; The README's claim is that the faces derive from the theme "so that
+;; nothing goes invisible when you switch", and the palettes are
+;; third-party: `ayu-light' paints its comments `gray70' on `#f9fbfc'
+;; (1.04:1, which is not a faint comment but an absent one) and
+;; `rose-pine-moon' paints `mode-line-inactive' in its own background
+;; colour.  A comment nobody can read is a bug in the palette, and the
+;; correction belongs here for the same reason the separators' does: the
+;; palette is a dependency, and this configuration is what makes the set
+;; readable together.
+
+(defcustom heks/face-contrast-floor 1.2
+  "The contrast a face must have before this configuration repaints it.
+
+A face below it is one a palette has painted the colour of its own
+background, and no dimming of it can help: it is repainted with the
+palette's own body colour, dimmed as little as it can be (see
+`heks/readable-color').  Nil leaves every palette exactly as it is."
+  :type '(choice (const :tag "leave the palettes alone" nil) number)
+  :group 'heks)
+
+(defconst heks/readable-target-ratio 3.0
+  "The contrast a repainted face is brought to: WCAG AA for large text.
+
+It is the floor `heks/readable-color' aims at rather than the point at
+which it starts working, because a face repainted to exactly the point of
+visibility would be a face nobody reads.")
+
+(defconst heks/readable-faces
+  '(font-lock-comment-face
+    font-lock-comment-delimiter-face
+    font-lock-doc-face
+    shadow
+    line-number
+    mode-line-inactive
+    header-line)
+  "The faces a palette is allowed to paint faintly, but not invisibly.
+
+They are the quiet ones -- comments, docstrings, shadows, the line
+numbers, everything about a mode line that is not the current window --
+and every palette here paints them on purpose.  What is not allowed is
+painting them the colour of their own background, which is what these are
+checked for and corrected when it happens.")
+
+(defun heks/contrast-ratio (foreground background)
+  "Return the WCAG 2.1 contrast ratio between FOREGROUND and BACKGROUND.
+
+The arithmetic in the specification, over the relative luminance of the
+two colours, and nil when either of them is a colour this cannot read.
+It is asked by `heks/readable-color' before it repaints a face, and by
+`test/heks-emacs-contrast.el' of every palette: one function, so that the
+number the correction aims at and the number the check reports are the
+same number."
+  (let ((one (heks/color-components foreground))
+        (two (heks/color-components background)))
+    (when (and one two)
+      (let ((luminance
+             (lambda (components)
+               (let ((channels
+                      (mapcar (lambda (value)
+                                (let ((channel (/ value 65535.0)))
+                                  (if (<= channel 0.03928)
+                                      (/ channel 12.92)
+                                    (expt (/ (+ channel 0.055) 1.055) 2.4))))
+                              components)))
+                 (+ (* 0.2126 (nth 0 channels))
+                    (* 0.7152 (nth 1 channels))
+                    (* 0.0722 (nth 2 channels)))))))
+        (let ((first (funcall luminance one))
+              (second (funcall luminance two)))
+          (/ (+ (max first second) 0.05) (+ (min first second) 0.05)))))))
+
+(defun heks/readable-color (foreground background &optional body)
+  "Return FOREGROUND when it can be read on BACKGROUND, or a readable one.
+
+FOREGROUND is returned untouched when its contrast is at least
+`heks/face-contrast-floor', which is every face of every palette that
+paints one on purpose.  Below that the face is one the palette has painted
+the colour of the background, so BODY -- the palette's own body colour --
+is dimmed toward the background as little as it can be and still reach
+`heks/readable-target-ratio'.  A comment stays quiet in the palette it
+belongs to, and stops being invisible."
+  (if (and heks/face-contrast-floor
+           (let ((ratio (heks/contrast-ratio foreground background)))
+             (or (null ratio) (< ratio heks/face-contrast-floor))))
+      (or (seq-some (lambda (weight)
+                      (let ((color (heks/blend-colors body background weight)))
+                        (and (>= (or (heks/contrast-ratio color background) 0)
+                                 heks/readable-target-ratio)
+                             color)))
+                    '(0.9 0.8 0.7 0.6 0.5 0.4 0.3 0.2 0.1 0.0))
+          body)
+    foreground))
+
+(defun heks/face-color (face attribute)
+  "Return FACE's resolved ATTRIBUTE when it is a color, or nil."
+  (let ((value (ignore-errors (face-attribute face attribute nil t))))
+    (and (stringp value)
+         (not (string-prefix-p "unspecified" value))
+         value)))
+
+(defun heks/set-readable-faces (&rest _)
+  "Repaint the faces a palette has painted the colour of its background.
+
+The palette is left alone wherever it painted a face that can be read;
+what this corrects is the faces that cannot, in the palette's own body
+colour dimmed toward its own background (`heks/readable-color'), so the
+result still looks like the palette and not like this configuration's
+opinion.  Run on a theme change and on a new frame, beside the separators,
+for the same reason: a palette is a dependency, and this is where the two
+are made to agree."
+  (when heks/face-contrast-floor
+    (ignore-errors
+      (let ((body (heks/face-color 'default :foreground))
+            (background (heks/window-color :background "#000000")))
+        (when body
+          (dolist (face heks/readable-faces)
+            (let* ((face-background (or (heks/face-color face :background) background))
+                   (foreground (heks/face-color face :foreground))
+                   (readable (and foreground
+                                  (heks/readable-color foreground face-background body))))
+              (when (and readable (not (equal readable foreground)))
+                (set-face-attribute face nil :foreground readable)))))))))
+
 (defun heks/window-divider-color ()
   "Return the color used to draw the separators between windows.
 
@@ -686,14 +812,15 @@ prose, Org, Markdown and ECA keep their proportions at any scale."
   (heks/set-window-divider-faces))
 
 (defun heks/refresh-faces (&rest _)
-  "Re-apply the HEKS-EMACS faces and the window separator colors.
+  "Re-apply the HEKS-EMACS faces, the separators and the readable faces.
 
 Registered on `tekengrootte-set-scale-hook' and on
 `enable-theme-functions', so a new text scale or a new theme is always
 reflected in the UI."
   (interactive)
   (heks/set-base-faces)
-  (heks/set-window-divider-faces))
+  (heks/set-window-divider-faces)
+  (heks/set-readable-faces))
 
 (defun new-frame-setup ()
   "Scale the UI on the first frame and re-apply the faces on every frame."
@@ -821,6 +948,14 @@ reflected in the UI."
 (add-hook 'enable-theme-functions #'heks/set-window-divider-faces 10)
 (add-hook 'window-divider-mode-hook #'heks/set-window-divider-faces 10)
 (add-hook 'after-make-frame-functions #'heks/set-window-divider-faces 10)
+
+;; And the same for the faces a palette may paint the colour of its own
+;; background: `ayu-light' does it to comments and `rose-pine-moon' to the
+;; inactive mode line, so a comment there is a comment nobody can read.
+;; `test/heks-emacs-contrast.el' is the check that this is enough.
+(heks/set-readable-faces)
+(add-hook 'enable-theme-functions #'heks/set-readable-faces 10)
+(add-hook 'after-make-frame-functions #'heks/set-readable-faces 10)
 
 (use-package svg-lib
   :ensure (:host github :repo "rougier/svg-lib" :branch "master"))

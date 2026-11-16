@@ -12,14 +12,21 @@ maak emacs-update   # pull Emacs master, rebuild and reinstall it
 maak lint           # parse every file, catch a parenthesis or a module list out of date
 maak keys           # the whole key tree; fail on a key that means two things
 maak keys-update    # write docs/keybindings.org from the keys that are there
+maak modules        # every module's declaration, and that no key leaves its topic
+maak modules-update # write the table of modules into docs/modules.org
+maak doctor         # the programs the modules expect, against docs/installation.org
+maak doctor-update  # write that table into the manual
+maak lock           # the package set has a lock, and every package is in it
+maak lock-update    # write src/elpaca-lock.eld from the installed packages
 maak render         # check the Markdown renderer on its own
+maak contrast       # no face goes invisible in the palettes that are installed
 maak test           # the configuration's own ERT suite
 maak golden         # compare the renderers with the pages they produced last time
 maak golden-update  # write those pages again, deliberately, then read the diff
 maak stats          # the line, definition and decision counts
 maak themes         # one page with the sample rendered in every palette
 maak verify         # install, load it all in a batch Emacs, assert the invariants
-maak check          # lint, keys, render, test, golden, verify -- everything
+maak check          # lint, keys, modules, doctor, lock, render, contrast, test, golden, verify
 #+end_src
 
 The one task that is not a check is ~maak emacs-update~: it pulls the Emacs
@@ -34,7 +41,39 @@ Run ~maak check~ before you send a patch. If a golden page changes because you
 meant it to, ~maak golden-update~ is how you say so -- then read the diff it
 leaves in ~test/golden/~ before committing it.
 
+Four of the checks are the manual held to the code, and each has a task that
+writes the part it checks, so the answer to "the page is out of date" is never
+"edit the page": ~maak keys-update~ writes the keybindings reference from the
+key tables, ~maak modules-update~ writes the table of modules from
+`heks/module-declarations', ~maak doctor-update~ writes the programs the
+modules expect into [[file:installation.org][docs/installation.org]], and nothing writes the palettes'
+contrast -- that one is measured.  A change that adds a key, a module or a
+program therefore reaches the manual through the same task that checks it.
+
+** The package lock
+
+~src/elpaca-lock.eld~ is Elpaca's state promoted into the repository: one
+recipe per package, each pinned to a ~:ref~, written by ~maak lock-update~
+from a machine whose packages are where they should be.  ~init.el~ puts it in
+front of Elpaca's menu functions, so a package is resolved from the lock
+before MELPA is asked, and a clone on another machine builds the set this
+repository says rather than the set MELPA is serving.  A package the lock does
+not know -- one just added -- falls through to the menus after it, which is
+why adding one is two steps: ~use-package~ it, then ~maak lock-update~.
+
+~maak lock~ fails when a queued package is missing from the lock and when an
+entry has no ~:ref~; it does not compare the refs with the checkouts, because
+the lock is what the repository says and a machine whose sources are elsewhere
+differs without anything being wrong.  What a bump looks like is
+~git diff src/elpaca-lock.eld~ -- one commit per package, which is the shape a
+lock file is for -- and that diff is what a review reads.  The bootstrap,
+~elpaca~ and ~elpaca-use-package~, is not in it: those are read before the
+lock is, so their recipes in ~init.el~ are their pin.
+
 The tests need nothing installed: the modules are loaded from ~src~ by name with
 ~use-package~ stubbed out, so what is tested is the code rather than whether a
 package happens to be present, and a test that needs something this machine does
-not have says so and is skipped rather than failing.
+not have says so and is skipped rather than failing.  ~maak contrast~ and
+~maak modules~ read the palettes and the modules that are here; a palette the
+machine does not have is skipped, and the module check reads the bindings from
+the source rather than from a loaded keymap.

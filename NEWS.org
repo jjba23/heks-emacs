@@ -7,6 +7,95 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** Unreleased
+
+*** Added
+
+- *The palettes are checked, not promised.*  ~maak contrast~ reads every
+  installed palette's own face specs -- the colours it writes for a
+  true-colour display, because a batch frame is a text terminal where
+  `face-attribute' answers `unspecified-bg' for Modus and the Ef collection
+  and `color-values' snaps a colour to the terminal's eight -- and computes
+  the WCAG contrast ratio between every foreground and the background behind
+  it.  The body text is held to AA (4.5:1), the separators to 1.5:1 (they are
+  this configuration's own blend, `heks/window-divider-contrast'), and the
+  faces a palette may paint faintly only to the point of being visible at
+  all.  The arithmetic is `heks/contrast-ratio' in `ui.el', so the number the
+  correction aims at and the number the check reports are one number.
+
+  The check found four faces that were not faint but absent: `ayu-light'
+  paints its comments `gray70' on `#f9fbfc' (1.04:1), and `rose-pine-moon'
+  paints `mode-line-inactive' in its own background colour.  So
+  `heks/set-readable-faces' -- run on a theme change and on a new frame,
+  beside the separators -- repaints a face a palette made nearly invisible
+  with the palette's own body colour, dimmed as little as it can be and still
+  reach 3:1 (`heks/readable-color').  The README said nothing goes invisible
+  when you switch; this is what makes that a fact.
+
+- *Every module is a declaration, and the declaration is checked.*
+  `heks/module-declarations', in `heks-emacs.el', gives each of the 56 modules
+  a one-sentence purpose and the key topics whose keys may be bound in it.
+  ~maak modules~ reads it with the modules on disk, with `heks/key-topics'
+  and with the bindings the key audit reads, and fails when a module has no
+  declaration, when a declaration has no module, when a key is bound under a
+  topic its own module did not declare -- the rule the modules have always
+  been written by, enforced -- or when a topic has no module to answer for it.
+  ~maak modules-update~ writes `docs/modules.org`'s table from the same
+  declarations, so the page cannot stop saying what the modules say.  A topic
+  may have several owners, because a topic is a subject rather than a file:
+  `C-c n` is the notes system, and its modules each own it.
+
+- *The doctor's table is in the manual, generated.*  `heks/doctor-programs`
+  was data in `dev-tools.el` and a report from `C-c ! d`; it is now also the
+  table in `docs/installation.org`, written by ~maak doctor-update~ and held
+  there by ~maak doctor~, so a module cannot start needing a program without
+  the page a person reads before installing saying so.  ~delta~ joined the
+  list: Magit's diffs are drawn with it, and the README named it before the
+  doctor did.
+
+- *The package set has a lock in the tree.*  `src/elpaca-lock.eld` is
+  Elpaca's state promoted into the repository -- one recipe per package, each
+  with a `:ref` -- written by ~maak lock-update~, checked by ~maak lock~, and
+  installed next to `init.el`, which puts it in front of Elpaca's menu
+  functions.  A clone on another machine now builds the set this repository
+  says rather than the set MELPA is serving.  A package the lock does not know
+  falls through to the menus after it, so adding one is two steps, and the
+  bootstrap (`elpaca', `elpaca-use-package') is not in it: those are read
+  before the lock is, so their recipe in `init.el` is their pin.  ~maak
+  verify~ asserts the lock is installed, that `init.el` points at it, that it
+  is asked before the other menus, and that it answers for the packages it
+  names.
+
+- *The tour is executable.*  ~C-c h t~ was a page about the five keys a
+  beginner needs; each step is a button now, and RET runs the key it shows
+  (`heks/tour-run', which asks `key-binding' so a step cannot point at a
+  command that has moved).  ~C-c h d~ says which key it is explaining as well
+  as what it does -- `C-c n f: a note, found by title' -- so the echo is an
+  answer to the stroke a reader is looking at.
+
+*** Checks
+
+- ~maak check~ is green: lint 183, keys 0 findings (2 deliberate conflicts),
+  modules 56 declared and 35 topics owned with 0 failures, doctor 22 programs
+  and 0 failures, lock 134 packages pinned and 0 failures, render 33, contrast
+  30 palettes and 630 checks with 0 failures (4 faces repainted, 172 below AA
+  as the palettes' own choice), test 312 with one skipped (no ~terraform~
+  here), golden 5 matched, and verify 460.
+
+- Both new checks were also watched failing, because a check that cannot fail
+  is decoration: ~maak modules~ failed when a key was bound in `mail.el`
+  under `C-c a` (a topic mail did not declare), ~maak doctor~ failed when one
+  row of the table was edited by hand, and ~maak contrast~ carries a negative
+  control -- a face painted its own background -- which the same arithmetic
+  has to reject, and does.
+
+- The lock was checked as used rather than present: `maak install-emacs-config`
+  copies it, `init.el` points `elpaca-lock-file' at it and puts
+  `elpaca-menu-lock-file' first in `elpaca-menu-functions', and `maak verify'
+  asserts all three in a batch Emacs that then loads every package.  The
+  palettes' four repaints are `rose-pine-moon: mode-line-inactive',
+  `ayu-dark: shadow' and `ayu-light's two comment faces.
+
 ** v1.34.0 (2026-11-16)
 
 *** Added

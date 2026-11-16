@@ -709,7 +709,11 @@ in a table by its `|', and both are stripped before the reading."
 
 `which-key' shows the same sentence while the key is being typed; this is
 that sentence for a key that is being read -- in the reference, in a note,
-or in a bug report -- without leaving the buffer."
+or in a bug report -- without leaving the buffer.  The key itself is part
+of the answer: the sentence is what the key *does*, and the reader who
+asked for it is looking at a stroke rather than at a name, so the echo
+says both (`C-c n f: a note, found by title') and `C-c h d' on a line of
+the reference repeats what the reference says about it."
   (interactive)
   (let* ((key (heks/key-at-point))
          (description (and key (heks/key-description key))))
@@ -717,7 +721,7 @@ or in a bug report -- without leaving the buffer."
       (user-error "No key under or after point"))
     (unless description
       (user-error "The scheme has no sentence for %s" key))
-    (message "%s" description)))
+    (message "%s: %s" key description)))
 
 (defconst heks/tour-keys
   '(("C-c SPC SPC" . "Start here: the dashboard, and the five places a session begins.")
@@ -732,26 +736,50 @@ search, the project and the renderer -- and the sentence under each is
 read from `heks/key-descriptions' rather than written here, so the tour
 cannot say something the reference does not.")
 
+(defun heks/tour-run (key)
+  "Run KEY, the key a step of the tour stands for.
+
+The tour shows the five keys a beginner needs and says what each does; this
+makes the step the key itself, so the buffer a reader is looking at is also
+the way to press them.  KEY is the scheme's spelling -- `C-c n c' -- and
+what runs is whatever `key-binding' answers for it now, so a step cannot
+point at a command that has moved."
+  (interactive "sKey: ")
+  (let ((command (key-binding (kbd key))))
+    (unless (commandp command)
+      (user-error "Nothing is bound to %s in this buffer" key))
+    (call-interactively command)))
+
 (defun heks/tour ()
   "Open the tour: the first five keys, each with the scheme's sentence.
 
 The menu of a prefix is shown by `which-key' while the prefix is being
 typed; the tour is the same teaching for the keys one does not yet know
-to press.  Return the buffer it made."
+to press.  Each step is a button: RET runs it, which is the difference
+between a page about the keys and the keys themselves.  Return the buffer
+it made."
   (interactive)
   (let ((buffer (get-buffer-create "*heks tour*"))
         (number 0))
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
         (erase-buffer))
-      (insert "# A tour of heks-emacs\n\n"
+      (insert "A tour of heks-emacs\n\n"
               "Five keys, each one a real command from the keybindings reference.\n"
-              "Press them in order, or read the sentence under each and press the\n"
-              "one you need; nothing here is a demo mode.\n")
+              "RET on a key runs it; the sentence under each is the scheme's own,\n"
+              "so what the tour says and what which-key shows are the same words.\n")
       (dolist (step heks/tour-keys)
         (setq number (1+ number))
-        (insert (format "\n%d. ~%s~\n\n   %s\n\n   %s\n"
-                        number (car step) (cdr step)
+        (insert (format "\n%d. " number))
+        (insert-text-button
+         (car step)
+         'action (lambda (button)
+                   (heks/tour-run (button-get button 'heks-key)))
+         'heks-key (car step)
+         'follow-link t
+         'help-echo (format "Run %s" (car step)))
+        (insert (format "\n\n   %s\n\n   %s\n"
+                        (cdr step)
                         (or (heks/key-description (car step)) ""))))
       (insert "\nThen press ~C-c~ and let which-key explain the rest; every\n"
               "topic, every key and both letters of it are in the reference:\n"

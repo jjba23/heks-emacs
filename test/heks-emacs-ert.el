@@ -4276,8 +4276,11 @@ the strokes on the line around point rather than a word."
     (search-backward "C-c n")
     (should (equal (heks/key-at-point) "C-c n"))))
 
-(ert-deftest heks/key-scheme/explaining-a-key-says-its-sentence ()
-  "The sentence comes from the same table which-key shows while typing."
+(ert-deftest heks/key-scheme/explaining-a-key-says-both-the-key-and-its-sentence ()
+  "The sentence comes from the same table which-key shows while typing.
+
+The key is part of the answer: the reader is looking at a stroke, and the
+sentence alone would leave them to remember which stroke it was."
   (with-temp-buffer
     (insert "C-c n f")
     (goto-char (point-min))
@@ -4286,7 +4289,7 @@ the strokes on the line around point rather than a word."
                  (lambda (format &rest args)
                    (setq said (apply #'format format args)))))
         (heks/key-describe-at-point))
-      (should (equal said (heks/key-description "C-c n f"))))))
+      (should (equal said (format "C-c n f: %s" (heks/key-description "C-c n f")))))))
 
 ;;
 ;; ====== What this Emacs is running ======
@@ -4891,6 +4894,50 @@ the indented one `,traps' lists it with."
   (let ((heks/project-task-names '((dev . "serve"))))
     (should (equal (heks/project-task 'dev) "serve"))
     (should (equal (heks/project-task 'fmt) "fmt"))))
+
+;;
+;; ====== Faces a palette may paint faintly, but not invisibly ======
+;;
+
+(ert-deftest heks/contrast/the-ratio-is-the-specification-s-arithmetic ()
+  "White on black is the 21:1 the WCAG formula gives, and equal is 1:1."
+  (should (equal (round (heks/contrast-ratio "#ffffff" "#000000")) 21))
+  (should (equal (round (heks/contrast-ratio "#000000" "#000000")) 1))
+  (should (equal (round (heks/contrast-ratio "#cccccc" "#111122")) 12))
+  (should-not (heks/contrast-ratio "not-a-colour" "#000000")))
+
+(ert-deftest heks/contrast/a-readable-face-is-left-exactly-as-the-palette-made-it ()
+  "Only a face that is nearly invisible is repainted."
+  (should (equal (heks/readable-color "#cccccc" "#111122" "#cccccc") "#cccccc")))
+
+(ert-deftest heks/contrast/an-invisible-face-is-repainted-until-it-can-be-read ()
+  "The palette's own body colour, dimmed as little as it can be."
+  (let ((repainted (heks/readable-color "#111122" "#111122" "#cccccc")))
+    (should-not (equal repainted "#111122"))
+    (should (>= (heks/contrast-ratio repainted "#111122")
+                heks/readable-target-ratio))
+    ;; and it is dimmer than the body text, so a comment still reads as one
+    (should (< (heks/contrast-ratio repainted "#111122")
+               (heks/contrast-ratio "#cccccc" "#111122")))))
+
+(ert-deftest heks/contrast/the-repainted-faces-are-the-ones-a-palette-breaks ()
+  "The faces the check found invisible in a real palette are guarded."
+  (dolist (face '(font-lock-comment-face mode-line-inactive shadow line-number))
+    (should (memq face heks/readable-faces))))
+
+(ert-deftest heks/tour/a-step-runs-the-key-it-names ()
+  "The tour is executable: a step is the key it shows, not a description."
+  (let ((ran nil))
+    (cl-letf (((symbol-function 'key-binding) (lambda (_key) 'ignore))
+              ((symbol-function 'call-interactively)
+               (lambda (command &rest _) (setq ran command))))
+      (heks/tour-run "C-c n c")
+      (should (eq ran 'ignore)))))
+
+(ert-deftest heks/tour/a-step-with-no-command-says-which-key-is-missing ()
+  "A key nothing is bound to is said so, rather than run into a void."
+  (cl-letf (((symbol-function 'key-binding) (lambda (_key) nil)))
+    (should-error (heks/tour-run "C-c n c") :type 'user-error)))
 
 (unless (getenv "HEKS_ERT_NO_RUN")
   (ert-run-tests-batch-and-exit))
