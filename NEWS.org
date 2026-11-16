@@ -7,6 +7,145 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** v1.34.0 (2026-11-16)
+
+*** Added
+
+- *Rust has a topic of its own, `C-c R`, and its debugger is one key.*  A
+  crate is built by ~cargo~, so every task is a key rather than a command
+  remembered: ~C-c R b~ builds, ~B~ builds for release, ~t~ tests (prefix:
+  ~-- --nocapture~), ~v~ is ~cargo check~, ~l~ is clippy with
+  ~--all-targets~, ~f~ formats, ~r~ runs with `RUST_BACKTRACE=1` (prefix:
+  arguments), ~a~ adds a dependency, ~u~ updates them, ~T~ is the dependency
+  tree, ~D~ builds and opens the documentation, ~c~ cleans and ~d~ debugs.
+  Everything runs in the crate's own directory through ~compile~, so a Rust
+  build is the same compilation buffer as a C or a Maven one.
+  `heks/rust-debug` rebuilds the crate first (`cargo build`, run by dape and
+  waited for), takes the program `cargo metadata --no-deps` says the crate
+  produces -- the binary the buffer is in, then the one named after the
+  crate, under `target_directory`/debug -- and drives `lldb-dap`, then
+  `lldb-vscode`, then a gdb that speaks the Debug Adapter Protocol, and GUD
+  with `rust-gdb` when neither is there.  `heks/rust-debug-program` and
+  `heks/rust-debug-args` are the settings and ~C-u C-c R d~ asks for a file.
+  ~cargo~ and ~lldb-dap~ joined the doctor (~C-c ! d~).
+
+- *The debugger's keys are one set, whichever debugger answers.*  ~C-c b
+  b/c/n/i/o/r/k~ were dape's own commands; they are now
+  `heks/debug-toggle-breakpoint`, `-continue`, `-next`, `-step-in`,
+  `-step-out`, `-repl` and `-kill`, which ask whichever session is live --
+  dape, GUD, or Guile's debugger -- and, when there is none, say which key
+  would start one in that buffer.  dape keeps its breakpoints without a
+  session, so ~C-c b b~ places one *before* the program is started; under
+  GUD it toggles through gdb's breakpoint list instead of adding another;
+  in a Scheme buffer it is a trap.  The keys are bound by the module rather
+  than from dape's ~:bind~, because they are this configuration's commands
+  and not the package's.
+
+- *Scheme is broken and stepped like the other debuggers.*  ~C-c b b~ in a
+  Scheme buffer sets a Guile trap on the line
+  (`heks/scheme-breakpoint-toggle`, which reads the REPL's ~,traps~ to know
+  whether the line already has one, and starts the project's REPL when there
+  is none), and ~C-c b n/i/o/c~ send Guile's own ~,next~, ~,step~, ~,finish~
+  and ~,q~.  `heks/scheme-repl--command` is what types a command at the
+  prompt and reads the answer back: it waits for a pending evaluation before
+  sending, because Geiser drops input sent while one is in flight, and waits
+  for the prompt to return before reading.  ~C-c b s~ starts the project's
+  REPL with the debugger set up, which is ~C-c g B~ said in the topic where
+  a hunt begins.
+
+*** Changed
+
+- *The project's four keys are one function with a table in front of it.*
+  ~C-c w d~ (the development server), ~C-c w r~ (a REPL), ~C-c w t~ (the
+  tests) and ~C-c w f~ (the formatter) were four copies of the same twenty
+  lines, each assembling a shell string out of `echo`, `cd` and the project
+  directory, and each into a buffer of its own.  They are now
+  `heks/project-run' with a task name: the command and the task are quoted
+  one by one (`shell-quote-argument`, never a string built from data), the
+  output is the compilation buffer every other build here writes to
+  (~C-c ! n~ walks its errors, ~g~ runs it again, and the escape codes a
+  tool writes are colours), the two tasks that ask something run in a comint
+  buffer so they can be typed at, and a task that is still running is shown
+  rather than started a second time.  `heks/project-task-command` (default
+  ~maak~) and `heks/project-task-names` are the settings, so a project whose
+  runner is ~make~, or whose target is called ~serve~ rather than ~dev~, says
+  so without a key changing.  `async-shell-to-buffer`, which only these four
+  used, is gone with them.
+
+- *A letter that is the tool's own word is declared, not left to the
+  alphabet.*  The bird's-eye view of the scheme claimed a meaning for five
+  keys it had nothing to do with: ~C-c j c~ (clean) read as "show the
+  callers", ~C-c j p~ (package) as "preview", ~C-c w l~ (the languages of
+  the project) as "lint", ~C-c r s~ (the preview synced to the section point
+  is in) as "send to a REPL", and ~C-c t i~ (a UUID onto the kill ring) as
+  "insert".  Each is now declared in its topic's letters, so the alphabet
+  and the keys agree in both directions; ~C-c g m~ says it opens a menu,
+  which is what ~m~ means everywhere; and ~C-c b~'s sentence is "dape, GUD
+  and Guile" rather than "dape, gdb and the GTK inspector", because that
+  topic now answers for four debuggers.
+
+- *Key bindings are set with `keymap-set'.*  Sixty-three of them, across
+  thirteen modules, were `global-set-key' with a `(kbd "…")' string; they are
+  `(keymap-set global-map "…" #'command)' now -- the modern form, which
+  refuses a key sequence it cannot parse instead of binding nothing.  The
+  keys themselves are unchanged, and `maak keys` reads both forms, so the
+  whole tree is still audited.
+
+- *`heks/rust-debug-adapter' names the debugger a Rust program is driven
+  with.*  ~auto~ keeps the order (~lldb-dap~, ~lldb-vscode~, a ~gdb~ that
+  speaks DAP, then GUD with `rust-gdb`); naming one is for a machine that has
+  several installed and wants another first, and a named debugger that is
+  not here falls back to GUD rather than to a session that cannot start.
+
+*** Fixed
+
+- *The project keys had a second, silent way to fail.*  `heks/do-in-project`
+  asked `vc-root-dir`, which answers nil in any buffer where VC is not turned
+  on -- `*scratch*`, a buffer with no file -- so the key ran
+  ~cd nil && maak …~ in a hidden buffer and said nothing.  There is one
+  `heks/project-root' now, over `project.el', the API `project-find-file'
+  uses: it answers from the directory, and it is what the four modules that
+  each had a root rule of their own read -- the project tasks, the C
+  debugger's binary search (`heks/c-debug-root'), Terraform's
+  (`heks/terraform-root') and Scheme's (`heks/scheme-project-root').
+
+- `heks/uuidgen-string` was a second copy of what `heks/uuidgen` computes,
+  and nothing called it; it is gone.
+
+*** Checks
+
+- ~maak check~ is green: lint 179, keys 0 findings (2 deliberate conflicts),
+  render 33, test 306 with one skipped (no ~terraform~ on this machine),
+  golden 5 matched and verify 456.  The verify run is also where the new
+  keys are read off the *running* keymaps -- `C-c b b` is
+  `heks/debug-toggle-breakpoint`, `C-c b n` is `heks/debug-next`, `C-c b s`
+  and the thirteen ~C-c R~ keys are all bound -- rather than off the source,
+  which is what the key audit reads.  The project tasks were also run for
+  real in a throwaway git repository: `make test` under
+  `heks/project-task-command`, in the project root, in a buffer named
+  `test:<root>`.
+
+- The Guile side was exercised end to end against a real Guile 3.0.11 REPL:
+  `C-c b b`'s trap placed with `,break-at-source`, `(main)` stopping on it,
+  `,next` stepping to the next frame, `,q` running on past the trap, and the
+  trap taken off again by pressing the same key, with the REPL's `,traps`
+  the only record of which trap was which.
+
+- Rust is checked as far as a machine without a toolchain allows: the crate
+  lookup, the binary selected from a `cargo metadata` value, the command
+  each key runs, and the adapter chosen for the debuggers that are present.
+
+- *Performance was measured rather than guessed at, and nothing on a
+  frequently-run path needed changing.*  Loading the whole configuration in
+  a batch Emacs takes 0.69 s; `heks/which-key-setup` (every topic and every
+  key, at startup) 5.7 ms; the doctor's twenty-two programs 163 ms; and the
+  language breakdown of this repository (122 files) 27 ms.  What did change
+  is the shape of the work: four implementations of "which project is this"
+  became one, four task runners became one, and 170 lines went out of
+  `heks-emacs.el` with them.
+  Starting a Rust session needs ~cargo~ and an adapter, and neither is
+  installed here.
+
 ** v1.33.1 (2026-11-15)
 
 *** Fixed
