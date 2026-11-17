@@ -4998,17 +4998,51 @@ the indented one `,traps' lists it with."
 
 (defconst heks-ert--live-table "| a | b |\n|---|:-:|\n| 1 | 2 |\n\nafter\n")
 
-(ert-deftest heks/live/a-rule-row-becomes-a-box-rule-of-the-same-width ()
-  (should (equal (heks/live--rule-string "|---+---|") "├───┼───┤"))
-  (should (equal (heks/live--rule-string "|:--|--:|") "├───┼───┤")))
+(ert-deftest heks/live/a-table-is-one-box-with-aligned-columns ()
+  (let ((box (heks/live--render '("| a | bb |" "|---|--:|" "| 111 | 2 |") 80)))
+    (should (equal (substring-no-properties box)
+                   (string-join '("┌─────┬────┐"
+                                  "│ a   │ bb │"
+                                  "├─────┼────┤"
+                                  "│ 111 │  2 │"
+                                  "└─────┴────┘")
+                                "\n")))))
+
+(ert-deftest heks/live/a-long-cell-wraps-to-fit-the-width ()
+  (let* ((box (substring-no-properties
+               (heks/live--render
+                '("| k | v |" "|---|---|" "| x | one two three four five six seven |") 24)))
+         (lines (split-string box "\n")))
+    (should (cl-every (lambda (l) (<= (string-width l) 24)) lines))
+    (should (> (length lines) 5))))
+
+(ert-deftest heks/live/markup-in-a-cell-becomes-a-face-not-text ()
+  (let ((s (heks/live--plain "a `b` **c** [d](http://x) *e*")))
+    (should (equal s "a b c d e"))
+    (should (eq (get-text-property 2 'face s) 'heks/live-table-code))
+    (should (eq (get-text-property 4 'face s) 'bold))
+    (should (eq (get-text-property 6 'face s) 'link))
+    (should (eq (get-text-property 8 'face s) 'italic))))
+
+(ert-deftest heks/live/a-word-too-wide-is-split-after-its-hyphens-not-mid-word ()
+  (should (equal (heks/live--wrap "see a-very-long-name now" 10)
+                 '("see a-" "very-long-" "name now")))
+  (should (equal (heks/live--wrap "abcdefghij" 4) '("abcd" "efgh" "ij"))))
+
+(ert-deftest heks/live/a-word-that-fits-a-line-moves-down-whole ()
+  (should (equal (heks/live--wrap "aa well-known" 10) '("aa" "well-known"))))
+
+(ert-deftest heks/live/columns-shrink-to-their-longest-word-before-any-word-is-cut ()
+  (should (equal (heks/live--widths '(4 40) 30 '(4 9)) '(4 26)))
+  (should (equal (heks/live--widths '(20 20) 14 '(12 12)) '(7 7))))
 
 (ert-deftest heks/live/a-table-away-from-point-is-drawn ()
   (with-temp-buffer
     (insert heks-ert--live-table)
     (heks/live-tables (point-min) (point-max))
     (let ((shown (heks-ert--live-displays)))
-      (should (equal (cdr (assq 1 shown)) "│"))
-      (should (equal (cdr (assq 11 shown)) "├───┼───┤")))))
+      (should (= 1 (length shown)))
+      (should (string-prefix-p "┌" (cdar shown))))))
 
 (ert-deftest heks/live/the-table-point-is-in-stays-raw ()
   (with-temp-buffer
@@ -5031,19 +5065,16 @@ the indented one `,traps' lists it with."
     (should-not (heks-ert--live-displays))))
 
 (ert-deftest heks/live/an-escaped-pipe-is-not-a-cell-border ()
-  (with-temp-buffer
-    (insert "| a\\|b |\n|---|\n\nx\n")
-    (heks/live-tables (point-min) (point-max))
-    (should (= 3 (length (heks-ert--live-displays))))))
+  (should (equal (heks/live--cells "| a\\|b | c |") '("a\\|b" "c")))
+  (should (equal (heks/live--plain "a\\|b `x`") "a|b x")))
 
 (ert-deftest heks/live/a-table-without-leading-pipes-is-drawn ()
   (with-temp-buffer
     (insert "a | b\n--|--\n1 | 2\n\nafter\n")
     (heks/live-tables (point-min) (point-max))
     (let ((shown (heks-ert--live-displays)))
-      (should (equal (cdr (assq 3 shown)) "│"))
-      (should (equal (cdr (assq 7 shown)) "──┼──"))
-      (should (equal (cdr (assq 15 shown)) "│")))))
+      (should (= 1 (length shown)))
+      (should (string-match-p "│ 1 │ 2 │" (cdar shown))))))
 
 (ert-deftest heks/live/a-table-may-end-the-buffer-without-a-newline ()
   (with-temp-buffer
@@ -5107,7 +5138,7 @@ the indented one `,traps' lists it with."
     (org-mode)
     (goto-char (point-max))
     (heks/live-tables (point-min) (point-max))
-    (should (equal (mapcar #'car (heks-ert--live-displays)) '(35 39)))))
+    (should (equal (mapcar #'car (heks-ert--live-displays)) '(35)))))
 
 (ert-deftest heks/live/org-bullets-and-checkboxes-are-glyphs ()
   (with-temp-buffer

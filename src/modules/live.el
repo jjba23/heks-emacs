@@ -56,20 +56,201 @@ A rule needs a pipe: a bare `---' is a thematic break, not a table."
   "Return the text of this line."
   (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
 
-(defun heks/live--rule-string (line)
-  "Return the box-drawing rule that LINE, a table rule, is shown as.
-It is as wide as LINE, so the cells under it keep their columns."
-  (let* ((text (string-trim line))
-         (last (1- (length text))))
-    (propertize
-     (concat (seq-map-indexed
-              (lambda (char index)
-                (cond ((and (= index 0) (eq char ?|)) ?├)
-                      ((not (memq char '(?| ?+))) ?─)
-                      ((and (= index last) (eq char ?|)) ?┤)
-                      (t ?┼)))
-              text))
-     'face 'heks/live-table-border)))
+(defun heks/live--cells (line)
+  "Return the trimmed cell strings of the table row LINE.
+An escaped pipe is a character of its cell, not its border."
+  (let* ((s (string-trim line)) (n (length s))
+         (i (if (string-prefix-p "|" s) 1 0))
+         (start i) (cells nil))
+    (while (< i n)
+      (cond ((eq (aref s i) ?\\) (setq i (+ i 2)))
+            ((eq (aref s i) ?|)
+             (push (substring s start i) cells)
+             (setq i (1+ i) start i))
+            (t (setq i (1+ i)))))
+    (when (< start n) (push (substring s start) cells))
+    (mapcar #'string-trim (nreverse cells))))
+
+(defface heks/live-table-code '((t :inherit (heks/live-table font-lock-constant-face)))
+  "Face of a code span inside a table cell.")
+
+(defun heks/live--style (regexp text face)
+  "Return TEXT with each REGEXP match replaced by its group 1, in FACE."
+  (replace-regexp-in-string
+   regexp
+   (lambda (match)
+     (string-match regexp match)
+     (propertize (match-string 1 match) 'face face))
+   text t t))
+
+(defun heks/live--plain (cell)
+  "Return CELL as it reads: the markup is gone and what it meant is a face.
+A display string cannot hide markers the way the buffer does, so the
+markers are dropped and the span keeps the look the markers asked for."
+  (let ((text (replace-regexp-in-string "\\\\|" "|" cell t t))
+        (org (derived-mode-p 'org-mode)))
+    (dolist (rule `(("\\[\\([^]]+\\)\\]([^)]*)" . link)
+                    ("\\[\\[[^]]*\\]\\[\\([^]]+\\)\\]\\]" . link)
+                    ("\\[\\[\\([^]]+\\)\\]\\]" . link)
+                    ("`\\([^`]+\\)`" . heks/live-table-code)
+                    ,@(when org
+                        '(("=\\([^= ][^=]*\\)=" . heks/live-table-code)
+                          ("~\\([^~ ][^~]*\\)~" . heks/live-table-code)))
+                    ("\\*\\*\\([^*]+\\)\\*\\*" . bold)
+                    ("\\*\\([^* ][^*]*\\)\\*" . ,(if org 'bold 'italic))
+                    ("\\b_\\([^_]+\\)_\\b" . italic)))
+      (setq text (heks/live--style (car rule) text (cdr rule))))
+    text))
+
+(defun heks/live--aligns (line)
+  "Return the alignment of each column of the rule LINE: `left', `right' or `center'."
+  (mapcar (lambda (cell)
+            (let ((l (string-prefix-p ":" cell)) (r (string-suffix-p ":" cell)))
+              (cond ((and l r) 'center) (r 'right) (t 'left))))
+          (split-string (string-trim line "[ \t|]+" "[ \t|]+") "[|+]")))
+
+(defconst heks/live-break-regexp "[-/_.,:;]+"
+  "Where a word too wide for its column may be split, after the match.
+Splitting there keeps `a-very-long-name' or a path readable; a word with no
+such place is cut at the column edge as a last resort.")
+
+(defun heks/live--segments (word)
+  "Return WORD cut after each run of `heks/live-break-regexp'."
+  (let ((start 0) (segments nil))
+    (while (string-match heks/live-break-regexp word start)
+      (push (substring word start (match-end 0)) segments)
+      (setq start (match-end 0)))
+    (when (< start (length word)) (push (substring word start) segments))
+    (nreverse segments)))
+
+(defun heks/live--tokens (text width)
+  "Return TEXT as (PIECE . GLUE) pairs to lay out in a column WIDTH wide.
+GLUE is what goes before PIECE when it shares a line with the one before.
+A word that fits a line on its own is one piece, so it moves down whole
+rather than being split; only a word wider than WIDTH is cut into segments,
+glued to each other with nothing."
+  (cl-loop for word in (split-string text)
+           append (if (<= (string-width word) width)
+                      (list (cons word " "))
+                    (cl-loop for segment in (heks/live--segments word)
+                             for glue = " " then ""
+                             collect (cons segment glue)))))
+
+(defun heks/live--wrap (text width)
+  "Break TEXT into lines no wider than WIDTH.
+Greedy: words fill a line until the next does not fit.  A word wider than
+a whole line is split after its hyphens, slashes, dots and the like, and
+a piece that is still too wide is cut where the column ends."
+  (let ((lines nil) (line ""))
+    (pcase-dolist (`(,piece . ,glue) (heks/live--tokens text width))
+      (while (> (string-width piece) width)
+        (let ((head (truncate-string-to-width piece width)))
+          (unless (string-empty-p line) (push line lines) (setq line ""))
+          (push head lines)
+          (setq piece (substring piece (length head)))))
+      (cond ((string-empty-p line) (setq line piece))
+            ((<= (+ (string-width line) (length glue) (string-width piece)) width)
+             (setq line (concat line glue piece)))
+            (t (push line lines) (setq line piece))))
+    (nreverse (cons line lines))))
+
+(defun heks/live--shrink (widths floors avail)
+  "Return WIDTHS with the widest column above its floor narrowed until they fit AVAIL.
+Taking from the widest first leaves short columns, a name or a number,
+alone and makes the columns that carry prose pay for the space."
+  (let ((w (copy-sequence widths)))
+    (while (and (> (apply #'+ w) avail)
+                (let ((best nil))
+                  (cl-loop for i from 0 for x in w for f in floors
+                           when (and (> x f) (or (null best) (> x (nth best w))))
+                           do (setq best i))
+                  (when best (cl-decf (nth best w)) t))))
+    w))
+
+(defun heks/live--widths (natural avail floors)
+  "Return column widths from the NATURAL ones, shrunk to fit AVAIL columns.
+FLOORS is each column's longest word: columns give way down to it first, so
+no word is split while there is still room to avoid it.  Only if the table
+is still too wide do they go on down to six columns, where words are split."
+  (heks/live--shrink (heks/live--shrink natural floors avail)
+                     (mapcar (lambda (f) (min f 6)) floors)
+                     avail))
+
+(defun heks/live--pad (text width align)
+  "Pad TEXT to WIDTH columns according to ALIGN."
+  (let ((gap (max 0 (- width (string-width text)))))
+    (pcase align
+      ('right (concat (make-string gap ?\s) text))
+      ('center (concat (make-string (/ gap 2) ?\s) text
+                       (make-string (- gap (/ gap 2)) ?\s)))
+      (_ (concat text (make-string gap ?\s))))))
+
+(defun heks/live--border (widths left mid right)
+  "Return a horizontal box line over columns of WIDTHS."
+  (propertize
+   (concat left (mapconcat (lambda (w) (make-string (+ w 2) ?─)) widths mid) right)
+   'face 'heks/live-table-border))
+
+(defun heks/live--render (lines avail)
+  "Return the box-drawn string for table LINES, fitted to AVAIL columns.
+Rows above the first rule are the header; a rule line is a separator, and
+when a cell wraps, the body rows are separated so each stays readable."
+  (let* ((rule (seq-find #'heks/live--rule-line-p lines))
+         (aligns (and rule (heks/live--aligns rule)))
+         (rows (mapcar (lambda (l)
+                         (if (heks/live--rule-line-p l) 'rule
+                           (mapcar #'heks/live--plain (heks/live--cells l))))
+                       lines))
+         (data (seq-filter #'consp rows))
+         (ncols (apply #'max 1 (mapcar #'length data)))
+         (natural (cl-loop for c below ncols
+                           collect (apply #'max 1 (mapcar (lambda (r) (string-width (or (nth c r) ""))) data))))
+         (floors (cl-loop for c below ncols
+                          collect (min (nth c natural) 16
+                                       (apply #'max 1 (mapcar (lambda (r)
+                                                                (apply #'max 0 (mapcar #'string-width
+                                                                                       (split-string (or (nth c r) "")))))
+                                                              data)))))
+         (widths (heks/live--widths natural (- avail (* 3 ncols) 1) floors))
+         (bar (propertize "│" 'face 'heks/live-table-border))
+         (wrapped (cl-some (lambda (r)
+                             (cl-loop for c below ncols
+                                      thereis (> (string-width (or (nth c r) "")) (nth c widths))))
+                           data))
+         (out nil) (previous nil))
+    (let ((cut (and rule (seq-position lines rule))))
+      (push (heks/live--border widths "┌" "┬" "┐") out)
+      (cl-loop
+       for row in rows for index from 0
+       do (cond
+           ((eq row 'rule)
+            (setq previous 'rule)
+            (push (heks/live--border widths "├" "┼" "┤") out))
+           (t
+            (let* ((header (and cut (< index cut)))
+                   (cells (cl-loop for c below ncols
+                                   collect (heks/live--wrap (or (nth c row) "") (nth c widths))))
+                   (height (apply #'max (mapcar #'length cells)))
+                   (face (if header 'heks/live-table-header 'heks/live-table)))
+              (when (and wrapped (eq previous 'row))
+                (push (heks/live--border widths "├" "┼" "┤") out))
+              (dotimes (k height)
+                (push (concat bar
+                              (mapconcat
+                               (lambda (c)
+                                 (let ((cell (concat " " (heks/live--pad (or (nth k (nth c cells)) "")
+                                                                         (nth c widths)
+                                                                         (if header 'left (or (nth c aligns) 'left)))
+                                                     " ")))
+                                   ;; Appended, so a span's own face wins over the row's.
+                                   (add-face-text-property 0 (length cell) face t cell)
+                                   cell))
+                               (number-sequence 0 (1- ncols)) bar)
+                              bar)
+                      out))
+              (setq previous 'row)))))
+      (push (heks/live--border widths "└" "┴" "┘") out))
+    (mapconcat #'identity (nreverse out) "\n")))
 
 (defun heks/live--overlay (beg end &rest properties)
   "Make a live overlay from BEG to END carrying PROPERTIES."
@@ -140,33 +321,11 @@ a pipe."
           ((fboundp 'heks/markdown--block-at) (heks/markdown--block-at pos)))))
 
 (defun heks/live--draw-table (beg end)
-  "Draw the table between BEG and END: pipes as `│', rules as box rules."
-  (save-excursion
-    (goto-char beg)
-    (let ((first-rule (cl-loop while (< (point) end)
-                               when (heks/live--rule-line-p (heks/live--line-text))
-                               return (point)
-                               do (forward-line 1))))
-      (goto-char beg)
-      (while (< (point) end)
-        (let* ((bol (line-beginning-position))
-               (eol (line-end-position))
-               (start (progn (skip-chars-forward " \t") (point)))
-               (text (buffer-substring start eol)))
-          (if (heks/live--rule-line-p text)
-              (heks/live--overlay start eol 'display (heks/live--rule-string text))
-            (heks/live--overlay
-             start eol 'face (if (and first-rule (< bol first-rule))
-                                 'heks/live-table-header
-                               'heks/live-table))
-            (goto-char start)
-            ;; An escaped pipe is a character of the cell, not its border.
-            (while (search-forward "|" eol t)
-              (unless (eq (char-before (1- (point))) ?\\)
-                (heks/live--overlay
-                 (1- (point)) (point)
-                 'display (propertize "│" 'face 'heks/live-table-border)))))
-          (forward-line 1))))))
+  "Draw the table between BEG and END as one box, fitted to the window."
+  (let* ((window (get-buffer-window (current-buffer) t))
+         (avail (if window (- (window-body-width window) 2) 78))
+         (lines (split-string (buffer-substring-no-properties beg end) "\n")))
+    (heks/live--overlay beg end 'display (heks/live--render lines avail))))
 
 (defun heks/live-tables (beg end)
   "Draw every table that touches BEG..END, except the one point is in.
@@ -430,6 +589,12 @@ The line point is on is left as source."
       (with-silent-modifications
         (heks/live--undecorate bol (line-end-position))))))
 
+(defun heks/live--redraw-window ()
+  "Draw the tables in view again: a new window width wraps them differently."
+  (when-let* ((window (get-buffer-window (current-buffer))))
+    (heks/live--follow)
+    (heks/live-tables (window-start window) (window-end window t))))
+
 (defun heks/live--post-command ()
   "Keep the preview in step with point."
   (heks/live--follow)
@@ -449,6 +614,14 @@ on shows its source."
         (jit-lock-register #'heks/live-tables)
         (jit-lock-register #'heks/live-decorate)
         (add-hook 'post-command-hook #'heks/live--post-command nil t)
+        (add-hook 'window-configuration-change-hook #'heks/live--redraw-window nil t)
+        ;; Draw what is in view now, rather than when the first jit-lock pass
+        ;; happens to reach it.
+        (run-with-idle-timer 0 nil (lambda (buffer)
+                                     (when (buffer-live-p buffer)
+                                       (with-current-buffer buffer
+                                         (when heks/live-mode (heks/live--redraw-window)))))
+                             (current-buffer))
         (if (derived-mode-p 'org-mode)
             (progn
               (font-lock-add-keywords nil heks/live-org-keywords 'append)
@@ -459,6 +632,7 @@ on shows its source."
     (jit-lock-unregister #'heks/live-tables)
     (jit-lock-unregister #'heks/live-decorate)
     (remove-hook 'post-command-hook #'heks/live--post-command t)
+    (remove-hook 'window-configuration-change-hook #'heks/live--redraw-window t)
     (font-lock-remove-keywords nil heks/live-org-keywords)
     (heks/live--undecorate (point-min) (point-max))
     (heks/live--clear (point-min) (point-max)))
