@@ -7,6 +7,20 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** v1.39.1 (2026-11-17)
+
+*** Fixed
+
+- *The grammars this configuration names itself are built.*  A `.nix' file
+  opened with a warning that no grammar for `nix' could be found, and no
+  Tree-sitter at all, and the same went for Scala and Kotlin: the background
+  build walked the configuration's own recipes but asked
+  `treesit-install-language-grammar' to build them, and that reads the recipe
+  from `treesit-language-source-alist', where those three had never been put.
+  They are registered there before anything is built, so the first file of
+  each opens with its parser instead of Emacs looking for a library it was
+  never told how to make.
+
 ** v1.39.0 (2026-11-17)
 
 *** Added
