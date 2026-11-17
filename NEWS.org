@@ -7,6 +7,19 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** Unreleased
+
+*** Fixed
+
+- *A local image file is found by its name, not by what this Emacs can draw.*
+  `heks/live--image-file` asked `image-supported-file-p`, which answers nil
+  on a build without PNG, so `![diagram](diagram.png)` in a Markdown buffer
+  found no picture there at all -- while `heks/live--image`, the one that
+  draws it, already asks the display whether it can.  The file is chosen by
+  its name now (`image-type-from-file-name`), and whether it is drawn stays
+  the display's question.  The test that says so passed on this machine and
+  failed in CI, whose Emacs is built without image support.
+
 ** v1.38.0 (2026-11-17)
 
 *** Added

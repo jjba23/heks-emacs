@@ -468,12 +468,14 @@ picture gives the picture up while point is in it."
 (defun heks/live--image-file (url)
   "Return the readable image file the Markdown destination URL names, or nil.
 A destination with a scheme is not fetched: a preview that waits on a
-network is not one."
+network is not one.  The file is recognised by its name rather than by
+what this Emacs can draw, which `heks/live--image' asks: a build without
+PNG still knows a PNG when it is named."
   (when-let* (((stringp url))
               ((not (string-match-p "\\`[a-zA-Z][a-zA-Z0-9+.-]*:" url)))
               (file (expand-file-name (car (split-string url "#")) default-directory))
               ((file-readable-p file))
-              ((image-supported-file-p file)))
+              ((image-type-from-file-name file)))
     file))
 
 (defun heks/live--image (url)
