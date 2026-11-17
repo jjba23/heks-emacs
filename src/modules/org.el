@@ -25,6 +25,8 @@
   ;; single list -- and it is `A' rather than `a' because a note is what
   ;; `C-c n' opens and the agenda is what it opens all of them in.
   :bind (("C-c n v" . org-toggle-link-display)
+         ;; Obsidian-style rendering in place, on and off (`live.el').
+         ("C-c n V" . heks/live-mode)
          ("C-c n A" . org-agenda))
   :custom
   (org-todo-keywords '((sequence "TODO" "WIP" "REVIEWING" "|" "DONE")))
@@ -36,7 +38,12 @@
   (org-src-fontify-natively t)
   (org-src-tab-acts-natively t)
   (org-edit-src-content-indentation 0)
-  (org-startup-with-inline-images nil)
+  (org-startup-with-link-previews t)
+  ;; Formulas become pictures when LaTeX can make them; without it Org would
+  ;; only warn on every note that has one.
+  (org-startup-with-latex-preview (and (executable-find "latex")
+                                       (executable-find "dvipng")
+                                       t))
   (org-table-convert-region-max-lines 9999)
   ;; Open everything: a note is read, not consulted, and starting folded
   ;; left S-TAB to be pressed through before the file could be read.  It is

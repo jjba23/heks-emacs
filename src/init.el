@@ -198,6 +198,7 @@
                            help
                            import
                            libs
+                           live
                            notes
                            notes-graph
                            notes-auto

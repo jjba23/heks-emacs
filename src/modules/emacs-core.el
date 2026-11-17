@@ -264,6 +264,7 @@ g E' evaluates more than `C-c g e', `C-c v C' closes everything where
      ("s" . "the text of every note, searched")
      ("t" . "a topic folder, opened")
      ("T" . "the topics as a folding outline")
+     ("V" . "the live rendering of this buffer, on or off")
      ("u" . "the birthdays coming up")
      ("x" . "a todo, captured into the inbox")
      ("X" . "a habit, captured")
@@ -522,6 +523,7 @@ of its own and prints, for every key, what this scheme calls it.")
     ("C-c n M" . "the region of Markdown, converted to Org")
     ("C-c n m" . "the Markdown file of this buffer, imported as an Org note")
     ("C-c n v" . "links, shown as their text")
+    ("C-c n V" . "the live rendering of this Org or Markdown buffer, on or off")
     ("C-c n A" . "the agenda: every note's dates and TODOs, in one list")
     ("C-c o g" . "a group, read once")
     ("C-c o m" . "Gnus itself")
@@ -1843,7 +1845,7 @@ A destination with a scheme goes to the browser, anything else is a file."
         (when (get-text-property pos 'heks-md-glyph)
           (remove-text-properties
            pos next '(heks-md-glyph nil heks-md-url nil display nil keymap nil
-                                    mouse-face nil face nil)))
+                                    help-echo nil mouse-face nil face nil)))
         (setq pos next)))))
 
 (defun heks/markdown--unhide-line (beg end)
@@ -1890,6 +1892,7 @@ turns a list bullet into a dot and a task-list checkbox into a box."
                   (put-text-property te me 'invisible 'heks-md-line)
                   (add-text-properties
                    tb te `(heks-md-glyph t heks-md-url ,url face link
+                           help-echo ,url
                            mouse-face highlight
                            keymap ,heks/markdown-link-map)))))))))))
 

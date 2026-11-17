@@ -206,6 +206,7 @@ in every other topic.
 | ~n~ | ~s~ | the text of every note, searched |
 | ~n~ | ~t~ | a topic folder, opened |
 | ~n~ | ~T~ | the topics as a folding outline |
+| ~n~ | ~V~ | the live rendering of this buffer, on or off |
 | ~n~ | ~u~ | the birthdays coming up |
 | ~n~ | ~x~ | a todo, captured into the inbox |
 | ~n~ | ~X~ | a habit, captured |
@@ -549,6 +550,7 @@ in every other topic.
 | ~C-c n M~ | ~heks/markdown-region-to-org~ | the region of Markdown, converted to Org | import.el |
 | ~C-c n R~ | ~heks/notes-related-update-all~ | every note's backlinks block, brought up to date | notes-auto.el |
 | ~C-c n T~ | ~heks/notes-tree~ | the topics and notes as a folding outline in a buffer | notes-graph.el |
+| ~C-c n V~ | ~heks/live-mode~ | the live rendering of this Org or Markdown buffer, on or off | org.el |
 | ~C-c n X~ | ~heks/habit-capture~ | a habit, captured: a todo that repeats | agenda.el |
 | ~C-c n a~ | ~heks/notes-find-archived~ | an archived note, from a former employer | notes.el |
 | ~C-c n b~ | ~heks/bookmark-open~ | a bookmark, picked and opened (prefix: copied; twice: inserted as a link) | bookmarks.el |

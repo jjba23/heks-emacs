@@ -7,6 +7,12 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** Unreleased
+
+*** Added
+
+- *Org and Markdown render where they are written.*  ~live.el~ draws a table as a table (~│~ between the cells, a box rule under the header, the header in bold), a Markdown quote as a bar, a ~> [!WARNING]~ callout as ~⚠ Warning~, a horizontal rule as a rule, and in Org the ~#+begin_src~ / ~#+end_src~ and quote fences as ~┌─ lang~ and ~└─~.  Whatever point is on shows its source: the table it is in, the line it is on, and in Org only the emphasis or link it is inside rather than the whole line.  In Org a list bullet is a dot and a checkbox a box, link previews (images) are shown on opening a note (~org-startup-with-link-previews~, Org 9.8's name for inline images), and in Markdown ~visual-wrap-prefix-mode~ hangs a wrapped item under its text and a link shows its target on hover.  Overlays and display properties only: the text is never changed.  A Markdown table is drawn with or without leading pipes once its rule row is found (a pipe in a paragraph stays a pipe).  A Markdown image whose destination is a readable local file is shown inline (at most 600×400, never fetched) on a graphical display; an image that cannot be shown -- on a terminal, a missing file or a URL -- is a ~▣ alt~ label instead.  ~$formula$~ in Markdown is shown as its transliterated text, not a typeset picture.  In Org, formulas are previewed as pictures on opening when ~latex~ and ~dvipng~ are installed (~org-startup-with-latex-preview~; I could not run that path here, where neither is), and on a terminal or without them Org keeps the text and ~org-pretty-entities~.  A link or formula that is a picture gives the picture up while point is inside it, so its source can be edited, and is drawn again when point leaves.  ~C-c n V~ turns ~heks/live-mode~ on and off.
+
 ** v1.35.0 (2026-11-16)
 
 *** Added

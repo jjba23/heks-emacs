@@ -114,6 +114,9 @@ between this and the tag before it.")
     (:module libs
      :purpose "The libraries the rest of the packages are built on."
      :topics ())
+    (:module live
+     :purpose "Org and Markdown rendered where they are written: tables, quotes, fences, rules."
+     :topics ())
     (:module notes
      :purpose "The notes: one Org file per note, its topics and its index pages."
      :topics ("n"))

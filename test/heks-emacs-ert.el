@@ -54,7 +54,7 @@
   "Load the module NAME from the source tree and return its feature."
   (load (expand-file-name (format "modules/%s.el" name) heks-ert--source) nil t))
 
-(dolist (module '("markdown" "render" "import" "present" "heks-emacs" "emacs-core"
+(dolist (module '("markdown" "live" "render" "import" "present" "heks-emacs" "emacs-core"
                  "notes" "notes-graph" "notes-auto" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "dev-hover" "openapi" "sift" "duplicates" "shell" "guile" "rust" "theme" "ui" "ai" "github-repo" "onefetch"))
   (heks-ert--module module))
 
@@ -4938,6 +4938,195 @@ the indented one `,traps' lists it with."
   "A key nothing is bound to is said so, rather than run into a void."
   (cl-letf (((symbol-function 'key-binding) (lambda (_key) nil)))
     (should-error (heks/tour-run "C-c n c") :type 'user-error)))
+
+;;
+;; ====== The live preview of Org and Markdown ======
+;;
+
+(defun heks-ert--live-displays ()
+  "Return the (BEG . DISPLAY) of every live overlay, in buffer order."
+  (sort (delq nil (mapcar (lambda (o)
+                            (and (overlay-get o 'heks-live)
+                                 (overlay-get o 'display)
+                                 (cons (overlay-start o) (overlay-get o 'display))))
+                          (overlays-in (point-min) (point-max))))
+        (lambda (a b) (< (car a) (car b)))))
+
+(defconst heks-ert--live-table "| a | b |\n|---|:-:|\n| 1 | 2 |\n\nafter\n")
+
+(ert-deftest heks/live/a-rule-row-becomes-a-box-rule-of-the-same-width ()
+  (should (equal (heks/live--rule-string "|---+---|") "├───┼───┤"))
+  (should (equal (heks/live--rule-string "|:--|--:|") "├───┼───┤")))
+
+(ert-deftest heks/live/a-table-away-from-point-is-drawn ()
+  (with-temp-buffer
+    (insert heks-ert--live-table)
+    (heks/live-tables (point-min) (point-max))
+    (let ((shown (heks-ert--live-displays)))
+      (should (equal (cdr (assq 1 shown)) "│"))
+      (should (equal (cdr (assq 11 shown)) "├───┼───┤")))))
+
+(ert-deftest heks/live/the-table-point-is-in-stays-raw ()
+  (with-temp-buffer
+    (insert heks-ert--live-table)
+    (goto-char 3)
+    (heks/live-tables (point-min) (point-max))
+    (should-not (heks-ert--live-displays))))
+
+(ert-deftest heks/live/leaving-a-table-draws-it-and-entering-shows-it ()
+  (with-temp-buffer
+    (insert heks-ert--live-table)
+    (goto-char 3)
+    (heks/live--follow)
+    (should-not (heks-ert--live-displays))
+    (goto-char (point-max))
+    (heks/live--follow)
+    (should (heks-ert--live-displays))
+    (goto-char 3)
+    (heks/live--follow)
+    (should-not (heks-ert--live-displays))))
+
+(ert-deftest heks/live/an-escaped-pipe-is-not-a-cell-border ()
+  (with-temp-buffer
+    (insert "| a\\|b |\n|---|\n\nx\n")
+    (heks/live-tables (point-min) (point-max))
+    (should (= 3 (length (heks-ert--live-displays))))))
+
+(ert-deftest heks/live/a-table-without-leading-pipes-is-drawn ()
+  (with-temp-buffer
+    (insert "a | b\n--|--\n1 | 2\n\nafter\n")
+    (heks/live-tables (point-min) (point-max))
+    (let ((shown (heks-ert--live-displays)))
+      (should (equal (cdr (assq 3 shown)) "│"))
+      (should (equal (cdr (assq 7 shown)) "──┼──"))
+      (should (equal (cdr (assq 15 shown)) "│")))))
+
+(ert-deftest heks/live/a-table-may-end-the-buffer-without-a-newline ()
+  (with-temp-buffer
+    (insert "x\n\na | b\n--|--\n1 | 2")
+    (goto-char 1)
+    (with-timeout (5 (ert-fail "drawing a table at the end of the buffer hangs"))
+      (heks/live-tables (point-min) (point-max)))
+    (should (heks-ert--live-displays))))
+
+(ert-deftest heks/live/a-line-with-a-pipe-is-not-a-table-without-a-rule ()
+  (with-temp-buffer
+    (insert "a | b\nplain\n\nx\n")
+    (heks/live-tables (point-min) (point-max))
+    (should-not (heks-ert--live-displays))))
+
+(ert-deftest heks/live/a-markdown-image-that-cannot-be-shown-is-its-alt-text ()
+  "On a terminal, or when the file is not there, the image is still a label."
+  (should (equal (heks/live--decoration "![a diagram](a.png)" nil)
+                 '(0 19 "▣ a diagram")))
+  (should (equal (heks/live--decoration "![](https://x.y/b.png)" nil)
+                 '(0 22 "▣ b.png"))))
+
+(ert-deftest heks/live/inline-math-in-markdown-is-its-text ()
+  (should (equal (heks/live--math-specs "energy $E = mc^2$ now") '((7 17 "E = mc²"))))
+  (should-not (heks/live--math-specs "costs $5 and $6")))
+
+(ert-deftest heks/live/a-latex-preview-is-cleared-at-point-and-drawn-again-after ()
+  (with-temp-buffer
+    (insert "a \\(x\\) b\n")
+    (org-mode)
+    (let ((overlay (make-overlay 3 8)) (drawn nil))
+      (overlay-put overlay 'org-overlay-type 'org-latex-overlay)
+      (cl-letf (((symbol-function 'heks/live--latex-preview)
+                 (lambda (beg end) (setq drawn (list beg end)))))
+        (goto-char 4)
+        (heks/live--reveal-element)
+        (should-not (overlay-buffer overlay))
+        (should-not drawn)
+        (goto-char 1)
+        (heks/live--reveal-element)
+        (should drawn)))))
+
+(ert-deftest heks/live/a-link-preview-is-cleared-at-point-and-drawn-again-after ()
+  (with-temp-buffer
+    (insert "see [[file:a.png]] ok\n")
+    (org-mode)
+    (let ((overlay (make-overlay 5 19)) (drawn nil))
+      (push overlay org-link-preview-overlays)
+      (cl-letf (((symbol-function 'heks/live--link-preview)
+                 (lambda (beg end) (setq drawn (list beg end)))))
+        (goto-char 8)
+        (heks/live--reveal-element)
+        (should-not (overlay-buffer overlay))
+        (goto-char 1)
+        (heks/live--reveal-element)
+        (should drawn)))))
+
+(ert-deftest heks/live/a-table-in-an-org-source-block-is-left-alone ()
+  (with-temp-buffer
+    (insert "#+begin_src text\n| a |\n#+end_src\n\n| b |\n\nx\n")
+    (org-mode)
+    (goto-char (point-max))
+    (heks/live-tables (point-min) (point-max))
+    (should (equal (mapcar #'car (heks-ert--live-displays)) '(35 39)))))
+
+(ert-deftest heks/live/org-bullets-and-checkboxes-are-glyphs ()
+  (with-temp-buffer
+    (insert "- plain\n- [X] done\n- [ ] todo\n")
+    (org-mode)
+    (heks/live-mode 1)
+    (font-lock-ensure)
+    (should (equal (get-text-property 1 'display) "•"))
+    (should (equal (get-text-property 11 'display) "☑"))
+    (should (equal (get-text-property 22 'display) "☐"))))
+
+(ert-deftest heks/live/org-markers-show-for-the-element-at-point-only ()
+  (with-temp-buffer
+    (insert "a *b* c\nz\n")
+    (org-mode)
+    (setq-local org-hide-emphasis-markers t)
+    (font-lock-ensure)
+    (should (get-text-property 3 'invisible))
+    (goto-char 4)
+    (heks/live--reveal-element)
+    (should-not (get-text-property 3 'invisible))
+    (goto-char 1)
+    (heks/live--reveal-element)
+    (font-lock-ensure)
+    (should (get-text-property 3 'invisible))))
+
+(ert-deftest heks/live/a-markdown-image-is-a-local-readable-file-only ()
+  (let* ((dir (make-temp-file "heks-live" t))
+         (default-directory (file-name-as-directory dir)))
+    (unwind-protect
+        (progn
+          (write-region "x" nil (expand-file-name "a.png" dir) nil 'silent)
+          (should (equal (heks/live--image-file "a.png") (expand-file-name "a.png" dir)))
+          (should-not (heks/live--image-file "missing.png"))
+          (should-not (heks/live--image-file "https://x.y/a.png"))
+          (should-not (heks/live--image-file nil)))
+      (delete-directory dir t))))
+
+(ert-deftest heks/live/a-line-is-decorated-by-what-it-says ()
+  (should (equal (heks/live--decoration "#+begin_src python" t) '(0 18 "┌─ python")))
+  (should (equal (heks/live--decoration "#+END_SRC" t) '(0 9 "└─")))
+  (should (equal (heks/live--decoration "> quote" nil) '(0 2 "▎")))
+  (should (equal (heks/live--decoration "> [!WARNING] careful" nil)
+                 '(0 13 "⚠ Warning")))
+  (should (equal (cadr (cdr (heks/live--decoration "---" nil t)))
+                 (make-string 40 ?─)))
+  (should-not (heks/live--decoration "---" nil nil))
+  (should (heks/live--decoration "-----" t t))
+  (should-not (heks/live--decoration "plain" nil t)))
+
+(ert-deftest heks/live/the-line-at-point-shows-its-source-and-the-line-left-is-drawn ()
+  (with-temp-buffer
+    (insert "a\n\n> q\n\n---\n")
+    (goto-char 1)
+    (heks/live-decorate (point-min) (point-max))
+    (should (equal (get-text-property 4 'display) "▎"))
+    (should (equal (get-text-property 9 'display) (make-string 40 ?─)))
+    (goto-char 4)
+    (heks/live--follow-line)
+    (should-not (get-text-property 4 'display))
+    (goto-char 1)
+    (heks/live--follow-line)
+    (should (equal (get-text-property 4 'display) "▎"))))
 
 (unless (getenv "HEKS_ERT_NO_RUN")
   (ert-run-tests-batch-and-exit))
