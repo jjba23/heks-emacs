@@ -39,6 +39,9 @@
 (require 'seq)
 (require 'subr-x)
 (require 'ert)
+;; `treesit-language-source-alist' has to be special before a test binds it,
+;; and the module that owns it is the one that defines it.
+(require 'treesit nil t)
 
 (defconst heks-ert--source
   (file-name-as-directory
@@ -1847,6 +1850,14 @@ as the one Org reads, so that what was done stays done."
 ;; ====== The tree-sitter grammars ======
 ;;
 
+;; The script's own variables, declared so a test can bind them before the
+;; script has been loaded -- which is what a test of what it builds does.
+(defvar heks/treesit-own-recipes nil
+  "The recipes the configuration names itself, declared for a test.")
+
+(defvar heks/treesit-grammar-directory nil
+  "The directory grammars are installed into, declared for a test.")
+
 (ert-deftest heks/treesit/the-grammars-are-built-by-a-batch-emacs ()
   "The grammars are built by a child Emacs that is handed what it needs.
 
@@ -1899,6 +1910,28 @@ which is why the languages Emacs has modes for are in the answer at all."
     (should (> (length asked) 25))
     (dolist (entry asked)
       (should (equal (cdr entry) "/tmp/heks-ert-grammars")))))
+
+(ert-deftest heks/treesit/our-recipes-are-where-the-build-looks-for-them ()
+  "The build reads a recipe from the alist, not from the list it is given.
+
+`treesit-install-language-grammar' looks its language up in
+`treesit-language-source-alist', so a recipe this configuration names
+itself is one Emacs cannot find unless it has been put there: the build
+stub below fails the way the real function does, and the answer is the
+alist rather than a call."
+  (let ((treesit-language-source-alist nil)
+        (heks/treesit-grammar-directory "/tmp/heks-ert-grammars")
+        (heks/treesit-own-recipes
+         '((heks-ert-own "https://example.com/own"))))
+    (cl-letf (((symbol-function 'treesit-language-available-p)
+               (lambda (&rest _) nil))
+              ((symbol-function 'treesit-install-language-grammar)
+               (lambda (language &optional _directory)
+                 (unless (assq language treesit-language-source-alist)
+                   (error "Cannot find recipe for this language, %s" language)))))
+      (load (expand-file-name "treesit-grammars" heks-ert--source) nil t))
+    (should (equal (assq 'heks-ert-own treesit-language-source-alist)
+                   '(heks-ert-own "https://example.com/own")))))
 
 (ert-deftest heks/treesit/a-grammar-that-is-here-is-not-built-again ()
   "What is installed is not cloned and compiled a second time."

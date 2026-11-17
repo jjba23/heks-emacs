@@ -125,7 +125,10 @@ can watch it happen in ~*elpaca-log*~), and the Tree-sitter grammars are built
 once, in a background batch Emacs of their own, into ~~/.emacs.d/tree-sitter~ --
 so no grammar is ever fetched while you are opening a file. ~M-x
 heks/treesit-install-grammars~ does the same work in front of you, and what the
-child says is in the ~*heks-emacs tree-sitter grammars*~ buffer.
+child says is in the ~*heks-emacs tree-sitter grammars*~ buffer.  The recipes
+of the languages Emacs has modes for come from Emacs itself; the three it
+ships no Tree-sitter mode for -- Nix, Scala and Kotlin -- are named by this
+configuration, in ~heks/treesit-own-recipes~, and built with the rest.
 
 #+begin_quote
 *Since heks-emacs is a compilation of several packages and libraries, it is very

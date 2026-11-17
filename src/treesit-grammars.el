@@ -65,14 +65,19 @@ was defined in, and the two are not the same name."
 The recipes of the languages Emacs has modes for are not a list to keep
 anywhere: each of its mode files adds the recipe of the language its mode
 parses to `treesit-language-source-alist' as it is loaded, so the list is
-Emacs's own and stays right as Emacs changes.  What this configuration adds
-to it is the languages Emacs ships no mode for."
+  Emacs's own and stays right as Emacs changes.  What this configuration adds
+  to it is the languages Emacs ships no mode for, and those are put in the
+  alist here rather than only returned: `treesit-install-language-grammar'
+  reads the recipe it builds from that alist, so a recipe that is only in a
+  list of ours is a language Emacs cannot find."
   (dolist (library (heks/treesit--mode-libraries))
     (load library nil t))
-  (append heks/treesit-own-recipes
-          (seq-remove (lambda (recipe)
-                        (assq (car recipe) heks/treesit-own-recipes))
-                      treesit-language-source-alist)))
+  (setq treesit-language-source-alist
+        (append heks/treesit-own-recipes
+                (seq-remove (lambda (recipe)
+                              (assq (car recipe) heks/treesit-own-recipes))
+                            treesit-language-source-alist)))
+  treesit-language-source-alist)
 
 (defun heks/treesit-build (language)
   "Build LANGUAGE's grammar, answering whether it can be loaded here now.
