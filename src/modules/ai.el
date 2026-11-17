@@ -32,6 +32,9 @@
 
 (require 'cl-lib)
 
+;; ECA's own setting, declared so this file may read it before ECA is loaded.
+(defvar eca-custom-command)
+
 ;;;
 ;;; Customization
 ;;;
@@ -450,8 +453,41 @@ for, so the flag is spent here: every later one is the reader's."
     (cl-letf (((symbol-function 'eca-chat--display-buffer) #'ignore))
       (funcall orig session))))
 
+(defun heks/ai-eca-client-on-path ()
+  "Return the `eca' on PATH when it is eca-cli, ECA's terminal client.
+
+ECA is two programs, and only one of them is a server: the server answers
+`eca 0.171.1' to `--version', while the terminal client answers
+`eca-cli 0.1.107' and reads the `server' argument ECA's package gives it as
+a prompt.  A chat started with the client waits at `Starting process' for
+an answer that never comes, so the two are told apart before one is
+started.  A machine with no `eca' on PATH is not this problem: the package
+downloads a server of its own there."
+  (when-let* ((binary (executable-find "eca")))
+    (with-temp-buffer
+      (when (eq 0 (ignore-errors (call-process binary nil t nil "--version")))
+        (goto-char (point-min))
+        (when (looking-at-p "eca-cli\\b")
+          binary)))))
+
+(defun heks/ai--eca-start-with-the-server (orig session on-start handle-msg)
+  "Start SESSION with ORIG, unless the `eca' on PATH is the terminal client.
+
+The client is not a server: it reads the `server' argument as a prompt, and
+the chat that started it waits at `Starting process' for an answer that
+never comes.  Saying so when somebody asks for a chat is better than that
+wait.  `eca-custom-command' names a server somewhere else, and a remote
+session starts the program on the machine that holds the project, so
+neither is judged from here."
+  (if-let* ((client (unless (or (bound-and-true-p eca-custom-command)
+                                (file-remote-p default-directory))
+                      (heks/ai-eca-client-on-path))))
+      (user-error "`%s' is eca-cli, ECA's terminal client, not the server: the chat would wait at \"Starting process\"; install the ECA server there, or name one with `eca-custom-command'" client)
+    (funcall orig session on-start handle-msg)))
+
 (with-eval-after-load 'eca
   (advice-add 'eca-info :around #'heks/ai--eca-say-nothing)
+  (advice-add 'eca-process-start :around #'heks/ai--eca-start-with-the-server)
   (advice-add 'eca-chat-open :around #'heks/ai--eca-open-without-window)
   ;; A chat that is asked for is the reader's, even when it lands in the
   ;; middle of the start nobody asked for: the same `eca-chat-open' opens

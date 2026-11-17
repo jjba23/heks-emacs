@@ -7,6 +7,19 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** Unreleased
+
+*** Added
+
+- *A chat says when the `eca' on PATH is ECA's terminal client.*  ECA is two
+  programs and only one of them is a server: ~eca-cli~, the terminal client,
+  answers ~eca-cli 0.1.107~ to ~--version~ and reads the ~server~ argument as
+  a prompt, so a chat started with it waited at "Starting process" for an
+  answer that never came.  `heks/ai-eca-client-on-path` asks the binary which
+  of the two it is, the background preparation reports it, and the start is
+  refused with the reason instead of waiting.  ~eca-custom-command~ names a
+  server elsewhere and is left alone, as is a remote session's own ~eca~.
+
 ** v1.38.1 (2026-11-17)
 
 *** Fixed

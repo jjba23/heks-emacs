@@ -2332,6 +2332,54 @@ exports."
 (defvar eca-chat-custom-model nil
   "The variable ECA owns, declared so a test can bind it without ECA.")
 
+(defvar eca-custom-command nil
+  "The variable ECA owns, declared so a test can bind it without ECA.")
+
+(defun heks-ert--fake-program (directory name output)
+  "Write NAME into DIRECTORY as a program whose `--version' says OUTPUT."
+  (let ((file (expand-file-name name directory)))
+    (write-region (format "#!/bin/sh\necho '%s'\n" output) nil file nil 'silent)
+    (set-file-modes file #o755)
+    file))
+
+(ert-deftest heks/ai/the-eca-on-path-is-told-apart-from-its-terminal-client ()
+  "`eca --version' says which of the two programs is on PATH."
+  (let* ((directory (make-temp-file "heks-eca-" t))
+         (server (heks-ert--fake-program directory "server" "eca 0.171.1"))
+         (client (heks-ert--fake-program directory "client" "eca-cli 0.1.107")))
+    (unwind-protect
+        (progn
+          (cl-letf (((symbol-function 'executable-find)
+                     (lambda (_program) client)))
+            (should (equal (heks/ai-eca-client-on-path) client)))
+          (cl-letf (((symbol-function 'executable-find)
+                     (lambda (_program) server)))
+            (should-not (heks/ai-eca-client-on-path)))
+          ;; Nothing on PATH is not this problem: ECA downloads its own server.
+          (cl-letf (((symbol-function 'executable-find)
+                     (lambda (_program) nil)))
+            (should-not (heks/ai-eca-client-on-path))))
+      (delete-directory directory t))))
+
+(ert-deftest heks/ai/a-chat-refuses-the-terminal-client-with-a-reason ()
+  "The start is refused, and says why, rather than waiting for a server."
+  (let ((eca-custom-command nil)
+        (orig (lambda (&rest _) 'started)))
+    (cl-letf (((symbol-function 'heks/ai-eca-client-on-path)
+               (lambda () "/usr/local/bin/eca")))
+      (should-error (heks/ai--eca-start-with-the-server orig 'session 'ready 'handle)
+                    :type 'user-error))
+    ;; A server, or nothing on PATH, is started as it always was.
+    (cl-letf (((symbol-function 'heks/ai-eca-client-on-path) (lambda () nil)))
+      (should (eq (heks/ai--eca-start-with-the-server orig 'session 'ready 'handle)
+                  'started)))
+    ;; Naming the server with `eca-custom-command' is the way out of the check.
+    (let ((eca-custom-command '("/opt/eca" "server")))
+      (cl-letf (((symbol-function 'heks/ai-eca-client-on-path)
+                 (lambda () "/usr/local/bin/eca")))
+        (should (eq (heks/ai--eca-start-with-the-server orig 'session 'ready 'handle)
+                    'started))))))
+
 (ert-deftest heks/ai/switching-points-both-tools-at-the-same-account ()
   "Choosing a provider is one choice, not one per tool."
   (let ((heks/ai-deepseek-model 'some-deepseek-model)
