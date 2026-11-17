@@ -7,6 +7,16 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** Unreleased
+
+*** Added
+
+- *The doctor names two more of the Rust tools.*  ~rust-analyzer~ and
+  ~cargo-clippy~ joined `heks/doctor-programs` (~C-c ! d~) and the table it
+  writes into [[file:installation.org][docs/installation.org]], so a Rust buffer without them says what
+  it lost -- no completion, hover, definition or rename, and no clippy run --
+  rather than only that ~cargo~ is missing.
+
 ** v1.37.1 (2026-11-17)
 
 *** Fixed
