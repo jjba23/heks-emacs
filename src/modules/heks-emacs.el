@@ -13,7 +13,7 @@
   "HEKS-EMACS customization group."
   :group 'tools)
 
-(defconst heks/version "1.36.1"
+(defconst heks/version "1.37.0"
   "The version of this configuration.
 
 It is the number in the release notes' newest section and the tag on the

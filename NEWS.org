@@ -7,6 +7,12 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** v1.37.0 (2026-11-17)
+
+*** Changed
+
+- *Tables are drawn as wrapped boxes.*  One box fitted to the window, columns aligned (a rule's ~:--:~ markers are honoured), long cells wrapped, and code, bold, italic and links in a cell kept as faces.  Tables in view are drawn when the mode turns on and when the window changes, so they no longer wait for point to go in and out.A column gives way down to its longest word (at most 16 columns) before any word is split, widest column first, so short columns keep their width and prose columns pay for the space.  A word too wide for its column is split after its hyphens, slashes, dots and similar, and cut at the column edge only when it has none; a word that fits a line is moved down whole.  Cells keep their markup as faces: code, bold, italic and links.
+
 ** v1.36.1 (2026-11-17)
 
 *** Fixed
