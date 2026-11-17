@@ -75,13 +75,23 @@ An escaped pipe is a character of its cell, not its border."
   "Face of a code span inside a table cell.")
 
 (defun heks/live--style (regexp text face)
-  "Return TEXT with each REGEXP match replaced by its group 1, in FACE."
-  (replace-regexp-in-string
-   regexp
-   (lambda (match)
-     (string-match regexp match)
-     (propertize (match-string 1 match) 'face face))
-   text t t))
+  "Return TEXT with each REGEXP match replaced by its group 1, in FACE.
+A match is left alone when it lies in a code span an earlier rule styled,
+or when it is `_' inside a word, as in snake_case: code is not markup."
+  (let ((start 0) (parts nil))
+    (while (string-match regexp text start)
+      (let ((mb (match-beginning 0)) (me (match-end 0)))
+        (if (or (text-property-any mb me 'face 'heks/live-table-code text)
+                (and (eq (aref text mb) ?_) (> mb 0)
+                     (string-match-p "[[:alnum:]]" (string (aref text (1- mb)))))
+                (and (eq (aref text (1- me)) ?_) (< me (length text))
+                     (string-match-p "[[:alnum:]]" (string (aref text me)))))
+            (progn (push (substring text start (1+ mb)) parts)
+                   (setq start (1+ mb)))
+          (push (substring text start mb) parts)
+          (push (propertize (match-string 1 text) 'face face) parts)
+          (setq start me))))
+    (apply #'concat (nreverse (cons (substring text start) parts)))))
 
 (defun heks/live--plain (cell)
   "Return CELL as it reads: the markup is gone and what it meant is a face.
@@ -98,7 +108,7 @@ markers are dropped and the span keeps the look the markers asked for."
                           ("~\\([^~ ][^~]*\\)~" . heks/live-table-code)))
                     ("\\*\\*\\([^*]+\\)\\*\\*" . bold)
                     ("\\*\\([^* ][^*]*\\)\\*" . ,(if org 'bold 'italic))
-                    ("\\b_\\([^_]+\\)_\\b" . italic)))
+                    ("_\\([^_]+\\)_" . italic)))
       (setq text (heks/live--style (car rule) text (cdr rule))))
     text))
 

@@ -7,6 +7,12 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** Unreleased
+
+*** Fixed
+
+- *Underscores in a table cell are not emphasis.*  ~`AQA_CTMS_SMOKE_TESTS`~ in a drawn table lost its underscores and turned italic, because the emphasis rule ran over the text of a code span; ~snake_case_name~ did the same.  A code span is now left alone by later rules, and ~_~ inside a word is text.
+
 ** v1.37.0 (2026-11-17)
 
 *** Changed

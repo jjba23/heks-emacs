@@ -5024,6 +5024,15 @@ the indented one `,traps' lists it with."
     (should (eq (get-text-property 6 'face s) 'link))
     (should (eq (get-text-property 8 'face s) 'italic))))
 
+(ert-deftest heks/live/underscores-in-code-and-words-are-not-emphasis ()
+  (should (equal (heks/live--plain "`AQA_CTMS_SMOKE_TESTS`") "AQA_CTMS_SMOKE_TESTS"))
+  (should-not (text-property-any 0 20 'face 'italic
+                                 (heks/live--plain "`AQA_CTMS_SMOKE_TESTS`")))
+  (should-not (text-property-any 0 15 'face 'italic
+                                 (heks/live--plain "snake_case_name x")))
+  (should (eq (get-text-property 3 'face (heks/live--plain "an _emph_ word"))
+              'italic)))
+
 (ert-deftest heks/live/a-word-too-wide-is-split-after-its-hyphens-not-mid-word ()
   (should (equal (heks/live--wrap "see a-very-long-name now" 10)
                  '("see a-" "very-long-" "name now")))
