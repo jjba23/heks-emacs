@@ -187,11 +187,14 @@ a place Org does not read, which is what a golden file is for noticing."
 
 The buffer visits the fixture, so the renderer is chosen the way it is
 chosen for a file being read: by the buffer and its name rather than by
-anything this file says."
+anything this file says.  The name sits in a fixed directory, so that the
+paths a page carries do not depend on where this checkout is."
   (let ((file (expand-file-name fixture heks-golden--fixtures)))
     (with-temp-buffer
       (insert-file-contents file)
-      (setq buffer-file-name file)
+      (setq buffer-file-name
+            (expand-file-name (file-name-nondirectory file)
+                              heks-golden--import-base-directory))
       ;; The mode a real visit would give it, where the package that
       ;; provides it is installed; the file name decides either way.
       (when (and (string-match-p "\\.ya?ml\\'" file)
