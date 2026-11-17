@@ -17,6 +17,17 @@ This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic 
   it lost -- no completion, hover, definition or rename, and no clippy run --
   rather than only that ~cargo~ is missing.
 
+*** Fixed
+
+- *A YAML specification reads again.*  ~openapi.el~ asks Emacs for the ~yaml~
+  library to read the YAML half of a specification, and this configuration
+  never declared it: the reader was there only on a machine that had
+  installed it by hand, so ~C-c a v~ on a ~.yaml~ document said "This is not
+  readable as YAML: Cannot open load file".  The package is declared where
+  it is used, the lock pins it, and ~maak verify~ -- which reads the same
+  specification in YAML and in JSON and compares both with one golden page --
+  is what found it.
+
 ** v1.37.1 (2026-11-17)
 
 *** Fixed

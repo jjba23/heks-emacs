@@ -47,6 +47,13 @@
 (require 'json)
 (require 'flymake)
 
+;; JSON's reader is Emacs' own; the YAML half of a specification needs this
+;; one, which is why it is declared here rather than required where it is
+;; used: a package the configuration asks for is one Elpaca installs and
+;; the lock pins, and `heks/openapi-parse' is not the only reader.
+(use-package yaml
+  :ensure t)
+
 (defgroup heks/openapi nil
   "Checking and reading OpenAPI specifications."
   :group 'tools)

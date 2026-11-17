@@ -1507,6 +1507,18 @@
 		  :source "MELPA" :id wgrep :type git :protocol https
 		  :inherit t :depth treeless :ref
 		  "49f09ab9b706d2312cab1199e1eeb1bcd3f27f6f"))
+ (yaml :source "elpaca-menu-lock-file" :recipe
+       (:package "yaml" :repo "zkry/yaml.el" :fetcher github :files
+		 ("*.el" "*.el.in" "dir" "*.info" "*.texi"
+		  "*.texinfo" "doc/dir" "doc/*.info" "doc/*.texi"
+		  "doc/*.texinfo" "lisp/*.el" "docs/dir"
+		  "docs/*.info" "docs/*.texi" "docs/*.texinfo"
+		  (:exclude ".dir-locals.el" "test.el" "tests.el"
+			    "*-test.el" "*-tests.el" "LICENSE"
+			    "README*" "*-pkg.el"))
+		 :source "MELPA" :id yaml :type git :protocol
+		 https :inherit t :depth treeless :ref
+		 "5546f36bde24a9a8c1934e0f6ce205cd41d72537"))
  (yaml-mode :source "elpaca-menu-lock-file" :recipe
 	    (:package "yaml-mode" :repo "yoshiki/yaml-mode" :fetcher
 		      github :files
