@@ -3764,6 +3764,50 @@ lint findings and not formatting ones."
       (let ((shown (heks-ert--hidden nil)))
         (should (string-match-p "mvn test -Dtest=A#b\n# \\*not\\* hidden" shown))
         (should (string-match-p "- Port: 8087" shown))))))
+(ert-deftest heks/markdown/reveal-inside-a-code-block-does-not-signal ()
+  "Skipping a block must not leave point past the end of the scanned line."
+  (with-temp-buffer
+    (insert "```\nx *a* y\n```\n")
+    (heks/markdown-hide-markers (point-min) (point-max))
+    (goto-char 8)
+    (heks/markdown-reveal)
+    (should (equal (heks-ert--hidden nil) "```\nx *a* y\n```\n"))))
+
+(ert-deftest heks/markdown/markers-clamp-an-out-of-range-scan ()
+  (with-temp-buffer
+    (insert "a *b*\n")
+    (let (seen)
+      (heks/markdown--markers -5 9999 (lambda (mb me _o) (push (cons mb me) seen)))
+      (should (equal seen '((3 . 6)))))))
+
+(ert-deftest heks/markdown/reveal-copes-with-an-empty-buffer-and-a-stale-region ()
+  (with-temp-buffer
+    (heks/markdown-reveal)
+    (insert "*a*")
+    (setq heks/markdown--revealed (cons 50 60))
+    (heks/markdown-reveal)
+    (should (equal heks/markdown--revealed '(1 . 4)))))
+
+(ert-deftest heks/markdown/double-backtick-code-holds-a-backtick ()
+  (heks-ert--with-markdown "a ``b ` c`` z\n"
+    (should (equal (heks-ert--hidden nil) "a b ` c z\n"))))
+
+(ert-deftest heks/markdown/emphasis-inside-code-is-code ()
+  (heks-ert--with-markdown "`a*b*c` and `x_y_z`\n"
+    (should (equal (heks-ert--hidden nil) "a*b*c and x_y_z\n"))))
+
+(ert-deftest heks/markdown/an-escaped-delimiter-is-text ()
+  (heks-ert--with-markdown "\\*a\\* and \\`b\\`\n"
+    (should (equal (heks-ert--hidden nil) "\\*a\\* and \\`b\\`\n"))))
+
+(ert-deftest heks/markdown/emphasis-does-not-swallow-a-code-span ()
+  (heks-ert--with-markdown "*a `b* c`\n"
+    (should (equal (heks-ert--hidden nil) "*a b* c\n"))))
+
+(ert-deftest heks/markdown/an-unclosed-code-quote-stays-plain ()
+  (heks-ert--with-markdown "a `b and *c*\n"
+    (should (equal (heks-ert--hidden nil) "a `b and c\n"))))
+
 (ert-deftest heks/markdown/tilde-fences-are-fences ()
   (let ((text "~~~sh\n*a* `b` _c_\n~~~\n*d*\n"))
     (heks-ert--with-markdown text

@@ -7,6 +7,13 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** v1.36.1 (2026-11-17)
+
+*** Fixed
+
+- *Markdown no longer errors in ~post-command-hook~.*  Moving point onto a line inside a fenced code block signalled ~Invalid search bound (wrong side of point)~ from ~heks/markdown-reveal~: skipping the block left the scan past the end of the line.  The scan now stops there, and a stale revealed region (after the buffer shrank) is re-hidden instead of kept.
+- Inline code is code: a double-backtick span hides its delimiters and keeps a backtick inside, emphasis never spans a code span (~*a `b* c`~ hides only the backticks), and a backslash-escaped delimiter (~\*~, ~\`~) is text.
+
 ** v1.36.0 (2026-11-17)
 
 *** Added

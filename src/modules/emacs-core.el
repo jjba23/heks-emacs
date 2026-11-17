@@ -1697,7 +1697,8 @@ two configurations happened to be loaded."
           (seq (group (or "***" "**" "__" "~~"))
                (+? (not (any "\n"))) (group (backref 3)))
           (seq (group-n 5 (any "*_")) (not (any "*_ \n"))
-               (?  (*? (not (any "\n"))) (not (any "*_ \n"))) (backref 5))))
+               (?  (*? (not (any "\n"))) (not (any "*_ \n"))) (backref 5))
+          (seq (group-n 6 "``") (+? (not (any "\n"))) (backref 6))))
   "Inline Markdown markup whose delimiters are hidden, as in Org.")
 
 (defconst heks/markdown-max-size 2000000
@@ -1768,7 +1769,9 @@ in snake_case."
   (save-excursion
     (goto-char beg)
     (beginning-of-line)
-    (while (re-search-forward heks/markdown-marker-regexp end t)
+    ;; Skipping a block can leave point past END, which `re-search-forward' rejects.
+    (while (and (<= (point) end)
+                (re-search-forward heks/markdown-marker-regexp end t))
       (let* ((mb (match-beginning 0)) (me (match-end 0))
              (block (heks/markdown--block-at mb)))
         (cond
@@ -1778,9 +1781,17 @@ in snake_case."
                 (> mb (point-min))
                 (memq (char-syntax (char-before mb)) '(?w ?_)))
            (goto-char (1+ mb)))
+          ((and (> mb (point-min)) (eq (char-before mb) ?\\))
+           (goto-char (1+ mb)))
+          ((and (not (memq (char-after mb) '(?`)))
+                (string-search "`" (buffer-substring-no-properties mb me)))
+           ;; Emphasis never spans a code span: let the span be found.
+           (goto-char (1+ mb)))
           (t
             (funcall fn mb me
-                     (if (match-beginning 3) (length (match-string 3)) 1))))))))
+                     (cond ((match-beginning 3) (length (match-string 3)))
+                           ((match-beginning 6) 2)
+                           (t 1)))))))))
 
 (defun heks/markdown-hide-markers (beg end)
   "Hide the Markdown markup between BEG and END, and draw its glyphs.
@@ -1986,8 +1997,8 @@ gets a background."
       (when heks/markdown--revealed
         (let ((r heks/markdown--revealed))
           (setq heks/markdown--revealed nil)
-          (when (<= (cdr r) (point-max))
-            (heks/markdown-hide-markers (car r) (cdr r)))))
+          (heks/markdown-hide-markers (min (car r) (point-max))
+                                      (min (cdr r) (point-max)))))
       (let ((pt (point)))
         (heks/markdown--markers
          (line-beginning-position) (line-end-position)
