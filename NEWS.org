@@ -7,6 +7,12 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** v1.40.0 (2026-11-19)
+
+*** Added
+
+- *Three-way merge conflict resolution.*  Magit's ~magit-ediff-resolve-all~ opens ours, theirs and the result side by side in one frame, Magit's git calls use ~merge.conflictStyle=diff3~ so the ancestor is kept, and ~smerge-mode~ turns on in files with conflict markers.
+
 ** v1.39.1 (2026-11-17)
 
 *** Fixed
