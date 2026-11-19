@@ -7,6 +7,12 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** v1.41.1 (2026-11-19)
+
+*** Fixed
+
+- *No "transient loaded before Elpaca activation" at start.*  ~git.el~ required ~transient~ while it was read, which loaded Emacs' own copy ahead of the build Elpaca installs.  The merge conflict menu is now defined when ~transient~ loads, and ~smerge-mode-hook~ loads it on demand.
+
 ** v1.41.0 (2026-11-19)
 
 *** Added
