@@ -75,9 +75,15 @@
 (add-hook 'find-file-hook #'heks/git-smerge-maybe)
 
 (require 'smerge-mode)
-(require 'transient)
+;; Not `(require 'transient)' at load: that loads Emacs' own copy before Elpaca
+;; activates its build ("transient loaded before Elpaca activation").  The menu
+;; is defined when transient loads, and `smerge-mode-hook' loads it on demand.
+(when (bound-and-true-p byte-compile-current-file)
+  (require 'transient nil t))
+(add-hook 'smerge-mode-hook (lambda () (require 'transient nil t)))
 
-(transient-define-prefix heks/smerge-menu ()
+(with-eval-after-load 'transient
+ (transient-define-prefix heks/smerge-menu ()
   "Resolve the conflict at point; navigation keeps the menu open."
   [:description
    (lambda () (format "Conflict %s" (if (bound-and-true-p smerge-mode) "" "(smerge off)")))
@@ -99,7 +105,7 @@
    ["Whole file"
     ("U" "all ours" heks/smerge-all-ours :transient t)
     ("L" "all theirs" heks/smerge-all-theirs :transient t)
-    ("F" "finish: save and stage" heks/smerge-finish)]])
+    ("F" "finish: save and stage" heks/smerge-finish)]]))
 
 ;; VSCode-style CodeLens above each conflict and an IntelliJ-style counter in
 ;; the header line, both clickable.
