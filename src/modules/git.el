@@ -51,6 +51,40 @@
 (when (executable-find "delta")
   (add-hook 'magit-mode-hook #'magit-delta-mode))
 
+;; Conflicts, IntelliJ style: ours | merged result | theirs in one frame, with
+;; the common ancestor available.  `magit-ediff-resolve-all' (`e' on a
+;; conflicted file in the status buffer) opens that three-way view, and
+;; `smerge-mode' turns on by itself in any buffer that holds conflict markers.
+(use-package ediff
+  :ensure nil
+  :custom
+  ;; A control panel in the same frame, not a floating one.
+  (ediff-window-setup-function #'ediff-setup-windows-plain)
+  ;; Panes side by side, as in a merge dialog.
+  (ediff-split-window-function #'split-window-horizontally)
+  ;; Highlight the changed words inside a difference, not only the lines.
+  (ediff-auto-refine 'on))
+
+(defun heks/git-smerge-maybe ()
+  "Enable `smerge-mode' when the buffer has conflict markers."
+  (save-excursion
+    (goto-char (point-min))
+    (when (re-search-forward "^<<<<<<< " nil t)
+      (smerge-mode 1))))
+
+(add-hook 'find-file-hook #'heks/git-smerge-maybe)
+
+(with-eval-after-load 'smerge-mode
+  ;; Word-level highlight of what differs inside a conflict, like delta does
+  ;; for diffs.  `C-c ^ E' runs ediff on the conflict at point.
+  (setq smerge-refine-ignore-whitespace nil))
+
+;; Keep the common ancestor in the file, so the three-way view and `smerge'
+;; can show what both sides changed from.  Applies to this Emacs's git calls.
+(with-eval-after-load 'magit
+  (setq magit-git-global-arguments
+        (append magit-git-global-arguments '("-c" "merge.conflictStyle=diff3"))))
+
 (use-package git-riddance
   :ensure (:host codeberg :repo "jjba23/git-riddance.el" :branch "trunk"))
 
