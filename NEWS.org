@@ -7,6 +7,13 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** v1.41.0 (2026-11-19)
+
+*** Added
+
+- *Friendlier merge conflicts.*  ~heks/smerge-menu~ (~C-c ^ ?~, or right click on a conflict) is a Transient menu to keep ours, theirs, base or both, step between conflicts, refine words and open ediff or a diff of any two sides.  Conflict regions and ediff differences are coloured from the theme's diff faces.
+- *Clickable conflict actions.*  Every conflict gets an "Accept Ours | Accept Theirs | Accept Both | Compare | More…" line above it, as in VSCode, and the header line counts the conflicts left with Prev, Next, Menu and, once none remain, Finish, which saves and stages the file.  The menu also resolves the whole file to ours or theirs.
+
 ** v1.40.0 (2026-11-19)
 
 *** Added
