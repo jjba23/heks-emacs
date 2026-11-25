@@ -7,6 +7,12 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** Unreleased
+
+*** Added
+
+- *GitHub issues and pull requests in Magit.*  ~git.el~ adds ~forge~; ~N~ in the Magit status buffer opens its menu, and ~M-x forge-pull~ fetches a repository's topics.  The token is asked of the ~gh~ CLI (~gh auth token~) each time, so Emacs stores no copy; ~auth-source~ is the fallback.
+
 ** v1.41.1 (2026-11-19)
 
 *** Fixed

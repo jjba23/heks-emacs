@@ -42,6 +42,42 @@
   ;; Sign off every commit by default; `-s' in the commit menu still toggles it.
   (setf (alist-get 'magit-commit transient-values) '("--signoff")))
 
+;; Forge adds GitHub issues and pull requests to Magit (`N' in the status
+;; buffer).  The token is asked of the `gh' CLI each time it is needed, so no
+;; copy of it is stored anywhere; `auth-source' is the fallback.
+(defun heks/git-gh-token (host)
+  "Return the `gh' token for the GitHub API HOST, or nil when `gh' has none."
+  (when-let* ((gh (executable-find "gh"))
+              (domain (string-remove-prefix "api." (car (split-string host "/")))))
+    (with-temp-buffer
+      (and (zerop (call-process gh nil (list (current-buffer) nil) nil
+                                "auth" "token" "--hostname" domain))
+           (let ((token (string-trim (buffer-string))))
+             (and (not (string-empty-p token)) token))))))
+
+(defun heks/git-gh-user (host)
+  "Return the login `gh' knows for the GitHub API HOST, or nil."
+  (when-let* ((gh (executable-find "gh"))
+              (domain (string-remove-prefix "api." (car (split-string host "/")))))
+    (with-temp-buffer
+      (and (zerop (call-process gh nil (list (current-buffer) nil) nil
+                                "api" "user" "--jq" ".login" "--hostname" domain))
+           (let ((login (string-trim (buffer-string))))
+             (and (not (string-empty-p login)) login))))))
+
+(use-package forge
+  :ensure t
+  :after magit
+  :config
+  ;; Without `github.user' in git config ghub gives up; ask `gh' instead.
+  (define-advice ghub--username (:around (fn host &rest args) heks/gh-cli)
+    "Fall back to the `gh' CLI login when git config has no username."
+    (or (ignore-errors (apply fn host args)) (heks/git-gh-user host)
+        (apply fn host args)))
+  (define-advice ghub--token (:around (fn host &rest args) heks/gh-cli)
+    "Prefer the token of the `gh' CLI over one stored in `auth-source'."
+    (or (heks/git-gh-token host) (apply fn host args))))
+
 ;; `delta' draws the diff, and the mode has nothing to show without the
 ;; program, so it is only turned on where it is installed.
 (use-package magit-delta
