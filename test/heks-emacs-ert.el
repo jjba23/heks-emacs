@@ -58,7 +58,7 @@
   (load (expand-file-name (format "modules/%s.el" name) heks-ert--source) nil t))
 
 (dolist (module '("markdown" "live" "render" "import" "present" "heks-emacs" "emacs-core"
-                 "notes" "notes-graph" "notes-auto" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "dev-hover" "openapi" "sift" "duplicates" "shell" "guile" "rust" "theme" "ui" "ai" "github-repo" "onefetch"))
+                 "notes" "notes-graph" "notes-auto" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "dev-hover" "dev-docstring" "openapi" "sift" "duplicates" "shell" "guile" "rust" "theme" "ui" "ai" "github-repo" "onefetch"))
   (heks-ert--module module))
 
 ;; `htmlize' is what Org colours the code in a note with, and the
@@ -66,6 +66,14 @@
 ;; so that the test of how a note asks for colours is not always a test of
 ;; what happens without them.
 (let ((build (expand-file-name "htmlize" (expand-file-name "~/.emacs.d/elpaca/builds/"))))
+  (when (file-directory-p build)
+    (add-to-list 'load-path build)))
+
+;; `markdown-mode' is what a rendered docstring is laid out with, and the
+;; configuration installs it: where it has been installed it is looked for,
+;; so that the rendering tests run here and are skipped rather than failed
+;; on a machine that does not have it.
+(let ((build (expand-file-name "markdown-mode" (expand-file-name "~/.emacs.d/elpaca/builds/"))))
   (when (file-directory-p build)
     (add-to-list 'load-path build)))
 
@@ -732,6 +740,188 @@ already answered."
         (heks/hover--poll))
       (should-not (timerp heks/hover--poll-timer))
       (kill-buffer buffer))))
+
+;;
+;; ====== Docstrings rendered where they are written ======
+;;
+
+(defun heks-ert--markdown-ready-p ()
+  "Return non-nil when the Markdown renderer a docstring needs is there."
+  (progn (require 'markdown-mode nil t) (fboundp 'gfm-view-mode)))
+
+(defun heks-ert--docstring-overlays ()
+  "Return how many rendered docstrings this buffer has."
+  (length (cl-remove-if-not (lambda (overlay) (overlay-get overlay 'heks-docstring))
+                            (overlays-in (point-min) (point-max)))))
+
+(ert-deftest heks/docstring/a-java-doc-comment-is-found-and-a-string-is-not ()
+  "A `/**' in a string, and a plain `/*', are not documentation."
+  (with-temp-buffer
+    (java-mode)
+    (insert "String s = \"/** not doc */\";\n/* plain */\n/** Doc. */\nint x;\n")
+    (let ((ranges (heks/docstring--jvm-ranges (point-min) (point-max))))
+      (should (= (length ranges) 1))
+      (should (equal (buffer-substring-no-properties
+                      (car (car ranges)) (cdr (car ranges)))
+                     "/** Doc. */")))))
+
+(ert-deftest heks/docstring/a-scheme-docstring-is-a-definition-body ()
+  (with-temp-buffer
+    (scheme-mode)
+    (insert "(define (add a b)\n  \"Adds them.\"\n  (+ a b))\n")
+    (let ((ranges (heks/docstring--scheme-ranges (point-min) (point-max))))
+      (should (= (length ranges) 1))
+      (should (equal (buffer-substring-no-properties
+                      (car (car ranges)) (cdr (car ranges)))
+                     "\"Adds them.\"")))))
+
+(ert-deftest heks/docstring/a-string-that-is-a-value-is-not-a-docstring ()
+  "A string is documentation only where a body's first expression is."
+  (dolist (text '("(display \"hello\")\n"
+                  "(list (foo) \"hello\")\n"
+                  "(if (foo) \"yes\" \"no\")\n"
+                  "(define x \"value\")\n"
+                  "(define (f x) (foo) \"not a docstring\" x)\n"))
+    (with-temp-buffer
+      (scheme-mode)
+      (insert text)
+      (should-not (heks/docstring--scheme-ranges (point-min) (point-max))))))
+
+(ert-deftest heks/docstring/a-jvm-comment-loses-its-gutter ()
+  (with-temp-buffer
+    (java-mode)
+    (insert "/**\n * Adds two numbers.\n * @param a the first\n */\n")
+    (should (equal (heks/docstring--jvm-text (point-min) (point-max))
+                   "Adds two numbers.\n@param a the first"))))
+
+(ert-deftest heks/docstring/a-scheme-docstring-un-escapes-newlines ()
+  (with-temp-buffer
+    (scheme-mode)
+    (insert "(define (f) \"Line one\\nLine two\\tTabbed\")\n")
+    (let ((start (save-excursion (goto-char (point-min))
+                                 (search-forward "\"")
+                                 (1- (point))))
+          (end (save-excursion (goto-char (point-max))
+                               (search-backward "\"")
+                               (1+ (point)))))
+      (should (equal (heks/docstring--scheme-text start end)
+                     "Line one\nLine two\tTabbed")))))
+
+(ert-deftest heks/docstring/javadoc-tags-become-sections ()
+  (let ((markdown (heks/docstring--normalize
+                   (concat "Adds two numbers.\n\n"
+                           "@param a the first addend\n"
+                           "@param b the second addend\n"
+                           "@return the sum\n"
+                           "@throws ArithmeticException when it overflows"))))
+    (should (string-match-p "^### Parameters$" markdown))
+    (should (string-match-p "- `a` — the first addend" markdown))
+    (should (string-match-p "^### Returns$" markdown))
+    (should (string-match-p "- `ArithmeticException` — when it overflows" markdown))
+    (should-not (string-match-p "@param" markdown))))
+
+(ert-deftest heks/docstring/javadoc-links-and-code-keep-their-text ()
+  "A `{@link}' with a label keeps the label, a `{@code}' keeps its type."
+  (should (equal (heks/docstring--normalize "Use {@link Foo#bar the label}.")
+                 "Use `the label`."))
+  (should (equal (heks/docstring--normalize "The {@code List<B>} type.")
+                 "The `List<B>` type.")))
+
+(ert-deftest heks/docstring/texinfo-definitions-become-signatures ()
+  (should (equal (heks/docstring--normalize
+                  (concat "@deffn {Scheme Procedure} car pair\n"
+                          "Returns the car of @var{pair}.\n"
+                          "@end deffn"))
+                 (concat "*Scheme Procedure* **`car`** pair\n"
+                         "Returns the car of *pair*.")))
+  (should (equal (heks/docstring--normalize
+                  (concat "@example\n(car '(1 2))\n@end example"))
+                 "```scheme\n(car '(1 2))\n```")))
+
+(ert-deftest heks/docstring/a-generic-written-literally-is-not-an-html-tag ()
+  "A type parameter called `<B>' or `<A>' is not bold, or a link."
+  (should (string-match-p "`Set<B>`"
+                          (heks/docstring--normalize "Returns a {@code Set<B>}.")))
+  (should (string-match-p "`List<A>`"
+                          (heks/docstring--normalize "Returns a {@code List<A>}."))))
+
+(ert-deftest heks/docstring/the-mode-follows-the-modes-that-write-docstrings ()
+  (dolist (mode '(java-mode scheme-mode))
+    (with-temp-buffer
+      (funcall mode)
+      (should heks/docstring-mode)))
+  (with-temp-buffer
+    (emacs-lisp-mode)
+    (should-not heks/docstring-mode)))
+
+(ert-deftest heks/docstring/a-java-doc-comment-is-drawn-in-place ()
+  (skip-unless (heks-ert--markdown-ready-p))
+  (with-temp-buffer
+    (java-mode)
+    (insert "/**\n * Adds two numbers.\n * @param a the first\n */\nint x;\n")
+    (goto-char (point-max))
+    (heks/docstring-mode 1)
+    (heks/docstring--fontify (point-min) (point-max))
+    (should (= 1 (heks-ert--docstring-overlays)))
+    (let ((display (overlay-get (cl-find-if
+                                 (lambda (overlay) (overlay-get overlay 'heks-docstring))
+                                 (overlays-in (point-min) (point-max)))
+                                'display)))
+      (should (string-match-p "Adds two numbers" display))
+      (should (string-match-p "Parameters" display))
+      (should-not (string-match-p "/\\*\\*" display))
+      (should (eq (get-text-property (string-match "Adds" display) 'face display)
+                  'heks/docstring-prose))
+      (should (eq (get-text-property (string-match "Parameters" display) 'face display)
+                  'heks/docstring-heading))
+      (should (eq (car-safe (get-text-property (string-match "\\ba\\b" display)
+                                               'face display))
+                  'heks/docstring-code)))))
+
+(ert-deftest heks/docstring/point-shows-the-source ()
+  (skip-unless (heks-ert--markdown-ready-p))
+  (with-temp-buffer
+    (java-mode)
+    (insert "/** Doc. */\nint x;\n")
+    (goto-char (point-max))
+    (heks/docstring-mode 1)
+    (heks/docstring--fontify (point-min) (point-max))
+    (should (= 1 (heks-ert--docstring-overlays)))
+    (goto-char (point-min))
+    (heks/docstring--follow)
+    (should (= 0 (heks-ert--docstring-overlays)))
+    (goto-char (point-max))
+    (heks/docstring--follow)
+    (should (= 1 (heks-ert--docstring-overlays)))))
+
+(ert-deftest heks/docstring/a-scheme-docstring-is-drawn-in-place ()
+  (skip-unless (heks-ert--markdown-ready-p))
+  (with-temp-buffer
+    (scheme-mode)
+    (insert "(define (add a b)\n  \"Adds @var{a} and @var{b}.\"\n  (+ a b))\n")
+    (goto-char (point-max))
+    (heks/docstring-mode 1)
+    (heks/docstring--fontify (point-min) (point-max))
+    (should (= 1 (heks-ert--docstring-overlays)))
+    (let ((display (overlay-get (cl-find-if
+                                 (lambda (overlay) (overlay-get overlay 'heks-docstring))
+                                 (overlays-in (point-min) (point-max)))
+                                'display)))
+      (should (string-match-p "Adds a and b" display))
+      (should-not (string-match-p "\"" display))
+      (should (eq (get-text-property (string-match "Adds" display) 'face display)
+                  'heks/docstring-prose))
+      (should (eq (get-text-property (string-match "\\ba\\b" display) 'face display)
+                  'heks/docstring-emphasis)))))
+
+(ert-deftest heks/docstring/the-rendering-is-cached ()
+  (skip-unless (heks-ert--markdown-ready-p))
+  (clrhash heks/docstring--cache)
+  (let ((first (heks/docstring--display "Adds @var{x}."))
+        (second (heks/docstring--display "Adds @var{x}.")))
+    (should first)
+    (should (eq first second))
+    (should (= 1 (hash-table-count heks/docstring--cache)))))
 
 ;;
 ;; ====== The JVM build tools ======

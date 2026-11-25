@@ -11,6 +11,7 @@ This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic 
 
 *** Added
 
+- *Docstrings rendered where they are written.*  ~dev-docstring.el~ reads a Javadoc or KDoc ~/** ... */~ comment in a Java or Kotlin buffer, and a Scheme docstring string, as the documentation it carries, and shows it in place: prose in the sans-serif family, signatures and code in the monospace one with the language's own colours, headings and links in the palette's colours, and the comment's delimiters, gutter and the string's quotes out of the way.  The syntax is read rather than shown -- Javadoc and KDoc HTML, ~{@code x}~, ~{@link Target label}~, ~@param~, ~@return~, ~@throws~ and the rest become the sections an IDE puts around them, and TexInfo ~@deffn~, ~@itemize~, ~@example~, ~@code~ and ~@var~ become signatures, lists, code blocks and emphasis.  Point shows the source of the docstring it is in, so editing and saving never see the rendering; jit-lock only looks at the docstrings being fontified, a rendering is cached by the docstring's text, a docstring larger than ~heks/docstring-max-size~ is left as source, and a rendering that fails leaves the source alone.
 - *GitHub issues and pull requests in Magit.*  ~git.el~ adds ~forge~; ~N~ in the Magit status buffer opens its menu, and ~M-x forge-pull~ fetches a repository's topics.  The token is asked of the ~gh~ CLI (~gh auth token~) each time, so Emacs stores no copy; ~auth-source~ is the fallback.
 
 ** v1.41.1 (2026-11-19)

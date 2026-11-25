@@ -60,6 +60,9 @@ between this and the tag before it.")
     (:module dev-hover
      :purpose "The documentation that follows the pointer."
      :topics ("i"))
+    (:module dev-docstring
+     :purpose "Javadoc, KDoc and Scheme docstrings, rendered where they are written."
+     :topics ())
     (:module dev-formats
      :purpose "Data formats, the JVM languages, and the debugger."
      :topics ("b" "j"))

@@ -180,6 +180,7 @@
                            dev-tools
                            dev-flymake
                            dev-hover
+                           dev-docstring
                            dev-formats
                            dev-kubernetes
                            dev-folding
