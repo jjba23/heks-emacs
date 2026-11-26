@@ -647,9 +647,17 @@ are rather than what they were when somebody last edited it."
              (length heks-keys--entries) (length (heks-keys--files)))
     ;; The installed configuration is loaded so that the commands it binds
     ;; can be checked; failing to load it is reported, never fatal here.
+    ;; The queue is then worked through: `init.el' leaves that to
+    ;; `after-init-hook', which a batch Emacs never runs, so without the
+    ;; wait the `use-package' bodies have not run and every command one of
+    ;; them defines -- the smerge menu, say -- reads as a command that does
+    ;; not exist.
     (setq user-emacs-directory dir)
     (condition-case err
-        (load init nil t)
+        (progn
+          (load init nil t)
+          (when (fboundp 'elpaca-wait)
+            (elpaca-wait)))
       (error (message "  the configuration did not load: %s" (error-message-string err))))
     (heks-keys--report)
     (heks-keys--check-reference)
