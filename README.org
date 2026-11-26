@@ -62,9 +62,9 @@ Two stills from the same GIF recording:
   turns the Markdown you already wrote into a note.
 - *A development setup that goes deep:* Guile and Guix (with Geiser as the code
   intelligence, no language server needed), Common Lisp with SLY and SBCL,
-  Scala, Haskell, Kotlin, Rust, Go, Python, Nix, JavaScript/TypeScript, shell,
-  Terraform, SQL, and more — with Eglot, Flymake, Tree-sitter and formatters
-  that agree with each other instead of reporting every line twice.
+  Scala, Haskell, Kotlin, Rust, Go, Elixir, Python, Nix, JavaScript/TypeScript,
+  shell, Terraform, SQL, and more — with Eglot, Flymake, Tree-sitter and
+  formatters that agree with each other instead of reporting every line twice.
 - *32+ palettes*, from Modus and the Ef collection to Catppuccin, Gruvbox,
   Kanagawa and Doom, with separators, faces and prose sizes derived from the
   theme so that nothing goes invisible when you switch -- which ~maak contrast~

@@ -205,6 +205,7 @@
                            duplicates
                            editor
                            eglot
+                           elixir
                            emacs-core
                            irc
                            git

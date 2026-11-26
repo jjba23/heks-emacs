@@ -52,6 +52,7 @@
          (python-mode . heks/eglot-ensure)
          (python-ts-mode . heks/eglot-ensure)
          (rust-mode . heks/eglot-ensure)
+         (elixir-ts-mode . heks/eglot-ensure)
          (html-mode . heks/eglot-ensure)
          (c-mode . heks/eglot-ensure)
          (c-ts-mode . heks/eglot-ensure)
@@ -143,6 +144,29 @@
                                                          :initializationOptions (:isHttpEnabled t))))
 
   (add-to-list 'eglot-server-programs '(nix-ts-mode . ("nil")))
+
+  ;; --- Elixir ---
+  ;; Next LS is the newer server; ElixirLS ships a start script rather than
+  ;; a binary, which is the third place looked.  Resolving this at connect
+  ;; time, like Kotlin's, means the server this machine has is the one used,
+  ;; and the first name is answered when none of them is installed -- so the
+  ;; error says which one to install.
+  (defun heks/eglot-elixir-server (&rest _)
+    "Return the command of the Elixir language server installed here.
+
+Eglot calls the function stored in `eglot-server-programs' with the
+INTERACTIVE flag and any further contact arguments (see its docstring),
+not with no arguments at all, which is what the `&rest _' absorbs."
+    (cond ((executable-find "next-ls") '("next-ls"))
+          ((executable-find "next_ls") '("next_ls"))
+          ((executable-find "language_server.sh") '("language_server.sh"))
+          ((executable-find "elixir-ls") '("elixir-ls"))
+          (t '("next-ls"))))
+
+  (setq eglot-server-programs
+        (assoc-delete-all 'elixir-ts-mode eglot-server-programs))
+  (add-to-list 'eglot-server-programs
+               (cons '(elixir-ts-mode elixir-mode) #'heks/eglot-elixir-server))
 
   ;; --- Kotlin ---
   ;; JetBrains' Kotlin LSP ships as `bin/intellij-server' in its release

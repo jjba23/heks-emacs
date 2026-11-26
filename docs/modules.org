@@ -55,6 +55,7 @@ written by, made checkable.
 | =duplicates.el= | The code a project writes more than once. | -- |
 | =editor.el= | The editor itself: editing as root, growing the region, jumping by its letter. | ~#~, ~z~ |
 | =eglot.el= | The language server, and which server each language gets. | ~i~, ~j~ |
+| =elixir.el= | Elixir: Mix's tasks, an IEx and a Phoenix page. | ~E~ |
 | =emacs-core.el= | The key scheme, the settings, and the base the other modules are read on. | ~!~, ~#~, ~d~, ~h~, ~i~, ~j~, ~l~, ~t~, ~v~, ~w~ |
 | =irc.el= | IRC, through Circe. | -- |
 | =git.el= | Git, through Magit, with delta drawing its diffs. | -- |

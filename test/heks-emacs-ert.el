@@ -58,7 +58,7 @@
   (load (expand-file-name (format "modules/%s.el" name) heks-ert--source) nil t))
 
 (dolist (module '("markdown" "live" "render" "import" "present" "heks-emacs" "emacs-core"
-                 "notes" "notes-graph" "notes-auto" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "dev-hover" "dev-docstring" "openapi" "sift" "duplicates" "shell" "guile" "rust" "theme" "ui" "ai" "github-repo" "onefetch"))
+                 "notes" "notes-graph" "notes-auto" "contacts" "bookmarks" "agenda" "dev-langs" "dev-tools" "dev-flymake" "dev-formats" "dev-kubernetes" "dev-folding" "dev-project" "dev-hover" "dev-docstring" "openapi" "sift" "duplicates" "shell" "guile" "rust" "elixir" "theme" "ui" "ai" "github-repo" "onefetch"))
   (heks-ert--module module))
 
 ;; `htmlize' is what Org colours the code in a note with, and the
@@ -4805,6 +4805,133 @@ sentence alone would leave them to remember which stroke it was."
                (lambda (&rest _) (ert-fail "loaded a theme over one that is on"))))
       (heks/theme-load-unclaimed))))
 
+;;
+;; ====== Elixir: the project, and what mix runs ======
+;;
+
+(ert-deftest heks/elixir/the-project-is-the-nearest-mix-exs ()
+  "A file in a Mix project is in the project, whatever directory it is in."
+  (let* ((root (heks-ert--temp-directory))
+         (inner (expand-file-name "lib/app/deep" root)))
+    (unwind-protect
+        (progn
+          (make-directory inner t)
+          (write-region "defmodule App.MixProject do\nend\n" nil
+                        (expand-file-name "mix.exs" root) nil 'silent)
+          (should (equal (heks/elixir-root inner)
+                         (file-name-as-directory root))))
+      (delete-directory root t))))
+
+(ert-deftest heks/elixir/no-mix-exs-is-no-project ()
+  "A directory with no `mix.exs' anywhere above it is not an Elixir project."
+  (let ((root (heks-ert--temp-directory)))
+    (unwind-protect
+        (should-not (heks/elixir-root root))
+      (delete-directory root t))))
+
+(ert-deftest heks/elixir/mix-is-run-in-the-project-the-buffer-is-in ()
+  "The keys run mix, in the project, and say so in a compilation buffer."
+  (let* ((root (heks-ert--temp-directory))
+         (ran nil))
+    (unwind-protect
+        (progn
+          (write-region "defmodule App.MixProject do\nend\n" nil
+                        (expand-file-name "mix.exs" root) nil 'silent)
+          (heks-ert--in root
+            (cl-letf (((symbol-function 'compile)
+                       (lambda (command &rest _) (setq ran command)))
+                      ((symbol-function 'executable-find)
+                       (lambda (program) (and (equal program "mix") "/usr/bin/mix"))))
+              (heks/elixir-compile)
+              (should (equal ran "mix compile"))
+              (heks/elixir-test)
+              (should (equal ran "mix test"))
+              ;; The tests that failed last time, without learning a new key.
+              (heks/elixir-test t)
+              (should (equal ran "mix test --failed"))
+              ;; A release is built in the environment a release is built in.
+              (heks/elixir-release)
+              (should (equal ran "MIX_ENV=prod mix release"))
+              ;; A task of the project's own, with its arguments, by its name.
+              (heks/elixir-task "ecto.migrate -r App.Repo")
+              (should (equal ran "mix ecto.migrate -r App.Repo")))))
+      (delete-directory root t))))
+
+(ert-deftest heks/elixir/an-expression-is-evaluated-in-the-project ()
+  "The code is handed to mix as one argument, not pasted into a shell."
+  (let* ((root (heks-ert--temp-directory))
+         (ran nil))
+    (unwind-protect
+        (progn
+          (write-region "defmodule App.MixProject do\nend\n" nil
+                        (expand-file-name "mix.exs" root) nil 'silent)
+          (heks-ert--in root
+            (cl-letf (((symbol-function 'compile)
+                       (lambda (command &rest _) (setq ran command)))
+                      ((symbol-function 'executable-find)
+                       (lambda (program) (and (equal program "mix") "/usr/bin/mix"))))
+              (heks/elixir-eval "1 + 1")
+              (should (equal ran
+                             (format "mix run -e %s"
+                                     (shell-quote-argument "1 + 1")))))))
+      (delete-directory root t))))
+
+(ert-deftest heks/elixir/no-mix-says-what-is-missing ()
+  "A machine without mix gets a sentence, not a compilation of nothing."
+  (let ((root (heks-ert--temp-directory)))
+    (unwind-protect
+        (progn
+          (write-region "" nil (expand-file-name "mix.exs" root) nil 'silent)
+          (heks-ert--in root
+            (cl-letf (((symbol-function 'executable-find) (lambda (_) nil)))
+              (should-error (heks/elixir-compile) :type 'user-error))))
+      (delete-directory root t))))
+
+(ert-deftest heks/elixir/a-breakpoint-is-a-line-of-its-own ()
+  "`IEx.pry()' goes above the line, at that line's indentation."
+  (with-temp-buffer
+    (insert "defmodule App do\n  def run, do: :ok\nend\n")
+    (goto-char (point-min))
+    (forward-line 1)
+    (heks/elixir-pry)
+    (should (equal (buffer-string)
+                   "defmodule App do\n  IEx.pry()\n  def run, do: :ok\nend\n"))))
+
+(ert-deftest heks/elixir/the-formatter-is-mix-format-in-the-project ()
+  "`mix format' is run in the project root, which is where `mix' works."
+  (let* ((root (heks-ert--temp-directory))
+         (inner (expand-file-name "lib/app" root))
+         (command nil)
+         (directory nil))
+    (unwind-protect
+        (progn
+          (make-directory inner t)
+          (write-region "defmodule App.MixProject do\nend\n" nil
+                        (expand-file-name "mix.exs" root) nil 'silent)
+          (let ((file (expand-file-name "app.ex" inner)))
+            (write-region "defmodule App do\nend\n" nil file nil 'silent)
+            (with-current-buffer (find-file-noselect file)
+              (unwind-protect
+                  (cl-letf (((symbol-function 'heks/tool-run)
+                             (lambda (_name run-command _report
+                                          &optional dir _env)
+                               (setq command run-command
+                                     directory dir)))
+                            ((symbol-function 'executable-find)
+                             (lambda (program)
+                               (and (equal program "mix") "/usr/bin/mix"))))
+                    (heks/elixir-format-buffer)
+                    (should (equal command (list "/usr/bin/mix" "format" file)))
+                    ;; `mix' is the project's task runner: a subdirectory has
+                    ;; no `mix.exs' of its own, and `mix format' run there
+                    ;; would not find the project.
+                    (should (equal (file-name-as-directory directory)
+                                   (file-name-as-directory root))))
+                (set-buffer-modified-p nil)
+                (kill-buffer)))))
+      (delete-directory root t))))
+
+;;
 ;; ====== Broken programs: C, GTK and the JVM ======
 ;;
 

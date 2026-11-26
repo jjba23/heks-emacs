@@ -90,6 +90,9 @@ between this and the tag before it.")
     (:module eglot
      :purpose "The language server, and which server each language gets."
      :topics ("i" "j"))
+    (:module elixir
+     :purpose "Elixir: Mix's tasks, an IEx and a Phoenix page."
+     :topics ("E"))
     (:module emacs-core
      :purpose "The key scheme, the settings, and the base the other modules are read on."
      :topics ("!" "#" "d" "h" "i" "j" "l" "t" "v" "w"))
@@ -1323,6 +1326,48 @@ run without touching anyone else's.")
   "Return non-nil when PROGRAM is an executable on `exec-path'."
   (and program (stringp program) (executable-find program) t))
 
+(defun heks/parent-with (file &optional directory)
+  "Return the nearest directory at or above DIRECTORY that holds FILE, or nil.
+
+A project is the nearest directory with the file that marks it -- the
+manifest, the lock file -- rather than the top of a checkout: a member of
+a workspace is a project of its own, which is what the tool reading the
+file thinks too.  The answer ends in a slash, so it is a name to
+concatenate with rather than one to fix up first."
+  (let ((current (file-name-as-directory
+                  (expand-file-name (or directory default-directory)))))
+    (catch 'found
+      (while current
+        (when (file-exists-p (expand-file-name file current))
+          (throw 'found current))
+        (let ((parent (file-name-directory (directory-file-name current))))
+          (setq current (unless (equal parent current) parent))))
+      nil)))
+
+(defun heks/run-task (program arguments &optional environment manifest)
+  "Run PROGRAM with ARGUMENTS from the project MANIFEST marks, compiled.
+
+MANIFEST is the file that makes a directory a project -- `Cargo.toml',
+`mix.exs' -- and the nearest one above the buffer is where the command
+runs, because that is the project the file belongs to (see
+`heks/parent-with').  ARGUMENTS is a list of strings, quoted one by one
+rather than pasted into a command line, so a name or an argument that
+carries a space is passed as it is.  ENVIRONMENT, when given, is a literal
+assignment put in front of the command (`RUST_BACKTRACE=1'), which is the
+one thing here that is not quoted because it is not data.
+
+The output goes to a compilation buffer, which is where every other build
+in this configuration goes and where the errors are links."
+  (let ((root (heks/parent-with manifest)))
+    (unless root
+      (user-error "No %s above %s" manifest default-directory))
+    (unless (executable-find program)
+      (user-error "%s is not on `exec-path'" program))
+    (let ((default-directory root))
+      (compile (concat (if environment (concat environment " ") "")
+                       (mapconcat #'shell-quote-argument
+                                  (cons program arguments) " "))))))
+
 (defun heks/tool-path (program)
   "Return the absolute name of PROGRAM, or PROGRAM itself when not found."
   (or (executable-find program) program))
@@ -1681,7 +1726,10 @@ SPEC is a plist:
 
 SPEC is the plist `heks/tool-drift-backend' takes, minus `:applies'
 and `:what': the file on disk is handed to the formatter and the buffer is
-reloaded from it, so the two agree again."
+reloaded from it, so the two agree again.  `:root', when SPEC has one, is
+the directory the formatter runs in -- a task runner like `mix' works from
+the project and not from the subdirectory the file happens to be in -- and
+the directory of the file is the default."
   (let ((file (or buffer-file-name (user-error "The buffer is not visiting a file"))))
     (unless (file-writable-p (file-truename file))
       (user-error "%s is not writable" (abbreviate-file-name file)))
@@ -1702,7 +1750,9 @@ reloaded from it, so the two agree again."
                    (message "Formatted with %s" (or (plist-get spec :what) name)))
                (message "%s failed: %s" (or (plist-get spec :what) name)
                         (or (heks/tool-error-line problems) "see its buffer"))))))
-       (file-name-directory file)
+       (file-name-as-directory
+        (or (and (plist-get spec :root) (funcall (plist-get spec :root)))
+            (file-name-directory file)))
        (plist-get spec :env)))))
 
 ;;

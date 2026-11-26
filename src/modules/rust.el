@@ -57,36 +57,17 @@ crate from the member the buffer is in.")
 The nearest manifest is the answer, because that is the crate the file
 belongs to -- walking up from a workspace member finds the member rather
 than the workspace, which is what `cargo' does too."
-  (let ((current (file-name-as-directory
-                  (expand-file-name (or directory default-directory)))))
-    (catch 'crate
-      (while current
-        (when (file-exists-p (expand-file-name heks/rust-manifest current))
-          (throw 'crate current))
-        (let ((parent (file-name-directory (directory-file-name current))))
-          (setq current (unless (equal parent current) parent))))
-      nil)))
+  (heks/parent-with heks/rust-manifest directory))
 
 (defun heks/rust--cargo (arguments &optional environment)
   "Run `cargo ARGUMENTS' in this buffer's crate, and say what it said.
 
-ARGUMENTS is a list of strings, quoted one by one rather than pasted into
-a command line, so a crate name or a program argument that carries a
-space is passed as it is.  ENVIRONMENT, when given, is a literal
-assignment put in front of the command (`RUST_BACKTRACE=1'), which is the
-one thing here that is not quoted because it is not data.
-
-The output goes to a compilation buffer, which is where every other build
-in this configuration goes and where the errors are links."
-  (let ((root (heks/rust-root)))
-    (unless root
-      (user-error "No %s above %s" heks/rust-manifest default-directory))
-    (unless (executable-find "cargo")
-      (user-error "cargo is not on `exec-path'"))
-    (let ((default-directory (file-name-as-directory root)))
-      (compile (concat (if environment (concat environment " ") "")
-                       (mapconcat #'shell-quote-argument
-                                  (cons "cargo" arguments) " "))))))
+The run is `heks/run-task', so ARGUMENTS is a list of strings quoted one
+by one, ENVIRONMENT is a literal assignment in front of the command
+(`RUST_BACKTRACE=1'), and the output goes to a compilation buffer, which
+is where every other build in this configuration goes and where the
+errors are links."
+  (heks/run-task "cargo" arguments environment heks/rust-manifest))
 
 (defun heks/rust-build ()
   "Build this buffer's crate."

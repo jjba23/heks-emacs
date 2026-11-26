@@ -171,6 +171,8 @@
     ("cargo" "rust" . "the Rust keys say what is missing")
     ("cargo-clippy" "rust" . "the clippy key says what is missing")
     ("lldb-dap" "rust" . "a Rust program is debugged with gdb, or with GUD when that gdb is older than 14.1")
+    ("mix" "elixir" . "the Elixir keys say what is missing")
+    ("next-ls" "elixir" . "an Elixir buffer has no completion, hover, definition or rename")
     ("delta" "git" . "Magit draws its own diff, without delta's colours")
     ("node" "dev-langs" . "the JavaScript language server cannot run")
     ("pandoc" "dev-formats" . "documents are not converted between formats"))

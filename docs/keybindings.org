@@ -59,6 +59,7 @@ described only by a letter.
 | ~C-f~ | JSON log view: filtering, kept off `C-c f' (font sizes) |
 | ~C-g~ | JSON log view: filtering by raw text, kept off `C-c g' (Guile and Guix) |
 | ~C-t~ | JSON log view: the menu of its own commands |
+| ~E~ | Elixir: Mix's tasks and an IEx |
 | ~R~ | Rust: Cargo, its tools and the debugger |
 | ~SPC~ | dashboard |
 | ~U~ | Kubernetes: kubed, from a menu |
@@ -112,6 +113,10 @@ in every other topic.
 | ~C-d~ | ~r~ | the diagram in the region |
 | ~C-d~ | ~b~ | the diagrams in this buffer |
 | ~C-d~ | ~f~ | the diagrams in this file |
+| ~E~ | ~B~ | the project, released by `mix release' |
+| ~E~ | ~U~ | the dependencies, updated by `mix deps.update --all' |
+| ~E~ | ~T~ | the tree of this project's dependencies |
+| ~E~ | ~c~ | the build output, deleted (the build tool's `clean') |
 | ~R~ | ~B~ | the project, built for release |
 | ~R~ | ~D~ | the documentation of this crate, built and opened |
 | ~R~ | ~T~ | the tree of this project's dependencies |
@@ -302,7 +307,7 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c C-#~ | ~org-update-statistics-cookies~ | the statistics cookies of this outline | org.el (a mode's own map) |
+| ~C-c C-#~ | ~org-update-statistics-cookies~ | the statistics cookies of this outline | org.el (org-mode-map) |
 
 ** ~C-c C-c~ JSON log view: clearing the filter
 
@@ -338,6 +343,24 @@ in every other topic.
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
 | ~C-c C-t~ | ~json-log-view-transient~ | the log view commands in this buffer, from a menu | dev-kubernetes.el (a mode's own map) |
+
+** ~C-c E~ Elixir: Mix's tasks and an IEx
+
+| Key | Command | What it does | In |
+|-----+---------+--------------+----|
+| ~C-c E B~ | ~heks/elixir-release~ | the project, released by `mix release' | elixir.el |
+| ~C-c E T~ | ~heks/elixir-deps-tree~ | the tree of this project's dependencies | elixir.el |
+| ~C-c E U~ | ~heks/elixir-deps-update~ | the dependencies, updated by `mix deps.update --all' | elixir.el |
+| ~C-c E b~ | ~heks/elixir-compile~ | the project, compiled by `mix compile' | elixir.el |
+| ~C-c E c~ | ~heks/elixir-clean~ | the build output, deleted | elixir.el |
+| ~C-c E d~ | ~heks/elixir-pry~ | an `IEx.pry()' breakpoint, inserted above this line | elixir.el |
+| ~C-c E e~ | ~heks/elixir-eval~ | Elixir evaluated in this project, by `mix run -e' | elixir.el |
+| ~C-c E f~ | ~heks/elixir-format-buffer~ | the code, formatted by `mix format' | elixir.el |
+| ~C-c E l~ | ~heks/elixir-lint~ | the project, compiled with its warnings as errors | elixir.el |
+| ~C-c E r~ | ~heks/elixir-iex~ | an IEx for this project, in a terminal | elixir.el |
+| ~C-c E t~ | ~heks/elixir-test~ | the tests, run by `mix test' | elixir.el |
+| ~C-c E u~ | ~heks/elixir-deps-get~ | the dependencies, fetched by `mix deps.get' | elixir.el |
+| ~C-c E x~ | ~heks/elixir-task~ | the Mix task named, with its arguments | elixir.el |
 
 ** ~C-c R~ Rust: Cargo, its tools and the debugger
 
@@ -432,18 +455,18 @@ in every other topic.
 
 | Key | Command | What it does | In |
 |-----+---------+--------------+----|
-| ~C-c g A~ | ~sift-fix-buffer~ | every fix sift has, applied to the buffer | sift.el (a mode's own map) |
+| ~C-c g A~ | ~sift-fix-buffer~ | every fix sift has, applied to the buffer | sift.el (sift-mode-map) |
 | ~C-c g B~ | ~heks/scheme-debug-repl~ | the REPL, started with Guile's debugger set up | guile.el (a mode's own map) |
 | ~C-c g C~ | ~heks/scheme-callees~ | the callees of this definition | guile.el (a mode's own map) |
 | ~C-c g D~ | ~heks/scheme-debugger-menu~ | the Guile debugger's own commands | guile.el (a mode's own map) |
 | ~C-c g E~ | ~heks/scheme-eval-region-or-buffer~ | the region, or the whole buffer | guile.el (a mode's own map) |
-| ~C-c g H~ | ~sift-explain-at-point~ | what the sift rule reported here wants | sift.el (a mode's own map) |
+| ~C-c g H~ | ~sift-explain-at-point~ | what the sift rule reported here wants | sift.el (sift-mode-map) |
 | ~C-c g L~ | ~heks/guix-lint-buffer~ | lint it with `guix lint' | guile.el (a mode's own map) |
 | ~C-c g O~ | ~heks/artanis-log~ | the Artanis log, tailed | guile.el (a mode's own map) |
 | ~C-c g R~ | ~heks/scheme-repl-restart~ | the REPL, restarted | guile.el (a mode's own map) |
 | ~C-c g T~ | ~veritas-dispatch~ | the Veritas menu of test runs | veritas.el (heks/scheme-mode-map) |
 | ~C-c g W~ | ~heks/artanis-run~ | the Artanis application, started | guile.el (a mode's own map) |
-| ~C-c g a~ | ~sift-fix-at-point~ | the fix of the sift rule reported here | sift.el (a mode's own map) |
+| ~C-c g a~ | ~sift-fix-at-point~ | the fix of the sift rule reported here | sift.el (sift-mode-map) |
 | ~C-c g b~ | ~heks/scheme-load-buffer~ | the whole buffer, sent to the REPL | guile.el (a mode's own map) |
 | ~C-c g c~ | ~heks/scheme-callers~ | the callers of this definition | guile.el (a mode's own map) |
 | ~C-c g d~ | ~heks/scheme-debugger~ | the Guile debugger | guile.el (a mode's own map) |
