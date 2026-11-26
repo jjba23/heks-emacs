@@ -68,6 +68,11 @@ time of writing it's Emacs 32.0.50 — so keep in mind some of the configuration
 might be more modern than what you are running. We try to document changes
 properly.
 
+Emacs 30 and later are what the configuration is held to work on.  What only
+exists from Emacs 31 -- the eager completion options, and ~up-down~ as a value
+of ~minibuffer-visible-completions~ -- is set there and left alone on 30, where
+that option is a plain toggle and ~t~ is the same answer.
+
 Building Emacs yourself is a page of its own: [[file:emacs.org][docs/emacs.org]] has the
 checkout, the dependencies and the name each one has on openSUSE and Debian,
 the configure flags with the reason each is there, the install and the

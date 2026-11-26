@@ -1317,15 +1317,21 @@ in the window."
   (defalias 'yes-or-no-p 'y-or-n-p) ; Type 'y' instead of 'yes' for prompts
 
   ;; --- Minibuffer & Completion ---
+  ;; These three are Emacs 31: `completion-eager-update' and
+  ;; `completion-eager-display' do not exist before it, and
+  ;; `minibuffer-visible-completions' is a plain toggle there -- `up-down'
+  ;; is a value its own `defcustom' does not know, and a value the option
+  ;; refuses is a setting that fails at startup rather than doing nothing.
   (setopt read-extended-command-predicate #'command-completion-default-include-p ; Hide irrelevant commands
           completion-cycle-threshold 3 ; Cycle through options if there are 3 or fewer
-          completion-eager-update t ;; EMACS-31
-          completion-eager-display 'auto ;; EMACS-31
-          minibuffer-visible-completions 'up-down ;; EMACS-31
+          minibuffer-visible-completions (if (>= emacs-major-version 31) 'up-down t)
           read-file-name-completion-ignore-case t
           read-buffer-completion-ignore-case t
           completion-ignore-case t
           eldoc-help-at-pt t)
+  (when (>= emacs-major-version 31)
+    (setopt completion-eager-update t
+            completion-eager-display 'auto))
 
   ;; --- State Preservation ---
   (savehist-mode 1) ; Remember minibuffer history across sessions

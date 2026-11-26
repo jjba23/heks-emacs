@@ -13,7 +13,9 @@
 ;; that no package loads it ahead of Elpaca's own activation of it (the
 ;; paragraph there says why).  Declaring it here as well would queue it
 ;; twice, and Elpaca answers a duplicate queue with a warning that stops
-;; the load.
+;; the load.  `compat' is activated there for the same reason and a second
+;; one: it has to be built before `transient' is, so that the order of the
+;; queue is the order the packages compile in.
 
 (use-package f :ensure t)
 
@@ -28,10 +30,6 @@
   :demand t
   :config
   (elmacro-mode +1))
-
-(use-package compat
-  :ensure (:host github :repo "emacs-compat/compat" :branch "main")
-  :demand t)
 
 (use-package aio
   :ensure (:host github :repo "skeeto/emacs-aio" :branch "master")

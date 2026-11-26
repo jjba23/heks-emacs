@@ -94,6 +94,17 @@
     (setq elpaca-lock-file lock)
     (add-to-list 'elpaca-menu-functions #'elpaca-menu-lock-file)))
 
+;; `compat' is built and loaded before `transient' is asked for: Elpaca
+;; processes the queue in the order these forms ask, and a library a package
+;; is compiled against has to be built before the package.  A configuration
+;; that needs another such library ahead of a menu -- `cond-let' and `llama',
+;; the way a menu package that wants them pulls them in -- adds it here with
+;; its own `elpaca' and `elpaca-wait', not in a module, which is read after
+;; this.  The `require' is what `vertico' and `marginalia', both
+;; `:after (compat)', wait for: built is not loaded, and a wait for a load
+;; that never comes is a package that never loads.
+(elpaca compat (elpaca-wait) (require 'compat))
+
 ;; `transient' is loaded the moment the first package that wants a menu is
 ;; read -- `justl' in `modules/dev-formats.el', `magit' in `modules/git.el',
 ;; `kubed' in `modules/dev-kubernetes.el', `pandoc-mode' -- and Elpaca
@@ -170,7 +181,11 @@
 ;; Load more user modules
 (defvar heks/modules '()
   "List of module symbols under src/modules/ loaded at startup, in order.")
+;; `libs' comes first, ahead of every module that wants `f', `compat', `aio'
+;; or `queue': those are the libraries the rest is built on, and a module read
+;; ahead of them asks for a package after the modules that stand on it.
 (setq heks/modules '(
+                           libs
                            ai
                            common-lisp
                            completion
