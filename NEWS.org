@@ -7,6 +7,19 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** v1.43.0 (2026-11-26)
+
+*** Added
+
+- *Elixir, and everything a Mix project is worked in.*  ~elixir.el~ is a new module with a topic of its own, ~C-c E~: ~b~ compiles, ~B~ builds a release in ~MIX_ENV=prod~, ~t~ runs the tests (a prefix runs only the ones that failed last time), ~f~ formats with ~mix format~, ~l~ compiles with warnings as errors, ~r~ starts ~iex -S mix~ in a terminal, ~e~ evaluates a region or an expression with ~mix run -e~, ~u~ fetches the dependencies, ~U~ updates them, ~T~ shows their tree, ~c~ cleans, ~d~ inserts an ~IEx.pry()~ breakpoint above the line, and ~x~ runs any Mix task by the name this project gives it.  Every task opens the compilation buffer every other build here uses, so ~C-c ! n~ walks the errors.  ~.ex~ and ~.exs~ files open in Emacs's own ~elixir-ts-mode~ and ~.heex~ templates in ~heex-ts-mode~, folded by ~treesit-fold~; ~mix.lock~ opens as the Elixir it is; and Eglot connects to Next LS or ElixirLS, whichever is installed.  ~mix format~ is reached by ~C-c i f~ like every other language's formatter, and runs in the project root rather than in the subdirectory the file is in.
+
+*** Fixed
+
+- *A palette named the short way loads.*  ~heks/theme~ set to ~catppuccin~ matched no block in ~theme.el~, which asks for ~catppuccin-latte~ or ~catppuccin-mocha~, so no theme loaded and the frame kept the default colours.  The short names are mapped to the palette Emacs loads (~heks/theme-aliases~, ~catppuccin~ is ~catppuccin-mocha~), and a name that no block claims any more is given to ~load-theme~, which loads a theme of the person's own and, when there is no such theme either, says so in a warning instead of keeping the default colours in silence.
+- *Emacs 30 starts.*  ~minibuffer-visible-completions~ takes ~up-down~ only from Emacs 31; on 30 it is a plain toggle and the value its option refuses stopped the load.  It is now ~t~ there, and the two eager completion options, which do not exist before 31, are set only where they are.
+- *The libraries are built and loaded first.*  ~libs~ is the first module in ~init.el~, so a module that wants ~f~, ~compat~, ~aio~ or ~queue~ is read after they have been asked for; and ~compat~ is built and loaded in ~init.el~ before ~transient~ is, with an ~elpaca-wait~ between them, because the library a package is compiled against has to be built first.  Another such library goes there, not in a module.
+- *The key audit reads the commands the packages define.*  ~maak keys~ loaded the configuration but not the queue Elpaca holds, so every command a package's ~use-package~ body defines -- the smerge menu among them -- was reported as a binding to a command that does not exist.  It now works through the queue, as ~maak verify~ already did.
+
 ** v1.42.0 (2026-11-25)
 
 *** Added
