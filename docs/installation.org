@@ -183,3 +183,4 @@ configuration -- which is what a bug report asks for first.
 | A language feature is quietly not there              | The toolchain is not installed. Modules stay silent when a program is absent on purpose -- install the server or formatter and it appears      |
 | Notes commands do nothing                            | ~heks/notes-dir~ is not set, and no checkout can guess where your notes are                                                                    |
 | Everything is invisible against the background       | Pick a palette with ~heks/theme~; separators and prose sizes are derived from it                                                               |
+| Setting ~heks/theme~ changes nothing                 | The name loaded no palette: ~*Warnings*~ says which name it was, and [[file:themes.org][Themes and palettes]] lists the ones that load                                 |

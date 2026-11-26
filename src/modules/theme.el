@@ -9,6 +9,27 @@
 
 ;;; Code:
 
+;; A person sets `heks/theme' to the palette they want, and the name they
+;; write is not always the one Emacs loads: `catppuccin' is one package with
+;; two flavors in it, and a name that matches no block below loads nothing at
+;; all -- the frame keeps its colours and the setting looks applied.  The
+;; short names are mapped here, once, so that every block is asked about a
+;; name Emacs loads.
+(defconst heks/theme-aliases
+  '((catppuccin . catppuccin-mocha))
+  "The short names `heks/theme' takes, and the palette each one is.
+
+Only the names that would otherwise load nothing belong here: a name that
+is a theme of its own is left alone, and so is a palette this
+configuration does not offer, which `heks/theme-load-unclaimed' gives to
+Emacs to try.")
+
+(defun heks/theme-resolve (theme)
+  "Return the theme Emacs loads for THEME, which may be a short name."
+  (or (alist-get theme heks/theme-aliases) theme))
+
+(setq heks/theme (heks/theme-resolve heks/theme))
+
 (use-package ef-themes
   :ensure (:host github :repo "protesilaos/ef-themes" :branch "main")
   :if (and heks/theme
@@ -176,6 +197,38 @@
   :if (memq heks/theme '(kanagawa))
   :config
   (load-theme 'kanagawa t))
+
+;; A palette the blocks above do not claim is one of two things: a theme the
+;; person has of their own, installed elsewhere, or a name that spells no
+;; palette at all.  Neither should end in a frame with the default colours and
+;; no word about it, so whatever is left is given to `load-theme', which finds
+;; the first and refuses the second, and the refusal is said out loud.
+(defun heks/theme-load-unclaimed ()
+  "Load `heks/theme' when none of the palettes above answered to it.
+
+A theme Emacs can find -- one installed as a package of its own, or one in
+`custom-theme-load-path' -- is loaded; one it cannot is reported, so a
+palette that spells nothing is not a frame that keeps the default colours
+in silence.  A theme already enabled is left as it is: something else had
+an opinion about the colours, and this is not the place to overrule it."
+  (when (and heks/theme (null custom-enabled-themes))
+    (condition-case err
+        (load-theme heks/theme t)
+      (error
+       (display-warning
+        'heks
+        (format "heks/theme is `%s', which is no palette of this configuration and no theme Emacs can find (%s), so the default colours are kept.  `docs/themes.org' lists the names `heks/theme' takes."
+                heks/theme (error-message-string err))
+        :warning)))))
+
+;; It runs at the end of the startup, and which end that is depends on what
+;; installed the packages: Elpaca finishes activating the queue it was given
+;; after `after-init-hook' -- a first start is a build, and a build is not
+;; instantaneous -- so its own end of the queue is the moment the blocks above
+;; have had their turn.  Without it -- the modules loaded on their own, as a
+;; test does -- `after-init-hook' is the last word there is.
+(add-hook (if (featurep 'elpaca) 'elpaca-after-init-hook 'after-init-hook)
+          #'heks/theme-load-unclaimed)
 
 ;;
 ;; ====== Every palette, on one page ======

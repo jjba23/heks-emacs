@@ -4760,7 +4760,51 @@ sentence alone would leave them to remember which stroke it was."
     (should (string-match-p "&quot;document&quot;" page))
     (should-not (string-match-p "src=\"http" page))))
 
-;;
+(ert-deftest heks/theme/a-short-name-is-a-palette-here ()
+  "`catppuccin' is two flavors, so the name alone is the one Emacs loads."
+  (should (eq (heks/theme-resolve 'catppuccin) 'catppuccin-mocha))
+  ;; A palette's own name is a name Emacs loads already.
+  (should (eq (heks/theme-resolve 'catppuccin-latte) 'catppuccin-latte))
+  (should (eq (heks/theme-resolve 'modus-vivendi) 'modus-vivendi))
+  ;; No palette asked for is not a palette to change.
+  (should-not (heks/theme-resolve nil)))
+
+(ert-deftest heks/theme/a-palette-no-block-claimed-loads-when-emacs-has-it ()
+  "A theme of the person's own is loaded rather than quietly ignored."
+  (let ((dir (heks-ert--temp-directory))
+        (heks/theme 'heks-ert-test)
+        (custom-enabled-themes nil))
+    (unwind-protect
+        (progn
+          (with-temp-file (expand-file-name "heks-ert-test-theme.el" dir)
+            (insert "(deftheme heks-ert-test \"a theme for a test\")\n"
+                    "(provide-theme 'heks-ert-test)\n"))
+          (add-to-list 'custom-theme-load-path dir)
+          (heks/theme-load-unclaimed)
+          (should (custom-theme-enabled-p 'heks-ert-test)))
+      (ignore-errors (disable-theme 'heks-ert-test))
+      (setq custom-theme-load-path (delete dir custom-theme-load-path))
+      (delete-directory dir t))))
+
+(ert-deftest heks/theme/a-palette-nothing-can-load-is-said-out-loud ()
+  "A palette name that loads nothing at all is a warning, not a silent default."
+  (let ((heks/theme 'no-such-palette-anywhere)
+        (custom-enabled-themes nil)
+        (warning nil))
+    (cl-letf (((symbol-function 'display-warning)
+               (lambda (_type message &optional _level)
+                 (setq warning message))))
+      (heks/theme-load-unclaimed)
+      (should (string-match-p "no-such-palette-anywhere" warning))
+      (should (string-match-p "heks/theme" warning)))))
+
+(ert-deftest heks/theme/a-palette-already-loaded-is-left-alone ()
+  (let ((heks/theme 'no-such-palette-anywhere)
+        (custom-enabled-themes '(something-else)))
+    (cl-letf (((symbol-function 'load-theme)
+               (lambda (&rest _) (ert-fail "loaded a theme over one that is on"))))
+      (heks/theme-load-unclaimed))))
+
 ;; ====== Broken programs: C, GTK and the JVM ======
 ;;
 

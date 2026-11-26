@@ -4,9 +4,10 @@
 
 Set ~heks/theme~ to any of the names below and the whole configuration follows:
 the faces, the window separators, the sizes of prose, and the colours of a
-rendered document or a deck. A palette you have not listed here is a
-~heks/theme~ that loads with whatever Emacs already had, which is a thing you
-can do and probably do not want.
+rendered document or a deck.  A name that is not one of these is given to
+~load-theme~ as it is, so a theme you installed yourself still loads; a name
+that is no theme at all keeps the default colours and says so in a warning,
+rather than leaving the frame looking untouched without a word.
 
 A curated collection of gorgeous, modern, and highly accessible color palettes
 with custom tweaks and a custom Heks interpretation and styling, aiming for
@@ -25,6 +26,8 @@ harmony and uniformity across the stack.
 * 🐈 Catppuccin
 - ~catppuccin-latte~
 - ~catppuccin-mocha~
+- ~catppuccin~ alone is ~catppuccin-mocha~: one name, two flavors, and the
+  dark one is what a name with no flavor in it means.
 
 * Modern & Neon
 - ~dracula~
