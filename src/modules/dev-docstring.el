@@ -122,17 +122,29 @@ of every comment read this session."
 ;; ====== Texinfo becomes Markdown ======
 ;;
 
-(defconst heks/docstring--texinfo-re
-  (concat "\\(?:\\`\\|[^{]\\)@\\(?:code\\|var\\|samp\\|example\\|lisp\\|smallexample"
-          "\\|smalllisp\\|verbatim\\|deffnx?\\|defun\\|defmac\\|defspec\\|defvar"
-          "\\|defopt\\|defvr\\|deftp\\|deftype[a-z]*\\|emph\\|dfn\\|cite\\|strong"
-          "\\|b\\|file\\|command\\|option\\|env\\|kbd\\|key\\|xref\\|ref\\|pxref"
-          "\\|uref\\|url\\|dots\\|result\\|print\\|error\\|expansion\\|point"
-          "\\|table\\|itemize\\|enumerate\\|itemx?\\)\\b")
-  "Texinfo commands that mark a docstring as Texinfo.
+(defconst heks/docstring--texinfo-commands
+  '("code" "var" "samp" "example" "lisp" "smallexample" "smalllisp" "verbatim"
+    "deffn" "deffnx" "defun" "defmac" "defspec" "defvar" "defopt" "defvr" "deftp"
+    "deftypefn" "deftypefun" "deftypevr" "deftypemethod" "deftypevar"
+    "deftypeop" "emph" "dfn" "cite" "strong" "b" "i" "t" "r" "w" "sc"
+    "math" "acronym" "file" "command" "option" "env" "kbd" "key" "xref"
+    "ref" "pxref" "uref" "url" "indicateurl" "dots" "result" "print"
+    "error" "expansion" "point" "table" "itemize" "enumerate" "item"
+    "itemx" "heading" "subheading"
+    ;; Scribble, the Texinfo-like syntax Racket docstrings are written in.
+    "racket" "tt" "italic" "bold" "tech" "secref" "hash-lang" "literal"
+    "litchar")
+  "The commands that mark a docstring as Texinfo or Scribble.")
 
-The character before the at-sign must not be `{': `{@code x}' is Javadoc's
-inline tag, not Texinfo's `@code{x}'.")
+(defconst heks/docstring--texinfo-re
+  (concat "\\(?:\\`\\|[^[:alnum:]_{@-]\\)@\\(?:"
+          (regexp-opt heks/docstring--texinfo-commands) "\\)\\b")
+  "Texinfo and Scribble commands that mark a docstring as written in them.
+
+The character before the at-sign must not be a letter, a digit, `{', `@'
+or a hyphen: `{@code x}' is Javadoc's inline tag, not Texinfo's
+`@code{x}', and `bug-libtool@example.com' is an address, not an
+`@example'.")
 
 (defconst heks/docstring--javadoc-re
   (concat "\\(?:{@\\(?:code\\|link\\|linkplain\\|literal\\|value\\|inheritDoc"
@@ -178,34 +190,63 @@ first token that is not one, and ARGS is what is left of the line."
     (when (string-match "\\`\\(\\S-+\\)[ \t]*\\(.*\\)\\'" rest)
       (list (nreverse qualifiers) (match-string 1 rest) (match-string 2 rest)))))
 
+(defconst heks/docstring--texinfo-inline-commands
+  '(("code" . "`") ("samp" . "`") ("command" . "`") ("file" . "`")
+    ("option" . "`") ("env" . "`") ("kbd" . "`") ("key" . "`")
+    ("t" . "`") ("var" . "*") ("emph" . "*") ("dfn" . "*") ("cite" . "*")
+    ("i" . "*") ("strong" . "**") ("b" . "**")
+    ;; Texinfo commands whose text is all there is to show.
+    ("r" . "") ("w" . "") ("sc" . "") ("math" . "")
+    ;; Scribble's own names for the same two kinds.
+    ("racket" . "`") ("tt" . "`") ("literal" . "`") ("litchar" . "`")
+    ("italic" . "*") ("tech" . "*") ("secref" . "`") ("bold" . "**")
+    ("hash-lang" . "") ("smaller" . "") ("larger" . ""))
+  "The inline commands of Texinfo and Scribble, and what each stands for.")
+
+(defconst heks/docstring--texinfo-symbols
+  '(("@dots{}" . "…") ("@result{}" . "⇒") ("@print{}" . "⊣")
+    ("@error{}" . "error→") ("@expansion{}" . "↦") ("@point{}" . "∗")
+    ("@equiv{}" . "≡") ("@minus{}" . "−") ("@leq{}" . "≤")
+    ("@geq{}" . "≥") ("@nbsp{}" . " ") ("@tie{}" . " "))
+  "The Texinfo commands that stand for a character rather than for markup.
+
+`@result{}' is in every Guile transcript, inside an `@example' as well as
+outside it, so this is applied to a code block as well as to prose.")
+
+(defun heks/docstring--texinfo-symbols-in (text)
+  "Return TEXT with the Texinfo commands that stand for a character replaced."
+  (dolist (pair heks/docstring--texinfo-symbols text)
+    (setq text (string-replace (car pair) (cdr pair) text))))
+
 (defun heks/docstring--texinfo-inline (text)
-  "Turn the inline Texinfo commands of TEXT into Markdown."
-  ;; shortcut: one level of braces, which is how a docstring writes these
-  ;; commands; a nested argument would need a real Texinfo reader.
-  (let ((case-fold-search nil))
-    (dolist (pair '(("code" . "`") ("samp" . "`") ("command" . "`")
-                    ("file" . "`") ("option" . "`") ("env" . "`")
-                    ("kbd" . "`") ("key" . "`") ("var" . "*")
-                    ("emph" . "*") ("dfn" . "*") ("cite" . "*") ("i" . "*")
-                    ("strong" . "**") ("b" . "**")))
-      (setq text (replace-regexp-in-string
-                  (format "@%s{\\([^{}]*\\)}" (car pair))
-                  (concat (cdr pair) "\\1" (cdr pair))
-                  text t)))
+  "Turn the inline Texinfo and Scribble commands of TEXT into Markdown.
+
+Both the braces Texinfo writes and the brackets Scribble writes are read,
+which is why `@code{x}' and `@racket[x]' both become code.  The pass is
+repeated, so `@code{@var{x}}' is turned inside out instead of left half
+done."
+  (let ((case-fold-search nil) (passes 0) (before nil))
+    ;; shortcut: an argument holding the other delimiter, or two commands
+    ;; nested deeper than the passes, would need a real Texinfo reader.
+    (while (and (not (equal text before)) (< passes 4))
+      (setq before text
+            passes (1+ passes))
+      (dolist (pair heks/docstring--texinfo-inline-commands)
+        (dolist (argument '("{\\([^{}]*\\)}" "\\[\\([^][{}]*\\)\\]"))
+          (setq text (replace-regexp-in-string
+                      (concat "@" (car pair) argument)
+                      (concat (cdr pair) "\\1" (cdr pair))
+                      text t)))))
+    (setq text (replace-regexp-in-string
+                "@acronym{\\([^,}]*\\)[^}]*}" "\\1" text t))
     (setq text (replace-regexp-in-string
                 "@\\(?:p?x?ref\\){\\([^},]*\\)[^}]*}" "`\\1`" text t))
     (setq text (replace-regexp-in-string
                 "@uref{\\([^},]*\\)[ \t]*,[ \t]*\\([^}]*\\)}"
                 "[\\2](\\1)" text t))
     (setq text (replace-regexp-in-string
-                "@url{\\([^}]*\\)}" "<\\1>" text t))
-    (dolist (pair '(("@dots{}" . "…") ("@result{}" . "⇒")
-                    ("@print{}" . "⊣") ("@error{}" . "error→")
-                    ("@expansion{}" . "↦") ("@point{}" . "∗")
-                    ("@equiv{}" . "≡") ("@minus{}" . "−")
-                    ("@leq{}" . "≤") ("@geq{}" . "≥")
-                    ("@nbsp{}" . " ") ("@tie{}" . " ")))
-      (setq text (string-replace (car pair) (cdr pair) text)))
+                "@\\(?:url\\|indicateurl\\){\\([^}]*\\)}" "<\\1>" text t))
+    (setq text (heks/docstring--texinfo-symbols-in text))
     (replace-regexp-in-string "@\\([{}@]\\)" "\\1" text t)))
 
 (defun heks/docstring--texinfo-definition (line)
@@ -244,7 +285,7 @@ wrong."
              (string-match "\\`[ \t]*@end \\(?:example\\|lisp\\|smallexample\\|smalllisp\\|verbatim\\)[ \t]*\\'" line))
         (setq in-code nil)
         (push "```" out))
-       (in-code (push line out))
+       (in-code (push (heks/docstring--texinfo-symbols-in line) out))
        ((string-match "\\`[ \t]*@\\(itemize\\|enumerate\\|table\\)\\(?:[ \t]+\\(.*\\)\\)?[ \t]*\\'" line)
         (setq list-kind (pcase (match-string 1 line)
                           ("enumerate" 'number)
@@ -264,8 +305,15 @@ wrong."
                 out)))
        ((string-match "\\`[ \t]*@def[a-z]+\\(?:[ \t].*\\)?\\'" line)
         (push (heks/docstring--texinfo-definition line) out))
-       ((string-match "\\`[ \t]*@end [a-z]+[ \t]*\\'" line) nil)
-       ((string-match "\\`[ \t]*@\\(?:noindent\\|page\\|group\\|sp\\|comment\\|c\\)\\b.*\\'" line) nil)
+       ((string-match "\\`[ \t]*@\\(sub\\)?heading\\(?:[ \t]+\\(.*\\)\\)?[ \t]*\\'" line)
+        (push (concat (if (match-string 1 line) "### " "## ")
+                      (heks/docstring--texinfo-inline
+                       (string-trim (or (match-string 2 line) ""))))
+              out))
+       ((string-match "\\`[ \t]*@\\(?:c\\|comment\\)\\b.*\\'" line) nil)
+       ;; A line that is only a block command -- `@quotation', `@group',
+       ;; `@end quotation', Scribble's `@;' -- says nothing to show.
+       ((string-match "\\`[ \t]*@\\(?:end [a-z]+\\|[a-zA-Z-]+\\)[ \t]*\\'" line) nil)
        (t (push (heks/docstring--texinfo-inline line) out))))
     (string-trim (string-join (nreverse out) "\n"))))
 
@@ -274,10 +322,7 @@ wrong."
 ;;
 
 (defconst heks/docstring--javadoc-section-titles
-  '((param . "Parameters")
-    (throws . "Throws")
-    (return . "Returns")
-    (see . "See also")
+  '((see . "See also")
     (since . "Since")
     (author . "Author")
     (version . "Version")
@@ -288,10 +333,23 @@ wrong."
     (constructor . "Constructor")
     (suppress . "Suppress warnings")
     (serial . "Serial")
+    (serialfield . "Serial field")
     (apinote . "API Note")
     (implspec . "Implementation Requirements")
     (implnote . "Implementation Note"))
-  "The section a Javadoc or KDoc block tag becomes, by tag keyword.")
+  "The section a Javadoc or KDoc block tag becomes, by tag keyword.
+
+The parameters, the return value and the exceptions are not here: they
+are the sections `heks/docstring--javadoc-section-order' puts first.")
+
+(defconst heks/docstring--javadoc-hidden-tags '(hidden)
+  "The block tags that tell the documentation tool to show nothing.")
+
+(defun heks/docstring--javadoc-title (keyword)
+  "Return the section title of the Javadoc block tag KEYWORD, or nil."
+  (unless (memq keyword heks/docstring--javadoc-hidden-tags)
+    (or (alist-get keyword heks/docstring--javadoc-section-titles)
+        (capitalize (symbol-name keyword)))))
 
 (defun heks/docstring--javadoc-pre (text)
   "Turn the `<pre>' blocks of TEXT into fenced code blocks, as an IDE shows them.
@@ -406,66 +464,111 @@ here would turn a Java type parameter into bold and eat the name."
        (t (push (heks/docstring--javadoc-inline (heks/docstring--html-tags line)) out))))
     (string-join (nreverse out) "\n")))
 
+(defconst heks/docstring--javadoc-section-order
+  '((param . "Parameters") (return . "Returns") (throws . "Throws"))
+  "The sections an IDE puts first, in the order it puts them.")
+
+(defun heks/docstring--javadoc-tag-entry (line)
+  "Return LINE as (KEYWORD NAME DESCRIPTION) when it begins a block tag.
+
+NAME is the parameter or the exception the tag is about, and nil for a
+tag that has none.  `@exception' is read as `@throws' and `@returns' as
+`@return', which is how the two spellings of the same tag meet."
+  (when-let* ((tag (heks/docstring--javadoc-tag line)))
+    (let ((keyword (car tag))
+          (rest (cdr tag))
+          (name nil))
+      (when (memq keyword '(param property receiver))
+        (when (string-match "\\`\\(<[^>]+>\\|[^ \t]+\\)[ \t]*\\(.*\\)\\'" rest)
+          (setq name (match-string 1 rest)
+                rest (match-string 2 rest))))
+      (when (memq keyword '(throws exception))
+        (setq keyword 'throws)
+        (when (string-match "\\`\\([^ \t]+\\)[ \t]*\\(.*\\)\\'" rest)
+          (setq name (match-string 1 rest)
+                rest (match-string 2 rest))))
+      (when (eq keyword 'returns)
+        (setq keyword 'return))
+      (list keyword name (string-trim rest)))))
+
+(defun heks/docstring--javadoc-item (entry)
+  "Return ENTRY, a (KEYWORD NAME DESCRIPTION), as the line a section shows."
+  (let ((name (nth 1 entry))
+        (description (string-trim (or (nth 2 entry) ""))))
+    (cond
+     ((null name) description)
+     ((string-empty-p description) (format "- `%s`" name))
+     (t (format "- `%s` — %s" name description)))))
+
 (defun heks/docstring--javadoc-sections (text)
-  "Turn the block tags of TEXT into the sections an IDE shows."
-  (let ((in-code nil) (section nil) (current nil) (out '()))
+  "Turn the block tags of TEXT into the sections an IDE shows.
+
+The prose comes first, then the parameters, the return value and the
+exceptions, then the remaining tags in the order they were written.  A
+tag this does not know still gets a section, so that no `@tag' is left
+standing in the prose, and each section is headed once however many of
+its tags the docstring spreads over a blank line."
+  (let ((in-code nil) (current nil) (entries '()) (body '()))
     (cl-labels
-        ((join (description)
-           (let ((trimmed (string-trim (or description ""))))
-             (if (string-empty-p trimmed) "" (concat " — " trimmed))))
-         (emit (keyword name description)
-           (let ((title (or (alist-get keyword heks/docstring--javadoc-section-titles)
-                            (capitalize (symbol-name keyword)))))
-             (unless (equal title section)
-               (setq section title)
-               (push (format "\n### %s\n" title) out))
-             (push (if name
-                       (format "- `%s`%s" name (join description))
-                     (string-trim (or description "")))
-                   out)))
-         (flush ()
+        ((flush ()
            (when current
-             (apply #'emit current)
+             (push current entries)
              (setq current nil))))
       (dolist (line (split-string text "\n"))
         (cond
          ((string-match-p "\\`[ \t]*```" line)
           (flush)
-          (setq in-code (not in-code) section nil)
-          (push line out))
-         (in-code (push line out))
+          (setq in-code (not in-code))
+          (push line body))
+         (in-code (push line body))
          (t
-          (let ((tag (heks/docstring--javadoc-tag line)))
+          (let ((entry (heks/docstring--javadoc-tag-entry line)))
             (cond
-             ((and tag (memq (car tag) '(param property receiver)))
+             (entry
               (flush)
-              (let ((rest (cdr tag)))
-                (setq current
-                      (if (string-match "\\`\\(<[^>]+>\\|[^ \t]+\\)[ \t]*\\(.*\\)\\'" rest)
-                          (list (car tag) (match-string 1 rest) (match-string 2 rest))
-                        (list (car tag) nil rest)))))
-             ((and tag (memq (car tag) '(throws exception)))
-              (flush)
-              (let ((rest (cdr tag)))
-                (setq current
-                      (if (string-match "\\`\\([^ \t]+\\)[ \t]*\\(.*\\)\\'" rest)
-                          (list 'throws (match-string 1 rest) (match-string 2 rest))
-                        (list 'throws nil rest)))))
-             ((and tag (alist-get (car tag) heks/docstring--javadoc-section-titles))
-              (flush)
-              (setq section nil)
-              (emit (if (eq (car tag) 'returns) 'return (car tag)) nil (cdr tag)))
-             ((and current (not tag) (not (string-empty-p (string-trim line))))
+              (setq current entry))
+             ((and current (not (string-empty-p (string-trim line))))
               ;; A description that wrapped onto the next line belongs to
               ;; the tag above it, not to the prose.
               (setcar (cddr current)
                       (string-trim (concat (nth 2 current) " " (string-trim line)))))
              (t
               (flush)
-              (setq section nil)
-              (push line out)))))))
+              (push line body)))))))
       (flush))
-    (string-join (delq nil (nreverse out)) "\n")))
+    (let* ((entries (nreverse entries))
+           (paragraph (string-trim (string-join (nreverse body) "\n")))
+           (groups
+            (append
+             (delq nil
+                   (mapcar (lambda (pair)
+                             (let ((items (cl-remove-if-not
+                                           (lambda (entry) (eq (car entry) (car pair)))
+                                           entries)))
+                               (and items (cons (cdr pair) items))))
+                           heks/docstring--javadoc-section-order))
+             ;; Everything else, each keyword under its heading once.
+             (delq nil
+                   (mapcar (lambda (keyword)
+                             (unless (memq keyword
+                                           (mapcar #'car heks/docstring--javadoc-section-order))
+                               (when-let* ((title (heks/docstring--javadoc-title keyword)))
+                                 (cons title
+                                       (cl-remove-if-not
+                                        (lambda (entry) (eq (car entry) keyword))
+                                        entries)))))
+                           (delete-dups (mapcar #'car entries)))))))
+      (string-join
+       (delq nil
+             (cons (unless (string-empty-p paragraph) paragraph)
+                   (mapcar (lambda (group)
+                             (concat (format "### %s\n" (car group))
+                                     (string-join
+                                      (delq nil (mapcar #'heks/docstring--javadoc-item
+                                                        (cdr group)))
+                                      "\n")))
+                           groups)))
+       "\n\n"))))
 
 (defun heks/docstring--javadoc-to-markdown (text)
   "Turn the Javadoc or KDoc in TEXT into the Markdown the renderer reads."
@@ -479,16 +582,22 @@ here would turn a Java type parameter into bold and eat the name."
                         "\n\n+\\(```\\)" "\n\\1" after-open)))
     (string-trim before-close)))
 
-(defun heks/docstring--normalize (text)
+(defun heks/docstring--normalize (text &optional language)
   "Return TEXT as the Markdown a rendered docstring reads.
 
-Texinfo is read as Texinfo, Javadoc and KDoc as the HTML and block tags
-they are written with, and anything else passes through.  The entities a
-server escaped are turned back into characters last, after the markup
-around them has been read, so that `&lt;T&gt;' is a type and not a tag."
+LANGUAGE, `jvm' or `scheme', is the syntax the buffer writes docstrings
+in (see `heks/docstring--language').  With it, a Javadoc or KDoc comment
+is read as one however little syntax it uses -- a KDoc of nothing but
+Markdown still has its `[references]' read as code -- and a Scheme
+docstring is read as Texinfo only when it is written as Texinfo.  With
+no LANGUAGE the text itself decides, and anything else passes through.
+The entities a server escaped are turned back into characters last,
+after the markup around them has been read, so that `&lt;T&gt;' is a
+type and not a tag."
   (let* ((text (substring-no-properties text))
-         (texinfo (heks/docstring--texinfo-p text))
-         (javadoc (heks/docstring--javadoc-p text))
+         (texinfo (and (not (eq language 'jvm))
+                       (heks/docstring--texinfo-p text)))
+         (javadoc (if language (eq language 'jvm) (heks/docstring--javadoc-p text)))
          (markdown (cond (texinfo (heks/docstring--texinfo-to-markdown text))
                          (javadoc (heks/docstring--javadoc-to-markdown text))
                          (t text))))
@@ -585,24 +694,61 @@ around them has been read, so that `&lt;T&gt;' is a type and not a tag."
 
 (defun heks/docstring--scheme-text (beg end)
   "Return the documentation of the Scheme string BEG..END, without its quotes."
-  (replace-regexp-in-string
-   "\\\\\\(.\\)"
-   (lambda (match)
-     (pcase (match-string 1 match)
-       ("n" "\n") ("t" "\t") ("\"" "\"") ("\\" "\\")
-       (_ (match-string 0 match))))
-   (buffer-substring-no-properties (1+ beg) (1- end))
-   t))
+  (let ((text (replace-regexp-in-string
+               ;; A backslash before a newline continues the line.
+               "\\\\\n[ \t]*" ""
+               (buffer-substring-no-properties (1+ beg) (1- end))))
+        (out '())
+        (position 0))
+    (while (string-match "\\\\\\(?:x\\([0-9a-fA-F]+\\);\\([ \t\n]*\\)\\|\\(.\\)\\)"
+                         text position)
+      (push (substring text position (match-beginning 0)) out)
+      (push (if (match-string 1 text)
+                (let ((code (string-to-number (match-string 1 text) 16)))
+                  (if (and (> code 0) (< code #x110000))
+                      (char-to-string code)
+                    (match-string 0 text)))
+              (pcase (match-string 3 text)
+                ("n" "\n") ("t" "\t") ("r" "\r") ("a" "\a") ("b" "\b")
+                ("f" "\f") ("v" "\v") ("0" "\0") ("\"" "\"") ("\\" "\\")
+                ;; An escape Scheme does not have is left as written.
+                (other (concat "\\" other))))
+            out)
+      (setq position (match-end 0)))
+    (push (substring text position) out)
+    (apply #'concat (nreverse out))))
 
 ;;
 ;; ====== Finding the docstrings in a region ======
 ;;
+
+(defun heks/docstring--jvm-comment-end (open nested)
+  "Return the position after the comment that starts at OPEN, or nil.
+
+NESTED says a `/*' inside the comment opens another one, as it does in
+Kotlin: a KDoc may hold a commented-out block and still be one comment.
+In Java the first `*/' closes it, so this costs one search."
+  (save-excursion
+    (goto-char open)
+    (if (not nested)
+        (search-forward "*/" nil t)
+      (let ((depth 0) end)
+        ;; The opening `/*' is the first match, and the one that makes the
+        ;; count 1: a `*/' at depth 0 is the end.
+        (while (and (not end) (re-search-forward "/\\*\\|\\*/" nil t))
+          (setq depth (if (string= (match-string 0) "/*")
+                          (1+ depth)
+                        (1- depth)))
+          (when (<= depth 0)
+            (setq end (point))))
+        end))))
 
 (defun heks/docstring--jvm-ranges (beg end)
   "Return the JVM doc comments overlapping BEG..END as (BEG . END) pairs."
   (let ((start (save-excursion
                  (let ((state (syntax-ppss beg)))
                    (if (nth 4 state) (nth 8 state) beg))))
+        (nested (and (derived-mode-p 'kotlin-mode 'kotlin-ts-mode) t))
         ranges)
     (save-excursion
       (goto-char start)
@@ -611,9 +757,7 @@ around them has been read, so that `&lt;T&gt;' is a type and not a tag."
           (when (save-excursion
                   (let ((state (syntax-ppss (+ open 2))))
                     (and (nth 4 state) (= (nth 8 state) open))))
-            (let ((close (save-excursion
-                           (goto-char open)
-                           (search-forward "*/" nil t))))
+            (let ((close (heks/docstring--jvm-comment-end open nested)))
               (when close
                 (push (cons open close) ranges)
                 (goto-char close)))))))
@@ -759,12 +903,14 @@ Markdown list gets the bullet the Markdown mode draws."
         (setq position next)))
     (apply #'concat (nreverse pieces))))
 
-(defun heks/docstring--render-string (text)
-  "Return TEXT rendered as a propertized string, or nil when unable to."
+(defun heks/docstring--render-string (text language)
+  "Return TEXT, written in LANGUAGE, rendered as a propertized string.
+
+Return nil when there is no renderer or nothing to show."
   (require 'markdown-mode nil t)
   (when (fboundp 'gfm-view-mode)
     (with-temp-buffer
-      (insert (heks/docstring--normalize text))
+      (insert (heks/docstring--normalize text language))
       (delay-mode-hooks (gfm-view-mode))
       (font-lock-ensure)
       (heks/docstring--restyle)
@@ -773,18 +919,23 @@ Markdown list gets the bullet the Markdown mode draws."
           (heks/docstring--only-faces visible))))))
 
 (defvar heks/docstring--cache (make-hash-table :test #'equal)
-  "Rendered docstrings, by the text they were rendered from.")
+  "Rendered docstrings, by the language and the text they were made from.")
 
-(defun heks/docstring--display (text)
-  "Return the display string for TEXT, rendering and caching it once."
-  (or (gethash text heks/docstring--cache)
-      (let ((rendered (ignore-errors (heks/docstring--render-string text))))
-        (when rendered
-          (when (>= (hash-table-count heks/docstring--cache)
-                    heks/docstring-cache-size)
-            (clrhash heks/docstring--cache))
-          (puthash text rendered heks/docstring--cache))
-        rendered)))
+(defun heks/docstring--display (text &optional language)
+  "Return the display string for TEXT, rendering and caching it once.
+
+LANGUAGE is part of the key: the same text read as KDoc and as Scheme is
+two renderings, not one."
+  (let ((key (cons (or language 'any) text)))
+    (or (gethash key heks/docstring--cache)
+        (let ((rendered (ignore-errors (heks/docstring--render-string text language))))
+          (when rendered
+            (when (>= (hash-table-count heks/docstring--cache)
+                      heks/docstring-cache-size)
+              (clrhash heks/docstring--cache))
+            (puthash key rendered heks/docstring--cache))
+          rendered))))
+
 
 ;;
 ;; ====== Drawing and clearing the overlays ======
@@ -809,11 +960,12 @@ Markdown list gets the bullet the Markdown mode draws."
               (not (heks/docstring--starts-line-p beg))
               (not (heks/docstring--ends-line-p end)))
     (heks/docstring--clear beg end)
-    (let ((text (pcase (heks/docstring--language)
-                  ('jvm (heks/docstring--jvm-text beg end))
-                  ('scheme (heks/docstring--scheme-text beg end)))))
+    (let* ((language (heks/docstring--language))
+           (text (pcase language
+                   ('jvm (heks/docstring--jvm-text beg end))
+                   ('scheme (heks/docstring--scheme-text beg end)))))
       (when (and text (not (string-empty-p (string-trim text))))
-        (let ((display (heks/docstring--display text)))
+        (let ((display (heks/docstring--display text language)))
           (when (and display (not (string-empty-p display)))
             (let ((overlay (make-overlay beg end nil t nil))
                   (indent (save-excursion (goto-char beg) (current-column))))
@@ -823,14 +975,19 @@ Markdown list gets the bullet the Markdown mode draws."
                            (heks/docstring--indent display indent)))))))))
 
 (defun heks/docstring--fontify (beg end)
-  "Draw the docstrings that overlap BEG..END."
+  "Draw the docstrings that overlap BEG..END, and remove those that are gone."
   (let ((language (heks/docstring--language)))
     (when language
       (with-silent-modifications
+        ;; A comment edited back to `/*', or a string edited out of the body
+        ;; of a definition, is no docstring any more: its rendering goes
+        ;; before the ones that are left are drawn.
+        (heks/docstring--clear beg end)
         (dolist (range (if (eq language 'jvm)
                            (heks/docstring--jvm-ranges beg end)
                          (heks/docstring--scheme-ranges beg end)))
           (heks/docstring--draw (car range) (cdr range)))))))
+
 
 ;;
 ;; ====== Following point ======

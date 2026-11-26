@@ -754,6 +754,14 @@ already answered."
   (length (cl-remove-if-not (lambda (overlay) (overlay-get overlay 'heks-docstring))
                             (overlays-in (point-min) (point-max)))))
 
+(defun heks-ert--occurrences (regexp string)
+  "Return how many times REGEXP matches STRING."
+  (let ((count 0) (start 0))
+    (while (string-match regexp string start)
+      (cl-incf count)
+      (setq start (match-end 0)))
+    count))
+
 (ert-deftest heks/docstring/a-java-doc-comment-is-found-and-a-string-is-not ()
   "A `/**' in a string, and a plain `/*', are not documentation."
   (with-temp-buffer
@@ -922,6 +930,132 @@ already answered."
     (should first)
     (should (eq first second))
     (should (= 1 (hash-table-count heks/docstring--cache)))))
+
+(ert-deftest heks/docstring/a-section-is-headed-once ()
+  "A blank line between two `@param's does not begin the section again."
+  (let ((markdown (heks/docstring--normalize
+                   (concat "Adds two numbers.\n\n"
+                           "@param a the first\n\n"
+                           "@param b the second\n\n"
+                           "@return the sum\n")
+                   'jvm)))
+    (should (= 1 (heks-ert--occurrences "^### Parameters$" markdown)))
+    (should (= 1 (heks-ert--occurrences "^### Returns$" markdown)))
+    (should (string-match-p "- `a` — the first" markdown))
+    (should (string-match-p "- `b` — the second" markdown)))
+  ;; KDoc writes `@returns' as well as `@return'.
+  (should (string-match-p "^### Returns$"
+                          (heks/docstring--normalize "@returns the sum\n" 'jvm))))
+
+(ert-deftest heks/docstring/a-tag-nobody-knows-still-gets-a-section ()
+  "An unknown block tag is a section, not a `@tag' left in the prose."
+  (let ((markdown (heks/docstring--normalize
+                   "Adds two numbers.\n\n@todo revisit the null case\n@hidden\n"
+                   'jvm)))
+    (should (string-match-p "^### Todo$" markdown))
+    (should (string-match-p "revisit the null case" markdown))
+    (should-not (string-match-p "@[a-z]" markdown))))
+
+(ert-deftest heks/docstring/a-jvm-docstring-is-read-as-one-whatever-it-says ()
+  "A KDoc of nothing but Markdown still has its `[references]' read."
+  (should (equal (heks/docstring--normalize
+                  "See [Foo] and [the label][Foo]." 'jvm)
+                 "See `Foo` and `the label`."))
+  ;; The same text in a Scheme docstring keeps its brackets: they are
+  ;; Texinfo's `@r{[}' written the short way, not a KDoc reference.
+  (should (equal (heks/docstring--normalize "See [Foo]." 'scheme)
+                 "See [Foo].")))
+
+(ert-deftest heks/docstring/a-rendering-is-cached-per-language ()
+  "A docstring read as KDoc and as Scheme is two renderings, not one."
+  (skip-unless (heks-ert--markdown-ready-p))
+  (clrhash heks/docstring--cache)
+  (let ((jvm (heks/docstring--display "See [Foo]." 'jvm))
+        (scheme (heks/docstring--display "See [Foo]." 'scheme)))
+    (should (and jvm scheme))
+    (should-not (eq jvm scheme))
+    (should (= 2 (hash-table-count heks/docstring--cache)))))
+
+(ert-deftest heks/docstring/nested-texinfo-commands-are-turned-inside-out ()
+  (should (equal (heks/docstring--normalize "Returns @code{@var{x}}." 'scheme)
+                 "Returns `*x*`.")))
+
+(ert-deftest heks/docstring/a-texinfo-command-with-no-markdown-is-its-text ()
+  (should (equal (heks/docstring--normalize
+                  "A @r{plain} @w{word}, @math{2+2} and @t{fixed}." 'scheme)
+                 "A plain word, 2+2 and `fixed`.")))
+
+(ert-deftest heks/docstring/scribble-inline-commands-are-read-too ()
+  (should (equal (heks/docstring--normalize
+                  "Applies @racket[f] to @racket[x] and @emph{returns} it."
+                  'scheme)
+                 "Applies `f` to `x` and *returns* it.")))
+
+(ert-deftest heks/docstring/a-texinfo-block-command-line-is-not-shown ()
+  (let ((markdown (heks/docstring--normalize
+                   (concat "@subheading Usage\n"
+                           "Run it.\n"
+                           "@quotation\n"
+                           "Ask first.\n"
+                           "@end quotation\n")
+                   'scheme)))
+    (should (string-match-p "^### Usage$" markdown))
+    (should (string-match-p "Run it." markdown))
+    (should (string-match-p "Ask first." markdown))
+    (should-not (string-match-p "@" markdown))))
+
+(ert-deftest heks/docstring/a-texinfo-example-keeps-its-transcript-symbols ()
+  "Guile writes a REPL transcript with `@result{}' inside `@example'."
+  (should (equal (heks/docstring--normalize
+                  "@example\n(car '(1 2))\n@result{} 1\n@end example\n"
+                  'scheme)
+                 "```scheme\n(car '(1 2))\n⇒ 1\n```")))
+
+(ert-deftest heks/docstring/a-scheme-docstring-un-escapes-the-escapes-it-can ()
+  (with-temp-buffer
+    (scheme-mode)
+    (insert "(define (f) \"A\\x41;\\a\" 1)\n")
+    (let ((ranges (heks/docstring--scheme-ranges (point-min) (point-max))))
+      (should (= 1 (length ranges)))
+      (should (equal (heks/docstring--scheme-text (car (car ranges)) (cdr (car ranges)))
+                     "AA\a")))))
+
+(ert-deftest heks/docstring/kotlin-comments-nest-and-java-comments-do-not ()
+  "A KDoc may hold a block comment; a Javadoc ends at the first `*/'."
+  ;; `java-mode' gives the buffer the C comment syntax `syntax-ppss' reads,
+  ;; and the major mode is then the one whose doc comment is being found.
+  (with-temp-buffer
+    (java-mode)
+    (insert "/** Outer /* inner */ still outer. */\nval x = 1\n")
+    (setq major-mode 'kotlin-mode)
+    (let ((ranges (heks/docstring--jvm-ranges (point-min) (point-max))))
+      (should (= 1 (length ranges)))
+      (should (equal (buffer-substring-no-properties
+                      (car (car ranges)) (cdr (car ranges)))
+                     "/** Outer /* inner */ still outer. */"))))
+  (with-temp-buffer
+    (java-mode)
+    (insert "/** Outer /* inner */ still outer. */\nint x = 1;\n")
+    (let ((ranges (heks/docstring--jvm-ranges (point-min) (point-max))))
+      (should (= 1 (length ranges)))
+      (should (equal (buffer-substring-no-properties
+                      (car (car ranges)) (cdr (car ranges)))
+                     "/** Outer /* inner */")))))
+
+(ert-deftest heks/docstring/a-comment-that-is-no-longer-one-is-drawn-again ()
+  "Editing `/**' to `/*' takes the rendering away with it."
+  (skip-unless (heks-ert--markdown-ready-p))
+  (with-temp-buffer
+    (java-mode)
+    (insert "/** Doc. */\nint x;\n")
+    (goto-char (point-max))
+    (heks/docstring-mode 1)
+    (heks/docstring--fontify (point-min) (point-max))
+    (should (= 1 (heks-ert--docstring-overlays)))
+    (goto-char (1+ (point-min)))
+    (delete-char 1)
+    (heks/docstring--fontify (point-min) (point-max))
+    (should (= 0 (heks-ert--docstring-overlays)))))
 
 ;;
 ;; ====== The JVM build tools ======

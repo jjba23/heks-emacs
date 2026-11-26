@@ -7,6 +7,18 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** Unreleased
+
+*** Added
+
+- *A docstring is read in the syntax its buffer writes.*  ~dev-docstring.el~ let the text decide, so a KDoc that uses no block tag and no HTML -- a heading, a list, a ~[Reference]~ -- was passed through as plain Markdown and its references stayed brackets; the language of the buffer now decides, and every Java and Kotlin doc comment is read as Javadoc or KDoc however little syntax it uses.  The Texinfo reader learned the commands it had no answer for (~@r{~, ~@w{~, ~@sc{~, ~@math{~, ~@t{~, ~@acronym{~, ~@indicateurl{~), turned ~@code{@var{x}}~ inside out instead of leaving it half converted, made ~@heading~ and ~@subheading~ headings, and stopped showing a line that is only a block command (~@quotation~, ~@group~, ~@end quotation~).  A transcript's ~@result{}~ is its arrow inside an ~@example~ as well as outside it, which is how every Guile docstring shows what a call returns.  Scribble, which is how Racket docstrings are written, is read beside Texinfo: ~@racket[x]~, ~@emph[x]~ and ~@bold[x]~ take the brackets as Texinfo takes the braces.  A Kotlin KDoc holding a commented-out ~/* ... */~ block is now read to the end of the comment it really is, because Kotlin's block comments nest and Java's do not; and a Scheme string is un-escaped the way the reader writes it, ~\x41;~, ~\a~, ~\0~ and a backslash that continues the line among them.
+
+*** Fixed
+
+- *Every block tag gets one section, and none is left standing.*  A blank line between two ~@param~ blocks began a second "Parameters" heading, two ~@see~ tags a second "See also", and a tag the reader did not know -- ~@todo~, ~@hidden~, a JDK tag it had never seen -- was left in the prose as ~@todo~.  The tags are now collected and laid out the way an IDE lays them out: the prose, then the parameters, the return value and the exceptions under one heading each, then the notes in the order they were written, with an unknown tag under its own heading and ~@hidden~ shown as nothing at all.  ~@returns~ is read as ~@return~, and ~@exception~ as ~@throws~, which is the same tag spelled the way KDoc and Javadoc each spell it.
+- *A docstring that stops being one loses its rendering.*  Editing ~/**~ back to ~/*~, or a string out of the body of a definition, removed the docstring and left the rendering of it on the screen until the mode was turned off and on again, because only the docstrings still found were drawn and nothing looked for the ones that were gone.  The region being fontified is now cleared before the docstrings left in it are drawn.  A Scheme docstring holding an escape the reader did not know, ~\a~ or ~\0~, made the conversion raise instead of converting, so the docstring quietly stayed source; the escapes are now read one at a time, the unknown ones left as they were written.
+
+
 ** v1.43.0 (2026-11-26)
 
 *** Added
