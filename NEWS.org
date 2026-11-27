@@ -7,6 +7,12 @@ All notable changes to this project will be documented in this file. Changes are
 
 This project adheres loosely to [[https://semver.org/spec/v2.0.0.html][Semantic Versioning]].
 
+** v1.44.1 (2026-11-27)
+
+*** Fixed
+
+- *~libs.el~ is read once at start.*  ~heks/modules~ named ~libs~ twice, so the module the rest of the configuration is built on was read a second time and every package it declares -- ~f~, ~page-break-lines~, ~queue~, ~elmacro~ and ~aio~ -- was queued again.  It stays first in the list, where it was; the second entry is gone.
+
 ** v1.44.0 (2026-11-26)
 
 *** Added
