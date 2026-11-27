@@ -214,7 +214,6 @@
                            guile
                            help
                            import
-                           libs
                            live
                            notes
                            notes-graph
